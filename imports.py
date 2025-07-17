@@ -15,6 +15,10 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.collections import LineCollection
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 
 import seaborn as sns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
