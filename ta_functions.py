@@ -33,7 +33,7 @@ def add_technical_indicators (df):
     df['SMA1'], df['SMA2'], df['SMA3'] = calSMAs(close_prices)
     df['EMA1'], df['EMA2'], df['EMA3'] = calEMAs(close_prices)
     df['RSI']= calculate_rsi(df)
-    df['RSI2']  = df['RSI'].rolling(window=20).mean()
+    
     df['OBV'] = calculate_obv(df)
     df['PVT'] = calculate_pvt(df)
     df['MFI'] = calculate_mfi(df)
@@ -76,6 +76,13 @@ def calEMAs (close):
 def calculate_vwma(df, window=20):
     vwma = (df['Close'] * df['Volume']).rolling(window=window).sum() / df['Volume'].rolling(window=window).sum()
     return vwma.set_axis(df.index)  # Preserve original index
+
+def compute_gapStrength(df):
+    gap = (df['Open'] - df['Close'].shift(1)) / df['Close'].shift(1)
+    strength = np.where(gap > 0.01, 1,
+                        np.where(gap < -0.01, -1, 0))
+    return pd.Series(strength, index=df.index, name='strength')
+
 
 def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2):
     middle = df['Close'].ewm(span=ema_window).mean()
@@ -170,6 +177,31 @@ def calculate_atr(high, low, close):
     atr = tr.rolling(window=14).mean()
     return atr
 
+def scaled_volatility(df, window=9):
+    import numpy as np
+    df['HL'] = df['High'] - df['Low']
+    df['OC'] = df['Open'] - df['Close']
+    df['OC'] = df['OC'].replace(0, np.nan)
+    df['Volatility_HL_OC'] = df['HL'] / df['OC']
+    df['Volatility_HL_OC'].replace([np.inf, -np.inf], np.nan, inplace=True)
+    df['Volatility_HL_OC'].fillna(0, inplace=True)
+    df['Up_Day'] = df['Close'] > df['Open']
+    df['Down_Day'] = df['Close'] < df['Open']
+    df['Unchanged_Day'] = df['Close'] == df['Open']
+    df['Vol_Up'] = df['Volume'].where(df['Up_Day'], 0).rolling(window, min_periods=1).sum()
+    df['Vol_Down'] = df['Volume'].where(df['Down_Day'], 0).rolling(window, min_periods=1).sum()
+    df['Vol_Unchanged'] = df['Volume'].where(df['Unchanged_Day'], 0).rolling(window, min_periods=1).sum()
+    numerator = df['Vol_Up'] * 2 + df['Vol_Unchanged']
+    denominator = df['Vol_Down'] * 2 + df['Vol_Unchanged']
+    denominator = denominator.replace(0, np.nan)
+    df['VR'] = 100 * numerator / denominator
+    df['VR'].replace([np.inf, -np.inf], np.nan, inplace=True)
+    df['VR'].fillna(100, inplace=True)
+    df['Scaled_Volatility'] = df['Volatility_HL_OC'] * (df['VR'] / 100)
+    df['Scaled_Volatility'] = df['Scaled_Volatility'].rolling(5, min_periods=1).mean()
+    df['Scaled_Volatility'].fillna(0, inplace=True)
+    return df
+    
 def calculate_obv(data):
     obv = [0]  # Initialize OBV with 0
     for i in range(1, len(data)):

@@ -14,6 +14,7 @@ from scipy.stats import norm
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.offsetbox import AnchoredText
+from matplotlib.collections import LineCollection
 
 import seaborn as sns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
