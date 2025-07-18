@@ -1,0 +1,33 @@
+## Multi-Stock Machine Learning Prediction Framework
+
+This project delivers a powerful framework to analyze and predict stock price movements across multiple companies using machine learning and technical analysis.
+
+### Key Features
+
+- **Configurable Settings:** Easily customize date ranges, stock selections, risk parameters, and technical analysis windows to tailor the system for your needs.
+
+- **Rich Technical Indicators:** Automatically computes a wide range of important market signals such as moving averages, volatility measures, volume patterns, candlestick formations, and support/resistance pivots.
+
+- **Advanced Labeling:** Applies intelligent logic to label entries and exits based on profit targets and stop-loss levels, helping the machine learning model learn from real market outcomes.
+
+- **Robust Machine Learning Models:** Uses XGBoost regression to forecast expected returns and optimal entries, providing actionable signals backed by solid statistical foundations.
+
+- **Insightful Visualizations:** Generates clear, dual-panel charts showing price trends and model predictions, enriched with dynamically colored signals to highlight bullish and bearish trends.
+
+### How It Works
+
+1. **Data Gathering:** Taps into historical stock data to build a comprehensive view of market behavior over meaningful time spans.
+
+2. **Feature Engineering:** Extracts meaningful signals by calculating dozens of technical indicators, capturing everything from momentum shifts to volume spikes.
+
+3. **Label Creation:** Designs forward-looking labels identifying whether profit targets or stop-losses are likely to be hit, for effective supervised learning.
+
+4. **Model Training:** Trains sophisticated regression models to predict expected returns and entry price optimizations using the engineered features.
+
+5. **Prediction and Visualization:** Applies models to generate trade signals and visualize the results for easy decision-making.
+
+With this framework, traders and analysts can harness machine learning and technical analysis in an integrated workflow that is both extensible and interpretable—bringing you closer to smarter, data-driven trading decisions.
+
+If you want, I can help tailor this further to fit your webpage style or audience!
+
+[1] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/77270028/06ba22fe-30ff-4d4b-86d4-263c2f8ed736/FixedProfit_ML_MultiStocksV3.py
