@@ -15,7 +15,7 @@ today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
 path = r'C:\Users\ammar\jupyter-notebooks\ML_TP_SL_Figures'
 pdf_path = os.path.join(path, f'{today}_ML_TA_MultipleStocks.pdf')
 
-plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family
+plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
 
 TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "SMCI", "BABA","XPEV", "NIO", "XYZ", "U"]
 #TICKERS = ["BABA","XPEV", "NIO", "UNH"]
@@ -431,6 +431,18 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # Get predictions
     predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
 
+    # Basic prices and %
+    last_date = df.index[-1]
+    current_price = round(df['Close'].iloc[-1], 2)
+    future_date = last_date + pd.Timedelta(days=_window)
+    gain = round(predictions['Max (%)'], 1)
+    loss = round(predictions['Loss (%)'], 1)
+    gain_price = current_price * (1 + gain/100)
+    loss_price = current_price * (1 + loss/100)
+    avg_price = (current_price+loss_price)/2.
+    sma1_ = round(df['SMA1'].iloc[-1], 2)
+    sma2_ = round(df['SMA2'].iloc[-1], 2)
+
     # Create figure with white background
     plt.style.use('default')
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6), dpi = 300, height_ratios=[3, 1], sharex=True)
@@ -440,8 +452,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     end_date = df.index[-1]
     start_date = end_date - pd.DateOffset(months=12)
     df = df.loc[start_date:end_date]
-    last_date = df.index[-1]
-    current_price = round(df['Close'].iloc[-1], 2)
 
     # ===== 1. PRICE PLOT =====
     # Configure plot style
@@ -450,9 +460,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     # Historical data
     # Price is 3-days mean to avoid noise
-    ax1.plot(df.index, df['Close'].rolling(3).mean(), label='Price', color='gray', alpha=0.7, linewidth=1.5)
-    ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='gold', alpha=0.7, linewidth=1.2)
-    ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
+    ax1.plot(df.index, df['Close'].rolling(3).mean(), label= f'Price: ${current_price}', color='gray', alpha=0.7, linewidth=1.5)
+    ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}: ${sma1_}', color='gold', alpha=0.7, linewidth=1.2)
+    ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}: ${sma2_}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
 
     # Fill between SMAs - green when SMA1 > SMA2, red otherwise
     ax1.fill_between(df.index, df['SMA1'], df['SMA2'],
@@ -479,11 +489,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                          xytext=(-5, 0), textcoords='offset points', 
                          va='center', fontsize=8, color=fib_colors[label], alpha=0.5)
 
-    # Future projections
-    future_date = last_date + pd.Timedelta(days=_window)
-    gain_price = current_price * (1 + predictions['Max (%)']/100)
-    loss_price = current_price * (1 + predictions['Loss (%)']/100)
-    avg_price = (current_price+loss_price)/2.
 
     # Connect lines
     ax1.plot([last_date, future_date], [avg_price, gain_price], 
@@ -492,8 +497,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
              color='red', linestyle=':', linewidth=1.5, alpha=0.5)
 
     # Markers For Key levels
-    ax1.plot(future_date, gain_price, '^', markersize=_ms, color='green', alpha=0.5, label='Projected Gain')
-    ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label='Projected Loss')
+    ax1.plot(future_date, gain_price, '^', markersize=_ms, color='green', alpha=0.5, label=f'Projected Gain: {gain}%')
+    ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f'Projected Loss: {loss}%')
     ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label='Entry')
 
     ax1.annotate(f'Avg: ${avg_price:.1f}', 
@@ -593,7 +598,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax2.yaxis.tick_right()
     ax2.yaxis.set_label_position("right")
     ax2.set_ylabel('RSI')
-    ax2.legend(loc='upper left')
+
+    ax1.legend(loc='upper left', fontsize='small')
+    ax2.legend(loc='upper left', fontsize='small')
 
     # Formatting
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
@@ -784,7 +791,7 @@ print("\n=== Multi-Ticker Prediction Table (Modified) ===")
 print(tabulate(_df, headers='keys', tablefmt='table'))
 
 
-# In[22]:
+# In[7]:
 
 
 # ✅ PLOT PREDICTIONS
@@ -796,7 +803,7 @@ df_plot = df_results
 max_vals = df_plot["Max (%)"].to_numpy()
 norm = mcolors.Normalize(vmin=min(max_vals), vmax=max(max_vals))
 cmap = cm.Spectral_r #Inverse of spectral
-custom_colors = cmap(norm(max_values))
+custom_colors = cmap(norm(max_vals))
 
 fig, ax1 = plt.subplots(figsize=(12, 6), zorder=1, dpi=300)
 cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
@@ -805,7 +812,7 @@ cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
                  borderpad=0)
 
 # Main bar plot
-ax1.bar(df_plot["Ticker"], max_values, color=custom_colors, alpha = 0.5)
+ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.5)
 ax1.set_ylabel('Max Return (%)', fontsize=12)
 ax1.tick_params(axis='x', rotation=45)
 ax1.grid(True, axis='y', linestyle='--', alpha=0.7)
@@ -829,6 +836,8 @@ ax2.set_ylim(-combined_max, -combined_min)
 ax2.spines['right'].set_color('red')
 ax2.tick_params(axis='y', labelcolor='red')
 ax2.invert_yaxis()
+ax1.legend(fontsize='small')
+ax2.legend(fontsize='small') 
 
 # --- ANNOTATIONS ALIGNED BELOW X-TICK LABELS ---
 x_ticks = ax1.get_xticks()
@@ -849,13 +858,14 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
 
     # Bottom annotations: align with x-tick, just below tick label
     x_tick = x_ticks[i]
+    x_offset = -0.4 # to fix x-shift if colorbar is added, else put this to zero.
     y_offset1 = -0.275  # Adjust as needed for your plot
     y_offset2 = -0.575  # Stagger if two boxes per tick
 
     ax1.text(
-        x_tick, y_offset1,
-        f'{row["Risk"]}\nP: ${row["Price"]:.1f}\nE: ${row["Entry"]:.1f}\n{row["Entry%"]:.1f}%\n{row["Signal"]}',
-        ha='center', va='top', fontsize=8,
+        x_tick+x_offset, y_offset1,
+        f'{row["Risk"]}\nP: ${row["Price"]:.1f}\nE: ${row["Entry"]:.1f}\nDip: -{row["Entry%"]:.1f}%\n{row["Signal"]}',
+        ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
         bbox=dict(facecolor=fcolor, alpha=0.1, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
         multialignment='left',
@@ -863,9 +873,9 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
     )
 
     ax1.text(
-        x_tick, y_offset2,
+        x_tick+x_offset, y_offset2,
         f'TP: ${row["TP"]:.1f}\nSL: ${row["SL"]:.1f}\n\nProb: {row["Hit_Prob"]:.0f}\nConf: {row["Confidence"]:.0f}',
-        ha='center', va='top', fontsize=8,
+        ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
         bbox=dict(facecolor=ProbColor, alpha=0.1, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
         clip_on=False
@@ -873,7 +883,7 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
 
 # Strategic hint box
 textbox = AnchoredText(
-    "Hint: Buy closer to predicted SL to reduce risk\nand increase chance of success.",
+    "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
     loc='lower left',
     frameon=True,
     borderpad=1.5,
@@ -899,7 +909,7 @@ plt.savefig(fpath, bbox_inches='tight')
 plt.show()
 
 
-# In[8]:
+# In[ ]:
 
 
 # PLOT STOCK TA with Predictions
@@ -923,7 +933,13 @@ del_old_files(path, 14)
 # c) SMA20 > SMA50 days
 # 
 # d) SL is fixed like 3 to 5 %.
-TICKERS = ["COIN", "TSLA", "GOOGL", "AAPL"]### BACKTEST THE STOCKS
+
+# In[ ]:
+
+
+TICKERS = ["COIN", "TSLA", "GOOGL", "AAPL"]
+
+### BACKTEST THE STOCKS
 def train_and_backtest(ticker="", train_years=2, show_every_n=10):
     # 1. Get and prepare data
     end_date = datetime.now()
@@ -932,17 +948,25 @@ def train_and_backtest(ticker="", train_years=2, show_every_n=10):
     
     # Calculate all features
     df = add_technical_indicators(df)
+    df = add_pivot_levels(df, window=_DAYS)
+    df = add_pivots(df, windows)
+    df = average_pivots(df, windows)
+    df[FEATURES] = df[FEATURES].fillna(method='bfill').fillna(method='ffill')
+    df = df.dropna(subset=FEATURES)
 
     # 2. Train/Test split (no lookahead)
     train_df = df.iloc[:-252] if len(df) > 252 else df.copy()
     test_df = df.iloc[-252:].copy()
+    
 
     # Compute future-based labels **after** split
-    train_df = compute_expected_return(train_df)
-    train_df = compute_expected_loss(train_df)
+    train_df = compute_expected_return(train_df, forward_window=14, r_cols=['R1', 'R2'])
+    train_df = compute_expected_loss(train_df, forward_window=14, s_cols=['S1', 'S2'])
+    #train_df = compute_expected_return(train_df)
+    #train_df = compute_expected_loss(train_df)
     
     # Drop rows with NaNs (from indicators or future shifts)
-    train_df = train_df.dropna(subset=FEATURES + ['Expected_Return', 'Expected_Loss'])
+    train_df = train_df.dropna(subset=FEATURES)
     test_df = test_df.dropna(subset=FEATURES)
 
     # 2. Train models
@@ -1146,7 +1170,7 @@ def train_and_backtest(ticker="", train_years=2, show_every_n=10):
                                   edgecolor='none'))
     
     plt.title(f"{ticker} Backtest Results | {start_date.date()} to {end_date.date()}")
-    plt.legend()
+    plt.legend(fontsize='small') 
     plt.grid(True)
 
     # Add RSI with curved fill
@@ -1175,7 +1199,7 @@ def train_and_backtest(ticker="", train_years=2, show_every_n=10):
     
     # Keep your original elements
     plt.axhline(50, color='red', linestyle='-', alpha=0.2, zorder=0)
-    plt.legend()
+    plt.legend(fontsize='small') 
     plt.grid(False)
     plt.ylabel('RSI')
         
@@ -1349,7 +1373,7 @@ def plot_candlestick_patterns():
 
 plot_candlestick_patterns()
 '''
-# In[9]:
+# In[ ]:
 
 
 import matplotlib.pyplot as plt
@@ -1385,8 +1409,14 @@ stock = "BABA"
 test_df = get_stock_data(stock, start_date, end_date)
 compute_expected_return(test_df)
 compute_expected_loss(test_df)
-plot_expected_return_loss(test_df, stock)# CREATE A PYTHON FILE BACKUP
-!jupyter nbconvert --to script FixedProfit_ML_MultiStocksV3.ipynb
+plot_expected_return_loss(test_df, stock)
+# In[ ]:
+
+
+# CREATE A PYTHON FILE BACKUP
+get_ipython().system('jupyter nbconvert --to script FixedProfit_ML_MultiStocksV3.ipynb')
+
+
 # In[ ]:
 
 
