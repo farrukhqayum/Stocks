@@ -17,8 +17,19 @@ pdf_path = os.path.join(path, f'{today}_ML_TA_MultipleStocks.pdf')
 
 plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
 
+##### STOCKS ##########
 TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "SMCI", "BABA","XPEV", "NIO", "XYZ", "U"]
-#TICKERS = ["BABA","XPEV", "NIO", "UNH"]
+
+##### CRYPTOS ##########
+#TICKERS = ["BTC-USD","ETH-USD", "XRP-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"]
+
+isStockCrypto = "CRYPTO"
+
+if "BTC-USD" in TICKERS:
+    isStockCrypto = "CRYPTO"
+else:
+    isStockCrypto = "STOCKS"
+
 _Nr = 50 # Skip model if the length is this
 YEARS_OF_DATA = 1
 PROFIT_TARGET = 0.06
@@ -97,8 +108,8 @@ def add_technical_indicators(df):
     df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
     df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
     df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
-    df['sumBuyVol'] = df['buy_volume'].rolling(window=20).sum()
-    df['sumSellVol'] = df['sell_volume'].rolling(window=20).sum()
+    df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
+    df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
     df['vSpike'] = (df['Volume'] > 2 * df['Volume_MA20']).astype(int)
     df['MFI'] = ta.calculate_mfi(df)
 
@@ -431,14 +442,17 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # Get predictions
     predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
 
-    # Basic prices and %
-    last_date = df.index[-1]
+    ## --- Technical Market Summary ---    
+    signal = predictions.Signal
     current_price = round(df['Close'].iloc[-1], 2)
-    future_date = last_date + pd.Timedelta(days=_window)
     gain = round(predictions['Max (%)'], 1)
     loss = round(predictions['Loss (%)'], 1)
     gain_price = current_price * (1 + gain/100)
     loss_price = current_price * (1 + loss/100)
+    hit_prob = predictions.Hit_Prob
+
+    last_date = df.index[-1]
+    future_date = last_date + pd.Timedelta(days=_window)
     avg_price = (current_price+loss_price)/2.
     sma1_ = round(df['SMA1'].iloc[-1], 2)
     sma2_ = round(df['SMA2'].iloc[-1], 2)
@@ -446,7 +460,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # Create figure with white background
     plt.style.use('default')
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6), dpi = 300, height_ratios=[3, 1], sharex=True)
-    fig.patch.set_facecolor('white')
+    #fig.patch.set_facecolor('white')
 
     # Get true trailing 12 months of data (not calendar YTD)
     end_date = df.index[-1]
@@ -455,7 +469,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     # ===== 1. PRICE PLOT =====
     # Configure plot style
-    ax1.set_facecolor('white')
+    #ax1.set_facecolor('white')
     ax1.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.5)
 
     # Historical data
@@ -501,7 +515,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f'Projected Loss: {loss}%')
     ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label='Entry')
 
-    ax1.annotate(f'Avg: ${avg_price:.1f}', 
+    ax1.annotate(f'Avg: ${avg_price:.2f}', 
                 xy=(last_date, avg_price),
                 xytext=(10, 0),  # 10 points to the right of the marker
                 textcoords='offset points',
@@ -513,14 +527,14 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                          alpha=0.5, 
                          edgecolor='none'))
 
-    ax1.annotate(f'${current_price}\t-\t${gain_price:.1f}\n+{predictions["Max (%)"]:.1f}%', 
+    ax1.annotate(f'${current_price}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%', 
                 xy=(future_date, gain_price),
                 xytext=(10, 10), textcoords='offset points',
                 ha='left', va='bottom', color='green', fontsize=9, 
                 fontname='Segoe UI Emoji',
                 bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
 
-    ax1.annotate(f'${current_price}\t-\t${loss_price:.1f}\n{predictions["Loss (%)"]:.1f}%', 
+    ax1.annotate(f'${current_price}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%', 
                 xy=(future_date, loss_price),
                 xytext=(10, -10), textcoords='offset points',
                 ha='left', va='top', color='red', fontsize=9,
@@ -568,7 +582,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.legend(loc='upper left')
 
     # ===== 2. RSI PLOT =====
-    ax2.set_facecolor('white')
+    #ax2.set_facecolor('white')
     rsi_ = df['RSI'].rolling(3).mean()
     rsi_sma = df['RSI'].rolling(20).mean()
     ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.5)
@@ -583,7 +597,11 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                     where=(df['RSI'] < 40),
                     facecolor='red', alpha=0.1)
 
-    # Trend Strength Indicators
+    rsi_last = round(df['RSI'].iloc[-1], 1)
+    rsi_sma_last = round(df['RSI'].rolling(20).mean().iloc[-1], 1)
+    price_vs_sma1 = 100 * (current_price - sma1_) / sma1_ if sma1_ != 0 else 0
+
+    # Trend Strength Indicators    
     strong_Bull = (df['RSI'] > 52) & (df['ADX'] > 22) & (df['sumBuyVol'] > df['sumSellVol'])
     ax2.scatter(df.index[strong_Bull], rsi_[strong_Bull], color='lime', marker='^', s=5, label='Bullish', zorder=10)
 
@@ -612,6 +630,22 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     plt.savefig(fpath, bbox_inches='tight')
     plt.tight_layout()
     plt.show()
+
+    strong_bull = (df['RSI'].iloc[-1] > 52) and \
+                  (df['ADX'].iloc[-1] > 22) and \
+                  (df['sumBuyVol'].iloc[-1] > df['sumSellVol'].iloc[-1])
+    strong_bear = (df['RSI'].iloc[-1] < 40) and \
+                  (df['ADX'].iloc[-1] > 22) and \
+                  (df['sumBuyVol'].iloc[-1] < df['sumSellVol'].iloc[-1])
+
+    summary = [
+    f"==== Current Market Technical Summary: {ticker} ====",
+    f"Trend: SMA1 ({sma1_}) is {'above' if sma1_ > sma2_ else 'below'} SMA2 ({sma2_}) → Market is {'bullish' if sma1_ > sma2_ else 'bearish'}.",
+    f"Momentum: RSI = {rsi_last}, RSI SMA = {rsi_sma_last} → RSI is {'above' if rsi_last > rsi_sma_last else 'below'} its average.",
+    f"Price vs. SMA1: {current_price} is {abs(price_vs_sma1):.2f}% {'above' if price_vs_sma1 > 0 else 'below'} SMA1.",
+    f"Trend Strength: Strong Bull: {'Yes' if strong_bull else 'No'}, Strong Bear: {'Yes' if strong_bear else 'No'}",
+    f"Model Signal: {signal}. Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}), Hit Probability: {round(hit_prob, 1)}%"]
+    print("\n".join(summary))
 
 
 # In[5]:
@@ -864,7 +898,7 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
 
     ax1.text(
         x_tick+x_offset, y_offset1,
-        f'{row["Risk"]}\nP: ${row["Price"]:.1f}\nE: ${row["Entry"]:.1f}\nDip: -{row["Entry%"]:.1f}%\n{row["Signal"]}',
+        f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: -{row["Entry%"]:.1f}%\n{row["Signal"]}',
         ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
         bbox=dict(facecolor=fcolor, alpha=0.1, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
@@ -874,7 +908,7 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
 
     ax1.text(
         x_tick+x_offset, y_offset2,
-        f'TP: ${row["TP"]:.1f}\nSL: ${row["SL"]:.1f}\n\nProb: {row["Hit_Prob"]:.0f}\nConf: {row["Confidence"]:.0f}',
+        f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\nProb: {row["Hit_Prob"]:.0f}\nConf: {row["Confidence"]:.0f}',
         ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
         bbox=dict(facecolor=ProbColor, alpha=0.1, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
@@ -898,18 +932,18 @@ textbox.patch.set_edgecolor('darkgreen')
 textbox.patch.set_alpha(0.8)
 
 # Space management
-plt.title(f'{today} - ML Predictions (From Current Price)', fontsize=16, pad=20)
+plt.title(f'{today} - ML Predictions of {isStockCrypto} (From Current Price)', fontsize=16, pad=20)
 plt.tight_layout()
 plt.subplots_adjust(bottom=0.35)  # Increase if needed for annotation visibility
 
 # Save and show
-fname = f'{today}_ML_PNL_MultiStocks.png'
+fname = f'{today}_ML_PNL_Multi{isStockCrypto}.png'
 fpath = os.path.join(path, fname)
 plt.savefig(fpath, bbox_inches='tight')
 plt.show()
 
 
-# In[ ]:
+# In[8]:
 
 
 # PLOT STOCK TA with Predictions
@@ -933,13 +967,7 @@ del_old_files(path, 14)
 # c) SMA20 > SMA50 days
 # 
 # d) SL is fixed like 3 to 5 %.
-
-# In[ ]:
-
-
-TICKERS = ["COIN", "TSLA", "GOOGL", "AAPL"]
-
-### BACKTEST THE STOCKS
+TICKERS = ["COIN", "TSLA", "GOOGL", "AAPL"]### BACKTEST THE STOCKS
 def train_and_backtest(ticker="", train_years=2, show_every_n=10):
     # 1. Get and prepare data
     end_date = datetime.now()
@@ -1373,7 +1401,7 @@ def plot_candlestick_patterns():
 
 plot_candlestick_patterns()
 '''
-# In[ ]:
+# In[9]:
 
 
 import matplotlib.pyplot as plt
@@ -1410,7 +1438,7 @@ test_df = get_stock_data(stock, start_date, end_date)
 compute_expected_return(test_df)
 compute_expected_loss(test_df)
 plot_expected_return_loss(test_df, stock)
-# In[ ]:
+# In[10]:
 
 
 # CREATE A PYTHON FILE BACKUP
