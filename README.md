@@ -1,5 +1,3 @@
-Sure! Here is a ready-to-use GitHub README description text for your attached `FixedProfit_ML_MultiStocksV3.py` file. It summarizes the main functionality, usage, and key features in a clear, organized way suitable for your repository.
-
 # Fixed Profit ML For MultiStocks
 
 This Python script performs **multi-ticker stock and cryptocurrency analysis, prediction, and visualization** using machine learning and technical indicators.
