@@ -8,12 +8,12 @@ This Python script performs **multi-ticker stock and cryptocurrency analysis, pr
 - The prediciton gives a range (TP, SL) from the current price.
 - You choose the entry and trade for 4-10% gains to compound.
 - Trade only as a bull:
-  -- when SMA1 > SMA2
-  -- When RSI is farily above 52
-  -- When big players jump in, you jump late as you are small and seek small profits to compound.
-  -- Check backtest, use that mindset.
-  -- Buy closer to SL
-  -- Two buys and Two TPs to reduce losses and DCA.
+-- when SMA1 > SMA2
+-- When RSI is farily above 52
+-- When big players jump in, you jump late as you are small and seek small profits to compound.
+-- Check backtest, use that mindset.
+-- Buy closer to SL
+-- Two buys and Two TPs to reduce losses and DCA.
 
 ## Overview
 
