@@ -66,7 +66,7 @@ FEATURES = [
     'Candlesticks', 'gapStrength',
 
     # Market Sentiment & Signals
-    'Bear', 'Bull', 'StrongBull', 'StrongBear', 'Neutral',
+    'Bear', 'Bull', 'Neutral', 'StrongBull', 'StrongBear', 'Neutral',
 
     # PIVOTS
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
@@ -174,11 +174,21 @@ def add_technical_indicators(df):
     df['SMA2'] = df['Close'].rolling(window=_DAYS).mean()
     df['SMA3'] = df['Close'].rolling(window=int(_DAYS*2)).mean()
     df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
-    
-    df['Bear'] = (df['SMA1'] < df['SMA2']).astype(int)
-    df['Bull'] = (df['SMA2'] < df['SMA1']).astype(int)
+
     df['RSI']= ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'] / df['RSI'].rolling(14).mean()
+    '''
+    df['Bear'] = (df['SMA1'] < df['SMA2']).astype(int)
+    df['Bull'] = (df['SMA2'] < df['SMA1']).astype(int)
+    '''
+    
+    bull_condition = (df['SMA1'] > df['SMA2']) & (df['RSI'] > 52) & (df['RSI_SMA'] < df['RSI'])
+    bear_condition = (df['Close'] < df['SMA2']) & (df['RSI'] < 42)
+
+    df['Bull'] = bull_condition.astype(int)
+    df['Bear'] = bear_condition.astype(int)
+    df['Neutral'] = (~(bull_condition | bear_condition)).astype(int)
+
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=24, adjust=False).mean()
     df['MACD'] = ema12 - ema26
@@ -576,13 +586,35 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     #ax1.set_facecolor('white')
     ax1.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.5)
 
+    # Signal for color
+    df['Signal'] = np.select(
+    [df['Bull']==1, df['Bear']==1],
+    ['Bull', 'Bear'],
+    default='Neutral'
+    )
+    
     # Smooth the price (3-periods) to remove outliers, the last price may also be not visible
     price = df['Close'].rolling(3).mean()
     price.iloc[-1] = df['Close'].iloc[-1]
     
+    color_map = {'Bull': 'green', 'Bear': 'red', 'Neutral': 'gray'}
+    last_signal = df['Signal'].iloc[0]
+    start_idx = 0
+    
+    for idx, (date, row) in enumerate(df.iterrows()):
+        is_last = (idx == len(df) - 1)
+        
+        if row['Signal'] != last_signal or is_last:
+            seg_idx = slice(start_idx, idx + 1)
+            seg_price = price.iloc[seg_idx]
+            seg_dates = df.index[seg_idx]
+            ax1.plot(seg_dates, seg_price, color=color_map[last_signal], alpha=0.4, linewidth=2)
+            start_idx = idx
+            last_signal = row['Signal']
+
     # Historical data
     # Price is 3-days mean to avoid noise
-    ax1.plot(df.index, price, label= f'Price: ${current_price}', color='gray', alpha=0.7, linewidth=1.5)
+    #ax1.plot(df.index, price, label= f'Price: ${current_price}', color='gray', alpha=0.7, linewidth=1.5)
     ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}: ${sma1_}', color='gold', alpha=0.7, linewidth=1.2)
     ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}: ${sma2_}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
     
@@ -783,9 +815,16 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
 
 # Make Predictions (Gain/Loss/Confidence)
+n = 1
 for ticker in TICKERS:
     try:
         df = get_stock_data(ticker, start_date, end_date)
+        if not pd.api.types.is_datetime64_any_dtype(df.index):
+            if "Date" in df.columns:
+                df = df.set_index("Date")
+            else:
+                raise ValueError("DataFrame must have Date as index or column for plotting!")
+
         df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
         df = add_technical_indicators(df)
         df = add_pivot_levels(df, window=14)
@@ -921,9 +960,17 @@ for ticker in TICKERS:
         sc = 'green' if (signal == "✅ Bullish" and hit_prob >= 0.4) else \
              'red' if signal == "🔻 Bearish" else 'white'
 
-        row_text = f'Trained Model for {ticker}\t Price: ${current_price:.2f}\t TP: {round(predicted_tp, 1)}\t{signal}\t Prob: {int(hit_prob*100)}%'
+        row_text = (
+            f"{n:<3} "
+            f"Trained Model for {ticker:<5} "
+            f"Price: ${current_price:>7.2f} "
+            f"TP: ${predicted_tp:>7.1f} "
+            f"{signal:<10} "
+            f"Prob: {int(hit_prob*100):<3}%"
+        )
         print(colored_row(row_text, sc))
-
+        n += 1
+        
         results.append({
             "Ticker": ticker,
             "Date": latest.index[-1].date(),
@@ -971,11 +1018,12 @@ norm = mcolors.Normalize(vmin=min(max_vals), vmax=max(max_vals))
 cmap = cm.Spectral_r #Inverse of spectral
 custom_colors = cmap(norm(max_vals))
 
-fig, ax1 = plt.subplots(figsize=(12, 6), zorder=1, dpi=300)
+fig, ax1 = plt.subplots(figsize=(12, 6), zorder=1, dpi=200)
 cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
                  bbox_to_anchor=(0.12, 0., 1, 1),
                  bbox_transform=ax1.transAxes,
                  borderpad=0)
+
 
 # Main bar plot
 ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.5)
@@ -1005,6 +1053,7 @@ ax2.invert_yaxis()
 ax1.legend(fontsize='small')
 ax2.legend(fontsize='small') 
 
+
 # --- ANNOTATIONS ALIGNED BELOW X-TICK LABELS ---
 x_ticks = ax1.get_xticks()
 for i, (_, row) in enumerate(df_plot.iterrows()):
@@ -1030,9 +1079,9 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
 
     ax1.text(
         x_tick+x_offset, y_offset1,
-        f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: -{row["Entry%"]:.1f}%\n{row["Signal"]}',
+        f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Entry%"]:.1f}%\n{row["Signal"]}',
         ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
-        bbox=dict(facecolor=fcolor, alpha=0.1, linewidth=0.3),
+        bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
         multialignment='left',
         clip_on=False
@@ -1042,7 +1091,7 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
         x_tick+x_offset, y_offset2,
         f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\nProb: {row["Hit_Prob"]:.0f}\nConf: {row["Confidence"]:.0f}',
         ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
-        bbox=dict(facecolor=ProbColor, alpha=0.1, linewidth=0.3),
+        bbox=dict(facecolor=ProbColor, alpha=0.3, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
         clip_on=False
     )
@@ -1064,7 +1113,7 @@ textbox.patch.set_edgecolor('darkgreen')
 textbox.patch.set_alpha(0.8)
 
 # Space management
-plt.title(f'{today} - ML Predictions of {isStockCrypto} (From Current Price)', fontsize=16, pad=20)
+plt.title(f'{today} - ML Predictions of {isStockCrypto} (From Current Price)', fontsize=16, color='black', pad=20)
 plt.tight_layout()
 plt.subplots_adjust(bottom=0.35)  # Increase if needed for annotation visibility
 
@@ -1574,7 +1623,7 @@ plot_expected_return_loss(test_df, stock)
 
 
 # CREATE A PYTHON FILE BACKUP
-get_ipython().system('jupyter nbconvert --to script FixedProfit_ML_MultiStocksV3.ipynb')
+get_ipython().system('jupyter nbconvert --to script FixedProfit_ML_MultiStocksV4.ipynb')
 
 
 # In[ ]:
