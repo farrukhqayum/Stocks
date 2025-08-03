@@ -990,7 +990,19 @@ for ticker in TICKERS:
         )
         print(colored_row(row_text, sc))
         n += 1
-        # Append results with only Will_Hit and its probability
+        # Append results with only Will_Hit and its 
+        if will_hit == 'TP':
+            hit_price = round(predicted_tp, 2)
+        elif will_hit == 'SL':
+            hit_price = round(predicted_sl, 2)
+        else:  # None
+            hit_price = None
+
+        if hit_price is not None:
+            will_hit_str = f"{will_hit} (${hit_price})"
+        else:
+            will_hit_str = will_hit  # e.g. "None"
+
         results.append({
             "Ticker": ticker,
             "Date": latest.index[-1].date(),
@@ -1003,7 +1015,7 @@ for ticker in TICKERS:
             "Loss (%)": round(predicted_loss * 100, 1),
             "Signal": signal,
             "Risk": "🔴 High Risk" if (abs(predicted_loss) > STOP_LOSS) else "🟢 Low Risk",
-            "Will_Hit": will_hit,
+            "Will_Hit": will_hit_str,
             "Hit_Prob": round(hit_prob * 100, 1),
             "Confidence": round(confidence_score * 100, 1),
         })
@@ -1019,7 +1031,7 @@ append_pred(df_results, pred_file)
 
 
 # Tabulate Data
-_df = pd.DataFrame(results).sort_values(by="Max (%)", ascending=False)
+_df = pd.DataFrame(results).sort_values(by="Confidence", ascending=True)
 #_df = pd.DataFrame(results)
 print("\n=== Multi-Ticker Prediction Table (Modified) ===")
 print(tabulate(_df, headers='keys', tablefmt='table'))
@@ -1110,7 +1122,7 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
 
     ax1.text(
         x_tick+x_offset, y_offset2,
-        f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\nProb: {row["Hit_Prob"]:.0f}\nConf: {row["Confidence"]:.0f}',
+        f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{row.Will_Hit}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%',
         ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
         bbox=dict(facecolor=ProbColor, alpha=0.3, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
