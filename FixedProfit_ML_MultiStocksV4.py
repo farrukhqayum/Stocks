@@ -19,7 +19,7 @@ pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
 
 ##### STOCKS ##########
-TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "SMCI", "BABA","XPEV", "NIO", "XYZ", "U"]
+TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "SMCI", "BABA", "XPEV", "NIO", "XYZ", "U"]
 
 ##### CRYPTOS ##########
 #TICKERS = ["BTC-USD","ETH-USD", "XRP-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"]
@@ -32,9 +32,9 @@ else:
     isStockCrypto = "STOCKS"
 
 _Nr = 50 # Skip model if the length is this
-YEARS_OF_DATA = 1
-PROFIT_TARGET = 0.06
-STOP_LOSS = 0.05
+YEARS_OF_DATA = 2
+PROFIT_TARGET = 0.07
+STOP_LOSS = 0.07
 _DAYS = 20 # Used for SMA and training
 windows = [3, 5, 7, 10, 13, 15, 17, 20] # For calculating returns
 _window = 9  # Backtesting
@@ -547,6 +547,16 @@ def append_pred(df, fpath):
     
     combined.to_excel(fpath, index=False)
 
+def colored_row(text, color):
+    colors = {
+        'green': '\033[92m',
+        'red': '\033[91m',
+        'white': '\033[97m'
+    }
+    reset = '\033[0m'
+    color_code = colors.get(color, colors['white'])
+    return f"{color_code}{text}{reset}"
+
 
 # In[4]:
 
@@ -706,7 +716,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     signal_color = 'green' if 'Bullish' in predictions['Signal'] else 'red' if 'Bearish' in predictions['Signal'] else 'gray'
 
-    _sigConf = f'{predictions.Signal}, {predictions.Risk}, Hit Prob: {int(predictions.Hit_Prob)}%'
+    #_sigConf = f'{predictions.Signal}, {predictions.Risk}, Hit Prob: {predictions.Hits}, {int(predictions.Hit_Prob)}%'
+
+    _sigConf = f'{predictions.Signal}, {predictions.Risk}, Hit Prob: {int(predictions.Hit_Prob)}%, Will Hit: {predictions.Will_Hit}'
 
     ax1.annotate(_sigConf,
                  xy=(0.7, 0.95), xycoords='axes fraction',
@@ -741,7 +753,11 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.yaxis.tick_right()
     ax1.yaxis.set_label_position("right")
     ax1.set_ylabel('Price')
-    ax1.set_title(f'{today}:\t{ticker} - {predictions["Signal"]}', pad=20)
+    ax1.set_title(
+        f'{today}:\t{ticker} - {predictions["Signal"]}',
+        fontdict={'fontname': 'Segoe UI Emoji', 'fontsize': 16},
+        pad=20
+    )
     ax1.legend(loc='upper left')
     
     # ===== 2. RSI PLOT =====
@@ -901,46 +917,56 @@ for ticker in TICKERS:
             null_features = latest[FEATURES].iloc[0].isnull()
             print(f"NaN features for {ticker}: {list(null_features[null_features].index)}")
             continue
-
+        
+        label2str = {2: 'TP', 1: 'SL', 0: 'None'}
 
         # Predict class probabilities for latest sample
         latest_scaled_cls = scaler_cls.transform(latest[FEATURES])
         latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
-
-        # Map to fixed classes with fallback zeros
+        
+        # Find index of highest probability class and corresponding class label
+        pred_idx = latest_probs_raw.argmax()
+        pred_class = model_class.classes_[pred_idx]  # 0,1,2
+        will_hit = label2str[pred_class]
+        
+        # Hit probability for predicted event only
+        hit_prob = latest_probs_raw[pred_idx]
+        
+        # Prepare feature DataFrame with probabilities for return/loss prediction
+        # Note: We only keep the full prob vector here for return and loss scaling,
+        # though storing all probabilities is removed from final results
+        expected_classes = [0, 1, 2]
         latest_prob_features = {}
         for c in expected_classes:
-            latest_prob_features[f'Prob_Class_{c}'] = cls_probs[0, model_class.classes_.tolist().index(c)] if c in model_class.classes_ else 0.0
-
+            if c in model_class.classes_:
+                latest_prob_features[f'Prob_Class_{c}'] = latest_probs_raw[model_class.classes_.tolist().index(c)]
+            else:
+                latest_prob_features[f'Prob_Class_{c}'] = 0.0
         latest_prob_df = pd.DataFrame([latest_prob_features])
         latest_features_with_probs = pd.concat([latest[FEATURES].reset_index(drop=True), latest_prob_df], axis=1)
-
-        # Scale for return and loss predictions
+        
+        # Scale features for return and loss models
         latest_scaled_return = scaler_return.transform(latest_features_with_probs)
         latest_scaled_loss = scaler_loss.transform(latest_features_with_probs)
-
+        
+        # Predict expected return and loss
         predicted_return = model_return.predict(latest_scaled_return)[0]
         predicted_loss = model_loss.predict(latest_scaled_loss)[0]
-
+        
         current_price = latest['Close'].values[0]
         predicted_tp = current_price * (1 + predicted_return)
         predicted_sl = current_price * (1 + predicted_loss)
         entry_price = (current_price + predicted_sl) / 2
-
         entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
-
-        # Use TP hit probability (class 2) for confidence
-        hit_prob = latest_prob_features['Prob_Class_2']
+        
         confidence_score = hit_prob * max(predicted_return / abs(predicted_loss), 0)
-
-        # Technical condition check
+        
+        # Trading signal logic (unchanged)
         sma1 = latest['SMA1'].values[0]
         sma2 = latest['SMA2'].values[0]
         rsi = latest['RSI'].values[0]
-
         signal = "⚠️ Neutral"
         entry_signal = False
-
         if (current_price >= sma1 and sma1 >= sma2 and rsi >= 52):
             signal = "✅ Bullish"
             if predicted_return > abs(predicted_loss) and hit_prob > 0.5:
@@ -948,41 +974,36 @@ for ticker in TICKERS:
         elif (current_price <= sma1 and sma1 <= sma2 or rsi <= 42):
             signal = "🔻 Bearish"
             entry_signal = False
-
-        def colored_row(text, color):
-            colors = {
-                'green': '\033[92m',
-                'red': '\033[91m',
-                'white': '\033[97m'
-            }
-            return f"{colors.get(color, '')}{text}\033[0m"
-
+        
+        # Color for printing rows
         sc = 'green' if (signal == "✅ Bullish" and hit_prob >= 0.4) else \
-             'red' if signal == "🔻 Bearish" else 'white'
-
+            'red' if signal == "🔻 Bearish" else 'white'
+        
         row_text = (
-            f"{n:<3} "
-            f"Trained Model for {ticker:<5} "
+            f"{n:>3} "
+            f"{ticker:>7} "
             f"Price: ${current_price:>7.2f} "
-            f"TP: ${predicted_tp:>7.1f} "
-            f"{signal:<10} "
-            f"Prob: {int(hit_prob*100):<3}%"
+            f"TP: ${predicted_tp:>7.2f} ({predicted_return*100:>5.2f}%) "
+            f"{signal:>7}, "
+            f"Prob: {will_hit:>4}, "
+            f"{int(hit_prob*100):>3}%"
         )
         print(colored_row(row_text, sc))
         n += 1
-        
+        # Append results with only Will_Hit and its probability
         results.append({
             "Ticker": ticker,
             "Date": latest.index[-1].date(),
             "Price": round(current_price, 1),
             "Entry": round(entry_price, 1),
-            "Entry%": round(entry_discount_pct*-1, 1),
+            "Entry%": round(entry_discount_pct * -1, 1),
             "Max (%)": round(predicted_return * 100, 1),
             "TP": round(predicted_tp, 1),
             "SL": round(predicted_sl, 1),
             "Loss (%)": round(predicted_loss * 100, 1),
             "Signal": signal,
             "Risk": "🔴 High Risk" if (abs(predicted_loss) > STOP_LOSS) else "🟢 Low Risk",
+            "Will_Hit": will_hit,
             "Hit_Prob": round(hit_prob * 100, 1),
             "Confidence": round(confidence_score * 100, 1),
         })
@@ -1026,7 +1047,7 @@ cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
 
 
 # Main bar plot
-ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.5)
+ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.6)
 ax1.set_ylabel('Max Return (%)', fontsize=12)
 ax1.tick_params(axis='x', rotation=45)
 ax1.grid(True, axis='y', linestyle='--', alpha=0.7)
@@ -1034,7 +1055,7 @@ ax1.grid(True, axis='y', linestyle='--', alpha=0.7)
 # Add colorbar at the right of the plot
 sm = cm.ScalarMappable(norm=norm, cmap=cmap)
 sm.set_array([])
-cbar = plt.colorbar(sm, cax=cax, orientation='vertical', label="Colored by: Max (%)", alpha = 0.5)
+cbar = plt.colorbar(sm, cax=cax, orientation='vertical', label="Colored by: Max (%)", alpha = 0.6)
 cbar.ax.tick_params(labelsize=8)
 
 # Secondary axis for loss line
@@ -1137,488 +1158,6 @@ for stock in TICKERS:
 del_old_files(path, 14)
 
 
-# ## TEST PROFITABILITY
-# 
-# Only trading when the price is (1Yr):
-# 
-# a) Above SMA20 days
-# 
-# b) RSI above 50
-# 
-# c) SMA20 > SMA50 days
-# 
-# d) SL is fixed like 3 to 5 %.
-TICKERS = ["COIN", "TSLA", "GOOGL", "AAPL"]### BACKTEST THE STOCKS
-def train_and_backtest(ticker="", train_years=2, show_every_n=10):
-    # 1. Get and prepare data
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=365*train_years)
-    df = get_stock_data(ticker, start_date, end_date)
-    
-    # Calculate all features
-    df = add_technical_indicators(df)
-    df = add_pivot_levels(df, window=_DAYS)
-    df = add_pivots(df, windows)
-    df = average_pivots(df, windows)
-    df[FEATURES] = df[FEATURES].fillna(method='bfill').fillna(method='ffill')
-    df = df.dropna(subset=FEATURES)
-
-    # 2. Train/Test split (no lookahead)
-    train_df = df.iloc[:-252] if len(df) > 252 else df.copy()
-    test_df = df.iloc[-252:].copy()
-    
-
-    # Compute future-based labels **after** split
-    train_df = compute_expected_return(train_df, forward_window=14, r_cols=['R1', 'R2'])
-    train_df = compute_expected_loss(train_df, forward_window=14, s_cols=['S1', 'S2'])
-    #train_df = compute_expected_return(train_df)
-    #train_df = compute_expected_loss(train_df)
-    
-    # Drop rows with NaNs (from indicators or future shifts)
-    train_df = train_df.dropna(subset=FEATURES)
-    test_df = test_df.dropna(subset=FEATURES)
-
-    # 2. Train models
-    X_train = train_df[FEATURES]
-    y_return = train_df['Expected_Return']
-    y_loss = train_df['Expected_Loss']
-    
-    model_return = RandomForestRegressor(
-        n_estimators=200,         
-        max_depth=7,               
-        min_samples_leaf=5,        
-        max_features='sqrt',       
-        ccp_alpha=0.01               
-    )
-    
-    model_loss = RandomForestRegressor(
-        n_estimators=200,          
-        max_depth=7,               
-        min_samples_leaf=5,        
-        max_features='sqrt',       
-        ccp_alpha=0.01  
-    )
-    
-    model_return.fit(X_train, y_return)
-    model_loss.fit(X_train, y_loss)
-
-    # 3. Generate signals with TP/SL hit detection
-    signals = []
-
-    for i in range(10, len(test_df)):
-        current = test_df.iloc[i:i+1]
-        if current[FEATURES].isnull().values.any():
-            continue
-
-        # SETUP CONFIRMATIONS
-        
-        if (current['Close'].values[0] <= current['SMA1'].values[0]) and \
-           (current['SMA1'].values[0] <= current['SMA2'].values[0]) or \
-           (current['RSI'].values[0] <= 52):
-            continue
-            
-        current_price = current['Close'].values[0]
-        date = current.index[0]
-        
-        # Predict
-        pred_return = model_return.predict(current[FEATURES])[0]
-        pred_loss = model_loss.predict(current[FEATURES])[0]
-        
-        # Calculate levels
-        sl_price = current_price * (1 + max(STOP_LOSS, pred_loss))
-        tp_price = current_price * (1 + pred_return)
-        optimal_entry = (tp_price + sl_price) / 2
-        
-        # Initialize trade details
-        exit_price = np.nan
-        result = "No Exit"
-        holding_days = 0
-
-        # Check price path for TP/SL hits
-        if i + _window < len(test_df):
-            future_prices = test_df.iloc[i+1:i+_window+1]['Close']
-            
-            # Check for TP hit
-            tp_hit = future_prices[future_prices >= tp_price]
-            if not tp_hit.empty:
-                exit_price = tp_hit.iloc[0]
-                result = "TP Hit"
-                holding_days = future_prices.index.get_loc(tp_hit.index[0]) + 1
-            
-            # Check for SL hit (only if TP wasn't hit)
-            if pd.isna(exit_price):
-                sl_hit = future_prices[future_prices <= sl_price]
-                if not sl_hit.empty:
-                    exit_price = sl_hit.iloc[0]
-                    result = "SL Hit"
-                    holding_days = future_prices.index.get_loc(sl_hit.index[0]) + 1
-            
-            # If neither hit, use period-end price
-            if pd.isna(exit_price):
-                exit_price = future_prices.iloc[-1]
-                result = "EOD Exit"
-                holding_days = _window
-        
-        signals.append({
-            'Date': date,
-            'Price': current_price,
-            'TP': tp_price,
-            'SL': sl_price,
-            'Exit': exit_price,
-            'Result': result,
-            'Holding_Days': holding_days,
-            'Return': (exit_price - current_price)/current_price if not pd.isna(exit_price) else np.nan,
-            'Signal': current_price <= optimal_entry * tolerance 
-        })
-    
-    signals_df = pd.DataFrame(signals).set_index('Date')
-    signals_df = signals_df[signals_df['Return'].notna()]
-    
-    # 4. Calculate Statistics
-    trades = signals_df[signals_df['Signal']]
-    
-    if len(trades) == 0:
-        print(f"[{ticker}] No valid trades generated.")
-        return pd.DataFrame(), {}
-
-    # Separate successful and failed trades
-    successful = trades[trades['Return'] > 0]
-    failed = trades[trades['Return'] <= 0]
-    
-    stats = {
-        'Total Trades': len(trades),
-        'Win Rate': len(successful)/len(trades) if len(trades) > 0 else 0,
-        'Avg Return': trades['Return'].mean(),
-        'Median Return': successful['Return'].median() if len(successful) > 0 else 0,
-        'Avg Win': successful['Return'].mean() if len(successful) > 0 else 0,
-        'Median Win': successful['Return'].median() if len(successful) > 0 else 0,
-        'Max Gain': trades['Return'].max(),
-        'Avg Loss': failed['Return'].mean() if len(failed) > 0 else 0,
-        'Median Loss': failed['Return'].median() if len(failed) > 0 else 0,
-        'Max Loss': trades['Return'].min(),
-        'Avg Holding Days': trades['Holding_Days'].mean(),
-        'TP Hit Rate': (trades['Result'] == 'TP Hit').mean(),
-        'SL Hit Rate': (trades['Result'] == 'SL Hit').mean(),
-        'Return/Risk': -successful['Return'].mean()/failed['Return'].mean() if (len(failed) > 0 and len(successful) > 0) else 0,
-        'Profit Factor': abs(successful['Return'].sum()/failed['Return'].sum()) if len(failed) > 0 else float('inf')
-    }
-
-    # 5. Enhanced Visualization
-    plt.figure(figsize=(16, 12))
-    grid = plt.GridSpec(4, 1, height_ratios=[3, 1, 1, 1])
-    
-    # Price Chart
-    ax1 = plt.subplot(grid[0])
-    plt.plot(test_df.index, test_df['Close'], label=ticker, color='grey', alpha=0.6)
-    plt.plot(test_df.index, test_df['SMA1'], label='MA12', color='orange', alpha=0.6)
-    plt.plot(test_df.index, test_df['SMA2'], label='MA24', color='red', alpha=0.6)
-    
-    # Create fill between SMAs
-    plt.fill_between(test_df.index,
-                     test_df['SMA1'],
-                     test_df['SMA2'],
-                     where=(test_df['SMA1'] > test_df['SMA2']),
-                     interpolate=True,
-                     color='limegreen',
-                     alpha=0.2,
-                     label='Bullish',
-                     zorder=0)
-    
-    plt.fill_between(test_df.index,
-                     test_df['SMA1'],
-                     test_df['SMA2'],
-                     where=(test_df['SMA1'] < test_df['SMA2']),
-                     interpolate=True,
-                     color='tomato',
-                     alpha=0.2,
-                     label='Bearish',
-                     zorder=0)
-    
-    # Plot signals
-    sample = trades.iloc[::show_every_n]
-    
-    # Entry points
-    plt.scatter(sample.index, sample['Price'], color='green', 
-                marker='^', s=_ms, label='Entry', zorder=3, alpha = 0.5)
-    
-    # Exit points (color by result)
-    colors = {'TP Hit':'blue', 'SL Hit':'red', 'EOD Exit':'gray'}
-    for result, group in sample.groupby('Result'):
-        plt.scatter(group.index, group['Exit'], 
-                    color=colors[result], marker='o', 
-                    s=_ms, label=f'{result}', zorder=2, alpha = 0.5)
-    
-    # Annotations
-    for date, row in sample.iterrows():
-        if row['Return'] > 0:  # Winning trade (TP)
-            plt.annotate(f"TP: {row['TP']:.1f}\n({row['Return']:.1%})",
-                        (date, row['TP']), 
-                        xytext=(0,10),  # 10 points above
-                        textcoords='offset points', 
-                        ha='center', 
-                        va='bottom',  # Anchor text bottom to point
-                        color='green',  # Different color for TP
-                        fontsize=8,
-                        bbox=dict(boxstyle='round,pad=0.2', 
-                                  facecolor='white', 
-                                  alpha=0.8,
-                                  edgecolor='none'))
-        
-        else:  # Losing trade (SL)
-            plt.annotate(f"SL: {row['SL']:.1f}\n({row['Return']:.1%})",
-                        (date, row['SL']), 
-                        xytext=(0,-10),  # 10 points below
-                        textcoords='offset points', 
-                        ha='center', 
-                        va='top',  # Anchor text top to point
-                        color='red',  # Different color for SL
-                        fontsize=8,
-                        bbox=dict(boxstyle='round,pad=0.2', 
-                                  facecolor='white', 
-                                  alpha=0.8,
-                                  edgecolor='none'))
-    
-    plt.title(f"{ticker} Backtest Results | {start_date.date()} to {end_date.date()}")
-    plt.legend(fontsize='small') 
-    plt.grid(True)
-
-    # Add RSI with curved fill
-    axRSI = plt.subplot(grid[1])
-    rsi_line = plt.plot(test_df.index, test_df['RSI'], label='RSI', color='grey', alpha=0.6, zorder=2)
-    
-    # Fill above 50 (green)
-    plt.fill_between(test_df.index, 
-                     test_df['RSI'], 
-                     50, 
-                     where=(test_df['RSI'] >= 50),
-                     interpolate=True,
-                     color='limegreen', 
-                     alpha=0.2,
-                     zorder=1)
-    
-    # Fill below 50 (red)
-    plt.fill_between(test_df.index, 
-                     test_df['RSI'], 
-                     50, 
-                     where=(test_df['RSI'] <= 50),
-                     interpolate=True,
-                     color='tomato', 
-                     alpha=0.2,
-                     zorder=1)
-    
-    # Keep your original elements
-    plt.axhline(50, color='red', linestyle='-', alpha=0.2, zorder=0)
-    plt.legend(fontsize='small') 
-    plt.grid(False)
-    plt.ylabel('RSI')
-        
-    # Returns Distribution
-    ax2 = plt.subplot(grid[2])
-    plt.hist(trades['Return'], bins=20, color='skyblue', edgecolor='black')
-    plt.axvline(x=0, color='red', linestyle='--')
-    plt.title('Returns Distribution')
-    plt.xlabel(f'{_window}-day Return')
-    plt.ylabel('Frequency')
-    plt.grid(True)
-    
-    # Cumulative Returns
-    CAPITAL = 1000
-    ax3 = plt.subplot(grid[3])
-    cumulative_returns = (1 + trades['Return']).cumprod()
-    (cumulative_returns * CAPITAL).plot(color='green', label='Strategy')
-    plt.axhline(y=CAPITAL, color='red', linestyle='--')
-    plt.title('Cumulative Returns')
-    plt.ylabel(f'Growth of ${CAPITAL}')
-    plt.grid(True)
-    
-    plt.tight_layout()
-    plt.show()
-    
-    # 6. Print Statistics
-    print(f"\n=== {ticker} Backtest Results ===")
-    print(f"Period: {test_df.index[0].date()} to {test_df.index[-1].date()}")
-    print(f"Total Trades: {stats['Total Trades']}")
-    print(f"Win Rate: {stats['Win Rate']:.1%}")
-    print(f"Avg Return: {stats['Avg Return']:.2%}")
-    print(f"Avg Win: {stats['Avg Win']:.2%}")
-    print(f"Avg Loss: {stats['Avg Loss']:.2%}")
-    print(f"Median Return: {stats['Median Return']:.2%}")
-    print(f"Avg Holding Days: {stats['Avg Holding Days']:.1f}")
-    print(f"TP Hit Rate: {stats['TP Hit Rate']:.1%}")
-    print(f"SL Hit Rate: {stats['SL Hit Rate']:.1%}")
-    print(f"Max Gain: {stats['Max Gain']:.2%}")
-    print(f"Max Loss: {stats['Max Loss']:.2%}")
-    print(f"Return/Risk Ratio: {stats['Return/Risk']:.2f}")
-    print(f"Profit Factor: {stats['Profit Factor']:.2f}")
-    print(f"\nAvg Win/Loss {stats['Avg Win']:.2%} to {stats['Avg Loss']:.2%}")
-    
-    return trades, stats# Run backtest (Multiple Stocks)
-all_stats = []
-
-for tick in TICKERS:
-    result = train_and_backtest(tick, train_years=2, show_every_n=1)
-    trades, stats = result
-    if trades.empty:
-        print(f"{tick} has no trades after filtering.\n")
-        continue
-    
-    stats_row = {
-        'Ticker': tick,
-        'Win Rate': stats['Win Rate'],
-        'TP Hit Rate': stats['TP Hit Rate'],
-        'SL Hit Rate': stats['SL Hit Rate'],
-        'Avg Return': stats['Avg Return'],
-        'Avg Win': stats['Avg Win'],
-        'Avg Loss': stats['Avg Loss'],
-        'Profit Factor': stats['Profit Factor'],
-        'Avg Holding Days': stats['Avg Holding Days']
-    }
-    all_stats.append(stats_row)
-
-summary_df = pd.DataFrame(all_stats)
-summary_df = summary_df.sort_values(by='Profit Factor', ascending=False)
-
-summary_df['Win Rate'] = pd.Series(summary_df['Win Rate']) * 100
-summary_df['TP Hit Rate'] = pd.Series(summary_df['TP Hit Rate']) * 100
-summary_df['SL Hit Rate'] = pd.Series(summary_df['SL Hit Rate']) * 100
-summary_df['Avg Return'] = pd.Series(summary_df['Avg Return']) * 100
-summary_df['Avg Win'] = pd.Series(summary_df['Avg Win']) * 100
-summary_df['Avg Loss'] = pd.Series(summary_df['Avg Loss']) * 100
-
-# Round and convert to string with '%'
-summary_df['Win Rate'] = summary_df['Win Rate'].round(1).astype(str) + '%'
-summary_df['TP Hit Rate'] = summary_df['TP Hit Rate'].round(1).astype(str) + '%'
-summary_df['SL Hit Rate'] = summary_df['SL Hit Rate'].round(1).astype(str) + '%'
-summary_df['Avg Return'] = summary_df['Avg Return'].round(2).astype(str) + '%'
-summary_df['Avg Win'] = summary_df['Avg Win'].round(2).astype(str) + '%'
-summary_df['Avg Loss'] = summary_df['Avg Loss'].round(2).astype(str) + '%'
-summary_df['Profit Factor'] = summary_df['Profit Factor'].round(2).astype(str)
-summary_df['Avg Holding Days'] = summary_df['Avg Holding Days'].round(1).astype(str)
-
-print("\n=== Ticker Stats Summary ===")
-print(tabulate(summary_df, headers='keys', tablefmt='psql', showindex=False))df1 = df_results.merge(summary_df[['Ticker', 'Avg Return', 'Profit Factor']], on='Ticker', how='left')#Run backtest (ONE STOCK)
-all_stats = []
-
-tick = "COIN"
-result = train_and_backtest(tick, train_years=2, show_every_n=1)
-trades, stats = result
-
-stats_row = {
-    'Ticker': tick,
-    'Win Rate': stats['Win Rate'],
-    'TP Hit Rate': stats['TP Hit Rate'],
-    'SL Hit Rate': stats['SL Hit Rate'],
-    'Avg Return': stats['Avg Return'],
-    'Profit Factor': stats['Profit Factor'],
-    'Avg Holding Days': stats['Avg Holding Days']
-}
-
-all_stats.append(stats_row)
-
-summary_df = pd.DataFrame(all_stats)
-summary_df = summary_df.sort_values(by='Win Rate', ascending=False)
-
-summary_df['Win Rate'] = pd.Series(summary_df['Win Rate']) * 100
-summary_df['TP Hit Rate'] = pd.Series(summary_df['TP Hit Rate']) * 100
-summary_df['SL Hit Rate'] = pd.Series(summary_df['SL Hit Rate']) * 100
-summary_df['Avg Return'] = pd.Series(summary_df['Avg Return']) * 100
-
-# Round and convert to string with '%'
-summary_df['Win Rate'] = summary_df['Win Rate'].round(1).astype(str) + '%'
-summary_df['TP Hit Rate'] = summary_df['TP Hit Rate'].round(1).astype(str) + '%'
-summary_df['SL Hit Rate'] = summary_df['SL Hit Rate'].round(1).astype(str) + '%'
-summary_df['Avg Return'] = summary_df['Avg Return'].round(2).astype(str) + '%'
-summary_df['Profit Factor'] = summary_df['Profit Factor'].round(2).astype(str)
-
-print("\n=== Ticker Stats Summary ===")
-print(tabulate(summary_df, headers='keys', tablefmt='psql', showindex=False))# Display TP Hit trades
-if len(trades[trades['Result'] == "TP Hit"]) > 0:
-    tp_hits = trades[trades['Result'] == "TP Hit"]
-    print("\n=== Trades Where TP Was Hit ===")
-    print(tabulate(tp_hits, headers='keys', tablefmt='grid', showindex=True))
-else:
-    print("\nNo trades hit TP during this period")'''
-def plot_candlestick_patterns():
-    
-    df = get_stock_data('COIN', start_date, end_date)
-    df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
-    df = add_technical_indicators(df)
-    
-    plt.figure(figsize=(14, 7))
-    
-    # 1. Plot Close Price
-    plt.plot(df.index, df['Close'], label='Close Price', color='gray', alpha=0.5, linewidth=1)
-    
-    # 2. Create pattern-specific markers
-    patterns = {
-        'Doji': ('o', 'gold'), 
-        'Hammer': ('^', 'green'),
-        'Hanging_Man': ('v', 'red'),
-        'Morning_Star': ('*', 'lime'),
-        'Evening_Star': ('*', 'maroon'),
-        'Shooting_Star': ('x', 'darkred'),
-        'Three_White_Soldiers': ('s', 'darkgreen'),
-        'Three_Black_Crows': ('s', 'black'),
-        'Bullish_Engulfing': ('D', 'cyan')
-    }
-    
-    # 3. Plot each pattern where it occurs
-    for pattern, (marker, color) in patterns.items():
-        mask = df[pattern] == 1
-        plt.scatter(df.index[mask], df['Close'][mask], 
-                   marker=marker, color=color, s=25,
-                   label=pattern, zorder=3)
-    
-    # 4. Add volume bars (optional)
-    plt.bar(df.index, df['Volume']/1e6, alpha=0.3, width=0.5, label='Volume (M)')
-    
-    plt.title('Candlestick Patterns Detection', fontsize=14)
-    plt.xlabel('Date')
-    plt.ylabel('Price ($)')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.grid(True, alpha=0.2)
-    plt.tight_layout()
-    plt.show()
-
-plot_candlestick_patterns()
-'''
-# In[ ]:
-
-
-import matplotlib.pyplot as plt
-
-def plot_expected_return_loss(df, ticker):
-    # Ensure no NaNs in plotting columns
-    df_plot = df.dropna(subset=['Close', 'Expected_Return', 'Expected_Loss'])
-    dates = df_plot.index
-
-    # Calculate expected TP and SL levels
-    expected_tp = df_plot['Close'] * (1 + df_plot['Expected_Return'])
-    expected_sl = df_plot['Close'] * (1 + df_plot['Expected_Loss'])
-
-    # Create figure and axes correctly using plt.subplots()
-    fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
-
-    # Plot lines on the Axes object
-    ax.plot(dates, df_plot['Close'], label='Close Price', color='gray', linewidth=1.5)
-    ax.plot(dates, expected_tp, label='Expected TP', color='green', linestyle='--', linewidth=1.2)
-    ax.plot(dates, expected_sl, label='Expected SL', color='red', linestyle='--', linewidth=1.2)
-
-    ax.spines['right'].set_position(('outward', 0))
-    ax.spines['right'].set_visible(True)
-    
-    # Optionally reposition ticks and tick labels on right
-    ax.yaxis.tick_right()
-    ax.yaxis.set_ticks_position('right')
-    
-    plt.show()
-
-stock = "BABA"
-
-test_df = get_stock_data(stock, start_date, end_date)
-compute_expected_return(test_df)
-compute_expected_loss(test_df)
-plot_expected_return_loss(test_df, stock)
 # In[ ]:
 
 
