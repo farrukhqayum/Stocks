@@ -35,13 +35,17 @@ _Nr = 50 # Skip model if the length is this
 YEARS_OF_DATA = 2
 PROFIT_TARGET = 0.07
 STOP_LOSS = 0.07
-_DAYS = 20 # Used for SMA and training
-windows = [3, 5, 7, 10, 13, 15, 17, 20] # For calculating returns
+_DAYS = 30 # Used for SMA and training
+_FWDAYS = 14 # Forward days to plot stored data
+windows = [3, 5, 7, 10, 13, 15, 20, 30, 40, 50] # For calculating returns
 _window = 9  # Backtesting
 tolerance = 1.07
 _FIBS = False
 _FibLen = 20 # Scan pivots for fibonacci levels
 _ms = 7 # global marker size for matplotlib
+
+bold = '\033[1m'
+end = '\033[0m'
 
 # Time window
 end_date = datetime.now()
@@ -557,6 +561,15 @@ def colored_row(text, color):
     color_code = colors.get(color, colors['white'])
     return f"{color_code}{text}{reset}"
 
+def color_signal(row):
+    signal = row['Signal']
+    if 'Bullish' in signal:
+        return '\033[92m' + signal + '\033[0m'  # Green
+    elif 'Bearish' in signal:
+        return '\033[91m' + signal + '\033[0m'  # Red
+    else:
+        return '\033[93m' + signal + '\033[0m'  # Yellow for Neutral
+
 
 # In[4]:
 
@@ -565,7 +578,7 @@ def colored_row(text, color):
 def plot_single_ticker(ticker, df, df_results, _window=14):
     # Get predictions
     predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
-    
+
     ## --- Technical Market Summary ---    
     signal = predictions.Signal
     current_price = round(df['Close'].iloc[-1], 2)
@@ -627,6 +640,10 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     #ax1.plot(df.index, price, label= f'Price: ${current_price}', color='gray', alpha=0.7, linewidth=1.5)
     ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}: ${sma1_}', color='gold', alpha=0.7, linewidth=1.2)
     ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}: ${sma2_}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
+
+    ta.add_regression_forecast(ax1, df['SMA1'], last_date, _DAYS, color='gold')
+
+    ta.add_regression_forecast(ax1, df['SMA2'], last_date, _DAYS, color='red')
     
     # Fill between SMAs - green when SMA1 > SMA2, red otherwise
     ax1.fill_between(df.index, df['SMA1'], df['SMA2'],
@@ -650,15 +667,37 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             df_hist['Date'] = pd.to_datetime(df_hist['Date'])
         points = df_hist[(df_hist['Ticker'] == ticker)].sort_values('Date')
         if not points.empty:
-            ax1.scatter(points['Date'], points['Price'],
-                        color='gray', marker='o', s=_ms, zorder=10, alpha=0.4)
-            ax1.scatter(points['Date'], points['TP'],
-                        color='green', marker='^', s=_ms, zorder=10, alpha=0.4)
-            ax1.scatter(points['Date'], points['SL'],
-                        color='red', marker='v', s=_ms, zorder=10, alpha=0.4)
+            points = points.copy()
+            points['Date_Lagged'] = points['Date'] + pd.Timedelta(days=_FWDAYS)
+            #ax1.scatter(points['Date_Lagged'], points['Price'], color='gray', marker='o', s=_ms, zorder=10, alpha=0.4)
+            ax1.scatter(points['Date_Lagged'], points['TP'], color='green', marker='^', s=_ms, zorder=10, alpha=0.4)
+            ax1.scatter(points['Date_Lagged'], points['SL'], color='red', marker='v', s=_ms, zorder=10, alpha=0.4)
     except Exception as e:
         print(f"Prediction plotting error for {ticker}: {e}")
 
+    # Add earning date to the bottom
+    data_ymin = df['Close'].min()
+    data_ymax = df['Close'].max()
+    price_margin = (data_ymax - data_ymin) * 0.1
+    ymin_fixed = data_ymin - price_margin * 0.3
+    ymax_fixed = data_ymax + price_margin * 0.2
+    ax1.set_ylim(ymin_fixed, ymax_fixed)  # Set limits manually so they won't be autoscaled later
+
+    earnings_date = ta.get_next_earnings_date(ticker)
+    if earnings_date is not None and df.index[0] <= earnings_date <= df.index[-1]:
+        y_pos = data_ymin + 0.05 * (data_ymax - data_ymin)
+        ax1.text(
+            earnings_date,
+            y_pos,
+            'E',
+            fontsize=10,
+            fontweight='bold',
+            ha='center',
+            va='bottom',
+            color='blue',
+            bbox=dict(boxstyle='round,pad=0.2', fc='lightblue', ec='blue', lw=0.5, alpha=0.5),
+            zorder=10
+        )
 
     # --- Add Fibonacci Levels ---
     if (_FIBS):
@@ -734,21 +773,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, 
                  fontsize=50, color='grey', alpha=0.2,
                  horizontalalignment='center', verticalalignment='center',
-                 rotation=0, weight='bold', style='italic')
-
-    textbox = AnchoredText(
-       f'Buy closer to predicted SL: ${loss_price:.2f} to reduce risk\nand increase chance of success.',
-       loc='lower right',
-       frameon=True,
-       borderpad=1.5,
-       prop=dict(size=7, color='red', weight='bold')
-    )
-    
-    # Set the box properties through the patch
-    textbox.patch.set(facecolor='white', edgecolor='gray', alpha=0.5, boxstyle='round')
-    
-    ax1.add_artist(textbox)
-
+                 rotation=0, weight='bold', style='italic')    
+        
     # Move y-axis to right
     ax1.yaxis.tick_right()
     ax1.yaxis.set_label_position("right")
@@ -802,13 +828,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # Formatting
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
     fig.autofmt_xdate()
-    
-    # Save the figure to disk
-    fname = f'{today}_{ticker}_TPSL.png'
-    fpath = os.path.join(path, fname)
-    plt.savefig(fpath, bbox_inches='tight')
-    plt.tight_layout()
-    plt.show()
 
     strong_bull = (df['RSI'].iloc[-1] > 52) and \
                   (df['ADX'].iloc[-1] > 22) and \
@@ -816,15 +835,49 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     strong_bear = (df['RSI'].iloc[-1] < 40) and \
                   (df['ADX'].iloc[-1] > 22) and \
                   (df['sumBuyVol'].iloc[-1] < df['sumSellVol'].iloc[-1])
+    
+    summary_lines = [
+        f"==== Market Technical Summary for {ticker} ====",
+        f"Trend: SMA1 ({sma1_}) is {'above' if sma1_ > sma2_ else 'below'} SMA2 ({sma2_}) → Market is {'bullish' if sma1_ > sma2_ else 'bearish'}.",
+        f"Momentum: RSI = {rsi_last} ({'above' if rsi_last > rsi_sma_last else 'below'} its 20-day average of {rsi_sma_last}).",
+        f"Price: ${current_price} is {abs(price_vs_sma1):.2f}% {'above' if price_vs_sma1 > 0 else 'below'} SMA1.",
+        f"\n"
+        f"Trend Strength: Strong Bull: {'Yes' if strong_bull else 'No'}, Strong Bear: {'Yes' if strong_bear else 'No'}.",
+        f"\n"
+        f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%.",
+        f"\n"
+    ]
+    action = ""
+    # Actionable suggestion based on indicators and model confidence
+    if signal == "TI: ✅ Bullish" and hit_prob > 50 and strong_bull and predicted_return > abs(predicted_loss):
+        action = f"{ticker} is BULLISH: Consider buying or holding; good chance for positive return."
+    elif signal == "TI: 🔻 Bearish" or hit_prob < 40 or strong_bear:
+        action = f"{ticker} is BEARISH: Exercise caution or consider selling; risk of loss is higher."
+    else:
+        action = f"{ticker} is NEUTRAL; monitor market for clearer signals."
+    
+    summary_lines.append(action)
 
-    summary = [
-    f"==== Current Market Technical Summary: {ticker} ====",
-    f"Trend: SMA1 ({sma1_}) is {'above' if sma1_ > sma2_ else 'below'} SMA2 ({sma2_}) → Market is {'bullish' if sma1_ > sma2_ else 'bearish'}.",
-    f"Momentum: RSI = {rsi_last}, RSI SMA = {rsi_sma_last} → RSI is {'above' if rsi_last > rsi_sma_last else 'below'} its average.",
-    f"Price: ${current_price} is {abs(price_vs_sma1):.2f}% {'above' if price_vs_sma1 > 0 else 'below'} SMA1.",
-    f"Trend Strength: Strong Bull: {'Yes' if strong_bull else 'No'}, Strong Bear: {'Yes' if strong_bear else 'No'}",
-    f"Model Signal: {signal}. Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}), Hit Probability: {round(hit_prob, 1)}%"]
-    print("\n".join(summary))
+    textbox = AnchoredText(
+       action,
+       loc='lower right',
+       frameon=True,
+       borderpad=1.5,
+       prop=dict(size=7, color='blue', weight='bold')
+    )
+    # Set the box properties through the patch
+    textbox.patch.set(facecolor='white', edgecolor='gray', alpha=0.5, boxstyle='round')
+    
+    ax1.add_artist(textbox)
+  
+    # Save the figure to disk
+    fname = f'{today}_{ticker}_TPSL.png'
+    fpath = os.path.join(path, fname)
+    plt.savefig(fpath, bbox_inches='tight')
+    plt.tight_layout()
+    plt.show()
+      
+    print("\n".join(summary_lines))
 
 
 # In[5]:
@@ -832,6 +885,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
 # Make Predictions (Gain/Loss/Confidence)
 n = 1
+dfs = {}
 for ticker in TICKERS:
     try:
         df = get_stock_data(ticker, start_date, end_date)
@@ -848,8 +902,8 @@ for ticker in TICKERS:
         df = average_pivots(df, windows)
         df = compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2'])
         df = compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2'])
-
         df = label_hit2(df, window=_DAYS, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+        dfs[ticker] = df
         
         df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
 
@@ -965,28 +1019,28 @@ for ticker in TICKERS:
         sma1 = latest['SMA1'].values[0]
         sma2 = latest['SMA2'].values[0]
         rsi = latest['RSI'].values[0]
-        signal = "⚠️ Neutral"
+        signal = "TI: ⚠️ Neut"
         entry_signal = False
         if (current_price >= sma1 and sma1 >= sma2 and rsi >= 52):
-            signal = "✅ Bullish"
+            signal = "TI: ✅ Bullish"
             if predicted_return > abs(predicted_loss) and hit_prob > 0.5:
                 entry_signal = True
         elif (current_price <= sma1 and sma1 <= sma2 or rsi <= 42):
-            signal = "🔻 Bearish"
+            signal = "TI: 🔻 Bearish"
             entry_signal = False
         
         # Color for printing rows
-        sc = 'green' if (signal == "✅ Bullish" and hit_prob >= 0.4) else \
-            'red' if signal == "🔻 Bearish" else 'white'
+        sc = 'green' if (signal == "TI: ✅ Bullish" and will_hit == "SL" and hit_prob >= 0.4) else \
+            'red' if (signal == "TI: 🔻 Bearish" and will_hit == "SL" and hit_prob>=0.4) else 'white'
         
         row_text = (
             f"{n:>3} "
-            f"{ticker:>7} "
+            f"{bold}{ticker:>7} "
             f"Price: ${current_price:>7.2f} "
             f"TP: ${predicted_tp:>7.2f} ({predicted_return*100:>5.2f}%) "
-            f"{signal:>7}, "
-            f"Prob: {will_hit:>4}, "
-            f"{int(hit_prob*100):>3}%"
+            f"{will_hit:>4} (${predicted_sl:>7.2f}) "
+            f"Prob: {int(hit_prob*100):>3}% "
+            f"{signal:>7}{end}"
         )
         print(colored_row(row_text, sc))
         n += 1
@@ -1008,7 +1062,7 @@ for ticker in TICKERS:
             "Date": latest.index[-1].date(),
             "Price": round(current_price, 1),
             "Entry": round(entry_price, 1),
-            "Entry%": round(entry_discount_pct * -1, 1),
+            "Dip%": round(entry_discount_pct * -1, 1),
             "Max (%)": round(predicted_return * 100, 1),
             "TP": round(predicted_tp, 1),
             "SL": round(predicted_sl, 1),
@@ -1031,10 +1085,38 @@ append_pred(df_results, pred_file)
 
 
 # Tabulate Data
-_df = pd.DataFrame(results).sort_values(by="Confidence", ascending=True)
-#_df = pd.DataFrame(results)
-print("\n=== Multi-Ticker Prediction Table (Modified) ===")
-print(tabulate(_df, headers='keys', tablefmt='table'))
+#_df = pd.DataFrame(results).sort_values(by=["Confidence", "Will_Hit"], ascending=False)
+def wrap_row_with_color(row, color_code):
+    return [f"{color_code}{str(cell)}\033[0m" for cell in row]
+
+colored_rows = []
+
+_df = df_results.copy()
+_df['Hits'] = _df['Will_Hit'].str.strip().str.split().str[0]
+hit_order = ['TP', 'SL', 'None']
+_df['Hits'] = pd.Categorical(_df['Hits'], categories=hit_order, ordered=True)
+
+_df_sorted = _df.sort_values(by=['Hits',  "Signal", 'Confidence', "Hit_Prob"], ascending=[True, False, False, False]).reset_index(drop=True)
+_df_sorted = _df_sorted.drop(columns=['Will_Hit'])
+headers = _df_sorted.columns.tolist()
+
+
+for _, row in _df_sorted.iterrows():
+    signal = row.Signal
+    hit_prob = row.Hit_Prob
+    
+    if ('Bullish' in row.Signal) and (row.Hit_Prob > 50) and (row['Max (%)'] > abs(row['Loss (%)'])):
+        color = '\033[92m'  # Green
+    elif ('Bearish' in row.Signal) and (row.Hit_Prob > 50) and (row['Max (%)'] > abs(row['Loss (%)'])):
+        color = '\033[91m'  # Red
+    else:
+        color = '\033[38;5;251m'  # light gray
+    colored_rows.append(wrap_row_with_color(row.values, color))
+
+
+# Print colored table
+print("\n=== Multi-Ticker Prediction Table ===\n")
+print(tabulate(colored_rows, headers=headers, floatfmt=".1f", tablefmt='orgtbl'))
 
 
 # In[7]:
@@ -1059,7 +1141,7 @@ cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
 
 
 # Main bar plot
-ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.6)
+ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.7)
 ax1.set_ylabel('Max Return (%)', fontsize=12)
 ax1.tick_params(axis='x', rotation=45)
 ax1.grid(True, axis='y', linestyle='--', alpha=0.7)
@@ -1092,11 +1174,19 @@ x_ticks = ax1.get_xticks()
 for i, (_, row) in enumerate(df_plot.iterrows()):
     # Color assignment for signal types
     fcolor = (
-        'green' if row.Signal == "✅ Bullish"
-        else 'red' if row.Signal == "🔻 Bearish"
+        'green' if row.Signal == "TI: ✅ Bullish"
+        else 'red' if row.Signal == "TI: 🔻 Bearish"
         else 'yellow'
     )
-    ProbColor = 'green' if (row.Signal == "✅ Bullish" and row.Confidence > 40) else 'white'
+    ProbColor = 'green' if (row.Signal == "TI: ✅ Bullish" and row.Confidence > 40 and str(row.Will_Hit).split()[0] == 'TP') else 'white'
+
+    if row.Signal == "TI: ✅ Bullish" and row.Confidence > 50 and str(row.Will_Hit).split()[0] == 'TP':
+        ProbColor = 'green'
+    elif row.Signal == "TI: 🔻 Bearish" and row.Confidence > 50 and str(row.Will_Hit).split()[0] == 'SL':
+        ProbColor = 'red'
+    else:
+        ProbColor = 'white'
+
 
     # Top annotations (unchanged)
     ax1.text(i, row["Max (%)"] + 0.5, f'{row["Max (%)"]:.1f}%',
@@ -1112,8 +1202,8 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
 
     ax1.text(
         x_tick+x_offset, y_offset1,
-        f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Entry%"]:.1f}%\n{row["Signal"]}',
-        ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
+        f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}',
+        ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
         bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
         multialignment='left',
@@ -1121,13 +1211,14 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
     )
 
     ax1.text(
-        x_tick+x_offset, y_offset2,
-        f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{row.Will_Hit}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%',
-        ha='left', va='top', fontsize=8, fontname='Segoe UI Emoji',
+        x_tick + x_offset, y_offset2,
+        f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{str(row.Will_Hit).split()[0]}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%',
+        ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
         bbox=dict(facecolor=ProbColor, alpha=0.3, linewidth=0.3),
         transform=ax1.get_xaxis_transform(),
         clip_on=False
     )
+
 
 # Strategic hint box
 textbox = AnchoredText(
@@ -1161,11 +1252,12 @@ plt.show()
 
 
 # PLOT STOCK TA with Predictions
-for stock in TICKERS:
-    df_ticker = get_stock_data(stock, datetime.now()-timedelta(days=365), datetime.now())
-    df_ticker = add_technical_indicators(df_ticker)
-    plot_single_ticker(stock, df_ticker, df_results)
-    print("\n")
+for ticker in TICKERS:
+    df = dfs.get(ticker)
+    if df is None:
+        print(f"Skipping {ticker}: no preloaded data available")
+        continue
+    plot_single_ticker(ticker, df, df_results)
     
 del_old_files(path, 14)
 
