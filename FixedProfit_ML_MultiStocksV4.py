@@ -35,7 +35,7 @@ _Nr = 50 # Skip model if the length is this
 YEARS_OF_DATA = 2
 PROFIT_TARGET = 0.07
 STOP_LOSS = 0.07
-_DAYS = 30 # Used for SMA and training
+_DAYS = 20 # Used for SMA and training
 _FWDAYS = 14 # Forward days to plot stored data
 windows = [3, 5, 7, 10, 13, 15, 20, 30, 40, 50] # For calculating returns
 _window = 9  # Backtesting
@@ -683,22 +683,34 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ymax_fixed = data_ymax + price_margin * 0.2
     ax1.set_ylim(ymin_fixed, ymax_fixed)  # Set limits manually so they won't be autoscaled later
 
+    first_date = df.index[0]
+    last_date = df.index[-1]
     earnings_date = ta.get_next_earnings_date(ticker)
-    if earnings_date is not None and df.index[0] <= earnings_date <= df.index[-1]:
-        y_pos = data_ymin + 0.05 * (data_ymax - data_ymin)
-        ax1.text(
-            earnings_date,
-            y_pos,
-            'E',
-            fontsize=10,
-            fontweight='bold',
-            ha='center',
-            va='bottom',
-            color='blue',
-            bbox=dict(boxstyle='round,pad=0.2', fc='lightblue', ec='blue', lw=0.5, alpha=0.5),
-            zorder=10
-        )
+    
+    if earnings_date is not None:
+        extended_range = pd.Timedelta(days=7)
+        
+        if (first_date <= earnings_date <= last_date) or (last_date < earnings_date <= last_date + extended_range):
+    
+            y_pos = data_ymin + 0.05 * (data_ymax - data_ymin)
+    
+            # If just outside the range, pin label to right edge of chart
+            x_pos = earnings_date if earnings_date <= last_date else last_date
+    
+            ax1.text(
+                x_pos,
+                y_pos,
+                'E',
+                fontsize=10,
+                fontweight='bold',
+                ha='center',
+                va='bottom',
+                color='blue',
+                bbox=dict(boxstyle='round,pad=0.2', fc='lightblue', ec='blue', lw=0.5, alpha=0.5),
+                zorder=10
+            )
 
+    
     # --- Add Fibonacci Levels ---
     if (_FIBS):
         fibs, fib_start, fib_end = get_recent_fib_levels(df)
@@ -880,7 +892,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     print("\n".join(summary_lines))
 
 
-# In[5]:
+# In[ ]:
 
 
 # Make Predictions (Gain/Loss/Confidence)
@@ -1030,7 +1042,7 @@ for ticker in TICKERS:
             entry_signal = False
         
         # Color for printing rows
-        sc = 'green' if (signal == "TI: ✅ Bullish" and will_hit == "SL" and hit_prob >= 0.4) else \
+        sc = 'green' if (signal == "TI: ✅ Bullish" and will_hit == "TP" and hit_prob >= 0.4) else \
             'red' if (signal == "TI: 🔻 Bearish" and will_hit == "SL" and hit_prob>=0.4) else 'white'
         
         row_text = (
@@ -1081,7 +1093,7 @@ df_results = pd.DataFrame(results)
 append_pred(df_results, pred_file)
 
 
-# In[6]:
+# In[ ]:
 
 
 # Tabulate Data
@@ -1105,9 +1117,9 @@ for _, row in _df_sorted.iterrows():
     signal = row.Signal
     hit_prob = row.Hit_Prob
     
-    if ('Bullish' in row.Signal) and (row.Hit_Prob > 50) and (row['Max (%)'] > abs(row['Loss (%)'])):
+    if ('Bullish' in row.Signal) and (row.Hit_Prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
         color = '\033[92m'  # Green
-    elif ('Bearish' in row.Signal) and (row.Hit_Prob > 50) and (row['Max (%)'] > abs(row['Loss (%)'])):
+    elif ('Bearish' in row.Signal) and (row.Hit_Prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
         color = '\033[91m'  # Red
     else:
         color = '\033[38;5;251m'  # light gray
@@ -1115,11 +1127,11 @@ for _, row in _df_sorted.iterrows():
 
 
 # Print colored table
-print("\n=== Multi-Ticker Prediction Table ===\n")
+print("\n=== Prediction Table (Signal, Hit Probability and Maximum returns) ===\n")
 print(tabulate(colored_rows, headers=headers, floatfmt=".1f", tablefmt='orgtbl'))
 
 
-# In[7]:
+# In[ ]:
 
 
 # ✅ PLOT PREDICTIONS
