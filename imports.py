@@ -5,6 +5,7 @@ from time import sleep
 
 import pandas as pd
 import numpy as np
+import openpyxl
 
 import yfinance as yf
 import pandas_datareader.data as web
@@ -16,11 +17,13 @@ import matplotlib.dates as mdates
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.collections import LineCollection
 import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
+
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
+from matplotlib.table import Table
 
 import seaborn as sns
+from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score, classification_report, confusion_matrix

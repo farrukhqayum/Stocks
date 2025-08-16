@@ -2,6 +2,7 @@
 from imports import *
 import candlesticks as cs
 from time import sleep
+from sklearn.linear_model import LinearRegression
 
 w10 = 10
 w20 = 20
@@ -20,6 +21,35 @@ def get_stock_data(ticker, start_date, end_date, TF = '1d'):
     df.set_index('Date', inplace=True)
     df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
     return df
+
+def get_next_earnings_date(ticker):
+    stock = yf.Ticker(ticker)
+
+    earnings = stock.calendar
+   
+    if isinstance(earnings, dict):
+        try:
+            earnings = pd.DataFrame.from_dict(earnings)
+        except Exception:
+            return None
+
+    if isinstance(earnings, pd.DataFrame):
+        if 'Earnings Date' in earnings.index:
+            next_earnings = earnings.loc['Earnings Date']
+            if isinstance(next_earnings, pd.Series):
+                next_earnings = next_earnings.iloc[0]
+            elif hasattr(next_earnings, '__getitem__'):
+                next_earnings = next_earnings[0]
+            else:
+                return None
+            if pd.notnull(next_earnings):
+                return pd.to_datetime(next_earnings)
+        elif 'Earnings Date' in earnings.columns:
+            # If 'Earnings Date' is a column
+            val = earnings['Earnings Date'].values[0]
+            if pd.notnull(val):
+                return pd.to_datetime(val)
+    return None
 
 def get_fed_rates(start_date, end_date):
     rates = web.DataReader('FEDFUNDS', 'fred', start_date, end_date)
@@ -89,10 +119,12 @@ def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2):
     atr = calculate_atr(df.High, df.Low, df.Close)
     upper = middle + multiplier * atr
     lower = middle - multiplier * atr
+    kasym = (df['Close'] - middle) / (upper - lower)
     return pd.DataFrame({
         'KCm': middle,
         'KCu': upper,
-        'KCl': lower
+        'KCl': lower,
+        'Kasym': kasym
     }, index=df.index)  # Explicit index
 
 def calculate_vortex(df, window=14):
@@ -294,6 +326,18 @@ def calculate_dmi(df, n=14):
 
     # Return relevant columns
     return df[['+DI', '-DI', 'ADX']]
+
+
+def add_regression_forecast(ax, series, last_date, color):
+    data = series.dropna()
+    _DAYS = 14
+    y = data.iloc[-_DAYS:].values if len(data) >= _DAYS else data.values
+    x = np.arange(len(y)).reshape(-1,1)
+    model = LinearRegression().fit(x, y)
+    x_pred = np.arange(len(y), len(y)+_DAYS).reshape(-1,1)
+    y_pred = model.predict(x_pred)
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=_DAYS)
+    ax.plot(future_dates, y_pred, linestyle='dashdot', color=color, alpha=0.5)
     
 # Preparing the data for Machine Learning
 def prepare_ml_data(df):
@@ -498,3 +542,137 @@ def add_candlestickpatterns(df):
                           df['Bullish_Engulfing'] * 9)
 
     return df
+
+
+def detect_divergences(df, period=14, max_bar_diff=3):
+    """
+    Detect regular and hidden divergences:
+    Regular Bullish: Price lower low, RSI higher low
+    Regular Bearish: Price higher high, RSI lower high
+    Hidden Bullish: Price higher low, RSI lower low
+    Hidden Bearish: Price lower high, RSI higher high
+
+    Returns lists of pairs of indices for each divergence type.
+    """
+    bullish_pairs = []
+    bearish_pairs = []
+    hidden_bullish_pairs = []
+    hidden_bearish_pairs = []
+
+    price_lows_mask = df['Low'] == df['Low'].rolling(window=period, center=True).min()
+    price_highs_mask = df['High'] == df['High'].rolling(window=period, center=True).max()
+    rsi_lows_mask = df['RSI'] == df['RSI'].rolling(window=period, center=True).min()
+    rsi_highs_mask = df['RSI'] == df['RSI'].rolling(window=period, center=True).max()
+
+    lows_idx = np.where(price_lows_mask)[0]
+    highs_idx = np.where(price_highs_mask)[0]
+
+    # Regular Bullish
+    for i in range(1, len(lows_idx)):
+        idx1, idx2 = lows_idx[i-1], lows_idx[i]
+        if idx2 - idx1 <= period * 3:
+            if rsi_lows_mask.iloc[idx1] and rsi_lows_mask.iloc[idx2]:
+                price_LL = df['Low'].iloc[idx2] < df['Low'].iloc[idx1]
+                rsi_HL = df['RSI'].iloc[idx2] > df['RSI'].iloc[idx1]
+                if price_LL and rsi_HL:
+                    bullish_pairs.append((idx1, idx2))
+
+    # Regular Bearish
+    for i in range(1, len(highs_idx)):
+        idx1, idx2 = highs_idx[i-1], highs_idx[i]
+        if idx2 - idx1 <= period * 3:
+            if rsi_highs_mask.iloc[idx1] and rsi_highs_mask.iloc[idx2]:
+                price_HH = df['High'].iloc[idx2] > df['High'].iloc[idx1]
+                rsi_LH = df['RSI'].iloc[idx2] < df['RSI'].iloc[idx1]
+                if price_HH and rsi_LH:
+                    bearish_pairs.append((idx1, idx2))
+
+    # Hidden Bullish: Price higher low, RSI lower low
+    for i in range(1, len(lows_idx)):
+        idx1, idx2 = lows_idx[i-1], lows_idx[i]
+        if idx2 - idx1 <= period * 3:
+            if rsi_lows_mask.iloc[idx1] and rsi_lows_mask.iloc[idx2]:
+                price_HL = df['Low'].iloc[idx2] > df['Low'].iloc[idx1]
+                rsi_LL = df['RSI'].iloc[idx2] < df['RSI'].iloc[idx1]
+                if price_HL and rsi_LL:
+                    hidden_bullish_pairs.append((idx1, idx2))
+
+    # Hidden Bearish: Price lower high, RSI higher high
+    for i in range(1, len(highs_idx)):
+        idx1, idx2 = highs_idx[i-1], highs_idx[i]
+        if idx2 - idx1 <= period * 3:
+            if rsi_highs_mask.iloc[idx1] and rsi_highs_mask.iloc[idx2]:
+                price_LH = df['High'].iloc[idx2] < df['High'].iloc[idx1]
+                rsi_HH = df['RSI'].iloc[idx2] > df['RSI'].iloc[idx1]
+                if price_LH and rsi_HH:
+                    hidden_bearish_pairs.append((idx1, idx2))
+
+    return bullish_pairs, bearish_pairs, hidden_bullish_pairs, hidden_bearish_pairs
+
+def find_doubleTopBottom (df, rsi_col='RSI', tol=0.5, max_bar_diff=3):
+    """
+    Detect RSI double tops (highs close within tol) and double bottoms (lows close within tol).
+    Returns lists of tuples of indices (idx1, idx2) for double tops and bottoms.
+    """
+    rsi_highs_mask = df[rsi_col] == df[rsi_col].rolling(window=20, center=True).max()
+    rsi_lows_mask = df[rsi_col] == df[rsi_col].rolling(window=20, center=True).min()
+
+    rsi_highs_idx = np.where(rsi_highs_mask)[0]
+    rsi_lows_idx = np.where(rsi_lows_mask)[0]
+
+    double_tops = []
+    double_bottoms = []
+
+    # Double tops: two RSI highs close in value within tol, and close in time within max_bar_diff
+    for i in range(1, len(rsi_highs_idx)):
+        idx1 = rsi_highs_idx[i-1]
+        idx2 = rsi_highs_idx[i]
+        if abs(idx2 - idx1) <= max_bar_diff:
+            val_diff = abs(df[rsi_col].iloc[idx2] - df[rsi_col].iloc[idx1])
+            if val_diff <= tol:
+                double_tops.append((idx1, idx2))
+
+    # Double bottoms: same for lows
+    for i in range(1, len(rsi_lows_idx)):
+        idx1 = rsi_lows_idx[i-1]
+        idx2 = rsi_lows_idx[i]
+        if abs(idx2 - idx1) <= max_bar_diff:
+            val_diff = abs(df[rsi_col].iloc[idx2] - df[rsi_col].iloc[idx1])
+            if val_diff <= tol:
+                double_bottoms.append((idx1, idx2))
+
+    return double_tops, double_bottoms
+
+
+def plot_divergences(df, bullish, bearish, hidden_bull, hidden_bear, double_tops, double_bottoms, ax_price, ax_rsi):
+    alpha_val = 0.5  # semi-transparent
+
+    # Regular bullish (green solid)
+    for i1, i2 in bullish:
+        ax_price.plot([df.index[i1], df.index[i2]], [df['Low'].iloc[i1], df['Low'].iloc[i2]], color='green', alpha=alpha_val, lw=1.5)
+        ax_rsi.plot([df.index[i1], df.index[i2]], [df['RSI'].iloc[i1], df['RSI'].iloc[i2]], color='green', alpha=alpha_val, lw=1.5)
+
+    # Regular bearish (red solid)
+    for i1, i2 in bearish:
+        ax_price.plot([df.index[i1], df.index[i2]], [df['High'].iloc[i1], df['High'].iloc[i2]], color='red', alpha=alpha_val, lw=1.5)
+        ax_rsi.plot([df.index[i1], df.index[i2]], [df['RSI'].iloc[i1], df['RSI'].iloc[i2]], color='red', alpha=alpha_val, lw=1.5)
+
+    # Hidden bullish (lime green dashed)
+    for i1, i2 in hidden_bull:
+        ax_price.plot([df.index[i1], df.index[i2]], [df['Low'].iloc[i1], df['Low'].iloc[i2]], color='lime', alpha=alpha_val, lw=1.5, linestyle='dashed')
+        ax_rsi.plot([df.index[i1], df.index[i2]], [df['RSI'].iloc[i1], df['RSI'].iloc[i2]], color='lime', alpha=alpha_val, lw=1.5, linestyle='dashed')
+
+    # Hidden bearish (orange dashed)
+    for i1, i2 in hidden_bear:
+        ax_price.plot([df.index[i1], df.index[i2]], [df['High'].iloc[i1], df['High'].iloc[i2]], color='orange', alpha=alpha_val, lw=1.5, linestyle='dashed')
+        ax_rsi.plot([df.index[i1], df.index[i2]], [df['RSI'].iloc[i1], df['RSI'].iloc[i2]], color='orange', alpha=alpha_val, lw=1.5, linestyle='dashed')
+
+    # Double tops (RSI) with blue dotted lines on RSI only (optional)
+    for i1, i2 in double_tops:
+        ax_rsi.plot([df.index[i1], df.index[i2]], [df['RSI'].iloc[i1], df['RSI'].iloc[i2]], color='blue', alpha=alpha_val, lw=1.2, linestyle='dotted')
+
+    # Double bottoms (RSI) with purple dotted lines on RSI only (optional)
+    for i1, i2 in double_bottoms:
+        ax_rsi.plot([df.index[i1], df.index[i2]], [df['RSI'].iloc[i1], df['RSI'].iloc[i2]], color='purple', alpha=alpha_val, lw=1.2, linestyle='dotted')
+
+
