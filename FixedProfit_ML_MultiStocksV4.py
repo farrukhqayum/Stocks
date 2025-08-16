@@ -19,7 +19,7 @@ pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
 
 ##### STOCKS ##########
-TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "SMCI", "BABA", "XPEV", "NIO", "XYZ", "U"]
+TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "CRM", "BABA", "XPEV", "NIO", "XYZ", "U"]
 
 ##### CRYPTOS ##########
 #TICKERS = ["BTC-USD","ETH-USD", "XRP-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"]
@@ -55,7 +55,7 @@ start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
 
 FEATURES = [
     # Technical Indicators
-    'RSI', 'RSI_SMA', 'CCI', 'OBV', '+DI', '-DI', 'ADX', 'ATR', 'VWMA', 'VI+', 'KCu', 'KCl', 'STu', 'STl', 'MFI',
+    'RSI', 'RSI_SMA', 'CCI', 'OBV', '+DI', '-DI', 'ADX', 'ATR', 'VWMA', 'VI+', 'KCu', 'KCl', 'Kasym', 'STu', 'STl', 'MFI',
 
     # Moving Averages & Bands
     'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20',
@@ -94,19 +94,26 @@ def get_stock_data(ticker, start_date, end_date):
     df.dropna()
     return df
 
-def get_fundamentals(ticker: str):
+def get_fundamentals(ticker: str, df=None):
     stock = yf.Ticker(ticker)
     info = stock.info
     
-    # Extract fundamentals safely with defaults if missing
-    fundamentals = {
-        'Market Cap': info.get('marketCap', 'N/A'),
-        'Net Profit Margin': info.get('netMargins', 'N/A'),
-        'PE Ratio': info.get('trailingPE', 'N/A'),
-        'Quick Ratio': info.get('quickRatio', 'N/A'),
-        'Long Term Debt': info.get('longTermDebt', 'N/A'),
-        'Free Cash Flow': info.get('freeCashflow', 'N/A')
-    }
+    atr_value = None
+    if df is not None and 'ATR' in df.columns:
+        atr_value = f"${df['ATR'].iloc[-1]:.2f}"
+
+    fundamentals = {}
+    if atr_value is not None:
+        fundamentals['ATR'] = atr_value
+
+    fundamentals.update({
+            'Market Cap': info.get('marketCap', 'N/A'),
+            'Net Profit Margin': info.get('netMargins', 'N/A'),
+            'PE Ratio': info.get('trailingPE', 'N/A'),
+            'Quick Ratio': info.get('quickRatio', 'N/A'),
+            'Long Term Debt': info.get('longTermDebt', 'N/A'),
+            'Free Cash Flow': info.get('freeCashflow', 'N/A')
+        })
     
     # Format numeric values for better readability
     def fmt(value):
@@ -181,10 +188,6 @@ def add_technical_indicators(df):
 
     df['RSI']= ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'] / df['RSI'].rolling(14).mean()
-    '''
-    df['Bear'] = (df['SMA1'] < df['SMA2']).astype(int)
-    df['Bull'] = (df['SMA2'] < df['SMA1']).astype(int)
-    '''
     
     bull_condition = (df['SMA1'] > df['SMA2']) & (df['RSI'] > 52) & (df['RSI_SMA'] < df['RSI'])
     bear_condition = (df['Close'] < df['SMA2']) & (df['RSI'] < 42)
@@ -213,7 +216,7 @@ def add_technical_indicators(df):
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     
     df['VWMA'] = ta.calculate_vwma(df)
-    df[['KCm', 'KCu', 'KCl']] = ta.calculate_keltner(df)
+    df[['KCm', 'KCu', 'KCl', 'Kasym']] = ta.calculate_keltner(df)
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
     
@@ -233,6 +236,7 @@ def add_technical_indicators(df):
     df['gapStrength'] = ta.compute_gapStrength(df)
 
     return df
+
 
 def add_pivot_levels(df, window=_DAYS):
     # Compute rolling high/low/close over the window
@@ -593,10 +597,18 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     avg_price = (current_price+loss_price)/2.
     sma1_ = round(df['SMA1'].iloc[-1], 2)
     sma2_ = round(df['SMA2'].iloc[-1], 2)
-    
+
     # Create figure with white background
     plt.style.use('default')
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6), dpi = 300, height_ratios=[3, 1], sharex=True)
+    #fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6), dpi = 300, height_ratios=[3, 1], sharex=True)
+    fig, (ax1, ax2) = plt.subplots(
+    2, 1,
+    figsize=(12, 6),
+    dpi=300,
+    sharex=True,
+    gridspec_kw={'height_ratios': [3, 1]}
+    )
+
     #fig.patch.set_facecolor('white')
     
     # Get true trailing 12 months of data (not calendar YTD)
@@ -641,22 +653,38 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}: ${sma1_}', color='gold', alpha=0.7, linewidth=1.2)
     ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}: ${sma2_}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
 
-    ta.add_regression_forecast(ax1, df['SMA1'], last_date, _DAYS, color='gold')
+    ax1.plot(df.index, df['KCu'], color='blue', alpha=0.3, linestyle='--', linewidth=1)
+    ax1.plot(df.index, df['KCl'], color='red', alpha=0.3, linestyle='--', linewidth=1)
 
-    ta.add_regression_forecast(ax1, df['SMA2'], last_date, _DAYS, color='red')
+    ta.add_regression_forecast(ax1, df['SMA1'], last_date, color='gold')
+    ta.add_regression_forecast(ax1, df['SMA2'], last_date, color='red')
     
     # Fill between SMAs - green when SMA1 > SMA2, red otherwise
     ax1.fill_between(df.index, df['SMA1'], df['SMA2'],
-                    where=(df['SMA1'] > df['SMA2']),
-                    facecolor='green', alpha=0.1, interpolate=True)
+                     where=(df['SMA1'] > df['SMA2']),
+                     facecolor='green', alpha=0.2, interpolate=True,
+                     label='BUY-times')
     
     ax1.fill_between(df.index, df['SMA1'], df['SMA2'],
                     where=(df['SMA1'] <= df['SMA2']),
-                    facecolor='red', alpha=0.1, interpolate=True)
+                    facecolor='red', alpha=0.2, interpolate=True,
+                    label='Stay-away')
 
+    # Pullback points
+    pullback_points = df[df['BuyTime']]
+    
+    ax1.scatter(
+        pullback_points.index,
+        pullback_points['Close'],
+        color='orange',
+        marker=".",
+        alpha=0.3,
+        s=20,
+        zorder=5
+    )
     
     # Add stock's fundamental info box
-    fundamentals = get_fundamentals(ticker)
+    fundamentals = get_fundamentals(ticker, df)
     add_fundamentals_table(ax1, fundamentals, loc='lower left', alpha=0.6)
 
     # PLOT STORED PAST PREDICTIONS
@@ -669,7 +697,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         if not points.empty:
             points = points.copy()
             points['Date_Lagged'] = points['Date'] + pd.Timedelta(days=_FWDAYS)
-            #ax1.scatter(points['Date_Lagged'], points['Price'], color='gray', marker='o', s=_ms, zorder=10, alpha=0.4)
             ax1.scatter(points['Date_Lagged'], points['TP'], color='green', marker='^', s=_ms, zorder=10, alpha=0.4)
             ax1.scatter(points['Date_Lagged'], points['SL'], color='red', marker='v', s=_ms, zorder=10, alpha=0.4)
     except Exception as e:
@@ -688,7 +715,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     earnings_date = ta.get_next_earnings_date(ticker)
     
     if earnings_date is not None:
-        extended_range = pd.Timedelta(days=7)
+        extended_range = pd.Timedelta(days=_DAYS)
         
         if (first_date <= earnings_date <= last_date) or (last_date < earnings_date <= last_date + extended_range):
     
@@ -741,7 +768,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     ax1.annotate(f'Avg: ${avg_price:.2f}', 
                 xy=(last_date, avg_price),
-                xytext=(10, 0),  # 10 points to the right of the marker
+                xytext=(10, 0),
                 textcoords='offset points',
                 ha='left', 
                 va='center',
@@ -766,10 +793,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                 bbox=dict(facecolor='white', alpha=0.4, edgecolor='none'))
 
     signal_color = 'green' if 'Bullish' in predictions['Signal'] else 'red' if 'Bearish' in predictions['Signal'] else 'gray'
-
-    #_sigConf = f'{predictions.Signal}, {predictions.Risk}, Hit Prob: {predictions.Hits}, {int(predictions.Hit_Prob)}%'
-
-    _sigConf = f'{predictions.Signal}, {predictions.Risk}, Hit Prob: {int(predictions.Hit_Prob)}%, Will Hit: {predictions.Will_Hit}'
+    _sigConf = f'{predictions.Signal}, {predictions.Risk}, Will Hit: {predictions.Will_Hit} [{int(predictions.Hit_Prob)}%]'
 
     ax1.annotate(_sigConf,
                  xy=(0.7, 0.95), xycoords='axes fraction',
@@ -809,10 +833,10 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # Fill RSI above 52 (green) and below 40 (red)
     ax2.fill_between(df.index, rsi_, 52,
                     where=(df['RSI'] > 52),
-                    facecolor='green', alpha=0.1)
+                    facecolor='green', alpha=0.15)
     ax2.fill_between(df.index, rsi_, 40,
                     where=(df['RSI'] < 40),
-                    facecolor='red', alpha=0.1)
+                    facecolor='red', alpha=0.15)
 
     rsi_last = round(df['RSI'].iloc[-1], 1)
     rsi_sma_last = round(df['RSI'].rolling(20).mean().iloc[-1], 1)
@@ -825,10 +849,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     strong_Bear = (df['RSI'] < 40) & (df['ADX'] > 22) & (df['sumBuyVol'] < df['sumSellVol'])
     ax2.scatter(df.index[strong_Bear], rsi_[strong_Bear], color='red', marker='v', s=5, label='Bearish', zorder=10)
 
-    
-    ax2.axhline(70, color='green', linewidth=1, linestyle='--', alpha=0.2)
-    ax2.axhline(30, color='red', linewidth=1, linestyle='--', alpha=0.2)
-    ax2.axhline(50, color='gray', linewidth=1, linestyle='-', alpha=0.2)
+    ax2.axhline(80, color='green', linewidth=1, linestyle='dotted', alpha=0.3)
+    ax2.axhline(20, color='red', linewidth=1, linestyle='dotted', alpha=0.3)
+    ax2.axhline(52, color='gray', linewidth=1.2, linestyle='dashed', alpha=0.3)
     ax2.set_ylim(0, 100)
     ax2.yaxis.tick_right()
     ax2.yaxis.set_label_position("right")
@@ -836,6 +859,21 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     ax1.legend(loc='upper left', fontsize='small')
     ax2.legend(loc='upper left', fontsize='small')
+
+    # PLOT Divergences
+    
+    bull_div, bear_div, hbull_div, hbear_div = ta.detect_divergences(df, period=20)
+    dtop, dbot = ta.find_doubleTopBottom(df, tol=0.5, max_bar_diff=5)
+    ta.plot_divergences(df,
+                        bull_div,
+                        bear_div,
+                        hbull_div,
+                        hbear_div,
+                        dtop,
+                        dbot,
+                        ax1,
+                        ax2
+                        )
     
     # Formatting
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
@@ -909,6 +947,13 @@ for ticker in TICKERS:
 
         df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
         df = add_technical_indicators(df)
+
+        df['BuyTime'] = (
+            (df['Bull'] == 1) &
+            ((df['Close'] - df['SMA1']) / df['SMA1'] <= 0.02) &  # <= 2% above SMA1
+            (df['RSI'] > 50)
+        )
+
         df = add_pivot_levels(df, window=14)
         df = add_pivots(df, windows)
         df = average_pivots(df, windows)
@@ -1044,15 +1089,25 @@ for ticker in TICKERS:
         # Color for printing rows
         sc = 'green' if (signal == "TI: ✅ Bullish" and will_hit == "TP" and hit_prob >= 0.4) else \
             'red' if (signal == "TI: 🔻 Bearish" and will_hit == "SL" and hit_prob>=0.4) else 'white'
+
+        if will_hit == "TP":
+            hit_price_display = predicted_tp
+        elif will_hit == "SL":
+            hit_price_display = predicted_sl
+        else:
+            hit_price_display = "NA"
         
+        hit_price_str = f"${hit_price_display:>7.2f}" if isinstance(hit_price_display, (int, float)) else f"{hit_price_display:>8}"
+
         row_text = (
             f"{n:>3} "
             f"{bold}{ticker:>7} "
             f"Price: ${current_price:>7.2f} "
             f"TP: ${predicted_tp:>7.2f} ({predicted_return*100:>5.2f}%) "
-            f"{will_hit:>4} (${predicted_sl:>7.2f}) "
+            f"{will_hit:>4} ({hit_price_str}) "
             f"Prob: {int(hit_prob*100):>3}% "
-            f"{signal:>7}{end}"
+            f" ATR: ${df['ATR'].iloc[-1]:>5.1f}   "
+            f"{signal[3:]:<7}{end}"
         )
         print(colored_row(row_text, sc))
         n += 1
@@ -1142,7 +1197,7 @@ df_plot = df_results
 #df_plot = df_plot.sort_values(by="Max (%)", ascending=False)
 max_vals = df_plot["Max (%)"].to_numpy()
 norm = mcolors.Normalize(vmin=min(max_vals), vmax=max(max_vals))
-cmap = cm.Spectral_r #Inverse of spectral
+cmap = cm.jet #Inverse of spectral
 custom_colors = cmap(norm(max_vals))
 
 fig, ax1 = plt.subplots(figsize=(12, 6), zorder=1, dpi=200)
@@ -1153,7 +1208,7 @@ cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
 
 
 # Main bar plot
-ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.7)
+ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.4)
 ax1.set_ylabel('Max Return (%)', fontsize=12)
 ax1.tick_params(axis='x', rotation=45)
 ax1.grid(True, axis='y', linestyle='--', alpha=0.7)
@@ -1161,7 +1216,7 @@ ax1.grid(True, axis='y', linestyle='--', alpha=0.7)
 # Add colorbar at the right of the plot
 sm = cm.ScalarMappable(norm=norm, cmap=cmap)
 sm.set_array([])
-cbar = plt.colorbar(sm, cax=cax, orientation='vertical', label="Colored by: Max (%)", alpha = 0.6)
+cbar = plt.colorbar(sm, cax=cax, orientation='vertical', label="Colored by: Max (%)", alpha = 0.4)
 cbar.ax.tick_params(labelsize=8)
 
 # Secondary axis for loss line
@@ -1279,10 +1334,4 @@ del_old_files(path, 14)
 
 # CREATE A PYTHON FILE BACKUP
 get_ipython().system('jupyter nbconvert --to script FixedProfit_ML_MultiStocksV4.ipynb')
-
-
-# In[ ]:
-
-
-
 
