@@ -42,7 +42,7 @@ _window = 9  # Backtesting
 tolerance = 1.07
 _FIBS = False
 _FibLen = 20 # Scan pivots for fibonacci levels
-_ms = 7 # global marker size for matplotlib
+_ms = 5 # global marker size for matplotlib
 
 bold = '\033[1m'
 end = '\033[0m'
@@ -55,7 +55,7 @@ start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
 
 FEATURES = [
     # Technical Indicators
-    'RSI', 'RSI_SMA', 'CCI', 'OBV', '+DI', '-DI', 'ADX', 'ATR', 'VWMA', 'VI+', 'KCu', 'KCl', 'Kasym', 'STu', 'STl', 'MFI',
+    'RSI', 'RSI_SMA', 'CCI', 'OBV', '+DI', '-DI', 'ADX', 'ATR', 'VWMA', 'VI+', 'KCu', 'KCl', 'Kasym', 'Kcount', 'STu', 'STl', 'MFI',
 
     # Moving Averages & Bands
     'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20',
@@ -200,6 +200,7 @@ def add_technical_indicators(df):
     ema26 = df['Close'].ewm(span=24, adjust=False).mean()
     df['MACD'] = ema12 - ema26
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    
     df['Upper_Band'] = df['SMA1'] + (2 * df['Close'].rolling(20).std())
     df['Lower_Band'] = df['SMA1'] - (2 * df['Close'].rolling(20).std())
     df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
@@ -216,7 +217,7 @@ def add_technical_indicators(df):
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     
     df['VWMA'] = ta.calculate_vwma(df)
-    df[['KCm', 'KCu', 'KCl', 'Kasym']] = ta.calculate_keltner(df)
+    df[['KCm', 'KCu', 'KCl', 'Kasym', 'Kcount']] = ta.calculate_keltner(df)
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
     
@@ -529,22 +530,20 @@ def del_old_files (directory, days, exclude_extensions=None, dry_run=False):
                     print(f"Error deleting {filepath}: {e}")
        
 def append_pred(df, fpath):
-    cols = ['Ticker', 'Date', 'Price', 'TP', 'SL']
+    cols = ['Ticker', 'Date', 'Price', 'TP', 'SL', 'Will_Hit','Signal']
     new_data = df[cols].copy()
     new_data['Date'] = pd.to_datetime(new_data['Date'])
     
     if os.path.exists(fpath):
         old_data = pd.read_excel(fpath)
         old_data['Date'] = pd.to_datetime(old_data['Date'])
-        # Filter out rows from old_data that are duplicated in new_data by Ticker+Date
         mask = old_data.set_index(['Ticker', 'Date']).index.isin(new_data.set_index(['Ticker', 'Date']).index)
         old_data = old_data[~mask]
-        # Combine without duplicates (new_data overwrites)
+
         combined = pd.concat([old_data, new_data], ignore_index=True)
     else:
         combined = new_data
-    
-    # Keep only latest 20 rows per Ticker, sorted by Date
+
     combined = (
         combined
         .sort_values(['Ticker', 'Date'])
@@ -591,6 +590,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     gain_price = current_price * (1 + gain/100)
     loss_price = current_price * (1 + loss/100)
     hit_prob = predictions.Hit_Prob
+    summary_lines = []
     
     last_date = df.index[-1]
     future_date = last_date + pd.Timedelta(days=_window)
@@ -617,10 +617,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     df = df.loc[start_date:end_date]
     
     # ===== 1. PRICE PLOT =====
-    # Configure plot style
-    #ax1.set_facecolor('white')
     ax1.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.5)
-
     # Signal for color
     df['Signal'] = np.select(
     [df['Bull']==1, df['Bear']==1],
@@ -628,7 +625,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     default='Neutral'
     )
     
-    # Smooth the price (3-periods) to remove outliers, the last price may also be not visible
+    # Smooth the price (3-periods) to remove outliers, the last price may also not be visible
     price = df['Close'].rolling(3).mean()
     price.iloc[-1] = df['Close'].iloc[-1]
     
@@ -648,15 +645,24 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             last_signal = row['Signal']
 
     # Historical data
-    # Price is 3-days mean to avoid noise
-    #ax1.plot(df.index, price, label= f'Price: ${current_price}', color='gray', alpha=0.7, linewidth=1.5)
-    ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}: ${sma1_}', color='gold', alpha=0.7, linewidth=1.2)
-    ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}: ${sma2_}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
+    kcount_absmax = df['Kcount'].abs().max()
+    df['Kcount_sc'] = df['Kcount'] * (df['SMA1'] / kcount_absmax)
+
+    ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='gold', alpha=0.7, linewidth=1.2)
+    ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
 
     ax1.plot(df.index, df['KCu'], color='blue', alpha=0.3, linestyle='--', linewidth=1)
     ax1.plot(df.index, df['KCl'], color='red', alpha=0.3, linestyle='--', linewidth=1)
 
-    ta.add_regression_forecast(ax1, df['SMA1'], last_date, color='gold')
+    ax1_ = ax1.twinx()
+    line_kcount, = ax1_.plot(df.index, df['Kcount_sc'], color='gray', alpha=0.15, linewidth=2, label='KC Cumm. touches', zorder=0)
+    ax1_.set_yticks([])
+    ax1_.set_ylabel('')
+
+    for line in ax1.lines:
+        line.set_zorder(3)
+    
+    ta.add_regression_forecast(ax1, df['SMA1'], last_date, color='orange')
     ta.add_regression_forecast(ax1, df['SMA2'], last_date, color='red')
     
     # Fill between SMAs - green when SMA1 > SMA2, red otherwise
@@ -670,39 +676,28 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                     facecolor='red', alpha=0.2, interpolate=True,
                     label='Stay-away')
 
-    # Pullback points
-    pullback_points = df[df['BuyTime']]
-    
-    ax1.scatter(
-        pullback_points.index,
-        pullback_points['Close'],
-        color='orange',
-        marker=".",
-        alpha=0.3,
-        s=20,
-        zorder=5
-    )
-    
     # Add stock's fundamental info box
     fundamentals = get_fundamentals(ticker, df)
     add_fundamentals_table(ax1, fundamentals, loc='lower left', alpha=0.6)
 
     # PLOT STORED PAST PREDICTIONS
-    
     try:
         if 'df_hist' not in locals():
             df_hist = pd.read_excel(pred_file)
             df_hist['Date'] = pd.to_datetime(df_hist['Date'])
-        points = df_hist[(df_hist['Ticker'] == ticker)].sort_values('Date')
+        points = df_hist[df_hist['Ticker'] == ticker].sort_values('Date')
         if not points.empty:
-            points = points.copy()
-            points['Date_Lagged'] = points['Date'] + pd.Timedelta(days=_FWDAYS)
-            ax1.scatter(points['Date_Lagged'], points['TP'], color='green', marker='^', s=_ms, zorder=10, alpha=0.4)
-            ax1.scatter(points['Date_Lagged'], points['SL'], color='red', marker='v', s=_ms, zorder=10, alpha=0.4)
+            # Extract Will_Hit column as strings, stripped, split and take first part (TP/SL/None)
+            hits_series = points['Will_Hit'].astype(str).str.strip().str.split().str[0]
+            # Remove NaN or 'nan' entries
+            hits_series = hits_series[hits_series.notna() & (hits_series.str.lower() != 'nan')]
+            hits = hits_series.tolist()
+            hits_str = f"Will_Hit (all): {', '.join(hits)}"
+    
     except Exception as e:
-        print(f"Prediction plotting error for {ticker}: {e}")
+        hits_str = f'Will_Hit data N/A.'
 
-    # Add earning date to the bottom
+    # Add the earning date to the bottom
     data_ymin = df['Close'].min()
     data_ymax = df['Close'].max()
     price_margin = (data_ymax - data_ymin) * 0.1
@@ -720,8 +715,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         if (first_date <= earnings_date <= last_date) or (last_date < earnings_date <= last_date + extended_range):
     
             y_pos = data_ymin + 0.05 * (data_ymax - data_ymin)
-    
-            # If just outside the range, pin label to right edge of chart
             x_pos = earnings_date if earnings_date <= last_date else last_date
     
             ax1.text(
@@ -811,7 +804,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                  horizontalalignment='center', verticalalignment='center',
                  rotation=0, weight='bold', style='italic')    
         
-    # Move y-axis to right
+    # Move y-axis to the right
     ax1.yaxis.tick_right()
     ax1.yaxis.set_label_position("right")
     ax1.set_ylabel('Price')
@@ -820,7 +813,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         fontdict={'fontname': 'Segoe UI Emoji', 'fontsize': 16},
         pad=20
     )
-    ax1.legend(loc='upper left')
     
     # ===== 2. RSI PLOT =====
     #ax2.set_facecolor('white')
@@ -842,13 +834,17 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     rsi_sma_last = round(df['RSI'].rolling(20).mean().iloc[-1], 1)
     price_vs_sma1 = 100 * (current_price - sma1_) / sma1_ if sma1_ != 0 else 0
     
-    # Trend Strength Indicators    
+    # Trend Strength Indicators
+    ax2.scatter(df.index[df['StrongBull'] == 1], rsi_[df['StrongBull'] == 1], color='lime', marker='^', s=5, label='Bullish', zorder=10)
+    ax2.scatter(df.index[df['StrongBear'] == 1], rsi_[df['StrongBear'] == 1], color='red', marker='v', s=5, label='Bearish', zorder=10)
+
+    '''
     strong_Bull = (df['RSI'] > 52) & (df['ADX'] > 22) & (df['sumBuyVol'] > df['sumSellVol'])
     ax2.scatter(df.index[strong_Bull], rsi_[strong_Bull], color='lime', marker='^', s=5, label='Bullish', zorder=10)
     
     strong_Bear = (df['RSI'] < 40) & (df['ADX'] > 22) & (df['sumBuyVol'] < df['sumSellVol'])
     ax2.scatter(df.index[strong_Bear], rsi_[strong_Bear], color='red', marker='v', s=5, label='Bearish', zorder=10)
-
+    '''
     ax2.axhline(80, color='green', linewidth=1, linestyle='dotted', alpha=0.3)
     ax2.axhline(20, color='red', linewidth=1, linestyle='dotted', alpha=0.3)
     ax2.axhline(52, color='gray', linewidth=1.2, linestyle='dashed', alpha=0.3)
@@ -856,8 +852,11 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax2.yaxis.tick_right()
     ax2.yaxis.set_label_position("right")
     ax2.set_ylabel('RSI')
+    
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax1_.get_legend_handles_labels()
 
-    ax1.legend(loc='upper left', fontsize='small')
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize='small')
     ax2.legend(loc='upper left', fontsize='small')
 
     # PLOT Divergences
@@ -907,6 +906,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         action = f"{ticker} is NEUTRAL; monitor market for clearer signals."
     
     summary_lines.append(action)
+    summary_lines.append(hits_str)
 
     textbox = AnchoredText(
        action,
@@ -930,7 +930,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     print("\n".join(summary_lines))
 
 
-# In[ ]:
+# In[5]:
 
 
 # Make Predictions (Gain/Loss/Confidence)
@@ -950,8 +950,7 @@ for ticker in TICKERS:
 
         df['BuyTime'] = (
             (df['Bull'] == 1) &
-            ((df['Close'] - df['SMA1']) / df['SMA1'] <= 0.02) &  # <= 2% above SMA1
-            (df['RSI'] > 50)
+            ((df['Close'] - df['SMA1']) / df['SMA1'] <= 0.02)
         )
 
         df = add_pivot_levels(df, window=14)
@@ -1100,13 +1099,13 @@ for ticker in TICKERS:
         hit_price_str = f"${hit_price_display:>7.2f}" if isinstance(hit_price_display, (int, float)) else f"{hit_price_display:>8}"
 
         row_text = (
-            f"{n:>3} "
-            f"{bold}{ticker:>7} "
-            f"Price: ${current_price:>7.2f} "
-            f"TP: ${predicted_tp:>7.2f} ({predicted_return*100:>5.2f}%) "
-            f"{will_hit:>4} ({hit_price_str}) "
-            f"Prob: {int(hit_prob*100):>3}% "
-            f" ATR: ${df['ATR'].iloc[-1]:>5.1f}   "
+            f"{n:>3} | "
+            f"{bold}{ticker:>7} | "
+            f"Price: ${current_price:>7.2f} | "
+            f"TP: ${predicted_tp:>7.2f} ({predicted_return*100:>5.2f}%) | "
+            f"{will_hit:>4} ({hit_price_str}) | "
+            f"Prob: {int(hit_prob*100):>3}% | "
+            f" ATR: ${df['ATR'].iloc[-1]:>5.1f}   | "
             f"{signal[3:]:<7}{end}"
         )
         print(colored_row(row_text, sc))
@@ -1148,7 +1147,7 @@ df_results = pd.DataFrame(results)
 append_pred(df_results, pred_file)
 
 
-# In[ ]:
+# In[6]:
 
 
 # Tabulate Data
@@ -1320,11 +1319,11 @@ plt.show()
 
 # PLOT STOCK TA with Predictions
 for ticker in TICKERS:
-    df = dfs.get(ticker)
-    if df is None:
+    _df = dfs.get(ticker)
+    if _df is None:
         print(f"Skipping {ticker}: no preloaded data available")
         continue
-    plot_single_ticker(ticker, df, df_results)
+    plot_single_ticker(ticker, _df, df_results)
     
 del_old_files(path, 14)
 
@@ -1334,4 +1333,10 @@ del_old_files(path, 14)
 
 # CREATE A PYTHON FILE BACKUP
 get_ipython().system('jupyter nbconvert --to script FixedProfit_ML_MultiStocksV4.ipynb')
+
+
+# In[ ]:
+
+
+
 
