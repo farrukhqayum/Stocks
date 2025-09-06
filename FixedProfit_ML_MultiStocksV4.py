@@ -19,7 +19,7 @@ pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
 
 ##### STOCKS ##########
-TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "CRM", "BABA", "XPEV", "NIO", "XYZ", "U"]
+TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "CRM", "BABA", "XPEV", "NIO", "CPNG", "U", "UNH"]
 
 ##### CRYPTOS ##########
 #TICKERS = ["BTC-USD","ETH-USD", "XRP-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"]
@@ -37,7 +37,7 @@ PROFIT_TARGET = 0.07
 STOP_LOSS = 0.07
 _DAYS = 20 # Used for SMA and training
 _FWDAYS = 14 # Forward days to plot stored data
-windows = [3, 5, 7, 10, 13, 15, 20, 30, 40, 50] # For calculating returns
+windows = [3, 5, 7, 9, 13, 15, 19, 29, 39, 50] # For calculating returns
 _window = 9  # Backtesting
 tolerance = 1.07
 _FIBS = False
@@ -64,7 +64,7 @@ FEATURES = [
     'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
 
     # Volume Features
-    'sumBuyVol', 'sumSellVol', 'vSpike',
+    'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT',
 
     # Candlestick Patterns
     'Candlesticks', 'gapStrength',
@@ -168,7 +168,7 @@ def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
     )
 
     table.auto_set_font_size(False)
-    table.set_fontsize(8)
+    table.set_fontsize(6)
 
     for (row, col), cell in table.get_celld().items():
         if row == 0:
@@ -191,7 +191,6 @@ def add_technical_indicators(df):
     
     bull_condition = (df['SMA1'] > df['SMA2']) & (df['RSI'] > 52) & (df['RSI_SMA'] < df['RSI'])
     bear_condition = (df['Close'] < df['SMA2']) & (df['RSI'] < 42)
-
     df['Bull'] = bull_condition.astype(int)
     df['Bear'] = bear_condition.astype(int)
     df['Neutral'] = (~(bull_condition | bear_condition)).astype(int)
@@ -208,9 +207,13 @@ def add_technical_indicators(df):
     df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
     df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
     df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
-    df['vSpike'] = (df['Volume'] > 2 * df['Volume_MA20']).astype(int)
-    df['MFI'] = ta.calculate_mfi(df)
+    df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'],
+                        np.where(df['Close'] > df['Open'], 1, -1), 0)
+    df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
+
+
     
+    df['MFI'] = ta.calculate_mfi(df)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
@@ -225,12 +228,12 @@ def add_technical_indicators(df):
     
     df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
 
-    df['return1'] = df['Close'].pct_change(9)
-    df['return2'] = df['Close'].pct_change(20)
-    df['return3'] = df['Close'].pct_change(50)
-    df['Volatility'] = df['Close'].rolling(20).std()
+    df['return1'] = df['Close'].pct_change(7)
+    df['return2'] = df['Close'].pct_change(14)
+    df['return3'] = df['Close'].pct_change(21)
+    
+    df['Volatility'] = df['Close'].rolling(14).std()
     df = ta.scaled_volatility(df)
-    # StrongBull, StrongBear, and Neutral as features
     df['StrongBull'] = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['sumBuyVol'] > df['sumSellVol'])).astype(int)
     df['StrongBear'] = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['sumBuyVol'] < df['sumSellVol'])).astype(int)
     df['Neutral'] = (~(df['StrongBull'].astype(bool) | df['StrongBear'].astype(bool))).astype(int)
@@ -687,12 +690,15 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             df_hist['Date'] = pd.to_datetime(df_hist['Date'])
         points = df_hist[df_hist['Ticker'] == ticker].sort_values('Date')
         if not points.empty:
-            # Extract Will_Hit column as strings, stripped, split and take first part (TP/SL/None)
+            points = points.copy()
+            points['Date_Lagged'] = points['Date'] + pd.Timedelta(days=_FWDAYS)
+            ax1.scatter(points['Date_Lagged'], points['TP'], color='green', marker='^', s=_ms, zorder=10, alpha=0.4)
+            ax1.scatter(points['Date_Lagged'], points['SL'], color='red', marker='v', s=_ms, zorder=10, alpha=0.4)
+            
             hits_series = points['Will_Hit'].astype(str).str.strip().str.split().str[0]
-            # Remove NaN or 'nan' entries
             hits_series = hits_series[hits_series.notna() & (hits_series.str.lower() != 'nan')]
             hits = hits_series.tolist()
-            hits_str = f"Will_Hit (all): {', '.join(hits)}"
+            hits_str = f"\n{_DAYS}D rollPred: {', '.join(hits)}"
     
     except Exception as e:
         hits_str = f'Will_Hit data N/A.'
@@ -813,8 +819,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         fontdict={'fontname': 'Segoe UI Emoji', 'fontsize': 16},
         pad=20
     )
-    
-    # ===== 2. RSI PLOT =====
+    # ======================================   RSI  PLOT    ==================================================== #
     #ax2.set_facecolor('white')
     rsi_ = df['RSI'].rolling(3).mean()
     rsi_sma = df['RSI'].rolling(20).mean()
@@ -838,21 +843,32 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax2.scatter(df.index[df['StrongBull'] == 1], rsi_[df['StrongBull'] == 1], color='lime', marker='^', s=5, label='Bullish', zorder=10)
     ax2.scatter(df.index[df['StrongBear'] == 1], rsi_[df['StrongBear'] == 1], color='red', marker='v', s=5, label='Bearish', zorder=10)
 
-    '''
-    strong_Bull = (df['RSI'] > 52) & (df['ADX'] > 22) & (df['sumBuyVol'] > df['sumSellVol'])
-    ax2.scatter(df.index[strong_Bull], rsi_[strong_Bull], color='lime', marker='^', s=5, label='Bullish', zorder=10)
-    
-    strong_Bear = (df['RSI'] < 40) & (df['ADX'] > 22) & (df['sumBuyVol'] < df['sumSellVol'])
-    ax2.scatter(df.index[strong_Bear], rsi_[strong_Bear], color='red', marker='v', s=5, label='Bearish', zorder=10)
-    '''
+    # Horizontal RSI Levels
     ax2.axhline(80, color='green', linewidth=1, linestyle='dotted', alpha=0.3)
     ax2.axhline(20, color='red', linewidth=1, linestyle='dotted', alpha=0.3)
+    ax2.axhline(40, color='brown', linewidth=1, linestyle='dashed', alpha=0.3)
     ax2.axhline(52, color='gray', linewidth=1.2, linestyle='dashed', alpha=0.3)
     ax2.set_ylim(0, 100)
     ax2.yaxis.tick_right()
     ax2.yaxis.set_label_position("right")
     ax2.set_ylabel('RSI')
+
+    mid_date = df.index[len(df.index)//2]
     
+    ax2.annotate(
+        hits_str,
+        xy=(mid_date, 5), 
+        xycoords='data',
+        xytext=(0, 0),
+        textcoords='offset points',
+        ha='center',
+        va='bottom',
+        fontsize=8,
+        fontweight='bold',
+        color='gray',
+        bbox=dict(boxstyle='round', fc='lightyellow', ec='gray', alpha=0.3)
+    )
+
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax1_.get_legend_handles_labels()
 
@@ -923,14 +939,14 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # Save the figure to disk
     fname = f'{today}_{ticker}_TPSL.png'
     fpath = os.path.join(path, fname)
-    plt.savefig(fpath, bbox_inches='tight')
+    plt.savefig(fpath, bbox_inches='tight', dpi=300)
     plt.tight_layout()
     plt.show()
       
     print("\n".join(summary_lines))
 
 
-# In[5]:
+# In[ ]:
 
 
 # Make Predictions (Gain/Loss/Confidence)
@@ -1075,7 +1091,8 @@ for ticker in TICKERS:
         sma1 = latest['SMA1'].values[0]
         sma2 = latest['SMA2'].values[0]
         rsi = latest['RSI'].values[0]
-        signal = "TI: ⚠️ Neut"
+        signal = "TI: ⚠️ Neutral"
+        
         entry_signal = False
         if (current_price >= sma1 and sma1 >= sma2 and rsi >= 52):
             signal = "TI: ✅ Bullish"
@@ -1147,7 +1164,7 @@ df_results = pd.DataFrame(results)
 append_pred(df_results, pred_file)
 
 
-# In[6]:
+# In[ ]:
 
 
 # Tabulate Data
@@ -1310,7 +1327,7 @@ plt.subplots_adjust(bottom=0.35)  # Increase if needed for annotation visibility
 # Save and show
 fname = f'{today}_ML_PNL_Multi{isStockCrypto}.png'
 fpath = os.path.join(path, fname)
-plt.savefig(fpath, bbox_inches='tight')
+plt.savefig(fpath, bbox_inches='tight', dpi=300)
 plt.show()
 
 
