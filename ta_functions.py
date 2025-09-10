@@ -119,15 +119,27 @@ def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2):
     atr = calculate_atr(df.High, df.Low, df.Close)
     upper = middle + multiplier * atr
     lower = middle - multiplier * atr
+
+    hits = []
+    counter = 0
+    for close, up, low in zip(df['Close'], upper, lower):
+        if close >= up: 
+            counter += 1
+        elif close <= low:
+            counter -= 1
+        hits.append(counter)
+        
     kasym = (df['Close'] - middle) / (upper - lower)
+    
     return pd.DataFrame({
         'KCm': middle,
         'KCu': upper,
         'KCl': lower,
-        'Kasym': kasym
+        'Kasym': kasym,
+        'Kcount': hits
     }, index=df.index)  # Explicit index
 
-def calculate_vortex(df, window=14):
+def calculate_vortex(df, window=20):
     vm_plus = abs(df['High'] - df['Low'].shift(1))
     vm_minus = abs(df['Low'] - df['High'].shift(1))
     atr = calculate_atr(df.High, df.Low, df.Close)
@@ -252,6 +264,17 @@ def calculate_pvt(df):
     tmp = ((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)) * df['Volume']
     return tmp.cumsum()
 
+def chaikin_money_flow(df, window=20):
+    high = df['High'] if 'High' in df else df['high']
+    low = df['Low'] if 'Low' in df else df['low']
+    close = df['Close'] if 'Close' in df else df['close']
+    volume = df['Volume'] if 'Volume' in df else df['volume']
+    mfm = ((close - low) - (high - close)) / (high - low)
+    mfm = mfm.replace([np.inf, -np.inf], 0).fillna(0)
+    mfv = mfm * volume
+    cmf = mfv.rolling(window).sum() / volume.rolling(window).sum()
+    return cmf
+
 def calculate_mfi(data, period=20):
     required_columns = ['High', 'Low', 'Close', 'Volume']
     if not all(column in data.columns for column in required_columns):
@@ -279,6 +302,20 @@ def calculate_mfi(data, period=20):
                        'MFR'], inplace=True)
 
     return data['MFI']
+
+def calculate_smiio(df, r=13, s=25, u=9):
+    price = df['Close']
+    m = price - price.shift(1)
+    ema1 = m.ewm(span=r, adjust=False).mean()
+    ema2 = ema1.ewm(span=s, adjust=False).mean()
+    abs_m = np.abs(m)
+    abs_ema1 = abs_m.ewm(span=r, adjust=False).mean()
+    abs_ema2 = abs_ema1.ewm(span=s, adjust=False).mean()
+    smiio = 100 * (ema2 / abs_ema2)
+    signal = smiio.ewm(span=u, adjust=False).mean()
+    oscillator = smiio - signal
+    return smiio, signal, oscillator
+
 
 def calculate_cci(data, period=20):
     if not all(col in data.columns for col in ['High', 'Low', 'Close']):
@@ -327,6 +364,28 @@ def calculate_dmi(df, n=14):
     # Return relevant columns
     return df[['+DI', '-DI', 'ADX']]
 
+def add_exhaustion_indicator(df, lookback=90, threshold=0.05):
+    """
+    Adds an 'Exhaustion' indicator to df, combining distance to 90-day high and low.
+    Exhaustion score close to 1 means price very close to 90-day high or low.
+    threshold is used to flag exhaustion (e.g. within 5% of high or low).
+    """
+    high_90 = df['High'].rolling(lookback).max()
+    low_90 = df['Low'].rolling(lookback).min()
+    close = df['Close']
+
+    # Distance to high and low, normalized; 1 means at extreme, 0 farther away
+    dist_high = 1 - (high_90 - close) / (high_90 - low_90 + 1e-9)
+    dist_low = 1 - (close - low_90) / (high_90 - low_90 + 1e-9)
+
+    # Clip values between 0 and 1
+    dist_high = dist_high.clip(0, 1)
+    dist_low = dist_low.clip(0, 1)
+
+    # Combine dist_high and dist_low to one exhaustion score (e.g. max)
+    df['Exhaustion'] = np.maximum(dist_high, dist_low)
+    
+    return df
 
 def add_regression_forecast(ax, series, last_date, color):
     data = series.dropna()

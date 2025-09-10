@@ -19,7 +19,7 @@ pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
 
 ##### STOCKS ##########
-TICKERS = ["COIN", "TSLA", "GOOGL", "NVDA", "AAPL", "NKE", "CRM", "BABA", "XPEV", "NIO", "CPNG", "U", "UNH"]
+TICKERS = ["COIN", "TSLA", "GOOGL", "AMAT", "AAPL", "NKE", "CRM", "BABA", "XPEV", "NIO", "CPNG", "U", "UNH"]
 
 ##### CRYPTOS ##########
 #TICKERS = ["BTC-USD","ETH-USD", "XRP-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"]
@@ -32,12 +32,12 @@ else:
     isStockCrypto = "STOCKS"
 
 _Nr = 50 # Skip model if the length is this
-YEARS_OF_DATA = 2
-PROFIT_TARGET = 0.07
-STOP_LOSS = 0.07
+YEARS_OF_DATA = 4
+PROFIT_TARGET = 0.08
+STOP_LOSS = 0.08
 _DAYS = 20 # Used for SMA and training
 _FWDAYS = 14 # Forward days to plot stored data
-windows = [3, 5, 7, 9, 13, 15, 19, 29, 39, 50] # For calculating returns
+windows = [3, 5, 7, 9, 13, 15, 19, 29, 39, 49, 59] # For calculating returns
 _window = 9  # Backtesting
 tolerance = 1.07
 _FIBS = False
@@ -55,22 +55,22 @@ start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
 
 FEATURES = [
     # Technical Indicators
-    'RSI', 'RSI_SMA', 'CCI', 'OBV', '+DI', '-DI', 'ADX', 'ATR', 'VWMA', 'VI+', 'KCu', 'KCl', 'Kasym', 'Kcount', 'STu', 'STl', 'MFI',
+    'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'Kasym', 'Kcount', 'STu', 'STl',
 
     # Moving Averages & Bands
-    'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20',
+    'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20', 'SMIIO', 'SMIIO_Signal', 'SMIIO_Osc', 'MACD', 'Signal_Line',
 
     # Returns & Volatility
     'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
 
     # Volume Features
-    'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT',
+    'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT', 'OBV', 'MFI', 'VWMA', 'CMF',
 
     # Candlestick Patterns
     'Candlesticks', 'gapStrength',
 
     # Market Sentiment & Signals
-    'Bear', 'Bull', 'Neutral', 'StrongBull', 'StrongBear', 'Neutral',
+    'Bear', 'Bull', 'Neutral', 'StrongBull', 'StrongBear', 'Neutral', 'Exhaustion',
 
     # PIVOTS
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
@@ -185,12 +185,17 @@ def add_technical_indicators(df):
     df['SMA2'] = df['Close'].rolling(window=_DAYS).mean()
     df['SMA3'] = df['Close'].rolling(window=int(_DAYS*2)).mean()
     df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
+        
+    df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
+    df = ta.scaled_volatility(df)
+    df = ta.add_candlestickpatterns(df)
 
     df['RSI']= ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'] / df['RSI'].rolling(14).mean()
+
+    bull_condition = (df['SMA1'] >= df['SMA2']) & (df['RSI'] >= 52) & (df['RSI'] >= df['RSI_SMA'])
+    bear_condition = (df['Close'] <= df['SMA2']) & (df['RSI'] <= 42) & (df['RSI'] <= df['RSI_SMA'])
     
-    bull_condition = (df['SMA1'] > df['SMA2']) & (df['RSI'] > 52) & (df['RSI_SMA'] < df['RSI'])
-    bear_condition = (df['Close'] < df['SMA2']) & (df['RSI'] < 42)
     df['Bull'] = bull_condition.astype(int)
     df['Bear'] = bear_condition.astype(int)
     df['Neutral'] = (~(bull_condition | bear_condition)).astype(int)
@@ -199,7 +204,8 @@ def add_technical_indicators(df):
     ema26 = df['Close'].ewm(span=24, adjust=False).mean()
     df['MACD'] = ema12 - ema26
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    
+    df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
+
     df['Upper_Band'] = df['SMA1'] + (2 * df['Close'].rolling(20).std())
     df['Lower_Band'] = df['SMA1'] - (2 * df['Close'].rolling(20).std())
     df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
@@ -210,21 +216,18 @@ def add_technical_indicators(df):
     df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'],
                         np.where(df['Close'] > df['Open'], 1, -1), 0)
     df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
-
-
     
     df['MFI'] = ta.calculate_mfi(df)
+    df['CMF'] = ta.chaikin_money_flow(df, window=20)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
-    df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
+
     
     df['VWMA'] = ta.calculate_vwma(df)
     df[['KCm', 'KCu', 'KCl', 'Kasym', 'Kcount']] = ta.calculate_keltner(df)
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
-    
-    df = ta.add_candlestickpatterns(df)
     
     df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
 
@@ -233,11 +236,12 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21)
     
     df['Volatility'] = df['Close'].rolling(14).std()
-    df = ta.scaled_volatility(df)
-    df['StrongBull'] = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['sumBuyVol'] > df['sumSellVol'])).astype(int)
-    df['StrongBear'] = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['sumBuyVol'] < df['sumSellVol'])).astype(int)
+
+    df['StrongBull'] = ((df['RSI'] > 52) & (df['ADX'] > 22 ) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol'])).astype(int)
+    df['StrongBear'] = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol'])).astype(int)
     df['Neutral'] = (~(df['StrongBull'].astype(bool) | df['StrongBear'].astype(bool))).astype(int)
     df['gapStrength'] = ta.compute_gapStrength(df)
+    df = ta.add_exhaustion_indicator(df)
 
     return df
 
@@ -290,30 +294,37 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
 def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
     df['Expected_Return'] = np.nan
     close_prices = df['Close'].values
+    
+    # Pre-extract pivot arrays
+    pivot_arrays = []
+    for col in r_cols:
+        if col in df.columns:
+            pivot_arrays.append(df[col].values)
+        else:
+            pivot_arrays.append(np.full(len(df), np.nan))
+    
     for i in range(len(df) - forward_window):
         current_price = close_prices[i]
-        # Find resistance pivots for this row (skip if all NaN)
-        pivots = [df.iloc[i][col] for col in r_cols if col in df.columns and not pd.isnull(df.iloc[i][col])]
-        target_level = None
-        if pivots:  # Only if we have any non-NaN pivots
-            target_level = max(pivots)  # Or use your preferred pivot selection logic
-
+        
+        # Gather valid pivot values for this row
+        pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
+        target_level = max(pivots) if pivots else None
+        
         future_window = close_prices[i+1:i+1+forward_window]
+        
         if target_level is not None:
-            # Check if we hit target pivot in the window
-            for j, future_price in enumerate(future_window):
+            # Check if future price hits the pivot level
+            hit = False
+            for future_price in future_window:
                 if future_price >= target_level:
                     df.iloc[i, df.columns.get_loc('Expected_Return')] = (target_level - current_price) / current_price
+                    hit = True
                     break
-            else:  # If not hit
-                if future_window.size > 0:
-                    future_max = np.nanmax(future_window)
-                    df.iloc[i, df.columns.get_loc('Expected_Return')] = (future_max - current_price) / current_price
+            if not hit and future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_window) - current_price) / current_price
         else:
-            # No valid pivots, fall back to window max logic
             if future_window.size > 0:
-                future_max = np.nanmax(future_window)
-                df.iloc[i, df.columns.get_loc('Expected_Return')] = (future_max - current_price) / current_price
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_window) - current_price) / current_price
             else:
                 df.iloc[i, df.columns.get_loc('Expected_Return')] = np.nan
     return df
@@ -321,33 +332,38 @@ def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
 def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
     df['Expected_Loss'] = np.nan
     close_prices = df['Close'].values
+    
+    pivot_arrays = []
+    for col in s_cols:
+        if col in df.columns:
+            pivot_arrays.append(df[col].values)
+        else:
+            pivot_arrays.append(np.full(len(df), np.nan))
+    
     for i in range(len(df) - forward_window):
         current_price = close_prices[i]
-        # Find support pivots (skip if all NaN)
-        pivots = [df.iloc[i][col] for col in s_cols if col in df.columns and not pd.isnull(df.iloc[i][col])]
-        target_level = None
-        if pivots:
-            target_level = min(pivots)  # Or your support logic
-
+        
+        pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
+        target_level = min(pivots) if pivots else None
+        
         future_window = close_prices[i+1:i+1+forward_window]
+        
         if target_level is not None:
-            # Check if we hit pivot support in window
-            for j, future_price in enumerate(future_window):
+            hit = False
+            for future_price in future_window:
                 if future_price <= target_level:
                     df.iloc[i, df.columns.get_loc('Expected_Loss')] = (target_level - current_price) / current_price
+                    hit = True
                     break
-            else:
-                if future_window.size > 0:
-                    future_min = np.nanmin(future_window)
-                    df.iloc[i, df.columns.get_loc('Expected_Loss')] = (future_min - current_price) / current_price
+            if not hit and future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_window) - current_price) / current_price
         else:
-            # No valid pivots, fallback to window min logic
             if future_window.size > 0:
-                future_min = np.nanmin(future_window)
-                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (future_min - current_price) / current_price
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_window) - current_price) / current_price
             else:
                 df.iloc[i, df.columns.get_loc('Expected_Loss')] = np.nan
     return df
+
 
 def initialize_XGBR():
     model = XGBRegressor(
@@ -361,6 +377,33 @@ def initialize_XGBR():
     )
     return model
 
+def label_hit2(df, window=14, profit_target=0.07, stop_loss=0.07):
+    labels = []
+    close_prices = df['Close'].values
+    bull = df['Bull'].values
+    bear = df['Bear'].values
+
+    for i in range(len(close_prices) - window):
+        current_price = close_prices[i]
+        tp = current_price * (1 + profit_target)
+        sl = current_price * (1 - stop_loss)
+        future_prices = close_prices[i + 1:i + 1 + window]
+        tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
+        sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
+
+        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and (bull[i] == 1 or tp_hit_idx is not None):
+            labels.append(2)
+        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and (bear[i] == 1 or sl_hit_idx is not None):
+            labels.append(1)
+        else:
+            labels.append(0)
+
+    labels += [np.nan] * window
+    df['Hit_Label'] = labels
+    return df
+
+
+'''
 def label_hit2(df, window=14, profit_target=0.03, stop_loss=0.03):
     labels = []
     close_prices = df['Close'].values
@@ -384,7 +427,7 @@ def label_hit2(df, window=14, profit_target=0.03, stop_loss=0.03):
     labels += [np.nan] * window
     df['Hit_Label'] = labels
     return df
-
+'''
 def label_hit3(df, window=14, profit_target=0.03, stop_loss=0.03):
     labels = []
     close_prices = df['Close'].values
@@ -528,7 +571,6 @@ def del_old_files (directory, days, exclude_extensions=None, dry_run=False):
             else:
                 try:
                     os.remove(filepath)
-                    print(f"Deleted: {filepath}")
                 except Exception as e:
                     print(f"Error deleting {filepath}: {e}")
        
@@ -577,7 +619,7 @@ def color_signal(row):
         return '\033[93m' + signal + '\033[0m'  # Yellow for Neutral
 
 
-# In[4]:
+# In[9]:
 
 
 # PRICE CHARTS
@@ -761,11 +803,11 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
              color='red', linestyle=':', linewidth=1.5, alpha=0.5)
     
     # Markers For Key levels
-    ax1.plot(future_date, gain_price, '^', markersize=_ms, color='green', alpha=0.5, label=f'Projected Gain: {gain}%')
-    ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f'Projected Loss: {loss}%')
-    ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label='Entry')
+    ax1.plot(future_date, gain_price, '^', markersize=_ms, color='green', alpha=0.5, label=f'TP: ${gain_price:.2f}, {gain}%')
+    ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f'SL: ${loss_price:.2f}, {loss}%')
+    ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label=f'E: ${avg_price:.2f}')
 
-    ax1.annotate(f'Avg: ${avg_price:.2f}', 
+    ax1.annotate(f'E: ${avg_price:.2f}', 
                 xy=(last_date, avg_price),
                 xytext=(10, 0),
                 textcoords='offset points',
@@ -791,7 +833,14 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                 fontname='Segoe UI Emoji',
                 bbox=dict(facecolor='white', alpha=0.4, edgecolor='none'))
 
-    signal_color = 'green' if 'Bullish' in predictions['Signal'] else 'red' if 'Bearish' in predictions['Signal'] else 'gray'
+
+    signal_color = (
+    'green' if 'Bullish' in predictions['Signal'] else
+    'red' if 'Bearish' in predictions['Signal'] else
+    'yellow' if 'Exh' in predictions['Signal'] else
+    'gray'
+    )
+
     _sigConf = f'{predictions.Signal}, {predictions.Risk}, Will Hit: {predictions.Will_Hit} [{int(predictions.Hit_Prob)}%]'
 
     ax1.annotate(_sigConf,
@@ -840,8 +889,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     price_vs_sma1 = 100 * (current_price - sma1_) / sma1_ if sma1_ != 0 else 0
     
     # Trend Strength Indicators
-    ax2.scatter(df.index[df['StrongBull'] == 1], rsi_[df['StrongBull'] == 1], color='lime', marker='^', s=5, label='Bullish', zorder=10)
-    ax2.scatter(df.index[df['StrongBear'] == 1], rsi_[df['StrongBear'] == 1], color='red', marker='v', s=5, label='Bearish', zorder=10)
+    ax2.scatter(df.index[df['StrongBull'] == 1], rsi_[df['StrongBull'] == 1], color='lime', marker='^', s=5, label='StrongBull', zorder=10)
+    ax2.scatter(df.index[df['StrongBear'] == 1], rsi_[df['StrongBear'] == 1], color='red', marker='v', s=5, label='StrongBear', zorder=10)
 
     # Horizontal RSI Levels
     ax2.axhline(80, color='green', linewidth=1, linestyle='dotted', alpha=0.3)
@@ -915,7 +964,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     action = ""
     # Actionable suggestion based on indicators and model confidence
     if signal == "TI: ✅ Bullish" and hit_prob > 50 and strong_bull and predicted_return > abs(predicted_loss):
-        action = f"{ticker} is BULLISH: Consider buying or holding; good chance for positive return."
+        action = f"{ticker} is {_90DHigh} BULLISH: Consider buying or holding; good chance for positive return."
     elif signal == "TI: 🔻 Bearish" or hit_prob < 40 or strong_bear:
         action = f"{ticker} is BEARISH: Exercise caution or consider selling; risk of loss is higher."
     else:
@@ -946,7 +995,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     print("\n".join(summary_lines))
 
 
-# In[ ]:
+# In[5]:
 
 
 # Make Predictions (Gain/Loss/Confidence)
@@ -1058,9 +1107,6 @@ for ticker in TICKERS:
         # Hit probability for predicted event only
         hit_prob = latest_probs_raw[pred_idx]
         
-        # Prepare feature DataFrame with probabilities for return/loss prediction
-        # Note: We only keep the full prob vector here for return and loss scaling,
-        # though storing all probabilities is removed from final results
         expected_classes = [0, 1, 2]
         latest_prob_features = {}
         for c in expected_classes:
@@ -1071,11 +1117,9 @@ for ticker in TICKERS:
         latest_prob_df = pd.DataFrame([latest_prob_features])
         latest_features_with_probs = pd.concat([latest[FEATURES].reset_index(drop=True), latest_prob_df], axis=1)
         
-        # Scale features for return and loss models
         latest_scaled_return = scaler_return.transform(latest_features_with_probs)
         latest_scaled_loss = scaler_loss.transform(latest_features_with_probs)
         
-        # Predict expected return and loss
         predicted_return = model_return.predict(latest_scaled_return)[0]
         predicted_loss = model_loss.predict(latest_scaled_loss)[0]
         
@@ -1087,19 +1131,29 @@ for ticker in TICKERS:
         
         confidence_score = hit_prob * max(predicted_return / abs(predicted_loss), 0)
         
-        # Trading signal logic (unchanged)
         sma1 = latest['SMA1'].values[0]
         sma2 = latest['SMA2'].values[0]
         rsi = latest['RSI'].values[0]
-        signal = "TI: ⚠️ Neutral"
+        signal = "TI: ⚠️ NEUT"
+        _90DHigh = False
+        entry_signal = True
         
-        entry_signal = False
+        window_high = df['High'].rolling(window=90).max().iloc[-1]
+        rsi = latest['RSI'].values[0]
+
+        if (rsi > 68) or (current_price >= window_high * 0.98):
+            _90DHigh = True
+        
         if (current_price >= sma1 and sma1 >= sma2 and rsi >= 52):
             signal = "TI: ✅ Bullish"
             if predicted_return > abs(predicted_loss) and hit_prob > 0.5:
                 entry_signal = True
         elif (current_price <= sma1 and sma1 <= sma2 or rsi <= 42):
             signal = "TI: 🔻 Bearish"
+            entry_signal = False
+
+        if _90DHigh and signal == "TI: ✅ Bullish":
+            signal = "TI: ⚠️ Exh"
             entry_signal = False
         
         # Color for printing rows
@@ -1123,7 +1177,8 @@ for ticker in TICKERS:
             f"{will_hit:>4} ({hit_price_str}) | "
             f"Prob: {int(hit_prob*100):>3}% | "
             f" ATR: ${df['ATR'].iloc[-1]:>5.1f}   | "
-            f"{signal[3:]:<7}{end}"
+            f"{signal[3:]:<10}   | "
+            f"is High: {_90DHigh}{end}"
         )
         print(colored_row(row_text, sc))
         n += 1
@@ -1155,6 +1210,7 @@ for ticker in TICKERS:
             "Will_Hit": will_hit_str,
             "Hit_Prob": round(hit_prob * 100, 1),
             "Confidence": round(confidence_score * 100, 1),
+            "_90DHigh": _90DHigh
         })
 
     except Exception as e:
@@ -1164,7 +1220,7 @@ df_results = pd.DataFrame(results)
 append_pred(df_results, pred_file)
 
 
-# In[ ]:
+# In[6]:
 
 
 # Tabulate Data
@@ -1179,7 +1235,7 @@ _df['Hits'] = _df['Will_Hit'].str.strip().str.split().str[0]
 hit_order = ['TP', 'SL', 'None']
 _df['Hits'] = pd.Categorical(_df['Hits'], categories=hit_order, ordered=True)
 
-_df_sorted = _df.sort_values(by=['Hits',  "Signal", 'Confidence', "Hit_Prob"], ascending=[True, False, False, False]).reset_index(drop=True)
+_df_sorted = _df.sort_values(by=['_90DHigh', 'Hits', 'Signal', 'Confidence', "Hit_Prob"], ascending=[True, True, False, False, False]).reset_index(drop=True)
 _df_sorted = _df_sorted.drop(columns=['Will_Hit'])
 headers = _df_sorted.columns.tolist()
 
@@ -1187,22 +1243,26 @@ headers = _df_sorted.columns.tolist()
 for _, row in _df_sorted.iterrows():
     signal = row.Signal
     hit_prob = row.Hit_Prob
-    
-    if ('Bullish' in row.Signal) and (row.Hit_Prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
-        color = '\033[92m'  # Green
-    elif ('Bearish' in row.Signal) and (row.Hit_Prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
-        color = '\033[91m'  # Red
+    exhaustion = row.get("_90DHigh", False)
+
+    if exhaustion:
+        color = '\033[93m'  # Yellow for exhaustion warning
+    elif ('Bullish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
+        color = '\033[92m'  # Green for good bullish signal
+    elif ('Bearish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
+        color = '\033[91m'  # Red for bearish signals
     else:
-        color = '\033[38;5;251m'  # light gray
+        color = '\033[38;5;251m'  # Light gray default
+
     colored_rows.append(wrap_row_with_color(row.values, color))
 
 
 # Print colored table
-print("\n=== Prediction Table (Signal, Hit Probability and Maximum returns) ===\n")
+print("\n=== Prediction Table (Hits, Signal, Conf, Hit Prob ) ===\n")
 print(tabulate(colored_rows, headers=headers, floatfmt=".1f", tablefmt='orgtbl'))
 
 
-# In[ ]:
+# In[7]:
 
 
 # ✅ PLOT PREDICTIONS
@@ -1221,7 +1281,6 @@ cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
                  bbox_to_anchor=(0.12, 0., 1, 1),
                  bbox_transform=ax1.transAxes,
                  borderpad=0)
-
 
 # Main bar plot
 ax1.bar(df_plot["Ticker"], max_vals, color=custom_colors, alpha = 0.4)
@@ -1251,7 +1310,6 @@ ax2.invert_yaxis()
 ax1.legend(fontsize='small')
 ax2.legend(fontsize='small') 
 
-
 # --- ANNOTATIONS ALIGNED BELOW X-TICK LABELS ---
 x_ticks = ax1.get_xticks()
 for i, (_, row) in enumerate(df_plot.iterrows()):
@@ -1269,7 +1327,6 @@ for i, (_, row) in enumerate(df_plot.iterrows()):
         ProbColor = 'red'
     else:
         ProbColor = 'white'
-
 
     # Top annotations (unchanged)
     ax1.text(i, row["Max (%)"] + 0.5, f'{row["Max (%)"]:.1f}%',
@@ -1331,7 +1388,7 @@ plt.savefig(fpath, bbox_inches='tight', dpi=300)
 plt.show()
 
 
-# In[ ]:
+# In[10]:
 
 
 # PLOT STOCK TA with Predictions
@@ -1344,14 +1401,8 @@ for ticker in TICKERS:
     
 del_old_files(path, 14)
 
-
-# In[ ]:
-
-
 # CREATE A PYTHON FILE BACKUP
-get_ipython().system('jupyter nbconvert --to script FixedProfit_ML_MultiStocksV4.ipynb')
-
-
+!jupyter nbconvert --to script FixedProfit_ML_MultiStocksV4.ipynb
 # In[ ]:
 
 
