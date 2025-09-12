@@ -198,22 +198,12 @@ def add_technical_indicators(df):
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
 
     #Avoid overlap by using > function instead of >=
-    bull = (df['Close'] > df['SMA2']) & (df['RSI'] >= 52) & (df['RSI'] > df['RSI_SMA'])
-    bear = (df['Close'] < df['SMA2']) & (df['RSI'] <= 42) & (df['RSI'] < df['RSI_SMA'])
-    
-    # Identify overlap rows (both True)
-    overlap = bull & bear
-    
-    # Clear overlap from bull and bear
-    bull = bull & ~overlap
-    bear = bear & ~overlap
-    
-    # Neutral covers either where neither bull nor bear is True or where overlap was
-    neutral = ~(bull | bear) | overlap
+    bull = (df['Close'] > df['SMA2']) & (df['RSI'] > 51) & (df['RSI'] > df['RSI_SMA'])
+    bear = (df['Close'] < df['SMA2']) & (df['RSI'] < 42) & (df['RSI'] < df['RSI_SMA'])
     
     df['Bull'] = bull.astype(int)
     df['Bear'] = bear.astype(int)
-    df['Neutral'] = neutral.astype(int)
+    df['Neutral'] = ((df['Bull'] == 0) & (df['Bear'] == 0)).astype(int)
 
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=24, adjust=False).mean()
@@ -257,14 +247,9 @@ def add_technical_indicators(df):
     strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & 
                            (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
     
-    overlap = strongbull_condition & strongbear_condition
-    strongbull_condition = strongbull_condition & ~overlap
-    strongbear_condition = strongbear_condition & ~overlap
-    neutral_condition = ~(strongbull_condition | strongbear_condition) | overlap
-    
     df['StrongBull'] = strongbull_condition.astype(int)
     df['StrongBear'] = strongbear_condition.astype(int)
-    df['Neutral'] = neutral_condition.astype(int)
+    df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
 
     df['gapStrength'] = ta.compute_gapStrength(df)
     df = ta.add_exhaustion_indicator(df)
@@ -999,7 +984,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     print("\n".join(summary_lines))
 
 
-# In[5]:
+# In[ ]:
 
 
 # Make Predictions (Gain/Loss/Confidence)
@@ -1231,7 +1216,7 @@ df_results = pd.DataFrame(results)
 append_pred(df_results, pred_file)
 
 
-# In[6]:
+# In[ ]:
 
 
 ###### Tabulate Data
@@ -1274,7 +1259,7 @@ print("\n=== Prediction Table (Hits, Signal, Conf, Hit Prob ) ===\n")
 print(tabulate(colored_rows, headers=headers, floatfmt=".1f", tablefmt='orgtbl'))
 
 
-# In[7]:
+# In[ ]:
 
 
 # ✅ PLOT PREDICTIONS
@@ -1487,39 +1472,32 @@ get_ipython().system('jupyter nbconvert --to script FixedProfit_ML_MultiStocksV4
 
 import matplotlib.pyplot as plt
 
-def plot_price_with_hit_labels(df):
+def plot_price_with_overlaps(df):
     fig, ax = plt.subplots(figsize=(12, 6))
-
-    ax.plot(df.index, df['Close'], label='Close Price', color='gray')
+    ax.plot(df.index, df['Close'], label='Close Price', alpha=0.2, color='gray')
     
-    bulls = df[df['Bull'] == 1]
-    ax.scatter(bulls.index, bulls['Close'], color='green', marker='^', s=5, alpha=0.5, label='Bull Signal')
-
-    bears = df[df['Bear'] == 1]
-    ax.scatter(bears.index, bears['Close'], color='red', marker='v', s=5, alpha=0.5, label='Bear Signal')
-
-    none = df[df['Neutral'] == 1]
-    ax.scatter(none.index, none['Close'], color='blue', marker='o', s=5, alpha=0.5, label='Neutral Signal')
-        
-    ax.set_title('Price Chart with Hit Labels')
+    # Find overlap rows where more than one of Bull, Bear, Neutral is True
+    bull = df['Bull'] == 1
+    bear = df['Bear'] == 1
+    neutral = df['Neutral'] == 1
+    
+    # Count how many signals are True per row
+    overlap_mask = (bull.astype(int) + neutral.astype(int)) > 1
+    
+    # Extract overlap data
+    overlap_df = df[overlap_mask]
+    
+    ax.scatter(overlap_df.index, overlap_df['Close'], color='purple', marker='x', s=5, alpha=0.7, label='Overlap Signal')
+    
+    ax.set_title('Price Chart with Overlapping Bull/Bear/Neutral Signals')
     ax.set_xlabel('Date')
     ax.set_ylabel('Price')
     ax.legend()
     ax.grid(True)
     plt.show()
 
-plot_price_with_hit_labels(dfs.get('TSLA'))
-# Check per row sum of Bull, Bear, Neutral columns
-row_sums = df[['Bull', 'Bear', 'Neutral']].sum(axis=1)
 
-# Find rows where conditions overlap or are all zero
-invalid_rows = df[row_sums != 1]
-
-if invalid_rows.empty:
-    print("Bull, Bear, and Neutral conditions are mutually exclusive and cover all rows.")
-else:
-    print(f"Found {len(invalid_rows)} rows where Bull, Bear, and Neutral overlap or none is set.")
-    print(invalid_rows[['Bull', 'Bear', 'Neutral']])
+plot_price_with_overlaps(dfs.get('TSLA'))
 
 
 # In[ ]:
