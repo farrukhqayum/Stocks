@@ -84,14 +84,18 @@ results = []
 
 # Functions
 def get_stock_data(ticker, start_date, end_date):
-    #print("Getting data for:   ", ticker)
     df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1), 
                      interval='1d', auto_adjust=False, progress=False)
+    if df.empty:
+        return None  # Explicitly return None if no data
     df = df.reset_index()
     df['Date'] = pd.to_datetime(df['Date'])
     df.set_index('Date', inplace=True)
     df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    df.dropna()
+    df = df.dropna()  # Assign back the dropped NA rows
+    if df.empty:
+        print(f"No data for {ticker}, skipping.")
+        return None
     return df
 
 def get_fundamentals(ticker: str, df=None):
@@ -191,14 +195,25 @@ def add_technical_indicators(df):
     df = ta.add_candlestickpatterns(df)
 
     df['RSI']= ta.calculate_rsi(df)
-    df['RSI_SMA'] = df['RSI'] / df['RSI'].rolling(14).mean()
+    df['RSI_SMA'] = df['RSI'].rolling(14).mean()
 
-    bull_condition = (df['SMA1'] >= df['SMA2']) & (df['RSI'] >= 52) & (df['RSI'] >= df['RSI_SMA'])
-    bear_condition = (df['Close'] <= df['SMA2']) & (df['RSI'] <= 42) & (df['RSI'] <= df['RSI_SMA'])
+    #Avoid overlap by using > function instead of >=
+    bull = (df['Close'] > df['SMA2']) & (df['RSI'] >= 52) & (df['RSI'] > df['RSI_SMA'])
+    bear = (df['Close'] < df['SMA2']) & (df['RSI'] <= 42) & (df['RSI'] < df['RSI_SMA'])
     
-    df['Bull'] = bull_condition.astype(int)
-    df['Bear'] = bear_condition.astype(int)
-    df['Neutral'] = (~(bull_condition | bear_condition)).astype(int)
+    # Identify overlap rows (both True)
+    overlap = bull & bear
+    
+    # Clear overlap from bull and bear
+    bull = bull & ~overlap
+    bear = bear & ~overlap
+    
+    # Neutral covers either where neither bull nor bear is True or where overlap was
+    neutral = ~(bull | bear) | overlap
+    
+    df['Bull'] = bull.astype(int)
+    df['Bear'] = bear.astype(int)
+    df['Neutral'] = neutral.astype(int)
 
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=24, adjust=False).mean()
@@ -237,14 +252,24 @@ def add_technical_indicators(df):
     
     df['Volatility'] = df['Close'].rolling(14).std()
 
-    df['StrongBull'] = ((df['RSI'] > 52) & (df['ADX'] > 22 ) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol'])).astype(int)
-    df['StrongBear'] = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol'])).astype(int)
-    df['Neutral'] = (~(df['StrongBull'].astype(bool) | df['StrongBear'].astype(bool))).astype(int)
+    strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & 
+                           (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
+    strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & 
+                           (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
+    
+    overlap = strongbull_condition & strongbear_condition
+    strongbull_condition = strongbull_condition & ~overlap
+    strongbear_condition = strongbear_condition & ~overlap
+    neutral_condition = ~(strongbull_condition | strongbear_condition) | overlap
+    
+    df['StrongBull'] = strongbull_condition.astype(int)
+    df['StrongBear'] = strongbear_condition.astype(int)
+    df['Neutral'] = neutral_condition.astype(int)
+
     df['gapStrength'] = ta.compute_gapStrength(df)
     df = ta.add_exhaustion_indicator(df)
 
     return df
-
 
 def add_pivot_levels(df, window=_DAYS):
     # Compute rolling high/low/close over the window
@@ -258,11 +283,11 @@ def add_pivot_levels(df, window=_DAYS):
     R2 = PP + (high.max() - low.min())
     S2 = PP - (high.max() - low.min())
     # Assign to DataFrame
-    df['PP'] = PP
-    df['R1'] = R1
-    df['S1'] = S1
-    df['R2'] = R2
-    df['S2'] = S2
+    df['PP'] = PP.fillna(method='bfill')
+    df['R1'] = R1.fillna(method='bfill')
+    df['S1'] = S1.fillna(method='bfill')
+    df['R2'] = R2.fillna(method='bfill')
+    df['S2'] = S2.fillna(method='bfill')
     return df
 
 def add_pivots(df, win=windows):
@@ -378,6 +403,10 @@ def initialize_XGBR():
     return model
 
 def label_hit2(df, window=14, profit_target=0.07, stop_loss=0.07):
+    # Ensure Bull/Bear columns have no NaNs and are integers or floats
+    df['Bull'] = df['Bull'].fillna(0)
+    df['Bear'] = df['Bear'].fillna(0)
+
     labels = []
     close_prices = df['Close'].values
     bull = df['Bull'].values
@@ -391,9 +420,10 @@ def label_hit2(df, window=14, profit_target=0.07, stop_loss=0.07):
         tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
         sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
 
-        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and (bull[i] == 1 or tp_hit_idx is not None):
+        # Use threshold to support float/int and ensure truthiness
+        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bull[i] > 0.5:
             labels.append(2)
-        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and (bear[i] == 1 or sl_hit_idx is not None):
+        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and bear[i] > 0.5:
             labels.append(1)
         else:
             labels.append(0)
@@ -402,32 +432,6 @@ def label_hit2(df, window=14, profit_target=0.07, stop_loss=0.07):
     df['Hit_Label'] = labels
     return df
 
-
-'''
-def label_hit2(df, window=14, profit_target=0.03, stop_loss=0.03):
-    labels = []
-    close_prices = df['Close'].values
-
-    for i in range(len(close_prices) - window):
-        current_price = close_prices[i]
-        tp = current_price * (1 + profit_target)
-        sl = current_price * (1 - stop_loss)
-        future_prices = close_prices[i + 1:i + 1 + window]
-
-        tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
-        sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
-
-        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx):
-            labels.append(2)  # TP hit before SL
-        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx):
-            labels.append(1)  # SL hit before TP
-        else:
-            labels.append(0)  # Neither hit
-
-    labels += [np.nan] * window
-    df['Hit_Label'] = labels
-    return df
-'''
 def label_hit3(df, window=14, profit_target=0.03, stop_loss=0.03):
     labels = []
     close_prices = df['Close'].values
@@ -436,7 +440,7 @@ def label_hit3(df, window=14, profit_target=0.03, stop_loss=0.03):
         entry_price = close_prices[i]
         tp = entry_price * (1 + profit_target)
         sl = entry_price * (1 - stop_loss)
-        # Look BACKWARD: previous `window` bars
+
         past_highs = df['High'].values[i-window:i]
         past_lows = df['Low'].values[i-window:i]
 
@@ -448,7 +452,6 @@ def label_hit3(df, window=14, profit_target=0.03, stop_loss=0.03):
         else:
             labels.append(0)
 
-    # Pad the beginning to align with df length
     labels = [np.nan]*window + labels
     df['Hit_Label'] = labels
     return df
@@ -619,7 +622,7 @@ def color_signal(row):
         return '\033[93m' + signal + '\033[0m'  # Yellow for Neutral
 
 
-# In[9]:
+# In[4]:
 
 
 # PRICE CHARTS
@@ -961,15 +964,16 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%.",
         f"\n"
     ]
-    action = ""
-    # Actionable suggestion based on indicators and model confidence
+    action = "N/A"
     if signal == "TI: ✅ Bullish" and hit_prob > 50 and strong_bull and predicted_return > abs(predicted_loss):
-        action = f"{ticker} is {_90DHigh} BULLISH: Consider buying or holding; good chance for positive return."
+        action = f"{ticker} is BULLISH: Consider buying or holding; good chance for positive return."
     elif signal == "TI: 🔻 Bearish" or hit_prob < 40 or strong_bear:
         action = f"{ticker} is BEARISH: Exercise caution or consider selling; risk of loss is higher."
+    elif signal == "TI: ⚠️ Exh":
+        action = f"{ticker} is EXHAUSTED."
     else:
         action = f"{ticker} is NEUTRAL; monitor market for clearer signals."
-    
+
     summary_lines.append(action)
     summary_lines.append(hits_str)
 
@@ -1010,9 +1014,8 @@ for ticker in TICKERS:
             else:
                 raise ValueError("DataFrame must have Date as index or column for plotting!")
 
-        df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
         df = add_technical_indicators(df)
-
+        df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
         df['BuyTime'] = (
             (df['Bull'] == 1) &
             ((df['Close'] - df['SMA1']) / df['SMA1'] <= 0.02)
@@ -1021,8 +1024,11 @@ for ticker in TICKERS:
         df = add_pivot_levels(df, window=14)
         df = add_pivots(df, windows)
         df = average_pivots(df, windows)
-        df = compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2'])
-        df = compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2'])
+        #df = compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2'])
+        #df = compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2'])
+        df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
+        df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
+
         df = label_hit2(df, window=_DAYS, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
         dfs[ticker] = df
         
@@ -1119,11 +1125,11 @@ for ticker in TICKERS:
         
         latest_scaled_return = scaler_return.transform(latest_features_with_probs)
         latest_scaled_loss = scaler_loss.transform(latest_features_with_probs)
-        
-        predicted_return = model_return.predict(latest_scaled_return)[0]
-        predicted_loss = model_loss.predict(latest_scaled_loss)[0]
-        
+                
         current_price = latest['Close'].values[0]
+        predicted_return = model_return.predict(latest_scaled_return)[0] #predicted_return
+        predicted_loss = model_loss.predict(latest_scaled_loss)[0] #predicted_loss
+
         predicted_tp = current_price * (1 + predicted_return)
         predicted_sl = current_price * (1 + predicted_loss)
         entry_price = (current_price + predicted_sl) / 2
@@ -1137,6 +1143,7 @@ for ticker in TICKERS:
         signal = "TI: ⚠️ NEUT"
         _90DHigh = False
         entry_signal = True
+        sc = 'white'
         
         window_high = df['High'].rolling(window=90).max().iloc[-1]
         rsi = latest['RSI'].values[0]
@@ -1151,15 +1158,19 @@ for ticker in TICKERS:
         elif (current_price <= sma1 and sma1 <= sma2 or rsi <= 42):
             signal = "TI: 🔻 Bearish"
             entry_signal = False
-
+        '''            
         if _90DHigh and signal == "TI: ✅ Bullish":
-            signal = "TI: ⚠️ Exh"
+            signal = "TI: ⚡ Exh"
             entry_signal = False
-        
+        '''    
         # Color for printing rows
-        sc = 'green' if (signal == "TI: ✅ Bullish" and will_hit == "TP" and hit_prob >= 0.4) else \
-            'red' if (signal == "TI: 🔻 Bearish" and will_hit == "SL" and hit_prob>=0.4) else 'white'
-
+        if signal == "TI: ✅ Bullish" and will_hit == "TP" and hit_prob >= 0.4:
+            sc = 'green'
+        elif signal == "TI: 🔻 Bearish" and will_hit == "SL" and hit_prob >= 0.4:
+            sc = 'red'
+        else:
+            sc = 'white'
+        
         if will_hit == "TP":
             hit_price_display = predicted_tp
         elif will_hit == "SL":
@@ -1223,11 +1234,12 @@ append_pred(df_results, pred_file)
 # In[6]:
 
 
-# Tabulate Data
+###### Tabulate Data
 #_df = pd.DataFrame(results).sort_values(by=["Confidence", "Will_Hit"], ascending=False)
 def wrap_row_with_color(row, color_code):
     return [f"{color_code}{str(cell)}\033[0m" for cell in row]
 
+os.system('cls' if os.name == 'nt' else 'clear')
 colored_rows = []
 
 _df = df_results.copy()
@@ -1388,7 +1400,7 @@ plt.savefig(fpath, bbox_inches='tight', dpi=300)
 plt.show()
 
 
-# In[10]:
+# In[ ]:
 
 
 # PLOT STOCK TA with Predictions
@@ -1401,8 +1413,115 @@ for ticker in TICKERS:
     
 del_old_files(path, 14)
 
+
+# In[ ]:
+
+
 # CREATE A PYTHON FILE BACKUP
-!jupyter nbconvert --to script FixedProfit_ML_MultiStocksV4.ipynb
+get_ipython().system('jupyter nbconvert --to script FixedProfit_ML_MultiStocksV4.ipynb')
+
+
+# ## Script Summary and Output Guide
+# 
+# This script implements a **machine-learning assisted technical analysis and price prediction framework** applied to multiple stock and crypto tickers. It uses historical daily price and volume data, enriched with diverse technical indicators and pivot levels to train models that forecast potential trade outcomes.
+# 
+# ### What the Script Does
+# 
+# - Downloads historical price and volume data for specified tickers over several years.
+# - Computes a comprehensive set of technical indicators, including RSI, ADX, ATR, moving averages, Keltner channels, volume-based metrics, candlestick patterns, and custom signals like the exhaustion indicator (proximity to 90-day highs/lows).
+# - Calculates pivot price levels for support/resistance estimation.
+# - Labels historical data rows by whether profit targets or stop losses are hit within a forward window.
+# - Trains three machine learning models per ticker:
+#   - A classifier predicting if the profit target or stop loss will be hit.
+#   - A regression model predicting expected return.
+#   - A regression model predicting expected loss.
+# - Generates live predictions for each ticker combining model outputs and technical signals to produce:
+#   - Expected trade direction (bullish, bearish, neutral, exhaustion flagged)
+#   - Expected profit target (TP) and stop loss (SL) prices
+#   - Confidence metrics and hit probabilities
+# - Produces detailed plots per ticker illustrating price action, SMAs, RSI, pivot zones, divergence signals, and model predictions with annotations.
+# - Outputs a formatted prediction table with colored signals, probabilities, risks, and exhaustion warnings.
+# - Maintains a rolling record of recent predictions saved to Excel for review or further analysis.
+# 
+# ### Output Components
+# 
+# - **Prediction Table:** Displays for each ticker the latest price, TP/SL forecasts, predicted direction (Signal), risk assessment, confidence score, and exhaustion status. Rows are color-coded:
+#   - Green: Bullish signals with strong confidence and profitable outlook.
+#   - Red: Bearish or high-risk signals.
+#   - Yellow: Signals flagged with exhaustion (near 90-day highs/lows).
+#   - Gray: Neutral or low-confidence signals.
+#   
+# - **Price and RSI Plots:**  
+#   - Price chart with simple moving averages (SMA1, SMA2), Keltner channel boundaries, buy/sell zones marked by colors.
+#   - RSI plot and its SMA with filled areas marking oversold/overbought regions.
+#   - Key dates like earnings and annotation of model signals.
+#   - Trade predictions annotated as markers (TP, SL, Entry).
+#   - Divergence and double top/bottom patterns visually identified.
+#   
+# - **Pivot Levels:** Displayed as horizontal lines representing average pivot support and resistance zones.
+# 
+# ### Abbreviations and Terms
+# 
+# - **TP:** Take Profit target price predicted by the model.
+# - **SL:** Stop Loss price predicted by the model.
+# - **RSI:** Relative Strength Index, momentum oscillator.
+# - **SMA1, SMA2:** Short and long simple moving averages used for trend direction.
+# - **ADX:** Average Directional Index, trend strength indicator.
+# - **KC:** Keltner Channel lines (Upper_Band, Lower_Band).
+# - **Prob:** Probability that the predicted event (TP or SL hit) will occur.
+# - **Confidence:** Combined measure incorporating hit probability and expected return/loss ratio.
+# - **Exhaustion:** Flag indicating price is near 90-day high or low (“exhausted” condition).
+# - **Bullish/Bearish/Neutral:** Technical and model signals for potential market direction.
+# 
+# ### How to Interpret Outputs
+# 
+# - Use the **prediction table** to quickly identify promising trade opportunities with high confidence and favorable risk profiles.
+# - Check the **signal colors** to prioritize entries: green for high-conviction bulls, red for bearish warnings, yellow to avoid exhausted setups.
+# - Review charts to validate signals visually, noting diverging RSI or key pivot levels aligning with model targets.
+# - Consider the **exhaustion flag** as a caution signal, often meaning reduced trade success probability near major price extremes.
+# - Combine multiple indicators and model outputs for robust entry and exit timing, managing risk prudently.
+# 
+
+# In[ ]:
+
+
+import matplotlib.pyplot as plt
+
+def plot_price_with_hit_labels(df):
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    ax.plot(df.index, df['Close'], label='Close Price', color='gray')
+    
+    bulls = df[df['Bull'] == 1]
+    ax.scatter(bulls.index, bulls['Close'], color='green', marker='^', s=5, alpha=0.5, label='Bull Signal')
+
+    bears = df[df['Bear'] == 1]
+    ax.scatter(bears.index, bears['Close'], color='red', marker='v', s=5, alpha=0.5, label='Bear Signal')
+
+    none = df[df['Neutral'] == 1]
+    ax.scatter(none.index, none['Close'], color='blue', marker='o', s=5, alpha=0.5, label='Neutral Signal')
+        
+    ax.set_title('Price Chart with Hit Labels')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price')
+    ax.legend()
+    ax.grid(True)
+    plt.show()
+
+plot_price_with_hit_labels(dfs.get('TSLA'))
+# Check per row sum of Bull, Bear, Neutral columns
+row_sums = df[['Bull', 'Bear', 'Neutral']].sum(axis=1)
+
+# Find rows where conditions overlap or are all zero
+invalid_rows = df[row_sums != 1]
+
+if invalid_rows.empty:
+    print("Bull, Bear, and Neutral conditions are mutually exclusive and cover all rows.")
+else:
+    print(f"Found {len(invalid_rows)} rows where Bull, Bear, and Neutral overlap or none is set.")
+    print(invalid_rows[['Bull', 'Bear', 'Neutral']])
+
+
 # In[ ]:
 
 
