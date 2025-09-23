@@ -1180,7 +1180,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 f"${current_price:>7.2f} | "
                 f"TP: ${tp_str:>8}({predicted_return*100:5.2f}%) | "
                 f"{will_hit:<5} | "
-                f"Prob: {int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}% | "
+                f"{int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}% | "
                 f"{signal[3]:<2}{signal[4:]:<10} | "
                 f"High: {_90DHigh}{end}"
             )
@@ -1436,6 +1436,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
