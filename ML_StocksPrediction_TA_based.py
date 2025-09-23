@@ -25,13 +25,6 @@ plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for wind
 ##### CRYPTOS ##########
 #TICKERS = ["BTC-USD","ETH-USD", "XRP-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"]
 
-isStockCrypto = "CRYPTO"
-
-if "BTC-USD" in TICKERS:
-    isStockCrypto = "CRYPTO"
-else:
-    isStockCrypto = "STOCKS"
-
 _Nr = 50 # Skip model if the length is this
 YEARS_OF_DATA = 3
 PROFIT_TARGET = 0.08
@@ -1566,6 +1559,14 @@ def PlotPredictions():
 
 def run_app():
     tickers_input = st.text_input("Enter comma-separated tickers:")
+    
+    isStockCrypto = "CRYPTO"
+    
+    if "BTC-USD" in TICKERS:
+        isStockCrypto = "CRYPTO"
+    else:
+        isStockCrypto = "STOCKS"
+        
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
         dfs, df_results = MakePredictions(TICKERS)
