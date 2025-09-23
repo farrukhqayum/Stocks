@@ -1223,7 +1223,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 f"is High: {_90DHigh}{end}"
             )
             
-            st.write(strip_ansi_codes(row_text))
+            st.code(strip_ansi_codes(row_text))
     
             n += 1
             
@@ -1477,6 +1477,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
