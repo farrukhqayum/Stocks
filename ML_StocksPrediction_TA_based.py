@@ -1444,11 +1444,6 @@ def PredictionTable():
         showindex=custom_index
     ))
 
-from rich import print
-st.write("[yellow]Near Highs[/yellow],\t[red]BEARISH[/red],\t[green]BULLISH[/green]")
-# In[7]:
-
-
 # ✅ PLOT PREDICTIONS
 def PlotPredictions():
     
@@ -1592,3 +1587,4 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
