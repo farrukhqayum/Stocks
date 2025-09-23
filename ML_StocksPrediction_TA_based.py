@@ -1428,6 +1428,19 @@ def run_app():
     tickers_input = st.text_input("Enter comma-separated tickers:")
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
+        row_text = (
+            f'{"Nr.":>3} | '
+            f'{"Ticker":<7} | '
+            f'{"Price":>7} | '
+            f'{"Take-profit":<12} | '
+            f'{"Will Hit":<8} | '
+            f'{"Probability":<11} | '
+            f'{"ATR":>6} | '
+            f'{"Signal":<8} | '
+            f'{"Is High":<7}'
+        )
+
+        st.code(row_text)
         dfs, df_results = MakePredictions(TICKERS)
         PlotPredictions(df_results)
         #PredictionTable(df_results)
@@ -1443,6 +1456,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
