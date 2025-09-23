@@ -20,11 +20,7 @@ pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
 
 ##### STOCKS ##########
-tickers_input = st.text_input("Enter a comma-separated list of tickers:")
-if tickers_input:
-    TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
-else:
-    TICKERS = []
+
 
 ##### CRYPTOS ##########
 #TICKERS = ["BTC-USD","ETH-USD", "XRP-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"]
@@ -1587,4 +1583,5 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
