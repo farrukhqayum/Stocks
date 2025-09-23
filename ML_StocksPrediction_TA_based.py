@@ -1551,7 +1551,7 @@ def PlotPredictions():
     plt.subplots_adjust(bottom=0.35)  # Increase if needed for annotation visibility
     
     # Save and show
-    fname = f'{today}_ML_PNL_Multi{isStockCrypto}.png'
+    fname = f'{today}_ML_PNL_Multi.png'
     fpath = os.path.join(path, fname)
     plt.savefig(fpath, bbox_inches='tight', dpi=300)
     st.pyplot()
@@ -1559,14 +1559,6 @@ def PlotPredictions():
 
 def run_app():
     tickers_input = st.text_input("Enter comma-separated tickers:")
-    
-    isStockCrypto = "CRYPTO"
-    
-    if "BTC-USD" in tickers_input:
-        isStockCrypto = "CRYPTO"
-    else:
-        isStockCrypto = "STOCKS"
-        
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
         dfs, df_results = MakePredictions(TICKERS)
@@ -1584,6 +1576,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
