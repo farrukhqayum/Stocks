@@ -1176,20 +1176,16 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 hit_price_str = "None"
             
             row_text = (
-                f"{n:>3} | "
                 f"{ticker:<7} | "
                 f"${current_price:>7.2f} | "
                 f"TP: ${tp_str:>8}({predicted_return*100:5.2f}%) | "
                 f"{will_hit:<5} | "
                 f"Prob: {int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}% | "
-                f"ATR: ${atr_str:>5} | "
                 f"{signal[3]:<2}{signal[4:]:<10} | "
                 f"is High: {_90DHigh}{end}"
             )
             
             st.code(strip_ansi_codes(row_text))
-    
-            n += 1
             
             # Append results with formatted Will_Hit string
             if will_hit is None or str(will_hit).lower() == "nan":
@@ -1437,6 +1433,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
