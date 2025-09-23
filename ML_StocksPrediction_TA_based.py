@@ -1182,7 +1182,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 f"{will_hit:<5} | "
                 f"Prob: {int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}% | "
                 f"{signal[3]:<2}{signal[4:]:<10} | "
-                f"is High: {_90DHigh}{end}"
+                f"High: {_90DHigh}{end}"
             )
             
             st.code(strip_ansi_codes(row_text))
@@ -1436,5 +1436,6 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
