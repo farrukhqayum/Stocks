@@ -13,7 +13,7 @@ import streamlit as st
 
 # GLOBAL PARAMETERS
 today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
-path = r'C:\Users\Farrukh\jupyter-Notebooks\STOCKS\ML_TP_SL_Figures' # CHECK THIS PATH / CREATE THE FOLDER
+path = 'ML_TP_SL_Figures' # CHECK THIS PATH / CREATE THE FOLDER
 pdf_path = os.path.join(path, f'{today}_ML_TA_MultipleStocks.pdf')
 pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 
@@ -1749,6 +1749,7 @@ plot_price_with_overlaps(dfs.get('CRM'))
 
 
 # In[ ]:
+
 
 
 
