@@ -1563,7 +1563,7 @@ def run_app():
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
         dfs, df_results = MakePredictions(TICKERS)
         PlotPredictions(df_results)
-        PredictionTable(df_results)
+        #PredictionTable(df_results)
         for ticker in TICKERS:
             _df = dfs.get(ticker)
             if _df is None:
@@ -1575,6 +1575,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
