@@ -2,6 +2,7 @@ from imports import *
 import streamlit as st
 import warnings
 warnings.filterwarnings("ignore")
+st.markdown(f"<span style='color:green;'>{text}</span>", unsafe_allow_html=True)
 
 # GLOBAL PARAMETERS
 today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
@@ -1567,6 +1568,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
