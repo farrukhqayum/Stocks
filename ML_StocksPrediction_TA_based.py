@@ -1236,67 +1236,48 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
 
 
 ###### Tabulate Data
-def PredictionTable(df_results):
-    
-    def wrap_row_with_color(row, color_code):
-        return [f"{color_code}{str(cell)}\033[0m" for cell in row]
-    
-    import os
-    from tabulate import tabulate
-    
-    os.system('cls' if os.name == 'nt' else 'clear')
-    colored_rows = []
-    
+def style_rows(row):
+    signal = row.Signal
+    hit_prob = row.Hit_Prob
+    exhaustion = row.get("_90DHigh", False)
+
+    if exhaustion:
+        return ['background-color: yellow'] * len(row)
+    elif 'Hold' in signal:
+        return ['background-color: violet'] * len(row)
+    elif ('Bullish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
+        return ['background-color: lightgreen'] * len(row)
+    elif (('Bearish' in signal) or ('Short' in signal)) and (hit_prob > 40):
+        return ['background-color: lightcoral'] * len(row)
+    else:
+        return ['color: lightgray'] * len(row)
+
+def streamlit_display(df_results):
     _df = df_results.copy()
-    
-    # Preprocess columns for display
+    # Preprocess as before
     _df['Signal'] = _df['Signal'].str.replace(r'^TI:\s*', '', regex=True)
     _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'\([^)]*\)', '', regex=True)
     _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'[^A-Za-z]+', '', regex=True)
-    
+
     custom_order = ['TP', 'Hold', 'SL', 'Short', 'None']
     ord_map = {label: i for i, label in enumerate(custom_order)}
     _df['who'] = _df['Will_Hit'].map(lambda x: ord_map.get(x, len(custom_order)))
-    
+
     _df_sorted = _df.sort_values(
         by=['who', '_90DHigh', 'Signal', 'Confidence', "Hit_Prob"],
         ascending=[True, True, False, False, False]
     ).reset_index(drop=True)
     _df_sorted = _df_sorted.drop(columns=['Index', 'who'], errors='ignore')
-    
-    headers = _df_sorted.columns.tolist()
-    
-    # Color rows based on conditions
-    for _, row in _df_sorted.iterrows():
-        signal = row.Signal
-        hit_prob = row.Hit_Prob
-        exhaustion = row.get("_90DHigh", False)
-    
-        if exhaustion:
-            color = '\033[93m'  # Yellow for exhaustion warning
-        elif ('Hold' in signal):
-            color = '\033[95m'
-        elif ('Bullish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
-            color = '\033[92m'  # Green for good bullish signal
-        elif (('Bearish' in signal) or ('Short' in signal)) and (hit_prob > 40):
-            color = '\033[91m'  # Red for bearish and short signals
-        else:
-            color = '\033[38;5;251m'  # Light gray default
-    
-        colored_rows.append(wrap_row_with_color(row.values, color))
-    
-    # Custom 1-based index
-    custom_index = range(1, len(colored_rows) + 1)
-    
-    # Print colored table
-    st.text("\n=== Prediction Table (Hits, Signal, Conf, Hit Prob ) ===\n")
-    st.text(tabulate(
-        colored_rows,
-        headers=headers,
-        floatfmt=".1f",
-        tablefmt='orgtbl',
-        showindex=custom_index
-    ))
+
+    # Use Pandas Styler for row-wise coloring
+    styled_df = _df_sorted.style.apply(style_rows, axis=1).set_precision(1)
+
+    # Display styled dataframe in Streamlit
+    st.dataframe(styled_df, height=600)  # or use st.table for static display
+
+# Usage in app
+# streamlit_display(df_results)
+
 
 # ✅ PLOT PREDICTIONS
 def PlotPredictions(df_results):
@@ -1443,7 +1424,7 @@ def run_app():
         st.code(row_text)
         dfs, df_results = MakePredictions(TICKERS)
         PlotPredictions(df_results)
-        #PredictionTable(df_results)
+        streamlit_display(df_results)
         for ticker in TICKERS:
             _df = dfs.get(ticker)
             if _df is None:
@@ -1456,6 +1437,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
