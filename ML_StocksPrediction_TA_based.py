@@ -1250,7 +1250,6 @@ def style_rows(row):
 
 def streamlit_display(df_results):
     _df = df_results.copy()
-    # Preprocess as before
     _df['Signal'] = _df['Signal'].str.replace(r'^TI:\s*', '', regex=True)
     _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'\([^)]*\)', '', regex=True)
     _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'[^A-Za-z]+', '', regex=True)
@@ -1265,11 +1264,14 @@ def streamlit_display(df_results):
     ).reset_index(drop=True)
     _df_sorted = _df_sorted.drop(columns=['Index', 'who'], errors='ignore')
 
-    # Use Pandas Styler for row-wise coloring
-    styled_df = _df_sorted.style.apply(style_rows, axis=1).set_precision(1)
+    styled_df = _df_sorted.style.apply(style_rows, axis=1).format({
+        'Max (%)': '{:.1f}',
+        'Loss (%)': '{:.1f}',
+        'Confidence': '{:.1f}',
+        'Hit_Prob': '{:.0f}'
+    })
 
-    # Display styled dataframe in Streamlit
-    st.dataframe(styled_df, height=600)  # or use st.table for static display
+    st.dataframe(styled_df, height=600)
 
 # Usage in app
 # streamlit_display(df_results)
@@ -1406,13 +1408,11 @@ def run_app():
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
         row_text = (
-            f'{"Nr.":>3} | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
             f'{"Take-profit":<12} | '
             f'{"Will Hit":<8} | '
             f'{"Probability":<11} | '
-            f'{"ATR":>6} | '
             f'{"Signal":<8} | '
             f'{"Is High":<7}'
         )
@@ -1433,36 +1433,3 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
