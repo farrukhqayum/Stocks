@@ -737,26 +737,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     fundamentals = get_fundamentals(ticker, df)
     add_fundamentals_table(ax1, fundamentals, loc='lower left', alpha=0.6)
 
-    # PLOT STORED PAST PREDICTIONS
-    try:
-        if 'df_hist' not in locals():
-            df_hist = pd.read_excel(pred_file)
-            df_hist['Date'] = pd.to_datetime(df_hist['Date'])
-        points = df_hist[df_hist['Ticker'] == ticker].sort_values('Date')
-        if not points.empty:
-            points = points.copy()
-            points['Date_Lagged'] = points['Date'] + pd.Timedelta(days=_FWDAYS)
-            ax1.scatter(points['Date_Lagged'], points['TP'], color='green', marker='^', s=_ms, zorder=10, alpha=0.4)
-            ax1.scatter(points['Date_Lagged'], points['SL'], color='red', marker='v', s=_ms, zorder=10, alpha=0.4)
-            
-            hits_series = points['Will_Hit'].astype(str).str.strip().str.split().str[0]
-            hits_series = hits_series[hits_series.notna() & (hits_series.str.lower() != 'nan')]
-            hits = hits_series.tolist()
-            hits_str = f"\n{_DAYS}D Predictions: {', '.join(hits)}"
-    
-    except Exception as e:
-        hits_str = f'Will_Hit data N/A.'
-
     # Add the earning date to the bottom
     data_ymin = df['Close'].min()
     data_ymax = df['Close'].max()
@@ -1477,6 +1457,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
