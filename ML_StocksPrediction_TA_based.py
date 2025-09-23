@@ -449,92 +449,6 @@ def label_hit_prob_past(
     df['Hit_Label'] = labels
     return df
 
-def label_hit2(df, window=14, profit_target=0.05, stop_loss=0.05):
-    # Ensure Bull/Bear columns have no NaNs and are integers or floats
-    df['Bull'] = df['Bull'].fillna(0)
-    df['Bear'] = df['Bear'].fillna(0)
-
-    labels = []
-    close_prices = df['Close'].values
-    bull = df['Bull'].values
-    bear = df['Bear'].values
-
-    for i in range(len(close_prices) - window):
-        current_price = close_prices[i]
-        tp = current_price * (1 + profit_target)
-        sl = current_price * (1 - stop_loss)
-        future_prices = close_prices[i + 1:i + 1 + window]
-        tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
-        sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
-
-        # Use threshold to support float/int and ensure truthiness
-        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bull[i] > 0.5:
-            labels.append(2)
-        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and bear[i] > 0.5:
-            labels.append(1)
-        else:
-            labels.append(0)
-
-        if tp_hit_idx is None and sl_hit_idx is None:
-            # Assign whichever was closer
-            if (future_prices.max() - current_price) > (current_price - future_prices.min()):
-                labels.append(2)  # closer to TP
-            else:
-                labels.append(1)  # closer to SL
-
-    labels += [np.nan] * window
-    df['Hit_Label'] = labels
-    return df
-
-def label_hit3(df, window=14, profit_target=0.05, stop_loss=0.07):
-    """
-    Labels each row with:
-      2 = TP hit first (bullish)
-      1 = SL hit first (bearish)
-      0 = Neutral (only if both TP and SL hit but no clear precedence)
-
-    Adds fallback: if neither TP nor SL is hit, assigns direction based on
-    which side was closer to being reached.
-    """
-    # Ensure Bull/Bear columns have no NaNs
-    df['Bull'] = df['Bull'].fillna(0)
-    df['Bear'] = df['Bear'].fillna(0)
-
-    labels = []
-    close_prices = df['Close'].values
-    bull = df['Bull'].values
-    bear = df['Bear'].values
-
-    for i in range(len(close_prices) - window):
-        current_price = close_prices[i]
-        tp = current_price * (1 + profit_target)
-        sl = current_price * (1 - stop_loss)
-        future_prices = close_prices[i + 1:i + 1 + window]
-
-        tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
-        sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
-
-        # --- Main labeling logic ---
-        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bull[i] > 0.5:
-            label = 2  # TP
-        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and bear[i] > 0.5:
-            label = 1  # SL
-        elif tp_hit_idx is None and sl_hit_idx is None:
-            # Fallback: assign whichever was closer
-            if (future_prices.max() - current_price) > (current_price - future_prices.min()):
-                label = 2  # closer to TP
-            else:
-                label = 1  # closer to SL
-        else:
-            label = 0  # Neutral fallback
-
-        labels.append(label)
-
-    # Pad with NaNs to align with df length
-    labels += [np.nan] * window
-    df['Hit_Label'] = labels
-    return df
-
 
 def compute_optimal_entry(df, _DAYS=10, profit_target=0.05, stop_loss=-0.03):
     optimal_entries = []
@@ -710,10 +624,6 @@ def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
         return fmt.format(float(val))
     except (ValueError, TypeError):
         return na_str
-
-
-# In[4]:
-
 
 # PRICE CHARTS
 def plot_single_ticker(ticker, df, df_results, _window=14):
@@ -1101,14 +1011,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     textbox.patch.set(facecolor='white', edgecolor='gray', alpha=0.5, boxstyle='round')
     
     ax1.add_artist(textbox)
-  
-    # Save the figure to disk
-    fname = f'{today}_{ticker}_TPSL.png'
-    fpath = os.path.join(path, fname)
-    plt.savefig(fpath, bbox_inches='tight', dpi=300)
+
     plt.tight_layout()
     st.pyplot()
-      
     st.write("\n".join(summary_lines))
 
 
@@ -1572,6 +1477,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
