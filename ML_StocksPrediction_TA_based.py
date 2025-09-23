@@ -1302,6 +1302,8 @@ def PredictionTable(df_results):
 def PlotPredictions(df_results):
     
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    tickers = df_results['Ticker']
+    tickers_list = tickers.tolist()
     
     df_plot = df_results
     #df_plot = df_plot.sort_values(by="Max (%)", ascending=False)
@@ -1411,7 +1413,7 @@ def PlotPredictions(df_results):
     textbox.patch.set_alpha(0.8)
     
     # Space management
-    plt.title(f'{today} - ML Predictions of (From Current Price)', fontsize=16, color='black', pad=20)
+    plt.title(f'{today} - ML Predictions of Tickers (From Current Price)', fontsize=16, color='black', pad=20)
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.35)  # Increase if needed for annotation visibility
     
@@ -1441,6 +1443,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
