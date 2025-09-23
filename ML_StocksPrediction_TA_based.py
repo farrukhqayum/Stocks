@@ -658,11 +658,13 @@ def get_recent_fib_levels(df, left=_FibLen, right=_FibLen):
     fib_end = max(last_high_idx, last_low_idx)
     return fibs, fib_start, fib_end
 
-def del_old_files (directory, days, exclude_extensions=None, dry_run=False):
-    """Delete files older than `days` without returning a list."""
+def del_old_files(directory, days, exclude_extensions=None, dry_run=False):
+    if not os.path.isdir(directory):
+        print(f"Warning: directory {directory} does not exist, skipping deletion.")
+        return
     if exclude_extensions is None:
         exclude_extensions = []
-
+        
     cutoff_time = datetime.now() - timedelta(days=days)
     for filename in os.listdir(directory):
         filepath = os.path.join(directory, filename)
@@ -1747,6 +1749,7 @@ plot_price_with_overlaps(dfs.get('CRM'))
 
 
 # In[ ]:
+
 
 
 
