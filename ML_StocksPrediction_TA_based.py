@@ -1562,7 +1562,7 @@ def run_app():
     
     isStockCrypto = "CRYPTO"
     
-    if "BTC-USD" in TICKERS:
+    if "BTC-USD" in tickers_input:
         isStockCrypto = "CRYPTO"
     else:
         isStockCrypto = "STOCKS"
@@ -1584,5 +1584,6 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
