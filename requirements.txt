@@ -1,7 +1,4 @@
 ta_functions
-scippy
-seaborn
-tabulate
 streamlit
 pandas
 numpy
@@ -10,5 +7,5 @@ yfinance
 scikit-learn
 xgboost
 openpyxl
-warnings
+
 
