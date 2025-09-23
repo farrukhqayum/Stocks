@@ -1,5 +1,7 @@
 from imports import *
 import streamlit as st
+import warnings
+warnings.filterwarnings("ignore")
 
 # GLOBAL PARAMETERS
 today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
@@ -1565,6 +1567,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
