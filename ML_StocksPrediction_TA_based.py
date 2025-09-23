@@ -1371,7 +1371,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
 
 
 ###### Tabulate Data
-def PredictionTable():
+def PredictionTable(df_results):
     
     def wrap_row_with_color(row, color_code):
         return [f"{color_code}{str(cell)}\033[0m" for cell in row]
@@ -1434,7 +1434,7 @@ def PredictionTable():
     ))
 
 # ✅ PLOT PREDICTIONS
-def PlotPredictions():
+def PlotPredictions(df_results):
     
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     
@@ -1562,9 +1562,8 @@ def run_app():
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
         dfs, df_results = MakePredictions(TICKERS)
-        PlotPredictions()
-        PredictionTable()
-        
+        PlotPredictions(df_results)
+        PredictionTable(df_results)
         for ticker in TICKERS:
             _df = dfs.get(ticker)
             if _df is None:
@@ -1576,6 +1575,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
