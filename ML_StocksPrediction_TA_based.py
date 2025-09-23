@@ -1,15 +1,5 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 from imports import *
 import streamlit as st
-
-
-# In[2]:
-
 
 # GLOBAL PARAMETERS
 today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
@@ -18,12 +8,6 @@ pdf_path = os.path.join(path, f'{today}_ML_TA_MultipleStocks.pdf')
 pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 
 plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
-
-##### STOCKS ##########
-
-
-##### CRYPTOS ##########
-#TICKERS = ["BTC-USD","ETH-USD", "XRP-USD", "SOL-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"]
 
 _Nr = 50 # Skip model if the length is this
 YEARS_OF_DATA = 3
@@ -726,7 +710,7 @@ def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
 
 
 # PRICE CHARTS
-def plot_single_ticker(ticker, df, df_results, _window=14):
+def plot_single_ticker(ticker, df, df_results, conf ='0.0', _window=14):
     # Get predictions
     predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
     if predictions.empty:
@@ -1092,7 +1076,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         action = (
             f"{ticker} is {hit_interp[clean_label]} "
             f"with {hit_prob:.0f}% hit probability "
-            f"and confidence {confidence_score*100:.1f}%."
+            f"and confidence {conf*100:.1f}%."
         )
     else:
         action = f"{ticker} is neutral; monitor for clearer signals."
@@ -1575,12 +1559,18 @@ def run_app():
             if _df is None:
                 st.write(f"Skipping {ticker}: no preloaded data available")
                 continue
+        
+            hit_prob = df_results.loc[ticker, 'hit_prob']
+            predicted_return = df_results.loc[ticker, 'predicted_return']
+            predicted_loss = df_results.loc[ticker, 'predicted_loss']
+            confidence_score = max(hit_prob * max(predicted_return / abs(predicted_loss), 0), 0)
             plot_single_ticker(ticker, _df, df_results)  
         del_old_files(path, 14)
         
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
