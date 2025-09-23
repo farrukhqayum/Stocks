@@ -657,11 +657,10 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     # Create figure with white background
     plt.style.use('default')
-    #fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6), dpi = 300, height_ratios=[3, 1], sharex=True)
     fig, (ax1, ax2) = plt.subplots(
     2, 1,
     figsize=(12, 6),
-    dpi=300,
+    dpi=600,
     sharex=True,
     gridspec_kw={'height_ratios': [3, 1]}
     )
@@ -1311,7 +1310,7 @@ def PlotPredictions(df_results):
     cmap = cm.jet #Inverse of spectral
     custom_colors = cmap(norm(max_vals))
     
-    fig, ax1 = plt.subplots(figsize=(12, 6), zorder=1, dpi=200)
+    fig, ax1 = plt.subplots(figsize=(12, 6), dpi=600)
     cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
                      bbox_to_anchor=(0.12, 0., 1, 1),
                      bbox_transform=ax1.transAxes,
@@ -1442,6 +1441,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
