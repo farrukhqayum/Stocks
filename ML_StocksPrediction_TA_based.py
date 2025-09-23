@@ -1559,17 +1559,17 @@ def run_app():
             if _df is None:
                 st.write(f"Skipping {ticker}: no preloaded data available")
                 continue
-        
             hit_prob = df_results.loc[ticker, 'hit_prob']
             predicted_return = df_results.loc[ticker, 'predicted_return']
             predicted_loss = df_results.loc[ticker, 'predicted_loss']
-            confidence_score = max(hit_prob * max(predicted_return / abs(predicted_loss), 0), 0)
-            plot_single_ticker(ticker, _df, df_results)  
+            conf = max(hit_prob * max(predicted_return / abs(predicted_loss), 0), 0)
+            plot_single_ticker(ticker, _df, df_results, conf)  
         del_old_files(path, 14)
         
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
