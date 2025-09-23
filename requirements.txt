@@ -1,5 +1,5 @@
 streamlit
-pandas_datareader
+seaborn
 pandas
 numpy
 matplotlib
@@ -7,6 +7,8 @@ yfinance
 scikit-learn
 xgboost
 openpyxl
+
+
 
 
 
