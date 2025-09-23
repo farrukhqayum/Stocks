@@ -1238,13 +1238,13 @@ def style_rows(row):
     exhaustion = row.get("_90DHigh", False)
 
     if exhaustion:
-        return ['background-color: yellow'] * len(row)
+        return ['background-color: rgba(255, 255, 0, 0.3)'] * len(row)  # Yellow semi-transparent
     elif 'Hold' in signal:
-        return ['background-color: violet'] * len(row)
+        return ['background-color: rgba(238, 130, 238, 0.3)'] * len(row)  # Violet semi-transparent
     elif ('Bullish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
-        return ['background-color: lightgreen'] * len(row)
+        return ['background-color: rgba(144, 238, 144, 0.3)'] * len(row)  # LightGreen semi-transparent
     elif (('Bearish' in signal) or ('Short' in signal)) and (hit_prob > 40):
-        return ['background-color: lightcoral'] * len(row)
+        return ['background-color: rgba(240, 128, 128, 0.3)'] * len(row)  # LightCoral semi-transparent
     else:
         return ['color: lightgray'] * len(row)
 
@@ -1433,3 +1433,4 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
