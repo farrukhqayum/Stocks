@@ -74,7 +74,7 @@ def get_stock_data(ticker, start_date, end_date):
     df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
     df = df.dropna()  # Assign back the dropped NA rows
     if df.empty:
-        st.write(f"No data for {ticker}, skipping.")
+        st.code(f"No data for {ticker}, skipping.")
         return None
     return df
 
@@ -566,7 +566,7 @@ def del_old_files(directory, days, exclude_extensions=None, dry_run=False):
         file_mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
         if file_mtime < cutoff_time:
             if dry_run:
-                st.write(f"[Dry Run] Would delete: {filepath}")
+                st.code(f"[Dry Run] Would delete: {filepath}")
             else:
                 try:
                     os.remove(filepath)
@@ -630,7 +630,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # Get predictions
     predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
     if predictions.empty:
-        st.write(f"No prediction results found for ticker {ticker}, skipping plot.")
+        st.code(f"No prediction results found for ticker {ticker}, skipping plot.")
         return
     
     import re
@@ -1014,7 +1014,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     plt.tight_layout()
     st.pyplot()
-    st.write("\n".join(summary_lines))
+    st.code("\n".join(summary_lines))
 
 
 # In[5]:
@@ -1055,7 +1055,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             
             df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
             if len(df_model) < _Nr:
-                st.write(f"Skipping {ticker} due to insufficient data after dropna.")
+                st.code(f"Skipping {ticker} due to insufficient data after dropna.")
                 continue
             
             # --- Step 1: Train TP Hit Classifier ---
@@ -1108,9 +1108,9 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             # --- Step 5: Live Prediction ---
             latest = df.iloc[[-1]]
             if latest[FEATURES].isnull().values.any():
-                st.write(f"Skipping {ticker} for NULL Features")
+                st.code(f"Skipping {ticker} for NULL Features")
                 null_features = latest[FEATURES].iloc[0].isnull()
-                st.write(f"NaN features for {ticker}: {list(null_features[null_features].index)}")
+                st.code(f"NaN features for {ticker}: {list(null_features[null_features].index)}")
                 continue
             
             latest_scaled_cls = scaler_cls.transform(latest[FEATURES])
@@ -1262,7 +1262,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 "_90DHigh": _90DHigh
             })
         except Exception as e:
-            st.write(f"Error processing {ticker}: {e}")
+            st.code(f"Error processing {ticker}: {e}")
     df_results = pd.DataFrame(results)
     append_pred(df_results, pred_file)
     return dfs, df_results
@@ -1325,8 +1325,8 @@ def PredictionTable(df_results):
     custom_index = range(1, len(colored_rows) + 1)
     
     # Print colored table
-    st.write("\n=== Prediction Table (Hits, Signal, Conf, Hit Prob ) ===\n")
-    st.write(tabulate(
+    st.code("\n=== Prediction Table (Hits, Signal, Conf, Hit Prob ) ===\n")
+    st.code(tabulate(
         colored_rows,
         headers=headers,
         floatfmt=".1f",
@@ -1468,7 +1468,7 @@ def run_app():
         for ticker in TICKERS:
             _df = dfs.get(ticker)
             if _df is None:
-                st.write(f"Skipping {ticker}: no preloaded data available")
+                st.code(f"Skipping {ticker}: no preloaded data available")
                 continue
 
             plot_single_ticker(ticker, _df, df_results)  
@@ -1477,6 +1477,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
