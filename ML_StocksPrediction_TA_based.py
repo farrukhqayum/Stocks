@@ -977,7 +977,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.add_artist(textbox)
 
     plt.tight_layout()
-    st.pyplot()
+    st.pyplot(fig)
     st.text("\n".join(summary_lines))
 
 
@@ -1400,7 +1400,7 @@ def PlotPredictions(df_results):
     fname = f'{today}_ML_PNL_Multi.png'
     fpath = os.path.join(path, fname)
     plt.savefig(fpath, bbox_inches='tight', dpi=300)
-    st.pyplot()
+    st.pyplot(fig)
 
 
 def run_app():
@@ -1436,6 +1436,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
