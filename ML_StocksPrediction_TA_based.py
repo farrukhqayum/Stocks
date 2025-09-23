@@ -1309,9 +1309,9 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             row_text = (
                 f"{n:>3} | "
                 f"{ticker:<7} | "
-                f"Price: ${current_price:>7.2f} | "
+                f"${current_price:>7.2f} | "
                 f"TP: ${tp_str:>8}({predicted_return*100:5.2f}%) | "
-                f"{will_hit:<5}({hit_price_str:<8}) | "
+                f"{will_hit:<5} | "
                 f"Prob: {int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}% | "
                 f"ATR: ${atr_str:>5} | "
                 f"{signal[3]:<2}{signal[4:]:<10} | "
@@ -1572,6 +1572,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
