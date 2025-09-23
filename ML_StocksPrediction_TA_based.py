@@ -1126,7 +1126,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
 
 # Make Predictions (Gain/Loss/Confidence)
-def MakePredictions():
+def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     n = 1
     dfs = {}
@@ -1576,6 +1576,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
