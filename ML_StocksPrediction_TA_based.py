@@ -1254,8 +1254,14 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             predicted_sl = current_price * (1 + predicted_loss)
             entry_price = (current_price + predicted_sl) / 2
             entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
-            
-            confidence_score = max(hit_prob * max(predicted_return / abs(predicted_loss), 0), 0)
+
+            # Safely calculate confidence score
+            try:
+                ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
+                ratio = max(ratio, 0)
+                confidence_score = max(hit_prob * ratio, 0)
+            except Exception as e:
+                confidence_score = 0 
     
             sma1 = latest['SMA1'].values[0]
             sma2 = latest['SMA2'].values[0]
@@ -1575,6 +1581,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
