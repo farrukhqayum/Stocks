@@ -8,7 +8,6 @@ import numpy as np
 import openpyxl
 
 import yfinance as yf
-import pandas_datareader.data as web
 import ta_functions as ta
 from scipy.stats import norm
 
