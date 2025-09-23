@@ -2,7 +2,6 @@ from imports import *
 import streamlit as st
 import warnings
 warnings.filterwarnings("ignore")
-st.markdown(f"<span style='color:green;'>{text}</span>", unsafe_allow_html=True)
 
 # GLOBAL PARAMETERS
 today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
@@ -113,7 +112,11 @@ def get_fundamentals(ticker: str, df=None):
         return value
     
     return {k: fmt(v) for k, v in fundamentals.items()}
-
+    
+def strip_ansi_codes(text):
+    ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+    return ansi_escape.sub('', text)
+    
 def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
     # Prepare data: rows = one column headers + all rows
     col_labels = ['Metric', 'Value']
@@ -1314,7 +1317,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 f"is High: {_90DHigh}{end}"
             )
             
-            st.write(colored_row(row_text, sc))
+            st.write(strip_ansi_codes(row_text))
     
             n += 1
             
@@ -1568,6 +1571,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
