@@ -6,8 +6,7 @@ today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
 path = 'ML_TP_SL_Figures' # CHECK THIS PATH / CREATE THE FOLDER
 pdf_path = os.path.join(path, f'{today}_ML_TA_MultipleStocks.pdf')
 pred_file = os.path.join(path, "tp_sl_daily.xlsx")
-
-plt.rcParams['font.family'] = 'Segoe UI Emoji' # Matplotlib Font Family for windows.
+plt.rcParams['font.family'] = 'Segoe UI Emoji'
 
 _Nr = 50 # Skip model if the length is this
 YEARS_OF_DATA = 3
@@ -710,7 +709,7 @@ def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
 
 
 # PRICE CHARTS
-def plot_single_ticker(ticker, df, df_results, conf ='0.0', _window=14):
+def plot_single_ticker(ticker, df, df_results, _window=14):
     # Get predictions
     predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
     if predictions.empty:
@@ -726,6 +725,7 @@ def plot_single_ticker(ticker, df, df_results, conf ='0.0', _window=14):
     gain_price = current_price * (1 + gain/100)
     loss_price = current_price * (1 + loss/100)
     hit_prob = predictions.Hit_Prob
+    conf = predictions.Confidence
     summary_lines = []
     action = "N/A"
     will_hit_str = df_results.loc[df_results['Ticker'] == ticker, 'Will_Hit'].values[0]
@@ -1558,16 +1558,14 @@ def run_app():
             if _df is None:
                 st.write(f"Skipping {ticker}: no preloaded data available")
                 continue
-            
-            predicted_return = df_results.loc[ticker, 'predicted_return']
-            predicted_loss = df_results.loc[ticker, 'predicted_loss']
-            conf = max(hit_prob * max(predicted_return / abs(predicted_loss), 0), 0)
-            plot_single_ticker(ticker, _df, df_results, conf)  
+
+            plot_single_ticker(ticker, _df, df_results)  
         del_old_files(path, 14)
         
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
