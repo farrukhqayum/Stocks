@@ -1558,7 +1558,7 @@ def run_app():
             if _df is None:
                 st.write(f"Skipping {ticker}: no preloaded data available")
                 continue
-            hit_prob = df_results.loc[ticker, 'hit_prob']
+            
             predicted_return = df_results.loc[ticker, 'predicted_return']
             predicted_loss = df_results.loc[ticker, 'predicted_loss']
             conf = max(hit_prob * max(predicted_return / abs(predicted_loss), 0), 0)
@@ -1568,6 +1568,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
