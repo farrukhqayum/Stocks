@@ -1072,10 +1072,9 @@ def plot_single_ticker(ticker, df, df_results, conf ='0.0', _window=14):
         'None': "neutral — monitor market for clearer signals",
     }
 
-    if clean_label in hit_interp and hit_prob >= prob_threshold:
+    if clean_label in hit_interp and conf >= prob_threshold:
         action = (
             f"{ticker} is {hit_interp[clean_label]} "
-            f"with {hit_prob:.0f}% hit probability "
             f"and confidence {conf*100:.1f}%."
         )
     else:
@@ -1569,6 +1568,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
