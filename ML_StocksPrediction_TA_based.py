@@ -1546,7 +1546,7 @@ def PlotPredictions(df_results):
     textbox.patch.set_alpha(0.8)
     
     # Space management
-    plt.title(f'{today} - ML Predictions of {isStockCrypto} (From Current Price)', fontsize=16, color='black', pad=20)
+    plt.title(f'{today} - ML Predictions of (From Current Price)', fontsize=16, color='black', pad=20)
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.35)  # Increase if needed for annotation visibility
     
@@ -1575,6 +1575,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
