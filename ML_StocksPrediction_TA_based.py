@@ -1404,9 +1404,12 @@ def PlotPredictions(df_results):
 
 
 def run_app():
-    tickers_input = st.text_input("Enter comma-separated tickers:")
+    tickers_input = st.text_input("Enter comma-separated tickers (max 20):")
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
+        if len(TICKERS) > 20:
+            st.error("You can enter up to 20 tickers only. Please reduce your list.")
+            return 
         row_text = (
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
@@ -1433,4 +1436,5 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
