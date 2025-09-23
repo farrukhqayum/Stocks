@@ -964,7 +964,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         action = f"{ticker} is neutral; monitor for clearer signals."
     
     summary_lines.append(action)
-    summary_lines.append(hits_str)
 
     textbox = AnchoredText(
        action,
@@ -1443,6 +1442,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
