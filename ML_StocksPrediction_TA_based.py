@@ -901,20 +901,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     mid_date = df.index[len(df.index)//2]
     
-    ax2.annotate(
-        hits_str,
-        xy=(mid_date, 5), 
-        xycoords='data',
-        xytext=(0, 0),
-        textcoords='offset points',
-        ha='center',
-        va='bottom',
-        fontsize=8,
-        fontweight='bold',
-        color='gray',
-        bbox=dict(boxstyle='round', fc='lightyellow', ec='gray', alpha=0.3)
-    )
-
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax1_.get_legend_handles_labels()
 
@@ -1457,6 +1443,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
