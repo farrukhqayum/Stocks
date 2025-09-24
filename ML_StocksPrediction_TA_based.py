@@ -87,6 +87,7 @@ results = []
 
 
 # Functions
+@st.cache_data(ttl=600)
 def get_stock_data(ticker, start_date, end_date):
     df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1), 
                      interval='1d', auto_adjust=False, progress=False)
@@ -1509,3 +1510,4 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
