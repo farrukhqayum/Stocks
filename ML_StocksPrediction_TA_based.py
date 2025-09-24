@@ -1255,6 +1255,8 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 hit_price_str = f"${hit_price:>5.2f}"
             else:
                 hit_price_str = "None"
+
+            _high = "its High" if _90DHigh else "Not High"
             
             row_text = (
                 f"{ticker:<7} | "
@@ -1264,7 +1266,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 f"{will_hit:<5} | "
                 f"{int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}% | "
                 f"{signal[3]:<2}{signal[4:]:<10} | "
-                f"{_90DHigh}{end}"
+                f"{_high}{end}"
             )
             
             st.code(strip_ansi_codes(row_text))
@@ -1560,6 +1562,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
