@@ -1455,12 +1455,12 @@ def run_app():
     win_pct = st.number_input("Per Trade Win Percentage (%)", min_value=0.0, value=1.0, step=0.1) / 100.0
     num_wins = st.number_input("Number of Consecutive Wins", min_value=0, value=10, step=1)
     if st.button("Calculate Growth"):
-    final_capital = compound_growth(initial_capital, win_pct, num_wins)
-    st.write(f"After {num_wins} consecutive wins, your capital grows to: **${final_capital:,.2f}**")
-
-    # Show growth over each trade
-    capitals = [initial_capital * (1 + win_pct) ** i for i in range(num_wins + 1)]
-    st.line_chart(capitals)
+        
+        final_capital = compound_growth(initial_capital, win_pct, num_wins)
+        st.write(f"After {num_wins} consecutive wins, your capital grows to: **${final_capital:,.2f}**")
+        # Show growth over each trade
+        capitals = [initial_capital * (1 + win_pct) ** i for i in range(num_wins + 1)]
+        st.line_chart(capitals)
 
     st.markdown(disclaimer)
     st.markdown(""" ### INPUT TICKERS """)
@@ -1505,6 +1505,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
