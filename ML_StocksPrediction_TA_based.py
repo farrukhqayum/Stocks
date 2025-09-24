@@ -150,45 +150,6 @@ def get_fundamentals(ticker: str, df=None):
 
     return {k: fmt(v) for k, v in fundamentals.items()}
     
-'''
-@st.cache_data(ttl=600)
-def get_fundamentals(ticker: str, df=None):
-    stock = yf.Ticker(ticker)
-    info = stock.info
-    
-    atr_value = None
-    if df is not None and 'ATR' in df.columns:
-        atr_value = f"${df['ATR'].iloc[-1]:.2f}"
-
-    fundamentals = {}
-    if atr_value is not None:
-        fundamentals['ATR'] = atr_value
-
-    fundamentals.update({
-            'Market Cap': info.get('marketCap', 'N/A'),
-            'Net Profit Margin': info.get('netMargins', 'N/A'),
-            'PE Ratio': info.get('trailingPE', 'N/A'),
-            'Quick Ratio': info.get('quickRatio', 'N/A'),
-            'Long Term Debt': info.get('longTermDebt', 'N/A'),
-            'Free Cash Flow': info.get('freeCashflow', 'N/A')
-        })
-    
-    # Format numeric values for better readability
-    def fmt(value):
-        if isinstance(value, (int, float)) and value != 'N/A':
-            if abs(value) > 1e9:
-                return f"{value/1e9:.2f}B"
-            elif abs(value) > 1e6:
-                return f"{value/1e6:.2f}M"
-            elif abs(value) > 1e3:
-                return f"{value/1e3:.0f}K"
-            else:
-                return f"{value:.2f}"
-        return value
-    
-    return {k: fmt(v) for k, v in fundamentals.items()}
-'''
-    
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
@@ -1562,6 +1523,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
