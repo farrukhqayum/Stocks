@@ -1409,12 +1409,13 @@ def run_app():
     
     - Machine learning/training of technical indicators
     - Trade signals include (Signals, hit-probability, and hit direction)
-    - Use tables to find the strong stocks, and use the chart to stay in bullish trend
-    - BUY-TIMES: Colored green to BTD-BUY THE DIP
-    - SELL-TIMES: Colored red to SELL-THE-RISE
-    - NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
-    - STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
-    - STRONG SELLS: Dominate when RSI is below 42 and falls below.
+    - Use tables to find the strong stocks, and use the chart to stay in bullish trend. 
+    -- SEE THE CHART FOR THE TICKER YOU ARE INTERESTED IN:
+    --- BUY-TIMES: Colored green to BTD-BUY THE DIP
+    --- SELL-TIMES: Colored red to SELL-THE-RISE
+    --- NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
+    --- STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
+    --- STRONG SELLS: Dominate when RSI is below 42 and falls below.
     - USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
     """
     
@@ -1462,6 +1463,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
