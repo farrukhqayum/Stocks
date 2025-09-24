@@ -775,43 +775,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                     label='Stay-away')
 
     # Add stock's fundamental info box
-    fundamentals = get_fundamentals(ticker, df)
-    add_fundamentals_table(ax1, fundamentals, loc='lower left', alpha=0.6)
-
-    # Add the earning date to the bottom
-    data_ymin = df['Close'].min()
-    data_ymax = df['Close'].max()
-    price_margin = (data_ymax - data_ymin) * 0.1
-    ymin_fixed = data_ymin - price_margin * 0.3
-    ymax_fixed = data_ymax + price_margin * 0.2
-    ax1.set_ylim(ymin_fixed, ymax_fixed)  # Set limits manually so they won't be autoscaled later
-
-    first_date = df.index[0]
-    last_date = df.index[-1]
-    earnings_date = ta.get_next_earnings_date(ticker)
-    
-    if earnings_date is not None:
-        extended_range = pd.Timedelta(days=_DAYS)
         
-        if (first_date <= earnings_date <= last_date) or (last_date < earnings_date <= last_date + extended_range):
-    
-            y_pos = data_ymin + 0.05 * (data_ymax - data_ymin)
-            x_pos = earnings_date if earnings_date <= last_date else last_date
-    
-            ax1.text(
-                x_pos,
-                y_pos,
-                'E',
-                fontsize=10,
-                fontweight='bold',
-                ha='center',
-                va='bottom',
-                color='blue',
-                bbox=dict(boxstyle='round,pad=0.2', fc='lightblue', ec='blue', lw=0.5, alpha=0.5),
-                zorder=10
-            )
-
-    
     # --- Add Fibonacci Levels ---
     if (_FIBS):
         fibs, fib_start, fib_end = get_recent_fib_levels(df)
@@ -1523,6 +1487,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
