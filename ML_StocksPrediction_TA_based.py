@@ -102,7 +102,8 @@ def get_stock_data(ticker, start_date, end_date):
         st.text(f"No data for {ticker}, skipping.")
         return None
     return df
-
+    
+@st.cache_data(ttl=600)
 def get_fundamentals(ticker: str, df=None):
     stock = yf.Ticker(ticker)
     info = stock.info
@@ -1510,4 +1511,5 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
