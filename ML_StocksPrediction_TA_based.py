@@ -1453,8 +1453,8 @@ def run_app():
     st.header("Just Keep Winning!!!")
     st.markdown(power_of_compounding)
     initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
-    win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=1.0, step=0.1) / 100.0
-    num_wins = st.number_input("Number of Trade Wins", min_value=0, value=10, step=1)
+    win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
+    num_wins = st.number_input("Number of Trade Wins", min_value=0, value=75, step=1)
     if st.button("Calculate Growth"):
         
         final_capital = compound_growth(initial_capital, win_pct, num_wins)
@@ -1506,6 +1506,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
