@@ -1464,7 +1464,7 @@ def run_app():
         st.line_chart(capitals)
 
     st.markdown(disclaimer)
-    st.header("INPUT TICKERS")
+    st.header("Stocks Signal Forecasting via Machine Learning")
     st.markdown("""
     <style>
     .stTextInput input[aria-label="Enter comma-separated tickers (max 20):"] {
@@ -1506,6 +1506,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
