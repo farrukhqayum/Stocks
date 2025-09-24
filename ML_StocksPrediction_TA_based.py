@@ -1487,8 +1487,8 @@ def run_app():
             f'{"Take-profit (%)":>15} | '
             f'{"Stop-loss (%)":>15} | '
             f'{"Will Hit":>8} | '
-            f'{"Probability":<11} | '
-            f'{"Signal":<8} | '
+            f'{"Probability (%)":<11} | '
+            f'{"Signal (TI)":<8} | '
             f'{"Is High":<7}'
         )
 
@@ -1508,6 +1508,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
