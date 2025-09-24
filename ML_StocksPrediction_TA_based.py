@@ -4,6 +4,18 @@ import re
 import warnings
 warnings.filterwarnings("ignore")
 
+disclaimer = """
+---
+**Disclaimer:**
+
+- Trading involves substantial risk and may result in significant financial loss.
+- Past performance is not indicative of future results.
+- Always do your own research before making any investment or trading decisions.
+- The information provided is for educational and informational purposes only.
+- Trade at your own risk.
+---
+"""
+
 # GLOBAL PARAMETERS
 today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
 path = 'ML_TP_SL_Figures' # CHECK THIS PATH / CREATE THE FOLDER
@@ -1429,6 +1441,8 @@ def run_app():
     }
     </style>
     """, unsafe_allow_html=True)
+    
+    st.markdown(disclaimer)
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):")
     
@@ -1463,6 +1477,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
