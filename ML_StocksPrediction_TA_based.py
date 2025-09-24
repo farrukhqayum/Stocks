@@ -1431,7 +1431,8 @@ def run_app():
     - USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
     """
     
-    st.markdown(desc)
+    st.markdown(desc)   
+    st.markdown(disclaimer)
     st.markdown(""" ### INPUT TICKERS """)
     st.markdown("""
     <style>
@@ -1441,9 +1442,6 @@ def run_app():
     }
     </style>
     """, unsafe_allow_html=True)
-    
-    st.markdown(disclaimer)
-
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):")
     
     if tickers_input:
@@ -1477,6 +1475,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
