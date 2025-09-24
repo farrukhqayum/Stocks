@@ -1404,19 +1404,22 @@ def PlotPredictions(df_results):
 
 
 def run_app():
-    desc = (
-        "Machine learning/training of technical indicators\n"
-        "Trade signals include (Signals, hit-probability, and hit direction)\n"
-        "Use tables to find the strong stocks, and use the chart to stay in bullish trend\n"
-        "BUY-TIMES: Colored green to BTD-BUY THE DIP\n"
-        "SELL-TIMES: Colored red to SELL-THE-RISE\n"
-        "NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.\n"
-        "STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.\n"
-        "STRONG SELLS: Dominate when RSI is below 42 and falls below.\n"
-        "USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold"
-    )
+    desc = """
+    ### Positional/Swing Trading Guidance
     
-    st.text(desc)
+    - Machine learning/training of technical indicators
+    - Trade signals include (Signals, hit-probability, and hit direction)
+    - Use tables to find the strong stocks, and use the chart to stay in bullish trend
+    - BUY-TIMES: Colored green to BTD-BUY THE DIP
+    - SELL-TIMES: Colored red to SELL-THE-RISE
+    - NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
+    - STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
+    - STRONG SELLS: Dominate when RSI is below 42 and falls below.
+    - USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
+    """
+    
+    st.markdown(desc)
+
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):")
     if tickers_input:
@@ -1450,6 +1453,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
