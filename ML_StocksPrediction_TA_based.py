@@ -1419,8 +1419,7 @@ def run_app():
     """
     
     st.markdown(desc)
-
-
+    st.markdown(""" ### INPUT TICKERS """)
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):")
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
@@ -1453,6 +1452,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
