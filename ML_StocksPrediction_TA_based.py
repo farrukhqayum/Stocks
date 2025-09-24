@@ -1420,7 +1420,17 @@ def run_app():
     
     st.markdown(desc)
     st.markdown(""" ### INPUT TICKERS """)
+    st.markdown("""
+    <style>
+    .stTextInput input[aria-label="Enter comma-separated tickers (max 20):"] {
+        background-color: #f0fff0 !important;   /* Light green background */
+        color: #003300;                        /* Dark green text */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):")
+    
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
         if len(TICKERS) > 20:
@@ -1452,6 +1462,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
