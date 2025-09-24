@@ -1433,9 +1433,7 @@ def PlotPredictions(df_results):
 
 
 def run_app():
-    desc = """
-    ### Positional/Swing Trading Guidance
-    
+    desc = """  
     - Machine learning/training of technical indicators
     - Trade signals include (Signals, hit-probability, and hit direction)
     - Use tables to find the strong stocks, and use the chart to stay in bullish trend. 
@@ -1448,9 +1446,11 @@ def run_app():
     - USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
     """
     
+    st.header("Positional/Swing Trading Guidance")
     st.markdown(desc)
     
     st.header("Just Keep Winning!!!")
+    
     st.markdown(power_of_compounding)
     initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
     win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
@@ -1464,7 +1464,7 @@ def run_app():
         st.line_chart(capitals)
 
     st.markdown(disclaimer)
-    st.markdown(""" ### INPUT TICKERS """)
+    st.header("INPUT TICKERS")
     st.markdown("""
     <style>
     .stTextInput input[aria-label="Enter comma-separated tickers (max 20):"] {
@@ -1506,6 +1506,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
