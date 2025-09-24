@@ -1404,6 +1404,10 @@ def PlotPredictions(df_results):
 
 
 def run_app():
+    desc = (f' Machine learning/training of technical indicators'
+            f' Trade signals include (Signals, hit-probability, and hit direction)'
+            )
+    st.code(desc)
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):")
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
@@ -1436,6 +1440,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
