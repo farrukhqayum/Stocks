@@ -643,8 +643,9 @@ def color_signal(row):
     else:
         return '\033[93m' + signal + '\033[0m'  # Yellow for Neutral
 
-def compound_growth(initial_capital, win_pct, num_wins):
-    final_capital = initial_capital * (1 + win_pct) ** num_wins
+def compound_growth(initial_capital, win_pct, num_wins, tax_rate):
+    effective_gain = win_pct * (1 - tax_rate)
+    final_capital = initial_capital * (1 + effective_gain) ** num_wins
     return final_capital
 
 
@@ -1455,10 +1456,10 @@ def run_app():
     st.markdown(power_of_compounding)
     initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
     win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
+    tax_pct = st.number_input("Tax (%)", min_value=0.0, value=0.0, step=0.1) / 100.0
     num_wins = st.number_input("Number of Trade Wins", min_value=0, value=75, step=1)
     if st.button("Calculate Growth"):
-        
-        final_capital = compound_growth(initial_capital, win_pct, num_wins)
+        final_capital = compound_growth(initial_capital, win_pct, num_wins, tax_pct)
         st.write(f"After {num_wins} consecutive wins, your capital grows to: **${final_capital:,.2f}**")
         # Show growth over each trade
         capitals = [initial_capital * (1 + win_pct) ** i for i in range(num_wins + 1)]
@@ -1508,31 +1509,3 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
