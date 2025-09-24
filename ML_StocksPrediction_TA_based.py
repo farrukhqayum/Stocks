@@ -957,7 +957,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     if clean_label in hit_interp and conf >= prob_threshold:
         action = (
             f"{ticker} is {hit_interp[clean_label]} "
-            f"and confidence {conf:.1f}%."
+            f"with confidence {conf:.1f}%."
         )
     else:
         action = f"{ticker} is neutral; monitor for clearer signals."
@@ -1436,6 +1436,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
