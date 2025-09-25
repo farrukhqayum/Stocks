@@ -6,6 +6,20 @@ import re
 import warnings
 warnings.filterwarnings("ignore")
 
+desc = """  
+- Machine learning/training of technical indicators
+- Trade signals include (Signals, hit-probability, and hit direction)
+- Use tables to find the strong stocks, and use the chart to stay in bullish trend. 
+    - SEE THE CHART FOR THE TICKER YOU ARE INTERESTED IN:
+        - BUY-TIMES: Colored green to BTD-BUY THE DIP
+        - SELL-TIMES: Colored red to SELL-THE-RISE
+        - NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
+        - STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
+        - STRONG SELLS: Dominate when RSI is below 42 and falls below.
+- USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
+"""
+
+
 disclaimer = """
 ---
 **Disclaimer:**
@@ -1257,7 +1271,7 @@ def style_rows(row):
     else:
         return ['color: lightgray'] * len(row)
 
-def streamlit_display(df_results):
+def tabular_display(df_results):
     _df = df_results.copy()
     _df['Signal'] = _df['Signal'].str.replace(r'^TI:\s*', '', regex=True)
     _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'\([^)]*\)', '', regex=True)
@@ -1280,10 +1294,7 @@ def streamlit_display(df_results):
         'Hit_Prob': '{:.0f}'
     })
 
-    st.dataframe(styled_df, height=600)
-
-# Usage in app
-# streamlit_display(df_results)
+    st.dataframe(styled_df, height=300)
 
 
 # ✅ PLOT PREDICTIONS
@@ -1413,19 +1424,7 @@ def PlotPredictions(df_results):
 
 
 def run_app():
-    desc = """  
-    - Machine learning/training of technical indicators
-    - Trade signals include (Signals, hit-probability, and hit direction)
-    - Use tables to find the strong stocks, and use the chart to stay in bullish trend. 
-        - SEE THE CHART FOR THE TICKER YOU ARE INTERESTED IN:
-            - BUY-TIMES: Colored green to BTD-BUY THE DIP
-            - SELL-TIMES: Colored red to SELL-THE-RISE
-            - NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
-            - STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
-            - STRONG SELLS: Dominate when RSI is below 42 and falls below.
-    - USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
-    """
-    
+
     st.header("Positional/Swing Trading Guidance")
     st.markdown(desc)
     
@@ -1474,7 +1473,7 @@ def run_app():
         st.code(row_text)
         dfs, df_results = MakePredictions(TICKERS)
         PlotPredictions(df_results)
-        streamlit_display(df_results)
+        tabular_display(df_results)
         for ticker in TICKERS:
             _df = dfs.get(ticker)
             if _df is None:
@@ -1487,11 +1486,3 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
-
-
-
-
-
-
-
-
