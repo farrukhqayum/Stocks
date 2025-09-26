@@ -58,7 +58,7 @@ eff_monthly = (1 + r) ** max_trades - 1
 
 if st.button("Calculate Investment Growth"):
     actual = [0, 6328, 1302, 2000, 10040, 16000, 15800, -9000, 3000, 3000, 3000, 3000]
-    st.write(f'Effective Monthly Win: {eff_monthly} (%)')
+    st.write(f'Effective Monthly Win: {eff_monthly:.2f} (%)')
     st.write(f'Total Profit: ${np.sum(actual)}')
     y = P + np.cumsum(actual)
     investment_curves = calculate_investment_growth(P, r, months, max_trades)
