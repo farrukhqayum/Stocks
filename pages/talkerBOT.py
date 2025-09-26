@@ -13,18 +13,22 @@ def chat_with_gpt(prompt, context):
     messages = [
         {"role": "system", "content": "You are a helpful assistant for ML stock results."},
     ]
-    # Add context if any
     if context:
         messages.append({"role": "system", "content": f"Context: {context}"})
     messages.append({"role": "user", "content": prompt})
     
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        max_tokens=500,
-        temperature=0.2,
-    )
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=500,
+            temperature=0.2,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"OpenAI API error: {e}")
+        return ""
+
 
 # Get stored ML results from session_state
 ml_results = st.session_state.get('ml_results', None)
