@@ -8,6 +8,8 @@ warnings.filterwarnings("ignore")
 
 st.set_page_config(page_title="MAIN - Machine Learning of Stocks")
 
+st.text_input("Test input", placeholder="This is a test placeholder")
+
 desc = """  
 - Machine learning/training of technical indicators
 - Trade signals include (Signals, hit-probability, and hit direction)
@@ -1508,6 +1510,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
