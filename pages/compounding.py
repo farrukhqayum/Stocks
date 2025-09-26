@@ -2,6 +2,8 @@ import streamlit as st
 
 st.header("Just Keep Winning!!!")
 
+
+comp_text = 
 """
 Compounding is the process where the returns you earn are reinvested to generate their own returns. 
 This effect causes your capital to grow exponentially over time, not just linearly.
@@ -13,7 +15,7 @@ Keep winning trades and staying disciplined to harness the power of compounding 
 Remember, consistent small wins build up to large gains as profits generate more profits.
 """
 
-st.markdown(power_of_compounding)
+st.markdown(comp_text)
 
 # Add fields
 initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
