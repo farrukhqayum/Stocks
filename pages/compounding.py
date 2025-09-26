@@ -23,7 +23,8 @@ def compound_growth(initial_capital, win_pct, num_wins, tax_rate):
 initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
 win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
 tax_pct_input = st.number_input("Tax (%)", min_value=0.0, value=0.0, step=0.1)
-st.write("Tax input:", tax_pct_input)
+tax_pct = tax_pct_input / 100.0)
+st.write(f'Tax input: , {tax_pct}%')
 num_wins = st.number_input("Number of Trade Wins", min_value=0, value=75, step=1)
 
 if st.button("Calculate Growth"):
