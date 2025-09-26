@@ -1420,7 +1420,7 @@ def tabular_display(df_results):
         'Hit_Prob': '{:.0f}'
     })
 
-    st.dataframe(styled_df, height=600)
+    st.dataframe(styled_df, height=600, use_container_width=True)
 
 def run_app():
 
@@ -1494,6 +1494,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
