@@ -1173,9 +1173,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 sc = 'red'
             elif will_hit == 'Short':
                 hit_price = predicted_sl
-                x = tp_str
-                tp_str = sl_str
-                sl_str = x
                 signal = "TI: 🔻 Bearish"
                 sc = 'darkred'
             else:
@@ -1488,6 +1485,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
