@@ -1474,8 +1474,13 @@ def run_app():
         PlotPredictions(df_results)
         
         st.header("Tabular Results")
-        st.text("Tablular display of results, Bullish (Green), Bearish (red), Neutral (Gray), stocks touching 3-months high are in 'darkgray'.
-        Use column filters to further fine-tune the stocks to trade/compound & build positions. Good luck!")
+        st.text("""Tabular display of results,
+                Bullish (Green),
+                Bearish (Red),
+                Neutral (Gray),
+                stocks touching 3-months high are in 'darkgray'.
+                Use column filters to further fine-tune the stocks to trade/compound & build positions.
+                Good luck!""")
 
         tabular_display(df_results)
         for ticker in TICKERS:
@@ -1489,6 +1494,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
