@@ -1,6 +1,5 @@
 streamlit
 seaborn
-pandas
 numpy
 matplotlib
 yfinance
@@ -8,6 +7,9 @@ scikit-learn
 xgboost
 openpyxl
 tabulate
+pandas==1.4.4
+pandas_datareader==0.10.0
+
 
 
 
