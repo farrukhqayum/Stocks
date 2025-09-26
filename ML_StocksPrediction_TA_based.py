@@ -1456,14 +1456,6 @@ def run_app():
 
     st.markdown(disclaimer)
     st.header("Stocks Signal Forecasting via Machine Learning")
-    st.markdown("""
-    <style>
-    .stTextInput input[aria-label="Enter comma-separated tickers (max 20):"] {
-        background-color: #f0fff0 !important;   /* Light green background */
-        color: #003300; !important; /* Dark green text */
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):", placeholder = "e.g., COIN, TSLA, GOOGL, AMAT")
     
@@ -1508,6 +1500,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
