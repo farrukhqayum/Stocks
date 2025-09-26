@@ -8,7 +8,7 @@ scikit-learn
 xgboost
 openpyxl
 tabulate
-pandas_datareader
+
 
 
 
