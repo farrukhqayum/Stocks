@@ -1413,7 +1413,21 @@ def tabular_display(df_results):
     ).reset_index(drop=True)
     _df_sorted = _df_sorted.drop(columns=['Index', 'who'], errors='ignore')
 
+    def custom_price_format(x):
+    try:
+        if x > 1:
+            return f"{x:.2f}"
+        else:
+            return f"{x:.4f}"  # or f"{x:.2f}" if you want 2 decimals always
+    except:
+        return x  # if x is not a number, return as is
+    
     styled_df = _df_sorted.style.apply(style_rows, axis=1).format({
+        'Price': custom_price_format,
+        'Entry': custom_price_format,
+        'TP': custom_price_format,
+        'SL': custom_price_format,
+        'Dip (%)' : '{:.1f}',
         'Max (%)': '{:.1f}',
         'Loss (%)': '{:.1f}',
         'Confidence': '{:.1f}',
@@ -1494,6 +1508,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
