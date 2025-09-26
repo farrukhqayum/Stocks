@@ -10,6 +10,11 @@ Remember, consistent small wins build up to large gains as profits generate more
 """
 st.markdown(comp_text)
 
+def compound_growth(initial_capital, win_pct, num_wins, tax_rate):
+    effective_gain = win_pct * (1 - tax_rate)
+    final_capital = initial_capital * (1 + effective_gain) ** num_wins
+    return final_capital
+
 # Add fields
 initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
 win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
