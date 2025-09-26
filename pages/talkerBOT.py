@@ -27,7 +27,7 @@ def chat_with_gpt(prompt, context):
     return response.choices[0].message.content
 
 # Get stored ML results from session_state
-ml_results = st.session_state.get('ml_results', None)
+ml_results = st.session_state.get('_df', None)
 if ml_results is not None:
     st.write("Loaded ML results:")
     st.dataframe(ml_results)
