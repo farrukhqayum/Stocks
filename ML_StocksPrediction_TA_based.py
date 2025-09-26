@@ -1254,48 +1254,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
 # In[6]:
 
 
-###### Tabulate Data
-def style_rows(row):
-    signal = row.Signal
-    hit_prob = row.Hit_Prob
-    exhaustion = row.get("_90DHigh", False)
-
-    if exhaustion:
-        return ['background-color: rgba(225, 100, 100, 0.5)'] * len(row) 
-    elif 'Hold' in signal:
-        return ['background-color: rgba(238, 130, 238, 0.3)'] * len(row)  # Violet semi-transparent
-    elif ('Bullish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
-        return ['background-color: rgba(144, 238, 144, 0.3)'] * len(row)  # LightGreen semi-transparent
-    elif (('Bearish' in signal) or ('Short' in signal)) and (hit_prob > 40):
-        return ['background-color: rgba(240, 128, 128, 0.3)'] * len(row)  # LightCoral semi-transparent
-    else:
-        return ['color: gray'] * len(row)
-
-def tabular_display(df_results):
-    _df = df_results.copy()
-    _df['Signal'] = _df['Signal'].str.replace(r'^TI:\s*', '', regex=True)
-    _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'\([^)]*\)', '', regex=True)
-    _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'[^A-Za-z]+', '', regex=True)
-
-    custom_order = ['TP', 'Hold', 'SL', 'Short', 'None']
-    ord_map = {label: i for i, label in enumerate(custom_order)}
-    _df['who'] = _df['Will_Hit'].map(lambda x: ord_map.get(x, len(custom_order)))
-
-    _df_sorted = _df.sort_values(
-        by=['who', '_90DHigh', 'Signal', 'Confidence', "Hit_Prob"],
-        ascending=[True, True, False, False, False]
-    ).reset_index(drop=True)
-    _df_sorted = _df_sorted.drop(columns=['Index', 'who'], errors='ignore')
-
-    styled_df = _df_sorted.style.apply(style_rows, axis=1).format({
-        'Max (%)': '{:.1f}',
-        'Loss (%)': '{:.1f}',
-        'Confidence': '{:.1f}',
-        'Hit_Prob': '{:.0f}'
-    })
-
-    st.dataframe(styled_df, height=600)
-
 
 # ✅ PLOT PREDICTIONS
 def PlotPredictions(df_results):
@@ -1422,6 +1380,47 @@ def PlotPredictions(df_results):
     plt.savefig(fpath, bbox_inches='tight', dpi=300)
     st.pyplot(fig)
 
+###### Tabulate Data
+def style_rows(row):
+    signal = row.Signal
+    hit_prob = row.Hit_Prob
+    exhaustion = row.get("_90DHigh", False)
+
+    if exhaustion:
+        return ['background-color: rgba(128, 128, 128, 0.5)'] * len(row) 
+    elif 'Hold' in signal:
+        return ['background-color: rgba(255, 0, 255, 0.3)'] * len(row)  # Magenta semi-transparent
+    elif ('Bullish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
+        return ['background-color: rgba(144, 238, 144, 0.3)'] * len(row)  # LightGreen semi-transparent
+    elif (('Bearish' in signal) or ('Short' in signal)) and (hit_prob > 40):
+        return ['background-color: rgba(240, 128, 128, 0.3)'] * len(row)  # LightCoral semi-transparent
+    else:
+        return ['color: gray'] * len(row)
+
+def tabular_display(df_results):
+    _df = df_results.copy()
+    _df['Signal'] = _df['Signal'].str.replace(r'^TI:\s*', '', regex=True)
+    _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'\([^)]*\)', '', regex=True)
+    _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'[^A-Za-z]+', '', regex=True)
+
+    custom_order = ['TP', 'Hold', 'SL', 'Short', 'None']
+    ord_map = {label: i for i, label in enumerate(custom_order)}
+    _df['who'] = _df['Will_Hit'].map(lambda x: ord_map.get(x, len(custom_order)))
+
+    _df_sorted = _df.sort_values(
+        by=['who', '_90DHigh', 'Signal', 'Confidence', "Hit_Prob"],
+        ascending=[True, True, False, False, False]
+    ).reset_index(drop=True)
+    _df_sorted = _df_sorted.drop(columns=['Index', 'who'], errors='ignore')
+
+    styled_df = _df_sorted.style.apply(style_rows, axis=1).format({
+        'Max (%)': '{:.1f}',
+        'Loss (%)': '{:.1f}',
+        'Confidence': '{:.1f}',
+        'Hit_Prob': '{:.0f}'
+    })
+
+    st.dataframe(styled_df, height=600)
 
 def run_app():
 
@@ -1487,6 +1486,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
