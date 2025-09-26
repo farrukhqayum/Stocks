@@ -1179,12 +1179,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 hit_price = None
                 signal = "TI: ⚪ Neut"
                 sc = 'white'
-    
-            def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
-                try:
-                    return fmt.format(float(val))
-                except (ValueError, TypeError):
-                    return na_str
             
             if hit_price is not None and isinstance(hit_price, (int, float, np.floating)):
                 hit_price_str = f"${hit_price:>5.2f}"
@@ -1485,6 +1479,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
