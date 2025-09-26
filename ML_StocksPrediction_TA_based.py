@@ -1261,7 +1261,7 @@ def style_rows(row):
     exhaustion = row.get("_90DHigh", False)
 
     if exhaustion:
-        return ['background-color: rgba(255, 255, 0, 0.3)'] * len(row)  # Yellow semi-transparent
+        return ['background-color: rgba(225, 100, 100, 0.5)'] * len(row) 
     elif 'Hold' in signal:
         return ['background-color: rgba(238, 130, 238, 0.3)'] * len(row)  # Violet semi-transparent
     elif ('Bullish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
@@ -1269,7 +1269,7 @@ def style_rows(row):
     elif (('Bearish' in signal) or ('Short' in signal)) and (hit_prob > 40):
         return ['background-color: rgba(240, 128, 128, 0.3)'] * len(row)  # LightCoral semi-transparent
     else:
-        return ['color: lightgray'] * len(row)
+        return ['color: gray'] * len(row)
 
 def tabular_display(df_results):
     _df = df_results.copy()
@@ -1294,7 +1294,7 @@ def tabular_display(df_results):
         'Hit_Prob': '{:.0f}'
     })
 
-    st.dataframe(styled_df, height=300)
+    st.dataframe(styled_df, height=600)
 
 
 # ✅ PLOT PREDICTIONS
@@ -1487,5 +1487,6 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
