@@ -1469,7 +1469,7 @@ def run_app():
     <style>
     .stTextInput input[aria-label="Enter comma-separated tickers (max 20):"] {
         background-color: #f0fff0 !important;   /* Light green background */
-        color: #003300;                        /* Dark green text */
+        color: #003300;  !important; /* Dark green text */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1518,3 +1518,4 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
