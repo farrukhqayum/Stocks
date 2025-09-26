@@ -51,12 +51,12 @@ pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji'
 
 _Nr = 50 # Skip model if the length is this
-YEARS_OF_DATA = 2
+YEARS_OF_DATA = 3
 PROFIT_TARGET = 0.05
 STOP_LOSS = 0.045
 _DAYS = 22 # Used for SMA and training
 _FWDAYS = 14 # Forward days to plot stored data
-windows = [3, 5, 7, 9, 13, 15, 19, 29, 39, 49, 59, 69, 79, 89] # For calculating returns
+windows = [3, 5, 7, 9, 13, 15, 19, 29, 39, 49] # For calculating returns
 _window = 9  # Backtesting
 tolerance = 1.07
 _FIBS = False
@@ -119,7 +119,7 @@ def get_stock_data(ticker, start_date, end_date):
         return None
     return df
 
-@st.cache_data(ttl=1200)
+
 def get_fundamentals(ticker: str, df=None):
     try:
         stock = yf.Ticker(ticker, session=session)
@@ -163,7 +163,7 @@ def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-@st.cache_data(ttl=1200)    
+    
 def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
     # Prepare data: rows = one column headers + all rows
     col_labels = ['Metric', 'Value']
@@ -214,7 +214,7 @@ def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
 
     return table
     
-@st.cache_data(ttl=1200)
+
 def add_technical_indicators(df):
     df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
@@ -1479,6 +1479,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
