@@ -1151,6 +1151,9 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             bear_mode = pd.Series(df.Bear.values[-lookback_n:]).mode().iloc[0]
             neutral_mode = pd.Series(df.Neutral.values[-lookback_n:]).mode().iloc[0]
             hit_price = None
+            tp_str = safe_format_float(predicted_tp)
+            sl_str = safe_format_float(predicted_sl)
+            atr_str = safe_format_float(df['ATR'].iloc[-1], fmt="{:5.1f}")
             
             window_high = df['High'].rolling(window=90).max().iloc[-1]
             if (rsi > 78) or (current_price >= window_high *1.02):
@@ -1170,6 +1173,9 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 sc = 'red'
             elif will_hit == 'Short':
                 hit_price = predicted_sl
+                x = tp_str
+                tp_str = sl_str
+                sl_str = x
                 signal = "TI: 🔻 Bearish"
                 sc = 'darkred'
             else:
@@ -1182,10 +1188,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                     return fmt.format(float(val))
                 except (ValueError, TypeError):
                     return na_str
-            
-            tp_str = safe_format_float(predicted_tp)
-            sl_str = safe_format_float(predicted_sl)
-            atr_str = safe_format_float(df['ATR'].iloc[-1], fmt="{:5.1f}")
             
             if hit_price is not None and isinstance(hit_price, (int, float, np.floating)):
                 hit_price_str = f"${hit_price:>5.2f}"
@@ -1486,6 +1488,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
