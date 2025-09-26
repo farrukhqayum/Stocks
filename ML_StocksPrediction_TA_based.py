@@ -51,12 +51,12 @@ pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji'
 
 _Nr = 50 # Skip model if the length is this
-YEARS_OF_DATA = 3
-PROFIT_TARGET = 0.08
-STOP_LOSS = 0.07
+YEARS_OF_DATA = 2
+PROFIT_TARGET = 0.05
+STOP_LOSS = 0.045
 _DAYS = 22 # Used for SMA and training
 _FWDAYS = 14 # Forward days to plot stored data
-windows = [3, 5, 7, 9, 13, 15, 19, 29, 39, 49, 59] # For calculating returns
+windows = [3, 5, 7, 9, 13, 15, 19, 29, 39, 49, 59, 69, 79, 89] # For calculating returns
 _window = 9  # Backtesting
 tolerance = 1.07
 _FIBS = False
@@ -1479,6 +1479,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
