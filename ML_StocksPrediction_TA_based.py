@@ -15,7 +15,8 @@ desc = """
         - SELL-TIMES: Colored red to SELL-THE-RISE
         - NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
         - STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
-        - STRONG SELLS: Dominate when RSI is below 42 and falls below.
+        - STRONG SELLS: Dominate when RSI is below 42 and falls below. When RSI below 30 it doesnt mean it will reboun but it may stay there for a while.
+        - BUY LATE THAN EARLY if chasing 3-10% gains in a swing trade.
 - AVOID CHASING
     - Opportunities are daily, weekly or monthly, don't grab them all.
     - Chase double bottoms, candles on monthly, or weekly, avoid daily. Decide trend reversals and enter strategically.
@@ -1516,6 +1517,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
