@@ -2,7 +2,7 @@ import streamlit as st
 from openai import OpenAI
 
 # Configure your API key as environment variable or directly here
-openai_api_key = st.secrets["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"]
+openai_api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI(api_key=openai_api_key)
 
 st.title("ML Results Chatbot")
