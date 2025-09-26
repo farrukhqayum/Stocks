@@ -1475,17 +1475,18 @@ def run_app():
                 Good luck!""")
 
         tabular_display(df_results)
+        st.session_state['ml_results'] = df_results
         for ticker in TICKERS:
             _df = dfs.get(ticker)
             if _df is None:
                 st.text(f"Skipping {ticker}: no preloaded data available")
                 continue
-
             plot_single_ticker(ticker, _df, df_results)  
         
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
