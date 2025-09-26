@@ -1453,7 +1453,7 @@ def run_app():
     </style>
     """, unsafe_allow_html=True)
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):",
-                                 value = "COIN, TSLA, GOOGL, AMAT, SMCI, CRM, BABA, XPEV, NIO, CPNG, U, UNH, INTC")
+                                 placeholder = "e.g., COIN, TSLA, GOOGL, AMAT, SMCI, CRM, BABA, XPEV, NIO, CPNG, U, UNH, INTC")
     
     if tickers_input:
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
@@ -1487,4 +1487,5 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
