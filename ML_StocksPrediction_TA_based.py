@@ -1427,11 +1427,12 @@ def tabular_display(df_results):
         'Entry': custom_price_format,
         'TP': custom_price_format,
         'SL': custom_price_format,
-        'Dip (%)' : '{:.1f}',
+        'Dip%' : '{:.1f}',
         'Max (%)': '{:.1f}',
         'Loss (%)': '{:.1f}',
         'Confidence': '{:.1f}',
         'Hit_Prob': '{:.0f}'
+        'Conidence': '{:.0f}'
     })
 
     st.dataframe(styled_df, height=600, use_container_width=True)
@@ -1508,6 +1509,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
