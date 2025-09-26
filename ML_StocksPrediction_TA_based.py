@@ -42,18 +42,6 @@ disclaimer = """
 - Trade at your own risk.
 ---
 """
-power_of_compounding = """
-
-Compounding is the process where the returns you earn are reinvested to generate their own returns. 
-This effect causes your capital to grow exponentially over time, not just linearly.
-
-Even small percentage gains consistently accumulated can turn modest initial capital into significant wealth.
-
-Keep winning trades and staying disciplined to harness the power of compounding — patience and persistence are key to long-term trading success.
-
-Remember, consistent small wins build up to large gains as profits generate more profits.
-"""
-
 
 # GLOBAL PARAMETERS
 today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
@@ -109,12 +97,8 @@ FEATURES = [
 
 results = []
 
-
-# In[3]:
-
-
 # Functions
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
     try:
         df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1), 
@@ -135,7 +119,7 @@ def get_stock_data(ticker, start_date, end_date):
         return None
     return df
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1200)
 def get_fundamentals(ticker: str, df=None):
     try:
         stock = yf.Ticker(ticker, session=session)
@@ -178,7 +162,8 @@ def get_fundamentals(ticker: str, df=None):
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
-    
+
+@st.cache_data(ttl=1200)    
 def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
     # Prepare data: rows = one column headers + all rows
     col_labels = ['Metric', 'Value']
@@ -228,7 +213,8 @@ def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
             cell.set_edgecolor('none')
 
     return table
-
+    
+@st.cache_data(ttl=1200)
 def add_technical_indicators(df):
     df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
@@ -1500,6 +1486,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
