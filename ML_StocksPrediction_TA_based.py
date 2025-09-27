@@ -1448,6 +1448,7 @@ def run_app():
             st.error("You can enter up to 20 tickers only. Please reduce your list.")
             return 
         row_text = (
+            f'{"Number":<5} | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
             f'{"Take-profit (%)":>15} | '
@@ -1483,6 +1484,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
