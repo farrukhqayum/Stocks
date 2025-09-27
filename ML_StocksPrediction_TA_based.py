@@ -1143,7 +1143,8 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             sma2 = latest['SMA2'].values[0]
             rsi = latest['RSI'].values[0]
             signal = "TI: ⚪ Neut"
-            _90DHigh = df['Exhaustion'].values[0] > 0.05
+            _Extremes = "High" if df['Exhaustion'].values[-1] >= 0.75 else ("Low" if df['Exhaustion'].values[-1] < -0.75 else "OK")
+    
             entry_signal = True
             sc = 'white'
             lookback_n = 5
@@ -1151,13 +1152,11 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             bear_mode = pd.Series(df.Bear.values[-lookback_n:]).mode().iloc[0]
             neutral_mode = pd.Series(df.Neutral.values[-lookback_n:]).mode().iloc[0]
             hit_price = None
-            tp_str = safe_format_float(predicted_tp)
-            sl_str = safe_format_float(predicted_sl)
-            atr_str = safe_format_float(df['ATR'].iloc[-1], fmt="{:5.1f}")
-            
+            '''
             window_high = df['High'].rolling(window=90).max().iloc[-1]
             if (rsi > 78) or (current_price >= window_high *1.02):
-                _90DHigh = True
+                _Extremes = True
+            '''
     
             if will_hit == 'TP':
                 hit_price = predicted_tp
@@ -1179,23 +1178,32 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 hit_price = None
                 signal = "TI: ⚪ Neut"
                 sc = 'white'
+    
+            def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
+                try:
+                    return fmt.format(float(val))
+                except (ValueError, TypeError):
+                    return na_str
+            
+            tp_str = safe_format_float(predicted_tp)
+            sl_str = safe_format_float(predicted_sl)
+            atr_str = safe_format_float(df['ATR'].iloc[-1], fmt="{:5.1f}")
             
             if hit_price is not None and isinstance(hit_price, (int, float, np.floating)):
                 hit_price_str = f"${hit_price:>5.2f}"
             else:
                 hit_price_str = "None"
-
-            _high = "its High" if _90DHigh else "Not High"
             
             row_text = (
+                f"{n:>3} | "
                 f"{ticker:<7} | "
-                f"${current_price:>7.2f} | "
+                f"Price: ${current_price:>7.2f} | "
                 f"TP: ${tp_str:>8}({predicted_return*100:5.2f}%) | "
-                f"SL: ${sl_str:>8}({predicted_loss*100:5.2f}%) | "
-                f"{will_hit:<5} | "
-                f"{int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}% | "
+                f"{will_hit:<5}({hit_price_str:<8}) | "
+                f"Prob: {int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}% | "
+                f"ATR: ${atr_str:>5} | "
                 f"{signal[3]:<2}{signal[4:]:<10} | "
-                f"{_high}{end}"
+                f"{_Extremes}{end}"
             )
             
             st.code(strip_ansi_codes(row_text))
@@ -1374,7 +1382,7 @@ def PlotPredictions(df_results):
 def style_rows(row):
     signal = row.Signal
     hit_prob = row.Hit_Prob
-    exhaustion = row.get("_90DHigh", False)
+    exhaustion = row.get("_Extremes", False) in ["High", "Low"]
 
     if exhaustion:
         return ['background-color: rgba(128, 128, 128, 0.5)'] * len(row) 
@@ -1479,6 +1487,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
