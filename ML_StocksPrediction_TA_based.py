@@ -1240,7 +1240,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 "Will_Hit": will_hit_str,
                 "Hit_Prob": round(latest_prob_features[f'Prob_Class_{pred_class}'] * 100, 1),
                 "Confidence": round(confidence_score * 100, 1),
-                "_90DHigh": _90DHigh
+                "_Extremes": _Extremes
             })
         except Exception as e:
             st.text(f"Error processing {ticker}: {e}")
@@ -1487,6 +1487,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
