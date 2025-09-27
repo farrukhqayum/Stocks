@@ -1152,11 +1152,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             bear_mode = pd.Series(df.Bear.values[-lookback_n:]).mode().iloc[0]
             neutral_mode = pd.Series(df.Neutral.values[-lookback_n:]).mode().iloc[0]
             hit_price = None
-            '''
-            window_high = df['High'].rolling(window=90).max().iloc[-1]
-            if (rsi > 78) or (current_price >= window_high *1.02):
-                _Extremes = True
-            '''
     
             if will_hit == 'TP':
                 hit_price = predicted_tp
@@ -1487,6 +1482,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
