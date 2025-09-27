@@ -1202,6 +1202,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             )
             
             st.code(strip_ansi_codes(row_text))
+            n += 1
             
             # Append results with formatted Will_Hit string
             if will_hit is None or str(will_hit).lower() == "nan":
@@ -1482,6 +1483,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
