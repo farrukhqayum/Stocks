@@ -5,6 +5,7 @@ import time
 import re
 import warnings
 warnings.filterwarnings("ignore")
+st.set_page_config(layout="wide")
 
 st.set_page_config(page_title="MAIN - Machine Learning of Stocks")
 
@@ -1485,6 +1486,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
