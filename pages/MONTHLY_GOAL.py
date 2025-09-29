@@ -57,7 +57,7 @@ max_trades = st.number_input("Maximum Trades per Month", min_value=1, value=7, s
 eff_monthly = ((1 + r) ** max_trades - 1)*100
 
 if st.button("Calculate Investment Growth"):
-    st.write(f'Effective Monthly Win: {eff_monthly:.2f} (%)')
+    st.write(f'Effective Win per given period: {eff_monthly:.2f} (%)')
     investment_curves = calculate_investment_growth(P, r, months, max_trades)
     plot_investment_growth(investment_curves, r, months)
     df_investments = create_investment_dataframe(investment_curves, months)
