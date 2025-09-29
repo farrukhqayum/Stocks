@@ -57,7 +57,7 @@ PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
 _DAYS = 22 # Used for SMA and training
 _FWDAYS = 14 # Forward days to plot stored data
-windows = [3, 9, 15, 19, 29, 39, 49, 59, 69, 79, 89] # For calculating returns
+windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29] # For calculating returns
 _window = 9  # Backtesting
 tolerance = 1.07
 _FIBS = False
@@ -1514,6 +1514,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
