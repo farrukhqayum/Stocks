@@ -4,12 +4,13 @@ st.header("About This App")
 st.write(
   """
   This Streamlit app provides a high-level platform for predicting stock trading opportunities using machine learning, with an emphasis on practical trading decisions to achieve 3–10% compounded growth for swing traders.
-  """)
+  """
+)
 
 st.header("Overview")
-
 st.write(
-"The app allows the user to input up to 20 tickers. For each ticker, it fetches historical data, applies advanced technical analysis, and generates trading signals using machine learning models. Predictions include hit probabilities, expected gains, loss forecasts, and actionable labels (such as Buy, Hold, Sell, or Short)."
+    "The app allows the user to input up to 20 tickers. For each ticker, it fetches historical data, applies advanced technical analysis, and generates trading signals using machine learning models. Predictions include hit probabilities, expected gains, loss forecasts, and actionable labels (such as Buy, Hold, Sell, or Short)."
+)
 
 st.header("Step-by-Step Process")
 st.write(
@@ -33,22 +34,16 @@ The script classifies each future event as Take-Profit, Stop-Loss, Hold, or Neut
 Key results are displayed in colored tables and annotated charts:
 
 Green = buy opportunities (“Buy the Dip”).
-
 Red = sell/short warnings (“Sell the Rise”).
-
 Gray/Magenta = hold zones or exhaustion, to avoid trading.
-
 For each ticker, the app shows a summary of predicted return, risk, hit probability, and signal direction, supporting easy comparison.
 
 Usage Guidelines
 Focus trades on signals marked “Bullish” with high confidence and a strong probability to reach target gains.
 
 Prioritize entries where:
-
 The RSI recovers above its moving average or is above 52.
-
 Price is above key moving averages.
-
 Strong volume accompanies the move.
 
 Avoid chasing weak signals or entering when the risk-to-reward is not favorable. The app will highlight opportunities where expected gain is high and expected loss is low.
@@ -61,4 +56,5 @@ Risk Disclaimer
 Trading involves substantial risk. Results are for educational purposes, and past performance does not guarantee future results. Always perform independent research and stick to personal risk limits.
 
 Overall, the app is designed for swing traders seeking systematic, machine-learning-informed entries and exits, supporting robust decision-making to compound moderate gains while minimizing downside risk.
-""")
+"""
+)
