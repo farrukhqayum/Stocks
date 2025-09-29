@@ -1511,7 +1511,7 @@ def run_app():
             stocks touching 3-months high are in <span style='color:darkgray;'>darkgray</span>.<br>
             Use column filters to further fine-tune the stocks to trade/compound & build positions.<br>
             Good luck!
-            """,
+            """
             unsafe_allow_html=True
         )
 
@@ -1527,6 +1527,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
