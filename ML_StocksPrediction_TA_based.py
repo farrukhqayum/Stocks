@@ -1376,6 +1376,21 @@ def PlotPredictions(df_results):
     plt.savefig(fpath, bbox_inches='tight', dpi=300)
     st.pyplot(fig)
 
+def validate_tickers(tickers):
+    valid = []
+    invalid = []
+    for t in tickers:
+        try:
+            info = yf.Ticker(t).info
+            # Check if there's meaningful info (e.g. longName exists)
+            if info and 'longName' in info and info['longName'] != "":
+                valid.append(t)
+            else:
+                invalid.append(t)
+        except Exception:
+            invalid.append(t)
+    return valid, invalid
+
 ###### Tabulate Data
 def style_rows(row):
     signal = row.Signal
@@ -1448,7 +1463,16 @@ def run_app():
         TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
         if len(TICKERS) > 20:
             st.error("You can enter up to 20 tickers only. Please reduce your list.")
-            return 
+        else:
+            valid_tickers, invalid_tickers = validate_tickers(TICKERS)
+    
+            if len(valid_tickers) == 0:
+                st.error(f"All tickers are invalid: {', '.join(invalid_tickers)}. Please enter valid tickers.")
+            else:
+                if invalid_tickers:
+                    st.warning(f"Ignoring invalid tickers: {', '.join(invalid_tickers)}")
+                st.write(f"Valid tickers to process: {', '.join(valid_tickers)}")
+
         row_text = (
             f'{"Number":<5} | '
             f'{"Ticker":<7} | '
@@ -1486,6 +1510,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
