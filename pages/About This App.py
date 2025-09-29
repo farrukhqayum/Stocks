@@ -1,9 +1,13 @@
 import streamlit as st
 
 st.header("About This App")
-This Streamlit app provides a high-level platform for predicting stock trading opportunities using machine learning, with an emphasis on practical trading decisions to achieve 3–10% compounded growth for swing traders.
+st.write(
+  """
+  This Streamlit app provides a high-level platform for predicting stock trading opportunities using machine learning, with an emphasis on practical trading decisions to achieve 3–10% compounded growth for swing traders.
+  """)
 
-Overview
+st.header("Overview")
+
 st.write(
 "The app allows the user to input up to 20 tickers. For each ticker, it fetches historical data, applies advanced technical analysis, and generates trading signals using machine learning models. Predictions include hit probabilities, expected gains, loss forecasts, and actionable labels (such as Buy, Hold, Sell, or Short)."
 
