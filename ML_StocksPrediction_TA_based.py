@@ -74,6 +74,10 @@ start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
 # Shared model components
 
 FEATURES = [
+
+    # Price High, Low
+    'High', 'Low',
+    
     # Technical Indicators
     'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'Kasym', 'Kcount', 'STu', 'STl',
 
@@ -1510,6 +1514,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
