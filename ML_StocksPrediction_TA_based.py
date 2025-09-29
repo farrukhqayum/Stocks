@@ -1501,19 +1501,21 @@ def run_app():
         Avoid buying near tops, or near highs, or ATHs. The first rule is to buy low and the second rule is to buy closer to SL or buy 3-red days or 3-red weeks.
 
         This practice avoids unnecessary chasing or entries.
-        ""
-        
+        """)
+                
         st.markdown(
             """
+            Tabular display of results,<br>
             <span style='color:green;'>Bullish (Green),</span><br>
             <span style='color:red;'>Bearish (Red),</span><br>
             <span style='color:gray;'>Neutral (Gray),</span><br>
             stocks touching 3-months high are in <span style='color:darkgray;'>darkgray</span>.<br>
             Use column filters to further fine-tune the stocks to trade/compound & build positions.<br>
             Good luck!
-            """
+            """, 
             unsafe_allow_html=True
         )
+        
 
         tabular_display(df_results)
         st.session_state['ml_results'] = df_results
@@ -1527,6 +1529,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
