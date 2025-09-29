@@ -53,8 +53,8 @@ plt.rcParams['font.family'] = 'Segoe UI Emoji'
 
 _Nr = 50 # Skip model if the length is this
 YEARS_OF_DATA = 3
-PROFIT_TARGET = 0.05
-STOP_LOSS = 0.045
+PROFIT_TARGET = 0.0375
+STOP_LOSS = 0.0375
 _DAYS = 22 # Used for SMA and training
 _FWDAYS = 14 # Forward days to plot stored data
 windows = [3, 9, 15, 19, 29, 39, 49, 59, 69, 79, 89] # For calculating returns
@@ -1510,6 +1510,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
