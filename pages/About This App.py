@@ -37,9 +37,10 @@ The script classifies each future event as Take-Profit, Stop-Loss, Hold, or Neut
 
 Key results are displayed in colored tables and annotated charts:
 
-Green = buy opportunities (“Buy the Dip”).
-Red = sell/short warnings (“Sell the Rise”).
-Gray/Magenta = hold zones or exhaustion, to avoid trading.
+- Green = buy opportunities (“Buy the Dip”).
+- Red = sell/short warnings (“Sell the Rise”).
+- Gray/Magenta = hold zones or exhaustion, to avoid trading.
+
 For each ticker, the app shows a summary of predicted return, risk, hit probability, and signal direction, supporting easy comparison.
 
 Usage Guidelines
@@ -47,9 +48,10 @@ Usage Guidelines
 Focus trades on signals marked “Bullish” with high confidence and a strong probability to reach target gains.
 
 Prioritize entries where:
-The RSI recovers above its moving average or is above 52.
-Price is above key moving averages.
-Strong volume accompanies the move.
+
+- The RSI recovers above its moving average or is above 52.
+- Price is above key moving averages.
+- Strong volume accompanies the move.
 
 Avoid chasing weak signals or entering when the risk-to-reward is not favorable. The app will highlight opportunities where expected gain is high and expected loss is low.
 
