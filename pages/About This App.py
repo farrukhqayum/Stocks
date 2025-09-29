@@ -16,21 +16,25 @@ st.header("Step-by-Step Process")
 st.write(
 """
 1. Data Entry and Setup
+
 The user enters a comma-separated list of up to 20 stock symbols (tickers).
 
 The app fetches historical and fundamental data for each symbol, ensuring robust data preparation and cleaning before analysis.
 
 2. Feature Engineering
+
 Computes numerous technical indicators: various SMAs, RSI, CCI, ADX, ATR, MACD, volume features, volatility, pivot points, and more.
 
 Integrates market sentiment signals and candlestick patterns to enrich the signal generation process.
 
 3. Prediction Engine
+
 Machine learning models (RandomForest and XGBoost) predict the likelihood of the next swing reaching a 3–10% gain or risking a 4–5% loss.
 
 The script classifies each future event as Take-Profit, Stop-Loss, Hold, or Neutral, attaching probabilities and confidence scores to each forecast.
 
 4. Visualization and Summaries
+
 Key results are displayed in colored tables and annotated charts:
 
 Green = buy opportunities (“Buy the Dip”).
@@ -39,6 +43,7 @@ Gray/Magenta = hold zones or exhaustion, to avoid trading.
 For each ticker, the app shows a summary of predicted return, risk, hit probability, and signal direction, supporting easy comparison.
 
 Usage Guidelines
+
 Focus trades on signals marked “Bullish” with high confidence and a strong probability to reach target gains.
 
 Prioritize entries where:
