@@ -56,8 +56,7 @@ Avoid chasing weak signals or entering when the risk-to-reward is not favorable.
 Ideal positions build on weekly timeframes, with tactical 1H/4H entries for precision. Split orders for risk management, and use divergence or double bottom patterns as confirmation.
 
 Use the built-in tables and filters to identify optimal tickers to focus on, aiming for compounded gains in the target range. It’s better to enter late on confirmation than prematurely.
-
-Risk Disclaimer
+""")
 
 st.header("Risk Disclaimer")
 st.write(
@@ -66,5 +65,4 @@ Trading involves substantial risk. Results are for educational purposes, and pas
 
 Overall, the app is designed for swing traders seeking systematic, machine-learning-informed entries and exits, supporting robust decision-making to compound moderate gains while minimizing downside risk.
 """
-  """
 )
