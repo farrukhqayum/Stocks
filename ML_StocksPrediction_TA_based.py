@@ -57,6 +57,7 @@ pdf_path = os.path.join(path, f'{today}_ML_TA_MultipleStocks.pdf')
 pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji'
 
+_Nr = 50
 YEARS_OF_DATA = 3
 end_date = datetime.now()
 start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
@@ -1224,6 +1225,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
