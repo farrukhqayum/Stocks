@@ -1474,7 +1474,7 @@ def run_app():
             else:
                 if invalid_tickers:
                     st.warning(f"Ignoring invalid tickers: {', '.join(invalid_tickers)}")
-                st.write(f"Valid tickers to process: {', '.join(valid_tickers)}")
+                st.write(f"Valid tickers to process ({len(valid_tickers)}): {', '.join(valid_tickers)}")
 
         row_text = (
             f'{"Number":<5} | '
@@ -1528,6 +1528,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
