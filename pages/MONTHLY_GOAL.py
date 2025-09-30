@@ -53,7 +53,7 @@ def create_investment_dataframe(investment_curves, months):
 P = st.number_input("Initial Investment ($)", min_value=0.0, value=1000.0, step=100.0)
 r = st.number_input("Profit Rate/Trade (%)", min_value=0.0, value=3.75, step=0.01) / 100.0
 months = st.number_input("Period (e.g. Months)", min_value=1, value=12, step=1)
-max_trades = st.number_input("Maximum Trades per Month", min_value=1, value=7, step=1)
+max_trades = st.number_input("Maximum Trades Per Period", min_value=1, value=7, step=1)
 eff_monthly = ((1 + r) ** max_trades - 1)*100
 
 if st.button("Calculate Investment Growth"):
