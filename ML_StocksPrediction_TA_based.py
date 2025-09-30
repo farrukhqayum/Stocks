@@ -4,139 +4,72 @@ from curl_cffi import requests
 import time
 import re
 import warnings
+import os
+import numpy as np
+import pandas as pd
+import yfinance as yf
+from datetime import datetime, timedelta
+from xgboost import XGBRegressor
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
 warnings.filterwarnings("ignore")
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="MAIN - Machine Learning of Stocks")
 
-st.set_page_config(page_title="MAIN - Machine Learning of Stocks")
-
-
-desc = """  
-- Machine learning/training of technical indicators
-- Trade signals include (Signals, hit-probability, and hit direction)
-- Use tables to find the strong stocks, and use the chart to stay in bullish trend. 
-    - SEE THE CHART FOR THE TICKER YOU ARE INTERESTED IN:
-        - BUY-TIMES: Colored green to BTD-BUY THE DIP
-        - SELL-TIMES: Colored red to SELL-THE-RISE
-        - NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
-        - STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
-        - STRONG SELLS: Dominate when RSI is below 42 and falls below. When RSI below 30 it doesnt mean it will reboun but it may stay there for a while.
-        - BUY LATE THAN EARLY if chasing 3-10% gains in a swing trade.
-- AVOID CHASING
-    - Opportunities are daily, weekly or monthly, don't grab them all.
-    - Chase double bottoms, candles on monthly, or weekly, avoid daily. Decide trend reversals and enter strategically.
-    - Your gut is always wrong, but sometimes you do need gut-feeling.
-    - Risk 5% not more than that as post-covids, there are more day-traders.
-    - Split a decision into three or two buys, and two or three sells.
-    - Better trades are on weekly time-frame, entries could be 4H or 1H decision.
-- USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
-"""
-
-
-disclaimer = """
----
-**Disclaimer:**
-
-- Trading involves substantial risk and may result in significant financial loss.
-- Past performance is not indicative of future results.
-- Always do your own research before making any investment or trading decisions.
-- The information provided is for educational and informational purposes only.
-- Trade at your own risk.
----
-"""
-
-# GLOBAL PARAMETERS
-today = datetime.now().strftime('%Y-%m-%d') # For printing/filenames
-path = 'ML_TP_SL_Figures' # CHECK THIS PATH / CREATE THE FOLDER
+today = datetime.now().strftime('%Y-%m-%d')
+path = 'ML_TP_SL_Figures'
 pdf_path = os.path.join(path, f'{today}_ML_TA_MultipleStocks.pdf')
 pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji'
 
-_Nr = 50 # Skip model if the length is this
 YEARS_OF_DATA = 3
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
-_DAYS = 22 # Used for SMA and training
-_FWDAYS = 14 # Forward days to plot stored data
-windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29] # For calculating returns
-_window = 9  # Backtesting
-tolerance = 1.07
+_DAYS = 22
+_FWDAYS = 14
+windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
+_window = 9
+_tolerance = 1.07
 _FIBS = False
-_FibLen = 20 # Scan pivots for fibonacci levels
-_ms = 5 # global marker size for matplotlib
-
-bold = '\033[1m'
-end = '\033[0m'
-
-# Time window
-end_date = datetime.now()
-start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
-
-# Shared model components
+_FibLen = 20
+_ms = 5
 
 FEATURES = [
-
-    # Price High, Low
     'High', 'Low',
-    
-    # Technical Indicators
     'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'Kasym', 'Kcount', 'STu', 'STl',
-
-    # Moving Averages & Bands
     'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20', 'SMIIO', 'SMIIO_Signal', 'SMIIO_Osc', 'MACD', 'Signal_Line',
-
-    # Returns & Volatility
     'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
-
-    # Volume Features
     'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT', 'OBV', 'MFI', 'VWMA', 'CMF',
-
-    # Candlestick Patterns
     'Candlesticks', 'gapStrength',
-
-    # Market Sentiment & Signals
     'Bear', 'Bull', 'Short', 'Hold', 'Neutral', 'StrongBull', 'StrongBear', 'Neutral', 'Exhaustion',
-
-    # PIVOTS
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
 ]
 
-results = []
-
-# Functions
 @st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
     try:
-        df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1), 
+        df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1),
                          interval='1d', auto_adjust=False, progress=False)
-    except YFRateLimitError:
-        st.error("Rate limit exceeded when fetching data for " + ticker)
+    except Exception:
         return None
-        
     if df.empty:
-        return None  # Explicitly return None if no data
+        return None
     df = df.reset_index()
     df['Date'] = pd.to_datetime(df['Date'])
     df.set_index('Date', inplace=True)
     df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    df = df.dropna()  # Assign back the dropped NA rows
+    df = df.dropna()
     if df.empty:
-        st.text(f"No data for {ticker}, skipping.")
         return None
     return df
 
-
 def get_fundamentals(ticker: str, df=None):
     try:
-        stock = yf.Ticker(ticker, session=session)
+        stock = yf.Ticker(ticker)
         info = stock.info
-    except Exception as e:
-        # Handle rate limit or other errors gracefully
-        print(f"Error fetching info for {ticker}: {e}")
+    except Exception:
         return {}
-
-    atr_value = None
-    if df is not None and 'ATR' in df.columns:
-        atr_value = f"${df['ATR'].iloc[-1]:.2f}"
+    atr_value = f"${df['ATR'].iloc[-1]:.2f}" if df is not None and 'ATR' in df.columns else None
     fundamentals = {}
     if atr_value is not None:
         fundamentals['ATR'] = atr_value
@@ -148,8 +81,6 @@ def get_fundamentals(ticker: str, df=None):
         'Long Term Debt': info.get('longTermDebt', 'N/A'),
         'Free Cash Flow': info.get('freeCashflow', 'N/A')
     })
-
-    # Formatting numeric values only if they are not strings
     def fmt(value):
         if isinstance(value, (int, float)):
             if abs(value) > 1e9:
@@ -161,21 +92,15 @@ def get_fundamentals(ticker: str, df=None):
             else:
                 return f"{value:.2f}"
         return value
-
     return {k: fmt(v) for k, v in fundamentals.items()}
-    
+
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-    
 def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
-    # Prepare data: rows = one column headers + all rows
     col_labels = ['Metric', 'Value']
     cell_text = [[k, v] for k, v in fundamentals.items()]
-
-    # Choose bbox location in axes coordinates (x0, y0, width, height)
-    # Tune these numbers to position nicely
     bbox_dict = {
         'upper left': [0.01, 0.95, 0.3, 0.25],
         'upper right': [0.68, 0.95, 0.3, 0.25],
@@ -183,18 +108,9 @@ def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
         'lower right': [0.68, 0.05, 0.3, 0.25]
     }
     bbox = bbox_dict.get(loc, [0.02, 0.95, 0.3, 0.25])
-
-    # Build cell colours with alpha transparency
-    base_color = [1, 1, 1, alpha]  # white with alpha
-    header_color = [0.8, 0.8, 0.8, alpha]  # light gray with alpha
-
-    cell_colours = [  # One row per data row (no header here)
-        [base_color, base_color] for _ in cell_text
-    ]
-
-    # Insert header background colors (first row does not exist here, colLabels handled separately)
-
-    # Add the table to the axes
+    base_color = [1, 1, 1, alpha]
+    header_color = [0.8, 0.8, 0.8, alpha]
+    cell_colours = [[base_color, base_color] for _ in cell_text]
     table = ax.table(
         cellText=cell_text,
         colLabels=col_labels,
@@ -205,104 +121,78 @@ def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
         cellColours=cell_colours,
         edges='open'
     )
-
     table.auto_set_font_size(False)
     table.set_fontsize(6)
-
     for (row, col), cell in table.get_celld().items():
         if row == 0:
-            cell._loc = 'center'   # <- this line centers the header text
+            cell._loc = 'center'
             cell.set_text_props(weight='bold')
             cell.set_facecolor(header_color)
         else:
             cell.set_edgecolor('none')
-
     return table
-    
 
 def add_technical_indicators(df):
     df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
     df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
-        
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df = ta.scaled_volatility(df)
     df = ta.add_candlestickpatterns(df)
-
     df['RSI']= ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=24, adjust=False).mean()
     df['MACD'] = ema12 - ema26
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    
     df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
-
     df['Upper_Band'] = df['SMA1'] + (2 * df['Close'].rolling(20).std())
     df['Lower_Band'] = df['SMA1'] - (2 * df['Close'].rolling(20).std())
-    
     df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
     df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
     df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
     df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
     df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
-    df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'],
-                        np.where(df['Close'] > df['Open'], 1, -1), 0)
+    df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'], np.where(df['Close'] > df['Open'], 1, -1), 0)
     df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
-    
     df['MFI'] = ta.calculate_mfi(df)
     df['CMF'] = ta.chaikin_money_flow(df, window=20)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
-
-    
     df['VWMA'] = ta.calculate_vwma(df)
     df[['KCm', 'KCu', 'KCl', 'Kasym', 'Kcount']] = ta.calculate_keltner(df)
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
-    
     df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
-
     df['return1'] = df['Close'].pct_change(7)
     df['return2'] = df['Close'].pct_change(14)
     df['return3'] = df['Close'].pct_change(21)
-    
     df['Volatility'] = df['Close'].rolling(14).std()
-    df['Bull'] = ((df['SMA1'] > df['SMA2']) & (df['RSI'] > df['RSI_SMA']) & (df['RSI'] > 52)).astype(int)    
-    df['Bear'] = ((df['SMA1'] < df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] < 42)).astype(int)    
-    df['Hold'] = (((df['Close'] >= df['SMA1']) & (df['RSI'] < df['RSI_SMA']) & (df['Bull'] == 0) & (df['Bear'] == 0))).astype(int)    
-    df['Short'] = (((df['SMA1'] <= df['SMA2']) & df['RSI'].between(25, 42) & (df['Bear'] == 0))).astype(int)    
+    df['Bull'] = ((df['SMA1'] > df['SMA2']) & (df['RSI'] > df['RSI_SMA']) & (df['RSI'] > 52)).astype(int)
+    df['Bear'] = ((df['SMA1'] < df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] < 42)).astype(int)
+    df['Hold'] = (((df['Close'] >= df['SMA1']) & (df['RSI'] < df['RSI_SMA']) & (df['Bull'] == 0) & (df['Bear'] == 0))).astype(int)
+    df['Short'] = (((df['SMA1'] <= df['SMA2']) & df['RSI'].between(25, 42) & (df['Bear'] == 0))).astype(int)
     df['Neutral'] = ((df['Bull'] == 0) & (df['Bear'] == 0) & (df['Hold'] == 0) & (df['Short'] == 0)).astype(int)
-
-    strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & 
-                           (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
-    strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & 
-                           (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
-    
+    strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
+    strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
     df['StrongBull'] = strongbull_condition.astype(int)
     df['StrongBear'] = strongbear_condition.astype(int)
     df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
-
     df['gapStrength'] = ta.compute_gapStrength(df)
     df = ta.add_exhaustion_indicator(df)
-
     return df
 
 def add_pivot_levels(df, window=_DAYS):
-    # Compute rolling high/low/close over the window
     high = df['High'].rolling(window)
     low = df['Low'].rolling(window)
     close = df['Close'].rolling(window)
-    # Classic floor trader pivots (you can adjust formulas as needed)
     PP = (high.max() + low.min() + close.apply(lambda x: x[-1])).div(3)
     R1 = 2 * PP - low.min()
     S1 = 2 * PP - high.max()
     R2 = PP + (high.max() - low.min())
     S2 = PP - (high.max() - low.min())
-    # Assign to DataFrame
     df['PP'] = PP.fillna(method='bfill')
     df['R1'] = R1.fillna(method='bfill')
     df['S1'] = S1.fillna(method='bfill')
@@ -315,13 +205,11 @@ def add_pivots(df, win=windows):
         roll_high = df['High'].rolling(w)
         roll_low = df['Low'].rolling(w)
         roll_close = df['Close'].rolling(w)
-        # Calculate rolling pivots
         PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x[-1])).div(3)
         R1 = 2 * PP - roll_low.min()
         S1 = 2 * PP - roll_high.max()
         R2 = PP + (roll_high.max() - roll_low.min())
         S2 = PP - (roll_high.max() - roll_low.min())
-        # Store in DataFrame
         df[f'PP_{w}'] = PP
         df[f'R1_{w}'] = R1
         df[f'S1_{w}'] = S1
@@ -332,33 +220,24 @@ def add_pivots(df, win=windows):
 def average_pivots(df, windows=[5, 10, 14, 20]):
     for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
         cols = [f'{level}_{w}' for w in windows]
-        # Take row-wise mean, ignore NaN for early rows
         df[f'{level}_Avg'] = df[cols].mean(axis=1)
     return df
-    
+
 def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
     df['Expected_Return'] = np.nan
     close_prices = df['Close'].values
-    
-    # Pre-extract pivot arrays
     pivot_arrays = []
     for col in r_cols:
         if col in df.columns:
             pivot_arrays.append(df[col].values)
         else:
             pivot_arrays.append(np.full(len(df), np.nan))
-    
     for i in range(len(df) - forward_window):
         current_price = close_prices[i]
-        
-        # Gather valid pivot values for this row
         pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
         target_level = max(pivots) if pivots else None
-        
         future_window = close_prices[i+1:i+1+forward_window]
-        
         if target_level is not None:
-            # Check if future price hits the pivot level
             hit = False
             for future_price in future_window:
                 if future_price >= target_level:
@@ -377,22 +256,17 @@ def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
 def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
     df['Expected_Loss'] = np.nan
     close_prices = df['Close'].values
-    
     pivot_arrays = []
     for col in s_cols:
         if col in df.columns:
             pivot_arrays.append(df[col].values)
         else:
             pivot_arrays.append(np.full(len(df), np.nan))
-    
     for i in range(len(df) - forward_window):
         current_price = close_prices[i]
-        
         pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
         target_level = min(pivots) if pivots else None
-        
         future_window = close_prices[i+1:i+1+forward_window]
-        
         if target_level is not None:
             hit = False
             for future_price in future_window:
@@ -409,7 +283,6 @@ def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
                 df.iloc[i, df.columns.get_loc('Expected_Loss')] = np.nan
     return df
 
-
 def initialize_XGBR():
     model = XGBRegressor(
         n_estimators=200,
@@ -422,37 +295,22 @@ def initialize_XGBR():
     )
     return model
 
-def label_hit_prob_past(
-    df,
-    window=14,
-    profit_target=0.08,
-    stop_loss=0.08,
-    lookback=60,
-    tp_thresh=0.4,
-    sl_thresh=0.4
-):
+def label_hit_prob_past(df, window=14, profit_target=0.08, stop_loss=0.08, lookback=60, tp_thresh=0.4, sl_thresh=0.4):
     import numpy as np
-    
     close_prices = df['Close'].values
     bull = df['Bull'].fillna(0).astype(int).values
     bear = df['Bear'].fillna(0).astype(int).values
     hold = df['Hold'].fillna(0).astype(int).values
     short = df['Short'].fillna(0).astype(int).values
-    
     N = len(close_prices)
     labels = []
-    
     for i in range(N):
         current_price = close_prices[i]
         tp = current_price * (1 + profit_target)
         sl = current_price * (1 - stop_loss)
-        
-        # Adjust window for tail of series
         future_prices = close_prices[i + 1:i + 1 + window] if i + 1 < N else np.array([])
         tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
         sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
-        
-        # Lookback for probability
         lookback_start = max(0, i - lookback)
         history_tp, history_sl = [], []
         for j in range(lookback_start, i):
@@ -460,34 +318,27 @@ def label_hit_prob_past(
             hist_tp = hist_price * (1 + profit_target)
             hist_sl = hist_price * (1 - stop_loss)
             hist_future = close_prices[j + 1: j + 1 + window]
-            
             if bull[j]:
                 hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
                 hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
                 hit = hist_tp_hit_idx is not None and (hist_sl_hit_idx is None or hist_tp_hit_idx < hist_sl_hit_idx)
                 history_tp.append(int(hit))
-                
             if bear[j]:
                 hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
                 hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
                 hit = hist_sl_hit_idx is not None and (hist_tp_hit_idx is None or hist_sl_hit_idx < hist_tp_hit_idx)
                 history_sl.append(int(hit))
-        
-        # Dynamic fallback for short history
         tp_prob = np.mean(history_tp) if len(history_tp) >= 3 else min(np.mean(history_tp) if history_tp else 0.5, tp_thresh)
         sl_prob = np.mean(history_sl) if len(history_sl) >= 3 else min(np.mean(history_sl) if history_sl else 0.5, sl_thresh)
-        
-        # Label assignment priority: TP > SL > Hold > Short > Neutral
         if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bull[i] and tp_prob >= tp_thresh:
-            labels.append(2)  # TP (bull)
+            labels.append(2)
         elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and bear[i] and sl_prob >= sl_thresh:
-            labels.append(1)  # SL (bear)
+            labels.append(1)
         elif hold[i]:
-            labels.append(3)  # Hold
+            labels.append(3)
         elif short[i]:
-            labels.append(4)  # Short
+            labels.append(4)
         else:
-            # If recent days with incomplete future, fallback to Hold/Short if Bull/Bear active
             if i >= N - window:
                 if bull[i]:
                     labels.append(2)
@@ -497,99 +348,71 @@ def label_hit_prob_past(
                     labels.append(0)
             else:
                 labels.append(0)
-    
     df['Hit_Label'] = labels
     return df
 
-
 def compute_optimal_entry(df, _DAYS=10, profit_target=0.05, stop_loss=-0.03):
     optimal_entries = []
-    
     for i in range(len(df) - _DAYS):
         entry_price = df['Close'].iloc[i]
         future_data = df.iloc[i+1:i+1+_DAYS]
-        
-        min_price = future_data['Low'].min()  # Best possible entry
-        max_price = future_data['High'].max()  # Highest possible gain
-
-        # Check if TP or SL hit
+        min_price = future_data['Low'].min()
+        max_price = future_data['High'].max()
         tp_price = entry_price * (1 + profit_target)
         sl_price = entry_price * (1 + stop_loss)
-
         tp_hit = (future_data['High'] >= tp_price).any()
         sl_hit = (future_data['Low'] <= sl_price).any()
-
         if tp_hit and not sl_hit:
-            optimal_entry = min_price  # You had time to enter lower before TP
+            optimal_entry = min_price
         elif sl_hit and not tp_hit:
-            optimal_entry = entry_price  # Didn't get a better chance
+            optimal_entry = entry_price
         elif tp_hit and sl_hit:
-            # Whichever came first
             first_tp_idx = future_data[future_data['High'] >= tp_price].index[0]
             first_sl_idx = future_data[future_data['Low'] <= sl_price].index[0]
             optimal_entry = min_price if first_tp_idx < first_sl_idx else entry_price
         else:
-            optimal_entry = entry_price  # No TP/SL hit, assume flat
-
+            optimal_entry = entry_price
         optimal_entries.append(optimal_entry)
-
-    # Align with DataFrame length
     df['Optimal_Entry'] = [np.nan]*_DAYS + optimal_entries
     return df
 
 def compute_expected_entry(df, n=3):
     df['Expected_Entry'] = df['Low'].rolling(window=n, min_periods=1).min().shift(-n)
     return df
-    
+
 def label_hit(df, window=14, profit_target=0.03, stop_loss=0.03):
-    """
-    Label each row:
-    1 = TP hit before SL
-    0 = SL hit before TP or neither hit
-    """
     labels = []
     close_prices = df['Close'].values
-
     for i in range(len(close_prices) - window):
         current_price = close_prices[i]
         tp = current_price * (1 + profit_target)
         sl = current_price * (1 - stop_loss)
         future_prices = close_prices[i + 1:i + 1 + window]
-
         tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
         sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
-
         if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx):
             labels.append(1)
         else:
             labels.append(0)
-
-    # Fill remaining with NaN to keep alignment
     labels += [np.nan] * window
     df['Hit_Label'] = labels
     return df
 
 def get_recent_fib_levels(df, left=_FibLen, right=_FibLen):
-    # Step 1: Find pivot highs/lows
     highs = df['High']
     lows = df['Low']
     is_pivot_high = highs == highs.rolling(window=left+right+1, center=True).max()
     is_pivot_low = lows == lows.rolling(window=left+right+1, center=True).min()
     is_pivot_high = is_pivot_high.fillna(False)
     is_pivot_low = is_pivot_low.fillna(False)
-
-    # Step 2: Get most recent swing high and low
     pivot_highs = df[is_pivot_high]
     pivot_lows = df[is_pivot_low]
     if pivot_highs.empty or pivot_lows.empty:
-        return None, None, None  # Not enough data
-
+        return None, None, None
     last_high_idx = pivot_highs.index[-1]
     last_low_idx = pivot_lows.index[-1]
     high = df.loc[last_high_idx, 'High']
     low = df.loc[last_low_idx, 'Low']
-
-    # Step 3: Calculate Fib levels
     diff = high - low
     fibs = {
         'F:0': low,
@@ -598,18 +421,15 @@ def get_recent_fib_levels(df, left=_FibLen, right=_FibLen):
         'F:125': high + 1.25 * diff,
         'F:-125': low - 1.25 * diff,
     }
-    # For plotting, use the range between the pivots
     fib_start = min(last_high_idx, last_low_idx)
     fib_end = max(last_high_idx, last_low_idx)
     return fibs, fib_start, fib_end
 
 def del_old_files(directory, days, exclude_extensions=None, dry_run=False):
     if not os.path.isdir(directory):
-        print(f"Warning: directory {directory} does not exist, skipping deletion.")
         return
     if exclude_extensions is None:
         exclude_extensions = []
-        
     cutoff_time = datetime.now() - timedelta(days=days)
     for filename in os.listdir(directory):
         filepath = os.path.join(directory, filename)
@@ -622,34 +442,24 @@ def del_old_files(directory, days, exclude_extensions=None, dry_run=False):
             else:
                 try:
                     os.remove(filepath)
-                except Exception as e:
-                    print(f"Error deleting {filepath}: {e}")
-       
+                except Exception:
+                    pass
+
 def append_pred(df, fpath):
     cols = ['Ticker', 'Date', 'Price', 'TP', 'SL', 'Will_Hit','Signal']
     new_data = df[cols].copy()
     new_data['Date'] = pd.to_datetime(new_data['Date'])
-    
     if os.path.exists(fpath):
         old_data = pd.read_excel(fpath)
         old_data['Date'] = pd.to_datetime(old_data['Date'])
         mask = old_data.set_index(['Ticker', 'Date']).index.isin(new_data.set_index(['Ticker', 'Date']).index)
         old_data = old_data[~mask]
-
         combined = pd.concat([old_data, new_data], ignore_index=True)
     else:
         combined = new_data
-
-    combined = (
-        combined
-        .sort_values(['Ticker', 'Date'])
-        .groupby('Ticker', as_index=False)
-        .tail(20)
-        .reset_index(drop=True)
-    )
-    
+    combined = combined.sort_values(['Ticker', 'Date']).groupby('Ticker', as_index=False).tail(20).reset_index(drop=True)
     combined.to_excel(fpath, index=False)
-    
+
 def colored_row(text, color):
     colors = {
         'green': '\033[92m',
@@ -665,17 +475,16 @@ def colored_row(text, color):
 def color_signal(row):
     signal = row['Signal']
     if 'Bullish' in signal:
-        return '\033[92m' + signal + '\033[0m'  # Green
+        return '\033[92m' + signal + '\033[0m'
     elif 'Bearish' in signal:
-        return '\033[91m' + signal + '\033[0m'  # Red
+        return '\033[91m' + signal + '\033[0m'
     else:
-        return '\033[93m' + signal + '\033[0m'  # Yellow for Neutral
+        return '\033[93m' + signal + '\033[0m'
 
 def compound_growth(initial_capital, win_pct, num_wins, tax_rate):
     effective_gain = win_pct * (1 - tax_rate)
     final_capital = initial_capital * (1 + effective_gain) ** num_wins
     return final_capital
-
 
 def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
     try:
@@ -683,16 +492,11 @@ def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
     except (ValueError, TypeError):
         return na_str
 
-# PRICE CHARTS
 def plot_single_ticker(ticker, df, df_results, _window=14):
-    # Get predictions
     predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
     if predictions.empty:
         st.text(f"No prediction results found for ticker {ticker}, skipping plot.")
         return
-    
-    import re
-    ## --- Technical Market Summary ---    
     signal = predictions.Signal
     current_price = round(df['Close'].iloc[-1], 2)
     gain = round(predictions['Max (%)'], 1)
@@ -701,55 +505,38 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     loss_price = current_price * (1 + loss/100)
     hit_prob = predictions.Hit_Prob
     conf = predictions.Confidence
-    summary_lines = []
-    action = "N/A"
     will_hit_str = df_results.loc[df_results['Ticker'] == ticker, 'Will_Hit'].values[0]
     prob_threshold = 40
     clean_label = re.sub(r'\(.*?\)|[\d\.]+', '', will_hit_str).strip()
-    
     last_date = df.index[-1]
     future_date = last_date + pd.Timedelta(days=_window)
     avg_price = (current_price+loss_price)/2.
     sma1_ = round(df['SMA1'].iloc[-1], 2)
     sma2_ = round(df['SMA2'].iloc[-1], 2)
-
-    # Create figure with white background
     plt.style.use('default')
     fig, (ax1, ax2) = plt.subplots(
-    2, 1,
-    figsize=(12, 6),
-    dpi=600,
-    sharex=True,
-    gridspec_kw={'height_ratios': [3, 1]}
+        2, 1,
+        figsize=(12, 6),
+        dpi=600,
+        sharex=True,
+        gridspec_kw={'height_ratios': [3, 1]}
     )
-
-    #fig.patch.set_facecolor('white')
-    
-    # Get true trailing 12 months of data (not calendar YTD)
     end_date = df.index[-1]
     start_date = end_date - pd.DateOffset(months=12)
     df = df.loc[start_date:end_date]
-    
-    # ===== 1. PRICE PLOT =====
     ax1.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.5)
-    # Signal for color
     df['Signal'] = np.select(
-    [df['Bull']==1, df['Bear']==1],
-    ['Bull', 'Bear'],
-    default='Neutral'
+        [df['Bull']==1, df['Bear']==1],
+        ['Bull', 'Bear'],
+        default='Neutral'
     )
-    
-    # Smooth the price (3-periods) to remove outliers, the last price may also not be visible
     price = df['Close'].rolling(3).mean()
     price.iloc[-1] = df['Close'].iloc[-1]
-    
     color_map = {'Bull': 'green', 'Bear': 'red', 'Neutral': 'gray'}
     last_signal = df['Signal'].iloc[0]
     start_idx = 0
-    
     for idx, (date, row) in enumerate(df.iterrows()):
         is_last = (idx == len(df) - 1)
-        
         if row['Signal'] != last_signal or is_last:
             seg_idx = slice(start_idx, idx + 1)
             seg_price = price.iloc[seg_idx]
@@ -757,160 +544,67 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             ax1.plot(seg_dates, seg_price, color=color_map[last_signal], alpha=0.4, linewidth=2)
             start_idx = idx
             last_signal = row['Signal']
-
-    # Historical data
     kcount_absmax = df['Kcount'].abs().max()
     df['Kcount_sc'] = df['Kcount'] * (df['SMA1'] / kcount_absmax)
-
     ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='gold', alpha=0.7, linewidth=1.2)
     ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
-
     ax1.plot(df.index, df['KCu'], color='blue', alpha=0.3, linestyle='--', linewidth=1)
     ax1.plot(df.index, df['KCl'], color='red', alpha=0.3, linestyle='--', linewidth=1)
-
     ax1_ = ax1.twinx()
     line_kcount, = ax1_.plot(df.index, df['Kcount_sc'], color='gray', alpha=0.15, linewidth=2, label='KC Cumm. touches', zorder=0)
     ax1_.set_yticks([])
     ax1_.set_ylabel('')
-
     for line in ax1.lines:
         line.set_zorder(3)
-    
     ta.add_regression_forecast(ax1, df['SMA1'], last_date, color='orange')
     ta.add_regression_forecast(ax1, df['SMA2'], last_date, color='red')
-    
-    # Fill between SMAs - green when SMA1 > SMA2, red otherwise
-    ax1.fill_between(df.index, df['SMA1'], df['SMA2'],
-                     where=(df['SMA1'] > df['SMA2']),
-                     facecolor='green', alpha=0.2, interpolate=True,
-                     label='BUY-times')
-    
-    ax1.fill_between(df.index, df['SMA1'], df['SMA2'],
-                    where=(df['SMA1'] <= df['SMA2']),
-                    facecolor='red', alpha=0.2, interpolate=True,
-                    label='Stay-away')
-
-    # Add stock's fundamental info box
-        
-    # --- Add Fibonacci Levels ---
+    ax1.fill_between(df.index, df['SMA1'], df['SMA2'], where=(df['SMA1'] > df['SMA2']), facecolor='green', alpha=0.2, interpolate=True, label='BUY-times')
+    ax1.fill_between(df.index, df['SMA1'], df['SMA2'], where=(df['SMA1'] <= df['SMA2']), facecolor='red', alpha=0.2, interpolate=True, label='Stay-away')
     if (_FIBS):
         fibs, fib_start, fib_end = get_recent_fib_levels(df)
-        fib_colors = {
-            'F:0': 'gray',
-            'F:100': 'gray',
-            'F:61.8': 'blue',
-            'F:125': 'green',
-            'F:-125': 'red',
-        }
+        fib_colors = {'F:0': 'gray','F:100': 'gray','F:61.8': 'blue','F:125': 'green','F:-125': 'red'}
         for label, value in fibs.items():
             ax1.hlines(value, xmin=fib_start, xmax=fib_end, color=fib_colors[label], linestyle='--', linewidth=1, alpha=0.3)
-            ax1.annotate(f'{label}: ${value:.0f}', xy=(df.index[-5], value), 
-                         xytext=(-5, 0), textcoords='offset points', 
-                         va='center', fontsize=8, color=fib_colors[label], alpha=0.5)
-    
-    
-    # Connect lines
-    ax1.plot([last_date, future_date], [avg_price, gain_price], 
-             color='green', linestyle=':', linewidth=1.5, alpha=0.5)
-    ax1.plot([last_date, future_date], [avg_price, loss_price], 
-             color='red', linestyle=':', linewidth=1.5, alpha=0.5)
-    
-    # Markers For Key levels
+            ax1.annotate(f'{label}: ${value:.0f}', xy=(df.index[-5], value), xytext=(-5, 0), textcoords='offset points', va='center', fontsize=8, color=fib_colors[label], alpha=0.5)
+    ax1.plot([last_date, future_date], [avg_price, gain_price], color='green', linestyle=':', linewidth=1.5, alpha=0.5)
+    ax1.plot([last_date, future_date], [avg_price, loss_price], color='red', linestyle=':', linewidth=1.5, alpha=0.5)
     ax1.plot(future_date, gain_price, '^', markersize=_ms, color='green', alpha=0.5, label=f'TP: ${gain_price:.2f}, {gain}%')
     ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f'SL: ${loss_price:.2f}, {loss}%')
     ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label=f'E: ${avg_price:.2f}')
-
-    ax1.annotate(f'E: ${avg_price:.2f}', 
-                xy=(last_date, avg_price),
-                xytext=(10, 0),
-                textcoords='offset points',
-                ha='left', 
-                va='center',
-                color='orange',
-                fontsize=9,
-                bbox=dict(facecolor='white', 
-                         alpha=0.5, 
-                         edgecolor='none'))
-    
-    ax1.annotate(f'${current_price}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%', 
-                xy=(future_date, gain_price),
-                xytext=(10, 10), textcoords='offset points',
-                ha='left', va='bottom', color='green', fontsize=9, 
-                fontname='Segoe UI Emoji',
-                bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    
-    ax1.annotate(f'${current_price}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%', 
-                xy=(future_date, loss_price),
-                xytext=(10, -10), textcoords='offset points',
-                ha='left', va='top', color='red', fontsize=9,
-                fontname='Segoe UI Emoji',
-                bbox=dict(facecolor='white', alpha=0.4, edgecolor='none'))
-
+    ax1.annotate(f'E: ${avg_price:.2f}', xy=(last_date, avg_price), xytext=(10, 0), textcoords='offset points', ha='left', va='center', color='orange', fontsize=9, bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
+    ax1.annotate(f'${current_price}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%', xy=(future_date, gain_price), xytext=(10, 10), textcoords='offset points', ha='left', va='bottom', color='green', fontsize=9, fontname='Segoe UI Emoji', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
+    ax1.annotate(f'${current_price}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%', xy=(future_date, loss_price), xytext=(10, -10), textcoords='offset points', ha='left', va='top', color='red', fontsize=9, fontname='Segoe UI Emoji', bbox=dict(facecolor='white', alpha=0.4, edgecolor='none'))
 
     signal_color = (
-    'green' if 'Bullish' in predictions['Signal'] else
-    'red' if 'Bearish' in predictions['Signal'] else
-    'yellow' if 'Exh' in predictions['Signal'] else
-    'gray'
+        'green' if 'Bullish' in predictions['Signal'] else
+        'red' if 'Bearish' in predictions['Signal'] else
+        'yellow' if 'Exh' in predictions['Signal'] else
+        'gray'
     )
-
     _sigConf = f'{predictions.Signal}, {predictions.Risk}, Will Hit: {predictions.Will_Hit} [{int(predictions.Hit_Prob)}%]'
-
-    ax1.annotate(_sigConf,
-                 xy=(0.7, 0.95), xycoords='axes fraction',
-                 ha='right', va='top',
-                 fontsize=12, weight='bold',
-                 fontname='Segoe UI Emoji',
-                 bbox=dict(boxstyle='round',
-                          facecolor=signal_color,
-                          alpha=0.2,
-                          edgecolor=signal_color))
-
-    # Add ticker name in the middle
-    ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, 
-                 fontsize=50, color='grey', alpha=0.2,
-                 horizontalalignment='center', verticalalignment='center',
-                 rotation=0, weight='bold', style='italic')    
-        
-    # Move y-axis to the right
+    ax1.annotate(_sigConf, xy=(0.7, 0.95), xycoords='axes fraction', ha='right', va='top', fontsize=12, weight='bold', fontname='Segoe UI Emoji', bbox=dict(boxstyle='round', facecolor=signal_color, alpha=0.2, edgecolor=signal_color))
+    ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, fontsize=50, color='grey', alpha=0.2, horizontalalignment='center', verticalalignment='center', rotation=0, weight='bold', style='italic')
     ax1.yaxis.tick_right()
     ax1.yaxis.set_label_position("right")
     ax1.set_ylabel('Price')
-    ax1.set_title(
-        f'{today}:\t{ticker} - {predictions["Signal"]}',
-        fontdict={'fontname': 'Segoe UI Emoji', 'fontsize': 16},
-        pad=20
-    )
+    ax1.set_title(f'{today}:\t{ticker} - {predictions["Signal"]}', fontdict={'fontname': 'Segoe UI Emoji', 'fontsize': 16}, pad=20)
     ax1.scatter(df.index[df['StrongBull'] == 1], price[df['StrongBull'] == 1], color='lime', marker='^', s=5, alpha=0.4, label='StrongBull', zorder=10)
     ax1.scatter(df.index[df['StrongBear'] == 1], price[df['StrongBear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='StrongBear', zorder=10)
-    
-    # ======================================   RSI  PLOT    ==================================================== #
-    #ax2.set_facecolor('white')
+
     rsi_ = df['RSI'].rolling(3).mean()
     rsi_sma = df['RSI'].rolling(20).mean()
     ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.5)
     ax2.plot(df.index, rsi_, label='RSI', color='gray', linewidth=1.5, alpha=0.5)
     ax2.plot(df.index, rsi_sma, label='RSI SMA', color='gold', linewidth=1.2, alpha=0.7)
-
-    # Fill RSI above 52 (green) and below 40 (red)
-    ax2.fill_between(df.index, rsi_, 52,
-                    where=(df['RSI'] > 52),
-                    facecolor='green', alpha=0.15)
-    ax2.fill_between(df.index, rsi_, 40,
-                    where=(df['RSI'] < 40),
-                    facecolor='red', alpha=0.15)
-
+    ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
+    ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
     rsi_last = round(df['RSI'].iloc[-1], 1)
     rsi_sma_last = round(df['RSI'].rolling(20).mean().iloc[-1], 1)
     price_vs_sma1 = 100 * (current_price - sma1_) / sma1_ if sma1_ != 0 else 0
-    
-    # Trend Strength Indicators    
-    ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=5, alpha = 0.4, label = 'Bull', zorder=7)
-    ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=5, alpha = 0.4, label = 'Bear',   zorder=8)
-    ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=5, alpha = 0.4, label = 'Short',  zorder=10)
-    ax2.scatter(df.index[df['Hold'] == 1], rsi_[df['Hold'] == 1], color='orange', marker='o', s=5, alpha = 0.4, label = 'Hold',  zorder=10)
-    
-    # Horizontal RSI Levels
+    ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
+    ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
+    ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=5, alpha=0.4, label='Short', zorder=10)
+    ax2.scatter(df.index[df['Hold'] == 1], rsi_[df['Hold'] == 1], color='orange', marker='o', s=5, alpha=0.4, label='Hold', zorder=10)
     ax2.axhline(80, color='green', linewidth=1, linestyle='dotted', alpha=0.3)
     ax2.axhline(20, color='red', linewidth=1, linestyle='dotted', alpha=0.3)
     ax2.axhline(40, color='brown', linewidth=1, linestyle='dashed', alpha=0.3)
@@ -919,54 +613,26 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax2.yaxis.tick_right()
     ax2.yaxis.set_label_position("right")
     ax2.set_ylabel('RSI')
-
     mid_date = df.index[len(df.index)//2]
-    
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax1_.get_legend_handles_labels()
-
     ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left', fontsize='x-small')
     ax2.legend(loc='upper left', fontsize='x-small')
-
-    # PLOT Divergences
-    
     bull_div, bear_div, hbull_div, hbear_div = ta.detect_divergences(df, period=20)
     dtop, dbot = ta.find_doubleTopBottom(df, tol=0.5, max_bar_diff=5)
-    ta.plot_divergences(df,
-                        bull_div,
-                        bear_div,
-                        hbull_div,
-                        hbear_div,
-                        dtop,
-                        dbot,
-                        ax1,
-                        ax2
-                        )
-    
-    # Formatting
+    ta.plot_divergences(df, bull_div, bear_div, hbull_div, hbear_div, dtop, dbot, ax1, ax2)
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
     fig.autofmt_xdate()
-
-    strong_bull = (df['RSI'].iloc[-1] > 52) and \
-                  (df['ADX'].iloc[-1] > 22) and \
-                  (df['sumBuyVol'].iloc[-1] > df['sumSellVol'].iloc[-1])
-    strong_bear = (df['RSI'].iloc[-1] < 40) and \
-                  (df['ADX'].iloc[-1] > 22) and \
-                  (df['sumBuyVol'].iloc[-1] < df['sumSellVol'].iloc[-1])
-    
+    strong_bull = (df['RSI'].iloc[-1] > 52) and (df['ADX'].iloc[-1] > 22) and (df['sumBuyVol'].iloc[-1] > df['sumSellVol'].iloc[-1])
+    strong_bear = (df['RSI'].iloc[-1] < 40) and (df['ADX'].iloc[-1] > 22) and (df['sumBuyVol'].iloc[-1] < df['sumSellVol'].iloc[-1])
     summary_lines = [
         f"==== Market Technical Summary for {ticker} ====",
         f"Trend: SMA1 ({sma1_}) is {'above' if sma1_ > sma2_ else 'below'} SMA2 ({sma2_}) → Market is {'bullish' if sma1_ > sma2_ else 'bearish'}.",
         f"Momentum: RSI = {rsi_last} ({'above' if rsi_last > rsi_sma_last else 'below'} its 20-day average of {rsi_sma_last}).",
         f"Price: ${current_price} is {abs(price_vs_sma1):.2f}% {'above' if price_vs_sma1 > 0 else 'below'} SMA1.",
-        f"\n"
         f"Trend Strength: Strong Bull: {'Yes' if strong_bull else 'No'}, Strong Bear: {'Yes' if strong_bear else 'No'}.",
-        f"\n"
-        f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%.",
-        f"\n"
+        f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%."
     ]
-
-    import re
 
     hit_interp = {
         'TP': "bullish — consider buying or holding",
@@ -1001,9 +667,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     plt.tight_layout()
     st.pyplot(fig)
     st.text("\n".join(summary_lines))
-
-
-# In[5]:
 
 
 # Make Predictions (Gain/Loss/Confidence)
@@ -1249,10 +912,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     df_results = pd.DataFrame(results)
     append_pred(df_results, pred_file)
     return dfs, df_results
-
-
-# In[6]:
-
 
 
 # ✅ PLOT PREDICTIONS
@@ -1528,6 +1187,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
