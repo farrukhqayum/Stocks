@@ -420,24 +420,6 @@ def compute_expected_entry(df, n=3):
     df['Expected_Entry'] = df['Low'].rolling(window=n, min_periods=1).min().shift(-n)
     return df
 
-def label_hit(df, window=14, profit_target=0.03, stop_loss=0.03):
-    labels = []
-    close_prices = df['Close'].values
-    for i in range(len(close_prices) - window):
-        current_price = close_prices[i]
-        tp = current_price * (1 + profit_target)
-        sl = current_price * (1 - stop_loss)
-        future_prices = close_prices[i + 1:i + 1 + window]
-        tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
-        sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
-        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx):
-            labels.append(1)
-        else:
-            labels.append(0)
-    labels += [np.nan] * window
-    df['Hit_Label'] = labels
-    return df
-
 def get_recent_fib_levels(df, left=_FibLen, right=_FibLen):
     highs = df['High']
     lows = df['Low']
@@ -521,17 +503,13 @@ def color_signal(row):
     else:
         return '\033[93m' + signal + '\033[0m'
 
-def compound_growth(initial_capital, win_pct, num_wins, tax_rate):
-    effective_gain = win_pct * (1 - tax_rate)
-    final_capital = initial_capital * (1 + effective_gain) ** num_wins
-    return final_capital
-
 def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
     try:
         return fmt.format(float(val))
     except (ValueError, TypeError):
         return na_str
 
+#  🟡 PLOT TA
 def plot_single_ticker(ticker, df, df_results, _window=14):
     predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
     if predictions.empty:
@@ -709,7 +687,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     st.text("\n".join(summary_lines))
 
 
-# Make Predictions (Gain/Loss/Confidence)
+#  🟡 Make Predictions (Gain/Loss/Confidence)
 def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     n = 1
@@ -1227,6 +1205,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
