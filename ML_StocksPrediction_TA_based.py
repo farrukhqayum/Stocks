@@ -1442,7 +1442,7 @@ def tabular_display(df_results):
         'Confidence': '{:.0f}'
     })
 
-    st.dataframe(styled_df, height=600, use_container_width=True)
+    st.dataframe(styled_df, height=500, use_container_width=True)
 
 def run_app():
 
@@ -1528,6 +1528,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
