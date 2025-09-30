@@ -16,6 +16,8 @@ import matplotlib.dates as mdates
 warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="MAIN - Machine Learning of Stocks")
 
+bold = '\033[1m'
+end = '\033[0m'
 
 desc = """  
 - Machine learning/training of technical indicators
@@ -1225,6 +1227,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
