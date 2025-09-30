@@ -28,12 +28,12 @@ desc = """
         - SELL-TIMES: Colored red to SELL-THE-RISE
         - NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
         - STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
-        - STRONG SELLS: Dominate when RSI is below 42 and falls below. When RSI below 30 it doesnt mean it will reboun but it may stay there for a while.
+        - STRONG SELLS: Dominate when RSI is below 42 and falls below. When RSI below 30 it doesnt mean it will rebound but it may stay there for a while.
         - BUY LATE THAN EARLY if chasing 3-10% gains in a swing trade.
 - AVOID CHASING
     - Opportunities are daily, weekly or monthly, don't grab them all.
     - Chase double bottoms, candles on monthly, or weekly, avoid daily. Decide trend reversals and enter strategically.
-    - Your gut is always wrong, but sometimes you do need gut-feeling.
+    - Your gut is always wrong, but sometimes you do need a gut-feeling.
     - Risk 5% not more than that as post-covids, there are more day-traders.
     - Split a decision into three or two buys, and two or three sells.
     - Better trades are on weekly time-frame, entries could be 4H or 1H decision.
@@ -1068,6 +1068,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
