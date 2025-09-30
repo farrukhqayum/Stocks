@@ -54,9 +54,6 @@ disclaimer = """
 """
 
 today = datetime.now().strftime('%Y-%m-%d')
-path = 'ML_TP_SL_Figures'
-pdf_path = os.path.join(path, f'{today}_ML_TA_MultipleStocks.pdf')
-pred_file = os.path.join(path, "tp_sl_daily.xlsx")
 plt.rcParams['font.family'] = 'Segoe UI Emoji'
 
 _Nr = 50
@@ -103,74 +100,10 @@ def get_stock_data(ticker, start_date, end_date):
         return None
     return df
 
-def get_fundamentals(ticker: str, df=None):
-    try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-    except Exception:
-        return {}
-    atr_value = f"${df['ATR'].iloc[-1]:.2f}" if df is not None and 'ATR' in df.columns else None
-    fundamentals = {}
-    if atr_value is not None:
-        fundamentals['ATR'] = atr_value
-    fundamentals.update({
-        'Market Cap': info.get('marketCap', 'N/A'),
-        'Net Profit Margin': info.get('netMargins', 'N/A'),
-        'PE Ratio': info.get('trailingPE', 'N/A'),
-        'Quick Ratio': info.get('quickRatio', 'N/A'),
-        'Long Term Debt': info.get('longTermDebt', 'N/A'),
-        'Free Cash Flow': info.get('freeCashflow', 'N/A')
-    })
-    def fmt(value):
-        if isinstance(value, (int, float)):
-            if abs(value) > 1e9:
-                return f"{value/1e9:.2f}B"
-            elif abs(value) > 1e6:
-                return f"{value/1e6:.2f}M"
-            elif abs(value) > 1e3:
-                return f"{value/1e3:.0f}K"
-            else:
-                return f"{value:.2f}"
-        return value
-    return {k: fmt(v) for k, v in fundamentals.items()}
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
-
-def add_fundamentals_table(ax, fundamentals, loc='upper left', alpha=0.4):
-    col_labels = ['Metric', 'Value']
-    cell_text = [[k, v] for k, v in fundamentals.items()]
-    bbox_dict = {
-        'upper left': [0.01, 0.95, 0.3, 0.25],
-        'upper right': [0.68, 0.95, 0.3, 0.25],
-        'lower left': [0.01, 0.05, 0.3, 0.25],
-        'lower right': [0.68, 0.05, 0.3, 0.25]
-    }
-    bbox = bbox_dict.get(loc, [0.02, 0.95, 0.3, 0.25])
-    base_color = [1, 1, 1, alpha]
-    header_color = [0.8, 0.8, 0.8, alpha]
-    cell_colours = [[base_color, base_color] for _ in cell_text]
-    table = ax.table(
-        cellText=cell_text,
-        colLabels=col_labels,
-        cellLoc='left',
-        colLoc='left',
-        colWidths=[0.4, 0.6],
-        bbox=bbox,
-        cellColours=cell_colours,
-        edges='open'
-    )
-    table.auto_set_font_size(False)
-    table.set_fontsize(6)
-    for (row, col), cell in table.get_celld().items():
-        if row == 0:
-            cell._loc = 'center'
-            cell.set_text_props(weight='bold')
-            cell.set_facecolor(header_color)
-        else:
-            cell.set_edgecolor('none')
-    return table
 
 def add_technical_indicators(df):
     df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
@@ -391,35 +324,6 @@ def label_hit_prob_past(df, window=14, profit_target=0.08, stop_loss=0.08, lookb
     df['Hit_Label'] = labels
     return df
 
-def compute_optimal_entry(df, _DAYS=10, profit_target=0.05, stop_loss=-0.03):
-    optimal_entries = []
-    for i in range(len(df) - _DAYS):
-        entry_price = df['Close'].iloc[i]
-        future_data = df.iloc[i+1:i+1+_DAYS]
-        min_price = future_data['Low'].min()
-        max_price = future_data['High'].max()
-        tp_price = entry_price * (1 + profit_target)
-        sl_price = entry_price * (1 + stop_loss)
-        tp_hit = (future_data['High'] >= tp_price).any()
-        sl_hit = (future_data['Low'] <= sl_price).any()
-        if tp_hit and not sl_hit:
-            optimal_entry = min_price
-        elif sl_hit and not tp_hit:
-            optimal_entry = entry_price
-        elif tp_hit and sl_hit:
-            first_tp_idx = future_data[future_data['High'] >= tp_price].index[0]
-            first_sl_idx = future_data[future_data['Low'] <= sl_price].index[0]
-            optimal_entry = min_price if first_tp_idx < first_sl_idx else entry_price
-        else:
-            optimal_entry = entry_price
-        optimal_entries.append(optimal_entry)
-    df['Optimal_Entry'] = [np.nan]*_DAYS + optimal_entries
-    return df
-
-def compute_expected_entry(df, n=3):
-    df['Expected_Entry'] = df['Low'].rolling(window=n, min_periods=1).min().shift(-n)
-    return df
-
 def get_recent_fib_levels(df, left=_FibLen, right=_FibLen):
     highs = df['High']
     lows = df['Low']
@@ -446,41 +350,6 @@ def get_recent_fib_levels(df, left=_FibLen, right=_FibLen):
     fib_start = min(last_high_idx, last_low_idx)
     fib_end = max(last_high_idx, last_low_idx)
     return fibs, fib_start, fib_end
-
-def del_old_files(directory, days, exclude_extensions=None, dry_run=False):
-    if not os.path.isdir(directory):
-        return
-    if exclude_extensions is None:
-        exclude_extensions = []
-    cutoff_time = datetime.now() - timedelta(days=days)
-    for filename in os.listdir(directory):
-        filepath = os.path.join(directory, filename)
-        if os.path.isdir(filepath) or any(filename.lower().endswith(ext.lower()) for ext in exclude_extensions):
-            continue
-        file_mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
-        if file_mtime < cutoff_time:
-            if dry_run:
-                st.text(f"[Dry Run] Would delete: {filepath}")
-            else:
-                try:
-                    os.remove(filepath)
-                except Exception:
-                    pass
-
-def append_pred(df, fpath):
-    cols = ['Ticker', 'Date', 'Price', 'TP', 'SL', 'Will_Hit','Signal']
-    new_data = df[cols].copy()
-    new_data['Date'] = pd.to_datetime(new_data['Date'])
-    if os.path.exists(fpath):
-        old_data = pd.read_excel(fpath)
-        old_data['Date'] = pd.to_datetime(old_data['Date'])
-        mask = old_data.set_index(['Ticker', 'Date']).index.isin(new_data.set_index(['Ticker', 'Date']).index)
-        old_data = old_data[~mask]
-        combined = pd.concat([old_data, new_data], ignore_index=True)
-    else:
-        combined = new_data
-    combined = combined.sort_values(['Ticker', 'Date']).groupby('Ticker', as_index=False).tail(20).reset_index(drop=True)
-    combined.to_excel(fpath, index=False)
 
 def colored_row(text, color):
     colors = {
@@ -928,7 +797,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
         except Exception as e:
             st.text(f"Error processing {ticker}: {e}")
     df_results = pd.DataFrame(results)
-    append_pred(df_results, pred_file)
     return dfs, df_results
 
 
@@ -1028,8 +896,7 @@ def PlotPredictions(df_results):
             transform=ax1.get_xaxis_transform(),
             clip_on=False
         )
-    
-    
+        
     # Strategic hint box
     textbox = AnchoredText(
         "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
@@ -1050,11 +917,7 @@ def PlotPredictions(df_results):
     plt.title(f'{today} - ML Predictions of Tickers (From Current Price)', fontsize=16, color='black', pad=20)
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.35)  # Increase if needed for annotation visibility
-    
-    # Save and show
-    fname = f'{today}_ML_PNL_Multi.png'
-    fpath = os.path.join(path, fname)
-    plt.savefig(fpath, bbox_inches='tight', dpi=300)
+
     st.pyplot(fig)
 
 def is_valid_ticker(ticker):
@@ -1205,6 +1068,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
