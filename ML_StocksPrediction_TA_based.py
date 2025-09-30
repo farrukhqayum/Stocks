@@ -1380,21 +1380,13 @@ def PlotPredictions(df_results):
     plt.savefig(fpath, bbox_inches='tight', dpi=300)
     st.pyplot(fig)
 
-def validate_tickers(tickers):
-    valid = []
-    invalid = []
-    for t in tickers:
-        try:
-            info = yf.Ticker(t).info
-            # Check if there's meaningful info (e.g. longName exists)
-            if info and 'longName' in info and info['longName'] != "":
-                valid.append(t)
-            else:
-                invalid.append(t)
-        except Exception:
-            invalid.append(t)
-    return valid, invalid
-
+def is_valid_ticker(ticker):
+    try:
+        df = yf.Ticker(ticker).history(period="1d")
+        return not df.empty
+    except Exception:
+        return False
+        
 ###### Tabulate Data
 def style_rows(row):
     signal = row.Signal
@@ -1464,13 +1456,20 @@ def run_app():
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):", placeholder = "e.g., COIN, TSLA, GOOGL, AMAT")
     
     if tickers_input:
-        TICKERS = [t.strip() for t in tickers_input.split(",") if t.strip()]
+        TICKERS = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
+        
         if len(TICKERS) > 20:
             st.error("You can enter up to 20 tickers only. Please reduce your list.")
         else:
-            valid_tickers, invalid_tickers = validate_tickers(TICKERS)
+            valid_tickers = []
+            invalid_tickers = []
+            for t in TICKERS:
+                if is_valid_ticker(t):
+                    valid_tickers.append(t)
+                else:
+                    invalid_tickers.append(t)
     
-            if len(valid_tickers) == 0:
+            if not valid_tickers:
                 st.error(f"All tickers are invalid: {', '.join(invalid_tickers)}. Please enter valid tickers.")
             else:
                 if invalid_tickers:
@@ -1529,6 +1528,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
