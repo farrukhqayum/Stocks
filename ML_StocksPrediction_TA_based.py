@@ -700,7 +700,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             rsi = latest['RSI'].values[0]
             signal = "TI: ⚪ Neut"
             _Extremes = "High" if df['Exhaustion'].values[-1] >= 0.5 else ("Low" if df['Exhaustion'].values[-1] < -0.5 else "--")
-    
+                
             entry_signal = True
             sc = 'white'
             lookback_n = 5
@@ -1069,6 +1069,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
