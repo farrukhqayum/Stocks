@@ -690,7 +690,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             # Safely calculate confidence score
             try:
                 #ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
-                ratio = (predicted_return / abs(predicted_loss)) if (will_hit == 'None' or predicted_loss != 0) else 0
+                ratio = (predicted_return / abs(predicted_loss)) if (will_hit != 'None' or predicted_loss != 0) else 0
                 ratio = max(ratio, 0)
                 confidence_score = max(hit_prob * ratio, 0)
             except Exception as e:
@@ -1070,6 +1070,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
