@@ -34,7 +34,7 @@ if st.button("Calculate Growth"):
             st.warning("Please enter a positive number of wins.")
         else:
             final_capital = compound_growth(initial_capital, win_pct, num_wins, tax_rate)
-            st.write(f"After {num_wins} consecutive wins, your capital grows to: **${final_capital:,.2f}**")
+            st.write(f"After {num_wins} consecutive wins, your capital grows to: **${final_capital:,.0f}**")
             capitals = [initial_capital * (1 + effective_win_pct) ** i for i in range(num_wins + 1)]
             st.line_chart(capitals)
     except Exception as e:
