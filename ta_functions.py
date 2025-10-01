@@ -363,8 +363,8 @@ def calculate_dmi(df, n=14):
 
     # Return relevant columns
     return df[['+DI', '-DI', 'ADX']]
-
-def add_exhaustion_indicator(df, lookback=90, threshold=0.05):
+    
+def add_exhaustion_indicator(df, lookback=90, threshold=0.10):
     """
     Adds an 'Exhaustion' indicator to df, combining distance to 90-day high and low.
     Exhaustion score close to 1 means price very close to 90-day high or low.
@@ -373,17 +373,15 @@ def add_exhaustion_indicator(df, lookback=90, threshold=0.05):
     high_90 = df['High'].rolling(lookback).max()
     low_90 = df['Low'].rolling(lookback).min()
     close = df['Close']
-
-    # Distance to high and low, normalized; 1 means at extreme, 0 farther away
+    
     dist_high = 1 - (high_90 - close) / (high_90 - low_90 + 1e-9)
     dist_low = 1 - (close - low_90) / (high_90 - low_90 + 1e-9)
-
-    # Clip values between 0 and 1
+    
     dist_high = dist_high.clip(0, 1)
     dist_low = dist_low.clip(0, 1)
-
-    # Combine dist_high and dist_low to one exhaustion score (e.g. max)
-    df['Exhaustion'] = np.maximum(dist_high, dist_low)
+    dist_low = -dist_low  # negative near low
+    
+    df['Exhaustion'] = np.where(dist_high > abs(dist_low), dist_high, dist_low)
     
     return df
 
