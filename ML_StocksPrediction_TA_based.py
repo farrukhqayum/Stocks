@@ -154,13 +154,7 @@ def add_technical_indicators(df):
     df['TI'] = df['TI'].astype('category')
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
     df= pd.concat([df, df_encoded], axis=1)
-    '''
-    df['Bull'] = ((df['SMA1'] > df['SMA2']) & (df['RSI'] > df['RSI_SMA']) & (df['RSI'] > 52)).astype(int)
-    df['Bear'] = ((df['SMA1'] < df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] < 42)).astype(int)
-    df['Hold'] = (((df['Close'] >= df['SMA1']) & (df['RSI'] < df['RSI_SMA']) & (df['Bull'] == 0) & (df['Bear'] == 0))).astype(int)
-    df['Short'] = (((df['SMA1'] <= df['SMA2']) & df['RSI'].between(25, 42) & (df['Bear'] == 0))).astype(int)
-    df['Neutral'] = ((df['Bull'] == 0) & (df['Bear'] == 0) & (df['Hold'] == 0) & (df['Short'] == 0)).astype(int)
-    '''
+    
     strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
     strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
     df['StrongBull'] = strongbull_condition.astype(int)
@@ -1085,6 +1079,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
