@@ -700,7 +700,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             sma2 = latest['SMA2'].values[0]
             rsi = latest['RSI'].values[0]
             signal = "TI: ⚪ Neut"
-            _Extremes = "High" if df['Exhaustion'].values[-1] >= 0.85 else ("Low" if df['Exhaustion'].values[-1] < -0.85 else "--")
+            _Extremes = "High" if df['Exhaustion'].values[-1] >= 0.9 else ("Low" if df['Exhaustion'].values[-1] <= -0.9 else "--")
                 
             entry_signal = True
             sc = 'white'
@@ -1070,6 +1070,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
