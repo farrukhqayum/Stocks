@@ -60,8 +60,8 @@ _Nr = 50
 YEARS_OF_DATA = 3
 end_date = datetime.now()
 start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
-PROFIT_TARGET = 0.0375
-STOP_LOSS = 0.0375
+PROFIT_TARGET = 0.0275
+STOP_LOSS = 0.0275
 _DAYS = 22
 _FWDAYS = 14
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
@@ -147,7 +147,7 @@ def add_technical_indicators(df):
     (df['SMA1'] > df['SMA2']) & (df['RSI'] >= df['RSI_SMA']) & (df['RSI'] >= 52),
     (df['SMA1'] <= df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] <= 42),
     (df['SMA1'] <= df['SMA2']) & (df['RSI'].between(25, 51, inclusive="both")),
-    (df['Close'] >= df['SMA1']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] >= 50)
+    (df['Close'] > df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] >= 50)
     ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
@@ -1079,6 +1079,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
