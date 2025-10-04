@@ -24,7 +24,6 @@ initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=10
 win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
 tax_pct_input = st.number_input("Tax (%)", min_value=0.0, value=0.0, step=0.1)
 tax_rate = tax_pct_input / 100.0
-st.write(f'Tax input: {tax_rate}%')
 num_wins = st.number_input("Number of Trade Wins", min_value=0, value=75, step=1)
 
 if st.button("Calculate Growth"):
