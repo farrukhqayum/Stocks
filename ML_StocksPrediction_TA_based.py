@@ -263,17 +263,6 @@ def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
                 df.iloc[i, df.columns.get_loc('Expected_Loss')] = np.nan
     return df
 
-def initialize_XGBR():
-    model = XGBRegressor(
-        n_estimators=200,
-        max_depth=7,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        objective='reg:squarederror',
-        random_state=42
-    )
-    return model
 
 def label_hit_prob_past(df, window=14, profit_target=0.08, stop_loss=0.08, lookback=60, tp_thresh=0.4, sl_thresh=0.4):
     import numpy as np
@@ -1079,6 +1068,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
