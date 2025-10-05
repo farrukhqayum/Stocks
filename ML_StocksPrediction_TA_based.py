@@ -143,13 +143,15 @@ def add_technical_indicators(df):
     df['return2'] = df['Close'].pct_change(14)
     df['return3'] = df['Close'].pct_change(21)
     df['Volatility'] = df['Close'].rolling(14).std()
+    
     conditions = [
     (df['SMA1'] > df['SMA2']) & (df['RSI'] >= df['RSI_SMA']) & (df['RSI'] >= 52) & (df['+DI'] > df['-DI']),
     (df['SMA1'] <= df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] <= 42) & (df['+DI'] < df['-DI']),
-    (df['SMA1'] <= df['SMA2']) & (df['RSI'].between(25, 51, inclusive="both")),
+    (df['SMA1'] <= df['SMA2']) & (df['RSI'].between(40, 60)) & (df['-DI'] > df['+DI']) & (df['Close'] < df['SMA1']),
     (df['Close'] > df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] >= 50)
     ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
+    df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
@@ -1068,6 +1070,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
