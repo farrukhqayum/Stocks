@@ -463,7 +463,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     signal_color = (
         'green' if 'Bullish' in predictions['Signal'] else
         'red' if 'Bearish' in predictions['Signal'] else
-        'yellow' if 'Exh' in predictions['Signal'] else
+        'yellow' if 'Hold' in predictions['Signal'] else
         'gray'
     )
     _sigConf = f'{predictions.Signal}, {predictions.Risk}, Will Hit: {predictions.Will_Hit} [{int(predictions.Hit_Prob)}%]'
@@ -1068,6 +1068,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
