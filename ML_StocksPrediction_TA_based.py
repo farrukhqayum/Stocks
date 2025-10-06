@@ -152,7 +152,7 @@ def add_technical_indicators(df):
     ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
-    df['TI'] = np.select(conditions, choices, default='Neutral')
+
     df['TI'] = df['TI'].astype('category')
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
     df= pd.concat([df, df_encoded], axis=1)
@@ -1070,6 +1070,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
