@@ -33,7 +33,7 @@ def get_stock_data(ticker, start_date, end_date):
 
 # --- TECHNICAL INDICATORS ---
 def add_technical_indicators(df):
-df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
+    df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
     df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
@@ -102,7 +102,26 @@ df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
         )
     ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
+    
     df['Signal'] = np.select(conditions, choices, default='Neutral')
+    df['TI'] = np.select(conditions, choices, default='Neutral')
+    
+    df['TI'] = df['TI'].astype('category')
+    df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
+    df= pd.concat([df, df_encoded], axis=1)
+
+    strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & 
+                           (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
+    strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & 
+                           (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
+    
+    df['StrongBull'] = strongbull_condition.astype(int)
+    df['StrongBear'] = strongbear_condition.astype(int)
+    df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
+
+    df['gapStrength'] = ta.compute_gapStrength(df)
+    df = ta.add_exhaustion_indicator(df)
+    
     return df
 
 # --- PLOTTING FUNCTION ---
