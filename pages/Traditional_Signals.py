@@ -39,35 +39,9 @@ def add_technical_indicators(df):
 
     df['RSI']= ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-
-    ema12 = df['Close'].ewm(span=12, adjust=False).mean()
-    ema26 = df['Close'].ewm(span=24, adjust=False).mean()
-    df['MACD'] = ema12 - ema26
-    df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    
-    df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
-    
-    df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
-    df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
-    df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
-    df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
-    df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
    
-    df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
-    df['CCI'] = ta.calculate_cci(df)
-    df['OBV'] = ta.calculate_obv(df)
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
-    df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df)
-    df[['VI+', 'VI-']] = ta.calculate_vortex(df)
-    df[['STu', 'STl']] = ta.calculate_supertrend(df)
-    
-    df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
-
-    df['return1'] = df['Close'].pct_change(7)
-    df['return2'] = df['Close'].pct_change(14)
-    df['return3'] = df['Close'].pct_change(21)
-    
-    df['Volatility'] = df['Close'].rolling(14).std()
+ 
     
     conditions = [
         (
