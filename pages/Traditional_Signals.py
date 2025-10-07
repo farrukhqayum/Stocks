@@ -42,35 +42,16 @@ def add_technical_indicators(df):
         
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df['RSI']= ta.calculate_rsi(df)
-    df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-
-    df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
-    df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
-    df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
-    df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
-    df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
-    df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'],
-                        np.where(df['Close'] > df['Open'], 1, -1), 0)
-    df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
-    
+    df['RSI_SMA'] = df['RSI'].rolling(14).mean()    
     df['MFI'] = ta.calculate_mfi(df)
     df['CMF'] = ta.chaikin_money_flow(df, window=20)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
-    
     df['VWMA'] = ta.calculate_vwma(df)
     df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df)
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
-    
-    df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
-
-    df['return1'] = df['Close'].pct_change(7)
-    df['return2'] = df['Close'].pct_change(14)
-    df['return3'] = df['Close'].pct_change(21)
-    
-    df['Volatility'] = df['Close'].rolling(14).std()
 
     # Signal assignments
     conditions = [
