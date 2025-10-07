@@ -40,8 +40,9 @@ def add_technical_indicators(df):
     delta = df['Close'].diff()
     gain = np.where(delta > 0, delta, 0)
     loss = np.where(delta < 0, -delta, 0)
-    avg_gain = pd.Series(gain).rolling(window=14).mean()
-    avg_loss = pd.Series(loss).rolling(window=14).mean()
+    avg_gain = pd.Series(gain, index=df.index).rolling(window=14).mean()
+    avg_loss = pd.Series(loss, index=df.index).rolling(window=14).mean()
+
     rs = avg_gain / (avg_loss + 1e-10)
     df['RSI'] = 100 - (100 / (1 + rs))
     df['RSI_SMA'] = df['RSI'].rolling(window=14).mean()
