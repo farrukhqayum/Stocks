@@ -519,6 +519,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax2.plot(df.index, rsi_sma, label='RSI SMA', color='gold', linewidth=1.2, alpha=0.7)
     ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
     ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
+    ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.Close > df.SMA1)), facecolor='purple', alpha=0.15)
+    
     rsi_last = round(df['RSI'].iloc[-1], 1)
     rsi_sma_last = round(df['RSI'].rolling(20).mean().iloc[-1], 1)
     price_vs_sma1 = 100 * (current_price - sma1_) / sma1_ if sma1_ != 0 else 0
@@ -1104,6 +1106,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
