@@ -1,5 +1,17 @@
-import streamlit as st
 from imports import *
+import streamlit as st
+from curl_cffi import requests
+import time
+import re
+import warnings
+import os
+import numpy as np
+import pandas as pd
+import yfinance as yf
+from datetime import datetime, timedelta
+from xgboost import XGBRegressor
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 # --- APP TITLE ---
 st.title('Traditional Signals')
