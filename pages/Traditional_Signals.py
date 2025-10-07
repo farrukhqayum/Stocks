@@ -42,16 +42,8 @@ def add_technical_indicators(df):
         
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df['RSI']= ta.calculate_rsi(df)
-    df['RSI_SMA'] = df['RSI'].rolling(14).mean()    
-    df['MFI'] = ta.calculate_mfi(df)
-    df['CMF'] = ta.chaikin_money_flow(df, window=20)
-    df['CCI'] = ta.calculate_cci(df)
-    df['OBV'] = ta.calculate_obv(df)
+    df['RSI_SMA'] = df['RSI'].rolling(14).mean()
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
-    df['VWMA'] = ta.calculate_vwma(df)
-    df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df)
-    df[['VI+', 'VI-']] = ta.calculate_vortex(df)
-    df[['STu', 'STl']] = ta.calculate_supertrend(df)
 
     # Signal assignments
     conditions = [
@@ -62,6 +54,8 @@ def add_technical_indicators(df):
         ),
         (
             (df['SMA1'] <= df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] <= 42) & (df['+DI'] < df['-DI'])
+             | 
+            ((df['Close'] < df['SMA1']) & (df['RSI'] < df['RSI_SMA']))
         ),
         (
             (df['SMA1'] <= df['SMA2']) & (df['RSI'].between(40, 60)) & (df['-DI'] > df['+DI']) & (df['Close'] < df['SMA1'])
