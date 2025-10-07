@@ -13,6 +13,10 @@ from xgboost import XGBRegressor
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+# --- GLOBAL PARAMETERS ---
+_DAYS = 22 # Used for SMA and training
+
+
 # --- APP TITLE ---
 st.title('Traditional Signals')
 
