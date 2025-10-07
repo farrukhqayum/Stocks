@@ -52,8 +52,7 @@ def add_technical_indicators(df):
     df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
     df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
     df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
-    df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'],
-                        np.where(df['Close'] > df['Open'], 1, -1), 0)
+   
     df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
     
     df['MFI'] = ta.calculate_mfi(df)
