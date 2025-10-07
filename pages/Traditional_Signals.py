@@ -54,15 +54,9 @@ def add_technical_indicators(df):
     df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
    
     df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
-    
-    df['MFI'] = ta.calculate_mfi(df)
-    df['CMF'] = ta.chaikin_money_flow(df, window=20)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
-
-    
-    df['VWMA'] = ta.calculate_vwma(df)
     df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df)
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
