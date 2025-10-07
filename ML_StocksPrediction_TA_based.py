@@ -145,10 +145,39 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std()
     
     conditions = [
-    (df['SMA1'] > df['SMA2']) & (df['RSI'] >= df['RSI_SMA']) & (df['RSI'] >= 52) & (df['+DI'] > df['-DI']),
-    (df['SMA1'] <= df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] <= 42) & (df['+DI'] < df['-DI']),
-    (df['SMA1'] <= df['SMA2']) & (df['RSI'].between(40, 60)) & (df['-DI'] > df['+DI']) & (df['Close'] < df['SMA1']),
-    (df['Close'] > df['SMA2']) & (df['RSI'] < df['RSI_SMA']) & (df['RSI'] >= 50)
+        (
+            (
+                (df['SMA1'] > df['SMA2']) & 
+                (df['RSI'] >= df['RSI_SMA']) & 
+                (df['RSI'] >= 52) & 
+                (df['+DI'] > df['-DI'])
+            ) | 
+            (
+                (df['Close'] > df['SMA1']) & 
+                (df['RSI'] > df['RSI_SMA'])
+            )
+        ),
+        (
+            (df['SMA1'] <= df['SMA2']) &
+            (df['RSI'] < df['RSI_SMA']) &
+            (df['RSI'] <= 42) &
+            (df['+DI'] < df['-DI'])
+        )  | 
+            (
+                (df['Close'] < df['SMA1']) & 
+                (df['RSI'] < df['RSI_SMA'])
+            ),
+        (
+            (df['SMA1'] <= df['SMA2']) &
+            (df['RSI'].between(40, 60)) &
+            (df['-DI'] > df['+DI']) &
+            (df['Close'] < df['SMA1'])
+        ),
+        (
+            (df['Close'] > df['SMA2']) &
+            (df['RSI'] < df['RSI_SMA']) &
+            (df['RSI'] >= 50)
+        )
     ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
@@ -1070,6 +1099,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
