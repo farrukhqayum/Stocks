@@ -1,9 +1,5 @@
 import streamlit as st
-from datetime import datetime, timedelta
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import yfinance as yf
+from imports import *
 
 # --- APP TITLE ---
 st.title('Traditional Signals')
