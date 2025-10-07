@@ -34,6 +34,11 @@ def add_technical_indicators(df):
     df['RSI'] = ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
+    
+    df['SMA1'] = df['SMA1'].fillna(method='bfill').fillna(method='ffill')
+    df['SMA2'] = df['SMA2'].fillna(method='bfill').fillna(method='ffill')
+    df['RSI'] = df['RSI'].fillna(0)
+    df['RSI_SMA'] = df['RSI_SMA'].fillna(0)
 
     # Conditions for signals
     conditions = [
