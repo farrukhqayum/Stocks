@@ -1,5 +1,5 @@
 import streamlit as st
-from imports import *  # Assuming 'ta' and others are in this import
+from imports import * 
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -26,30 +26,13 @@ def get_stock_data(ticker, start_date, end_date):
     df = df.dropna()
     return df
 
-# --- CALCULATE RSI ---
-def calculate_rsi(df, window=14):
-    delta = df['Close'].diff()
-    gain = np.where(delta > 0, delta, 0)
-    loss = np.where(delta < 0, -delta, 0)
-    gain_series = pd.Series(gain, index=df.index)
-    loss_series = pd.Series(loss, index=df.index)
-    avg_gain = gain_series.rolling(window=window).mean()
-    avg_loss = loss_series.rolling(window=window).mean()
-    rs = avg_gain / (avg_loss + 1e-10)
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
 
 # --- ADD TECHNICAL INDICATORS ---
 def add_technical_indicators(df):
     df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
-
-    # RSI
-    df['RSI'] = calculate_rsi(df)
+    df['RSI'] = ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-
-    # Plus and Minus DI using 'ta' if it has: ta.calculate_dmi()
-    # Assuming these are calculated here:
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
 
     # Conditions for signals
