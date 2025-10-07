@@ -169,9 +169,9 @@ def add_technical_indicators(df):
             ),
         (
             (df['SMA1'] <= df['SMA2']) &
-            (df['RSI'].between(40, 60)) &
+            (df['RSI'].between(30, 55)) &
             (df['-DI'] > df['+DI']) &
-            (df['Close'] < df['SMA1'])
+            (df['Close'] > df['SMA1'])
         ),
         (
             (df['Close'] > df['SMA2']) &
@@ -1099,6 +1099,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
