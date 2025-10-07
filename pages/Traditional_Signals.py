@@ -42,7 +42,9 @@ def add_technical_indicators(df):
    
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
  
-    
+    df.fillna(method='bfill', inplace=True)
+    df.fillna(method='ffill', inplace=True)
+
     conditions = [
         (
             (
