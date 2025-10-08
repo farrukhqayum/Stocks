@@ -41,7 +41,7 @@ if st.button("Calculate Growth"):
             capitals = [initial_capital * (1 + effective_win_pct) ** i for i in range(num_wins + 1)]
             #st.line_chart(capitals)
             
-            fig, ax = plt.subplots(dpi = 300)
+            fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
             ax.plot(capitals, color='red', linewidth=2, linestyle='solid', alpha=0.5, label = 'Capital')
             # Add annotation text
             ax.text(0.5, 0.5, f'@{round(win_pct*100, 2)}% Profit', transform=ax.transAxes, 
@@ -52,7 +52,9 @@ if st.button("Calculate Growth"):
             ax.set_ylabel('Capital ($)')    # Y-axis label
             ax.set_title('Capital Growth Over Trades')
             ax.grid(True, alpha = 0.3)
-            ax.legend()
+            ax.tick_params(axis='both', which='major', labelsize=10)
+            ax.legend(fontsize=10)
+            plt.tight_layout()
             st.pyplot(fig)
     except Exception as e:
         st.error(f"Error calculating growth: {e}")
