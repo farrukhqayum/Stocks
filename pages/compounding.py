@@ -1,4 +1,5 @@
 import streamlit as st
+import matplotlib.pyplot as plt
 
 st.cache_data.clear()
 st.cache_resource.clear()
@@ -38,6 +39,20 @@ if st.button("Calculate Growth"):
                 f"({pct_growth_final:.0f}%)")
             #st.write(f"After {num_wins} consecutive wins, your capital grows to: **${final_capital:,.0f}**")
             capitals = [initial_capital * (1 + effective_win_pct) ** i for i in range(num_wins + 1)]
-            st.line_chart(capitals)
+            #st.line_chart(capitals)
+            
+            fig, ax = plt.subplots()
+            ax.plot(capitals, color='red', linewidth=2, linestyle='solid', alpha=0.5, label = 'Capital')
+            # Add annotation text
+            ax.text(0.5, 0.5, f'@{round(win_pct*100, 2)}% Profit', transform=ax_left.transAxes, 
+                         fontsize=50, color='grey', alpha=0.2,
+                         horizontalalignment='center', verticalalignment='center',
+                         rotation=0, weight='bold', style='italic')
+            ax.set_xlabel('Trade Number')   # X-axis label
+            ax.set_ylabel('Capital ($)')    # Y-axis label
+            ax.set_title('Capital Growth Over Trades')
+            ax.grid(True, alpha = 0.3)
+            ax.legend()
+            st.pyplot(fig)
     except Exception as e:
         st.error(f"Error calculating growth: {e}")
