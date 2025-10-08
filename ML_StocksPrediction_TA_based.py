@@ -145,53 +145,53 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     
     conditions = [
-    # BULL
-    (
+        # BULL
         (
-            (df['SMA1'] > df['SMA2']) &
-            (df['RSI'] >= df['RSI_SMA']) &
-            (df['RSI'] >= 52) &
-            (df['+DI'] > df['-DI']) &
-            (df['+DI'].between(18, 55))
-        ) |
+            (
+                (df['SMA1'] > df['SMA2']) &
+                (df['RSI'] >= df['RSI_SMA']) &
+                (df['RSI'].between(52, 85)) &
+                (df['+DI'] > df['-DI']) &
+                (df['+DI'].between(18, 55))
+            ) &
+            (
+                (df['Close'] > df['SMA1']) &
+                (df['RSI'] > df['RSI_SMA'])
+            )
+        ),
+        # BEAR
         (
-            (df['Close'] > df['SMA1']) &
-            (df['RSI'] > df['RSI_SMA'])
+            (
+                (df['SMA1'] < df['SMA2']) &
+                (df['RSI'] < df['RSI_SMA']) &
+                (df['RSI'].between(18, 50)) &
+                (df['+DI'] < df['-DI']) &
+                (df['-DI'].between(18, 55))
+            ) &
+            (
+                (df['Close'] < df['SMA1']) &
+                (df['RSI'] < df['RSI_SMA'])
+            )
+        ),
+        # SHORT
+        (
+            (df['SMA1'] < df['SMA2']) &
+            (df['RSI'].between(25, 50)) &
+            (df['-DI'].between(25, 60)) &
+            (df['Close'] > df['SMA1'])
+        ),
+        # HOLD
+        (
+            (
+                (df['Close'] > df['SMA2']) &
+                (df['RSI'] >= 50)
+            ) |
+            (
+                (df['Close'] > df['SMA2']) &
+                (df['RSI'] < df['RSI_SMA']) &
+                (df['ADX'].between(25, 55))
+            )
         )
-    ),
-    # BEAR
-    (
-        (
-            (df['SMA1'] <= df['SMA2']) &
-            (df['RSI'] < df['RSI_SMA']) &
-            (df['RSI'] <= 42) &
-            (df['+DI'] < df['-DI']) &
-            (df['-DI'].between(18, 55))
-        ) |
-        (
-            (df['Close'] < df['SMA1']) &
-            (df['RSI'] < df['RSI_SMA'])
-        )
-    ),
-    # SHORT
-    (
-        (df['SMA1'] <= df['SMA2']) &
-        (df['RSI'].between(30, 55)) &
-        (df['-DI'] > df['+DI']) &
-        (df['Close'] > df['SMA1'])
-    ),
-    # HOLD
-    (
-        (
-            (df['Close'] > df['SMA2']) &
-            (df['RSI'] >= 50)
-        ) |
-        (
-            (df['Close'] > df['SMA2']) &
-            (df['RSI'] < df['RSI_SMA']) &
-            (df['ADX'].between(25, 55))
-        )
-    )
     ]
 
     choices = ['Bull', 'Bear', 'Short', 'Hold']
@@ -1116,6 +1116,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
