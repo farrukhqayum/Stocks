@@ -1065,6 +1065,7 @@ def run_app():
                 if invalid_tickers:
                     st.warning(f"Ignoring invalid tickers: {', '.join(invalid_tickers)}")
                 st.write(f"Valid tickers to process ({len(valid_tickers)}): {', '.join(valid_tickers)}")
+                st.write(f"The price below is OHLC with a mean of 2-days to suppress noise/spikes")
 
         row_text = (
             f'{"Number":<5} | '
@@ -1118,6 +1119,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
