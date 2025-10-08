@@ -41,7 +41,7 @@ if st.button("Calculate Growth"):
             capitals = [initial_capital * (1 + effective_win_pct) ** i for i in range(num_wins + 1)]
             #st.line_chart(capitals)
             
-            fig, ax = plt.subplots(figsize=(7, 3))
+            fig, ax = plt.subplots(figsize=(9, 6), dpi = 300)
             ax.plot(capitals, color='red', linewidth=2, linestyle='solid', alpha=0.5, label = 'Capital')
             # Add annotation text
             ax.text(0.5, 0.5, f'@{round(win_pct*100, 2)}% Profit', transform=ax.transAxes, 
