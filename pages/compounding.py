@@ -45,7 +45,7 @@ if st.button("Calculate Growth"):
             ax.plot(capitals, color='red', linewidth=2, linestyle='solid', alpha=0.5, label = 'Capital')
             # Add annotation text
             ax.text(0.5, 0.5, f'@{round(win_pct*100, 2)}% Profit', transform=ax.transAxes, 
-                         fontsize=50, color='grey', alpha=0.2,
+                         fontsize=25, color='grey', alpha=0.2,
                          horizontalalignment='center', verticalalignment='center',
                          rotation=0, weight='bold', style='italic')
             ax.set_xlabel('Trade Number')   # X-axis label
