@@ -35,7 +35,7 @@ if st.button("Calculate Growth"):
         else:
             final_capital = compound_growth(initial_capital, win_pct, num_wins, tax_rate)
             pct_growth_final = ((final_capital - initial_capital) / initial_capital) * 100
-            st.write(f"After {num_wins} consecutive wins, your capital grows to: **${final_capital:,.0f}** "
+            st.write(f"After {num_wins} wins, your capital grows to: **${final_capital:,.0f}** "
                 f"({pct_growth_final:.0f}%)")
             #st.write(f"After {num_wins} consecutive wins, your capital grows to: **${final_capital:,.0f}**")
             capitals = [initial_capital * (1 + effective_win_pct) ** i for i in range(num_wins + 1)]
