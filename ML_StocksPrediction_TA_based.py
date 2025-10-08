@@ -133,16 +133,16 @@ def add_technical_indicators(df):
     df['CMF'] = ta.chaikin_money_flow(df, window=20)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
-    df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14)
+    df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
     df['VWMA'] = ta.calculate_vwma(df)
-    df[['KCm', 'KCu', 'KCl', 'Kasym', 'Kcount']] = ta.calculate_keltner(df)
+    df[['KCm', 'KCu', 'KCl', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
     df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
-    df['return1'] = df['Close'].pct_change(7)
-    df['return2'] = df['Close'].pct_change(14)
-    df['return3'] = df['Close'].pct_change(21)
-    df['Volatility'] = df['Close'].rolling(14).std()
+    df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
+    df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
+    df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
+    df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     
     conditions = [
         (
@@ -1106,6 +1106,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
