@@ -192,13 +192,16 @@ def add_technical_indicators(df):
         )
     ]
 
-    choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
-
+    
     df['TI'] = df['TI'].astype('category')
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
+    expected_cols = ['Bull', 'Bear', 'Short', 'Hold', 'Neutral']
+    for col in expected_cols:
+        if col not in df_encoded.columns:
+            df_encoded[col] = 0
     df= pd.concat([df, df_encoded], axis=1)
-    
+
     strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
     strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
     df['StrongBull'] = strongbull_condition.astype(int)
@@ -1173,6 +1176,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
