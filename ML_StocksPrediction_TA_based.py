@@ -144,7 +144,9 @@ def add_technical_indicators(df):
     df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-    
+     # fill nans
+    cols = ['SMA1', 'SMA2', 'RSI', '-DI', 'Close']
+    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     conditions = [
         # BULL
         (
@@ -1171,6 +1173,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
