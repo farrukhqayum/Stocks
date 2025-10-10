@@ -191,9 +191,8 @@ def add_technical_indicators(df):
             )
         )
     ]
-
+    choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
-    
     df['TI'] = df['TI'].astype('category')
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
     expected_cols = ['Bull', 'Bear', 'Short', 'Hold', 'Neutral']
