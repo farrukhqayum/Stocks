@@ -496,6 +496,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     sma2_ = round(df['SMA2'].iloc[-1], 2)
     R1 = round(df['R1_Avg'].iloc[-1], 2)
     R2 = round(df['R2_Avg'].iloc[-1], 2)
+    PP = round(df['PP_Avg'].iloc[-1], 2)
     S1 = round(df['S1_Avg'].iloc[-1], 2)
     S2 = round(df['S2_Avg'].iloc[-1], 2)
 
@@ -618,10 +619,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         f"Trend: SMA1 ({sma1_}) is {'above' if sma1_ > sma2_ else 'below'} SMA2 ({sma2_}) → Market is {'bullish' if sma1_ > sma2_ else 'bearish'}.",
         f"Momentum: RSI = {rsi_last} ({'above' if rsi_last > rsi_sma_last else 'below'} its 20-day average of {rsi_sma_last}).",
         f"Price: ${current_price} is {abs(price_vs_sma1):.2f}% {'above' if price_vs_sma1 > 0 else 'below'} SMA1.",
-        f"Resistance PIVOTS: (${R1}, ${R2}), Support PIVOTS ( ${S1}, ${S2}).",
-        f"\n"
+        f"Resistance PIVOTS: (${R1}, ${R2}), PIVOT(${PP}), Support PIVOTS ( ${S1}, ${S2}).",
         f"Trend Strength: Strong Bull: {'Yes' if strong_bull else 'No'}, Strong Bear: {'Yes' if strong_bear else 'No'}.",
-        f"\n"
         f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%."
     ]
 
@@ -1175,6 +1174,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
