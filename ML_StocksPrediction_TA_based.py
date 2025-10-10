@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
-from xgboost import XGBRegressor
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
@@ -152,9 +151,9 @@ def add_technical_indicators(df):
             (
                 (df['SMA1'] > df['SMA2']) &
                 (df['RSI'] >= df['RSI_SMA']) &
-                (df['RSI'].between(52, 85)) &
+                (df['RSI'].between(52, 95)) &
                 (df['+DI'] > df['-DI']) &
-                (df['+DI'].between(18, 55))
+                (df['+DI'].between(18, 75))
             ) &
             (
                 (df['Close'] > df['SMA1']) &
@@ -165,33 +164,28 @@ def add_technical_indicators(df):
         (
             (
                 (df['SMA1'] < df['SMA2']) &
+                (df['RSI'].between(18,60)) &
                 (df['RSI'] < df['RSI_SMA']) &
-                (df['RSI'].between(18, 50)) &
                 (df['+DI'] < df['-DI']) &
-                (df['-DI'].between(18, 55))
-            ) &
-            (
-                (df['Close'] < df['SMA1']) &
-                (df['RSI'] < df['RSI_SMA'])
-            )
+                (df['-DI'].between(18, 75))
+            )           
         ),
         # SHORT
         (
             (df['SMA1'] < df['SMA2']) &
             (df['RSI'].between(25, 50)) &
-            (df['-DI'].between(25, 60)) &
+            (df['-DI'].between(30, 80)) &
             (df['Close'] > df['SMA1'])
         ),
         # HOLD
         (
             (
-                (df['Close'] > df['SMA2']) &
+                (df['SMA1'] > df['SMA2']) &
                 (df['RSI'] >= 50)
             ) |
             (
-                (df['Close'] > df['SMA2']) &
                 (df['RSI'] < df['RSI_SMA']) &
-                (df['ADX'].between(25, 55))
+                (df['ADX'].between(40, 75))
             )
         )
     ]
@@ -1177,5 +1171,6 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
