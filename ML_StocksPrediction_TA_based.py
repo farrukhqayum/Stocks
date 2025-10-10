@@ -499,7 +499,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     R1 = round(df['R1_Avg'].iloc[-1], 2)
     R2 = round(df['R2_Avg'].iloc[-1], 2)
     S1 = round(df['S1_Avg'].iloc[-1], 2)
-    S2 = round(df['S1_Avg'].iloc[-1], 2)
+    S2 = round(df['S2_Avg'].iloc[-1], 2)
 
     plt.style.use('default')
     fig, (ax1, ax2) = plt.subplots(
@@ -1177,3 +1177,4 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
