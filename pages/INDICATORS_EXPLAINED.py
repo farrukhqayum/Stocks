@@ -2,7 +2,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Technical Indicators Flashcards", layout="centered")
 
-st.title("Stock Market Technical Indicators Flashcards")
+st.title("Technical Indicators Flashcards")
 
 flashcards = {
     "Simple Moving Average (SMA)": 
