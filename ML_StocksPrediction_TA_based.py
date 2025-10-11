@@ -105,6 +105,7 @@ def strip_ansi_codes(text):
     return ansi_escape.sub('', text)
 
 def add_technical_indicators(df):
+    close = df.Close
     #df['Close'] = df['Close'].rolling(2).mean()
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
     df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
@@ -208,6 +209,7 @@ def add_technical_indicators(df):
     df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
     df['gapStrength'] = ta.compute_gapStrength(df)
     df = ta.add_exhaustion_indicator(df)
+    df.Close = close
     return df
 
 def add_pivot_levels(df, window=_DAYS):
@@ -1120,7 +1122,7 @@ def run_app():
                 if invalid_tickers:
                     st.warning(f"Ignoring invalid tickers: {', '.join(invalid_tickers)}")
                 st.code(f"Valid tickers to process ({len(valid_tickers)}): {', '.join(valid_tickers)}")
-                st.code(f"The price below is OHLC with a mean of 2-days to suppress noise/spikes")
+                st.code(f"The indicators use OHLC with a mean of 2-days to suppress noise/spikes")
 
         row_text = (
             f'{"Number":<5} | '
@@ -1174,6 +1176,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
