@@ -9,13 +9,21 @@ flashcards = {
         """**What is it?**  
         The average closing price over a set number of days.  
         **Usage:**  
-        Smooths out short-term price fluctuations to identify trends. Bullish signals occur when short-term SMA crosses above long-term SMA, and bearish vice versa.""",
+        Smooths out short-term price fluctuations to identify trends. Bullish signals occur when short-term SMA crosses above long-term SMA, and bearish vice versa.
+        Use 12-period SMA and 40-period SMA on daily or weekly to understand the trends (Or use any period that you like).
+        Buy when the price is safely above these averages and/or retrests.
+        Goal should be 3-7% compounding when SMA12 > SMA40.
+        Stay-away or short when SMA40 > SMA12 or Price is below these averages.
+        Avoid at any cost to buy below or I've missed the bottom.""",
 
     "Relative Strength Index (RSI)": 
         """**What is it?**  
         A momentum oscillator ranging 0-100, measuring speed and change of recent price movements.  
         **Usage:**  
-        RSI above 70 indicates overbought (possible pullback). Below 30 shows oversold (potential bounce). Helps spot reversals and divergences with price.""",
+        RSI above 70 indicates overbought (possible pullback). Below 30 shows oversold (potential bounce). Helps spot reversals and divergences with price.
+        RSI can stay above 50 for a long-period of time, means, you have many opportunities, combine it with SMA displays.
+        RSI can stay long below 30 just like above. So, remain bearish.
+        You are only bullish when RSI is above 50 and SMAs are normally ordered i.e. SMA12 > SMA40.""",
 
     "Moving Average Convergence Divergence (MACD)":
         """**What is it?**  
@@ -27,7 +35,9 @@ flashcards = {
         """**What is it?**  
         Measures market volatility by averaging the price range over a period.  
         **Usage:**  
-        Higher ATR means higher volatility. Traders use ATR to set wider stop-losses in volatile markets.""",
+        Higher ATR means higher volatility. Traders use ATR to set wider stop-losses in volatile markets.
+        Use this to define the targets and SLs. If SMA12 > SMA40, use ATR to define targets e.g. 1.5 times or 2.0 times.
+        When the market is sideways, ATR will be low for two to three months, hence lower down your expectations and use 0.5 of ATR as a target if it fits.""",
 
     "Directional Movement Index (DI+, DI-, ADX)":
         """**What is it?**  
