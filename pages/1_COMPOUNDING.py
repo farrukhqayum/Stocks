@@ -25,7 +25,7 @@ win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=7.0, step=0.1) / 
 tax_pct_input = st.number_input("Tax/Fee (%)", min_value=0.0, value=0.0, step=0.1)
 tax_rate = tax_pct_input / 100.0
 num_wins = st.number_input("Number of Trade Wins", min_value=0, value=75, step=1)
-std_dev = st.number_input("Standard Deviation (fraction)", min_value=0.0, max_value=1.0, value=0.25, step=0.05, format="%.2f")
+std_dev = st.number_input("Standard Deviation (fraction)", min_value=0.0, max_value=1.0, value=0.03, step=0.05, format="%.2f")
 
 if st.button("Calculate Growth"):
     try:
