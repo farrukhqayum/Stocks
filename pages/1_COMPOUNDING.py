@@ -68,14 +68,33 @@ if st.button("Calculate Growth"):
             # Optional: synchronize limits if needed
             ax2.set_ylim(ax.get_ylim())
             
-            # Plot other aspects like fills on main ax or both as needed
-            ax.fill_between(range(num_wins + 1), capitals, upper_bound, where=(upper_bound > capitals),
-                            facecolor='red', alpha=0.1, interpolate=True)
-            ax.fill_between(range(num_wins + 1), lower_bound, capitals, where=(lower_bound < capitals),
-                            facecolor='green', alpha=0.1, interpolate=True)
+            fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
+
+            # Plot base capital on primary axis
+            ax.plot(capitals, color='black', linewidth=2, linestyle='solid', alpha=0.8, label='Capital (Base)')
             
+            # Create and plot on secondary axis
+            ax2 = ax.twinx()
+            ax2.plot(upper_bound, color='red', linewidth=0.5, linestyle='dotted', label=label_upper)
+            ax2.plot(lower_bound, color='green', linewidth=0.5, linestyle='dotted', label=label_lower)
+            
+            # Synchronize y-limits
+            ax2.set_ylim(ax.get_ylim())
+            
+            # Plot fills on secondary axis (ax2), not on ax
+            ax2.fill_between(range(num_wins + 1), capitals, upper_bound, 
+                             where=(upper_bound > capitals), facecolor='red', alpha=0.1, interpolate=True)
+            ax2.fill_between(range(num_wins + 1), lower_bound, capitals, 
+                             where=(lower_bound < capitals), facecolor='green', alpha=0.1, interpolate=True)
+            
+            # Set right y-axis label
+            ax2.set_ylabel('Capital ($)')
+            
+            # Set left axis xlabel & title
             ax.set_xlabel('Trade Number')
             ax.set_title('Capital Growth Over Trades with Std Dev Bounds')
+            
+            # Customize grid and ticks on primary axis (ax)
             ax.grid(True, alpha=0.3)
             ax.tick_params(axis='both', which='major', labelsize=10)
             
