@@ -52,28 +52,38 @@ if st.button("Calculate Growth"):
             label_lower = f'Lower: ({lower_gain_pct*100:.2f}%)'
             
             fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
+
+            # Plot main capital growth on left y-axis
             ax.plot(capitals, color='black', linewidth=2, linestyle='solid', alpha=0.8, label='Capital (Base)')
-            ax.plot(upper_bound, color='red', linewidth=0.5, linestyle='dotted', label=label_upper)
-            ax.plot(lower_bound, color='green', linewidth=0.5, linestyle='dotted', label=label_lower)
-
-            ax.fill_between(range(num_wins + 1), capitals, upper_bound, where=(upper_bound > capitals),
-                            facecolor='red', alpha=0.1, interpolate=True)
-            ax.fill_between(range(num_wins + 1), lower_bound, capitals, where=(lower_bound < capitals),
-                            facecolor='green', alpha=0.1, interpolate=True)
-
-            ax.text(0.5, 0.5, f'@{round(win_pct*100, 2)}% Profit',
-                    transform=ax.transAxes, fontsize=25, color='grey', alpha=0.2,
-                    horizontalalignment='center', verticalalignment='center',
-                    rotation=0, weight='bold', style='italic')
+            
+            # Create secondary y-axis on right
+            ax2 = ax.twinx()
+            ax2.plot(upper_bound, color='red', linewidth=1.5, linestyle='dotted', label=label_upper)
+            ax2.plot(lower_bound, color='green', linewidth=1.5, linestyle='dotted', label=label_lower)
+            
+            # Set labels for both y-axes
+            ax.set_ylabel('Capital ($) - Left')
+            ax2.set_ylabel('Bounded Capital ($) - Right')
+            
+            # Optional: synchronize limits if needed
             ax2.set_ylim(ax.get_ylim())
+            
+            # Plot other aspects like fills on main ax or both as needed
+            ax.fill_between(range(num_wins + 1), capitals, upper_bound, where=(upper_bound > capitals),
+                            facecolor='red', alpha=0.3, interpolate=True)
+            ax.fill_between(range(num_wins + 1), lower_bound, capitals, where=(lower_bound < capitals),
+                            facecolor='green', alpha=0.3, interpolate=True)
+            
             ax.set_xlabel('Trade Number')
-            ax.set_ylabel('Capital ($)')
             ax.set_title('Capital Growth Over Trades with Std Dev Bounds')
             ax.grid(True, alpha=0.3)
             ax.tick_params(axis='both', which='major', labelsize=10)
+            
+            # Combine legends from both axes
             lines, labels = ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
             ax.legend(lines + lines2, labels + labels2, fontsize=10)
+            
             plt.tight_layout()
             st.pyplot(fig)
 
