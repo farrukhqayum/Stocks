@@ -70,15 +70,31 @@ _FibLen = 20
 _ms = 5
 
 FEATURES = [
+    # Price High, Low
     'High', 'Low',
-    'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'Kasym', 'Kcount', 'STu', 'STl',
+    
+    # Technical Indicators
+    'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'KCu_outer', 'KCl_outer', 'Kasym', 'Kcount', 'STu', 'STl',
+
+    # Moving Averages & Bands
     'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20', 'SMIIO', 'SMIIO_Signal', 'SMIIO_Osc', 'MACD', 'Signal_Line',
+
+    # Returns & Volatility
     'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
+
+    # Volume Features
     'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT', 'OBV', 'MFI', 'VWMA', 'CMF',
+
+    # Candlestick Patterns
     'Candlesticks', 'gapStrength',
+
+    # Market Sentiment & Signals
     'Bear', 'Bull', 'Short', 'Hold', 'Neutral', 'StrongBull', 'StrongBear', 'Neutral', 'Exhaustion',
+
+    # PIVOTS
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
 ]
+
 
 @st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
@@ -105,7 +121,6 @@ def strip_ansi_codes(text):
 
 def add_technical_indicators(df):
     close = df.Close
-    #df['Close'] = df['Close'].rolling(2).mean()
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
     df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
@@ -1173,6 +1188,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
