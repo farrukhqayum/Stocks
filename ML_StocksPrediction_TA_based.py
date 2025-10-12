@@ -53,7 +53,6 @@ disclaimer = """
 """
 
 today = datetime.now().strftime('%Y-%m-%d')
-#plt.rcParams['font.family'] = 'Segoe UI Emoji'
 
 _Nr = 50
 YEARS_OF_DATA = 3
@@ -1174,6 +1173,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
