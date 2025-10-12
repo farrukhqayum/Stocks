@@ -103,8 +103,9 @@ def detect_three_black_crows(df):
     return pattern
 
 # Function to detect bullish engulfing pattern
+
 def detect_bullish_engulfing(df):
-    pattern = np.zeros(len(df))
+    pattern = np.zeros(len(df), dtype=int)
     
     for i in range(1, len(df)):
         prev_close = df['Close'].iloc[i-1]
@@ -118,4 +119,4 @@ def detect_bullish_engulfing(df):
             curr_open < prev_close):
             pattern[i] = 1
     
-    return pattern
+    return pd.Series(pattern, index=df.index)
