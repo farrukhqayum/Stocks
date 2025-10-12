@@ -71,7 +71,9 @@ if st.button("Calculate Growth"):
             ax.set_title('Capital Growth Over Trades with Std Dev Bounds')
             ax.grid(True, alpha=0.3)
             ax.tick_params(axis='both', which='major', labelsize=10)
-            ax.legend(fontsize=10)
+            lines, labels = ax.get_legend_handles_labels()
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax.legend(lines + lines2, labels + labels2, fontsize=10)
             plt.tight_layout()
             st.pyplot(fig)
 
