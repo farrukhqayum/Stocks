@@ -53,13 +53,13 @@ if st.button("Calculate Growth"):
             
             fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
             ax.plot(capitals, color='black', linewidth=2, linestyle='solid', alpha=0.8, label='Capital (Base)')
-            ax.plot(upper_bound, color='red', linewidth=1.5, linestyle='dotted', label=label_upper)
-            ax.plot(lower_bound, color='green', linewidth=1.5, linestyle='dotted', label=label_lower)
+            ax.plot(upper_bound, color='red', linewidth=0.5, linestyle='dotted', label=label_upper)
+            ax.plot(lower_bound, color='green', linewidth=0.5, linestyle='dotted', label=label_lower)
 
             ax.fill_between(range(num_wins + 1), capitals, upper_bound, where=(upper_bound > capitals),
-                            facecolor='red', alpha=0.3, interpolate=True)
+                            facecolor='red', alpha=0.1, interpolate=True)
             ax.fill_between(range(num_wins + 1), lower_bound, capitals, where=(lower_bound < capitals),
-                            facecolor='green', alpha=0.3, interpolate=True)
+                            facecolor='green', alpha=0.1, interpolate=True)
 
             ax.text(0.5, 0.5, f'@{round(win_pct*100, 2)}% Profit',
                     transform=ax.transAxes, fontsize=25, color='grey', alpha=0.2,
