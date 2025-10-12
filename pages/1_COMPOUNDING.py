@@ -91,17 +91,17 @@ if st.button("Calculate Growth"):
             ax2.set_ylabel('Capital ($)')
             
             # Set left axis xlabel & title
-            ax.set_xlabel('Trade Number')
+            ax.set_xlabel('Trade Number', fontsize=8)
             ax.set_title('Capital Growth Over Trades with Std Dev Bounds')
             
             # Customize grid and ticks on primary axis (ax)
             ax.grid(True, alpha=0.3)
-            ax.tick_params(axis='both', which='major', labelsize=10)
+            ax.tick_params(axis='both', which='major', labelsize=7)
             
             # Combine legends from both axes
             lines, labels = ax.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            ax.legend(lines + lines2, labels + labels2, fontsize=10)
+            ax.legend(lines + lines2, labels + labels2, fontsize=7)
             
             plt.tight_layout()
             st.pyplot(fig)
