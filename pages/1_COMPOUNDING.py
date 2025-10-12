@@ -65,7 +65,7 @@ if st.button("Calculate Growth"):
                     transform=ax.transAxes, fontsize=25, color='grey', alpha=0.2,
                     horizontalalignment='center', verticalalignment='center',
                     rotation=0, weight='bold', style='italic')
-
+            ax2.set_ylim(ax.get_ylim())
             ax.set_xlabel('Trade Number')
             ax.set_ylabel('Capital ($)')
             ax.set_title('Capital Growth Over Trades with Std Dev Bounds')
