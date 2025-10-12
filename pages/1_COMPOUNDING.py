@@ -97,6 +97,7 @@ if st.button("Calculate Growth"):
             # Customize grid and ticks on primary axis (ax)
             ax.grid(True, alpha=0.3)
             ax.tick_params(axis='both', which='major', labelsize=7)
+            ax2.tick_params(axis='both', which='major', labelsize=7)
             
             # Combine legends from both axes
             lines, labels = ax.get_legend_handles_labels()
