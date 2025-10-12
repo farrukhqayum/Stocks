@@ -52,14 +52,14 @@ if st.button("Calculate Growth"):
             ax.plot(capitals, color='black', linewidth=2, linestyle='solid', alpha=0.8, label='Capital (Base)')
 
             # Plot upper & lower bounds as dotted lines
-            ax.plot(upper_bound, color='red', linewidth=1.5, linestyle='dotted', label='Upper Bound (+10% std)')
-            ax.plot(lower_bound, color='green', linewidth=1.5, linestyle='dotted', label='Lower Bound (-10% std)')
+            ax.plot(upper_bound, color='red', linewidth=0.5, linestyle='dotted', label='Upper Bound (+10% std)')
+            ax.plot(lower_bound, color='green', linewidth=0.5, linestyle='dotted', label='Lower Bound (-10% std)')
 
             # Fill between bounds and base capital
             ax.fill_between(range(num_wins + 1), capitals, upper_bound, where=(upper_bound > capitals),
-                            facecolor='red', alpha=0.3, interpolate=True)
+                            facecolor='red', alpha=0.2, interpolate=True)
             ax.fill_between(range(num_wins + 1), lower_bound, capitals, where=(lower_bound < capitals),
-                            facecolor='green', alpha=0.3, interpolate=True)
+                            facecolor='green', alpha=0.2, interpolate=True)
 
             # Add centered annotation text
             ax.text(0.5, 0.5, f'@{round(win_pct*100, 2)}% Profit',
