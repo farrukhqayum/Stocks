@@ -52,8 +52,14 @@ if st.button("Calculate Growth"):
             ax.plot(capitals, color='black', linewidth=2, linestyle='solid', alpha=0.8, label='Capital (Base)')
 
             # Plot upper & lower bounds as dotted lines
-            ax.plot(upper_bound, color='red', linewidth=0.5, linestyle='dotted', label='Upper Bound (+10% std)')
-            ax.plot(lower_bound, color='green', linewidth=0.5, linestyle='dotted', label='Lower Bound (-10% std)')
+            upper_pct = round((effective_win_pct * (1 + std_dev)) * 100, 2)
+            lower_pct = round((effective_win_pct * (1 - std_dev)) * 100, 2)
+            
+            label_upper = f'Upper Bound (+{upper_pct:.2f}% profit)'
+            label_lower = f'Lower Bound (-{lower_pct:.2f}% profit)'
+
+            ax.plot(upper_bound, color='red', linewidth=1.5, linestyle='dotted', label=label_upper)
+            ax.plot(lower_bound, color='green', linewidth=1.5, linestyle='dotted', label=label_lower)
 
             # Fill between bounds and base capital
             ax.fill_between(range(num_wins + 1), capitals, upper_bound, where=(upper_bound > capitals),
