@@ -92,7 +92,7 @@ if st.button("Calculate Growth"):
             
             # Set left axis xlabel & title
             ax.set_xlabel('Trade Number', fontsize=8)
-            ax.set_title('Capital Growth Over Trades with Std Dev Bounds')
+            ax.set_title('Capital Growth Over Trades')
             
             # Customize grid and ticks on primary axis (ax)
             ax.grid(True, alpha=0.3)
