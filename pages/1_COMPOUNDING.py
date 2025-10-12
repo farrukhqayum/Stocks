@@ -58,21 +58,21 @@ if st.button("Calculate Growth"):
             
             # Create secondary y-axis on right
             ax2 = ax.twinx()
-            ax2.plot(upper_bound, color='red', linewidth=1.5, linestyle='dotted', label=label_upper)
-            ax2.plot(lower_bound, color='green', linewidth=1.5, linestyle='dotted', label=label_lower)
+            ax2.plot(upper_bound, color='red', linewidth=0.5, linestyle='dotted', label=label_upper)
+            ax2.plot(lower_bound, color='green', linewidth=0.5, linestyle='dotted', label=label_lower)
             
             # Set labels for both y-axes
-            ax.set_ylabel('Capital ($) - Left')
-            ax2.set_ylabel('Bounded Capital ($) - Right')
+            #ax.set_ylabel('Capital ($) - Left')
+            ax2.set_ylabel('Capital ($)')
             
             # Optional: synchronize limits if needed
             ax2.set_ylim(ax.get_ylim())
             
             # Plot other aspects like fills on main ax or both as needed
             ax.fill_between(range(num_wins + 1), capitals, upper_bound, where=(upper_bound > capitals),
-                            facecolor='red', alpha=0.3, interpolate=True)
+                            facecolor='red', alpha=0.1, interpolate=True)
             ax.fill_between(range(num_wins + 1), lower_bound, capitals, where=(lower_bound < capitals),
-                            facecolor='green', alpha=0.3, interpolate=True)
+                            facecolor='green', alpha=0.1, interpolate=True)
             
             ax.set_xlabel('Trade Number')
             ax.set_title('Capital Growth Over Trades with Std Dev Bounds')
