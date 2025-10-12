@@ -654,8 +654,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     
     st.code("""
       textbox.patch.set(facecolor='white', edgecolor='gray', alpha=0.5, boxstyle='round')
-      ax1.add_artist(textbox)
-         """, language="python")
+      ax1.add_artist(textbox)""", language="python")
     plt.tight_layout()
     st.pyplot(fig)
     st.text("\n".join(summary_lines))
@@ -1175,6 +1174,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
