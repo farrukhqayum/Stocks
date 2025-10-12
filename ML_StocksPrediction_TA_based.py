@@ -918,7 +918,7 @@ def PlotPredictions(df_results):
     cmap = cm.jet #Inverse of spectral
     custom_colors = cmap(norm(max_vals))
     
-    fig, ax1 = plt.subplots(figsize=(12, 6), dpi=3600)
+    fig, ax1 = plt.subplots(figsize=(12, 6), dpi=300)
     cax = inset_axes(ax1, width="2%", height="60%", loc='center right',
                      bbox_to_anchor=(0.12, 0., 1, 1),
                      bbox_transform=ax1.transAxes,
@@ -1173,6 +1173,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
