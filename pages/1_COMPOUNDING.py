@@ -27,7 +27,7 @@ tax_pct_input = st.number_input("Tax/Fee (%)", min_value=0.0, value=0.0, step=0.
 tax_rate = tax_pct_input / 100.0
 num_wins = st.number_input("Number of Trade Wins", min_value=0, value=75, step=1)
 
-std_dev = 0.10  # 10% standard deviation for up and down cases
+std_dev =st.number_input("Standard Deviation", min_value=0, value=0.25, step=0.05)
 
 if st.button("Calculate Growth"):
     try:
