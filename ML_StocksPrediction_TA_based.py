@@ -652,12 +652,12 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
        prop=dict(size=7, color='blue', weight='bold')
     )
     
-    st.code("""
-      textbox.patch.set(facecolor='white', edgecolor='gray', alpha=0.5, boxstyle='round')
-      ax1.add_artist(textbox)""", language="python")
+    textbox.patch.set(facecolor='white', edgecolor='gray', alpha=0.5, boxstyle='round')
+    ax1.add_artist(textbox)
+  
     plt.tight_layout()
     st.pyplot(fig)
-    st.text("\n".join(summary_lines))
+    st.code("\n".join(summary_lines))
     
 
 #  🟡 Make Predictions (Gain/Loss/Confidence)
@@ -1174,6 +1174,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
