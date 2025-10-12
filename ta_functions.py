@@ -114,11 +114,15 @@ def compute_gapStrength(df):
     return pd.Series(strength, index=df.index, name='strength')
 
 
-def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2):
+def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2, outer_mult=4):
     middle = df['Close'].ewm(span=ema_window).mean()
     atr = calculate_atr(df.High, df.Low, df.Close)
     upper = middle + multiplier * atr
     lower = middle - multiplier * atr
+    
+    # New outer bands, e.g., 1.5x the original multiplier
+    upper_outer = middle + outer_mult * atr
+    lower_outer = middle - outer_mult * atr
 
     hits = []
     counter = 0
@@ -135,9 +139,12 @@ def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2):
         'KCm': middle,
         'KCu': upper,
         'KCl': lower,
+        'KCu_outer': upper_outer,
+        'KCl_outer': lower_outer,
         'Kasym': kasym,
         'Kcount': hits
     }, index=df.index)  # Explicit index
+
 
 def calculate_vortex(df, window=20):
     vm_plus = abs(df['High'] - df['Low'].shift(1))
@@ -363,7 +370,7 @@ def calculate_dmi(df, n=14):
 
     # Return relevant columns
     return df[['+DI', '-DI', 'ADX']]
-    
+
 def add_exhaustion_indicator(df, lookback=90, threshold=0.10):
     """
     Adds an 'Exhaustion' indicator to df, combining distance to 90-day high and low.
@@ -382,7 +389,7 @@ def add_exhaustion_indicator(df, lookback=90, threshold=0.10):
     dist_low = -dist_low  # negative near low
     
     df['Exhaustion'] = np.where(dist_high > abs(dist_low), dist_high, dist_low)
-    
+        
     return df
 
 def add_regression_forecast(ax, series, last_date, color):
