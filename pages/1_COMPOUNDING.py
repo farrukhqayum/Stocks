@@ -66,7 +66,7 @@ if submitted:
 
         chart = alt.Chart(df_melt).mark_line().encode(
             x=alt.X('Trade Number', title='Trade Number'),
-            y=alt.Y('Capital', title='Capital ($)'),
+            y=alt.Y('Capital', title='Capital ($)', axis=alt.Axis(orient="right")),  # y-axis on the right
             color=alt.Color('Series', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())),
                             legend=alt.Legend(title="Series")),
         ).properties(
