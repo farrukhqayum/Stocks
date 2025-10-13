@@ -58,8 +58,8 @@ if submitted:
         
         df = pd.DataFrame({
             'Trade Number': np.arange(num_wins + 1),
-            label_base: capitals,
             label_upper: upper_bound,
+            label_base: capitals,
             label_lower: lower_bound
         })
         df_melt = df.melt('Trade Number', var_name='Series', value_name='Capital')
