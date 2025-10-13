@@ -77,7 +77,7 @@ if submitted:
                             legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
             width=800, height=400,
-            title='Capital Growth Over Trades (Std Dev Bounds)'
+            title=f'Capital Growth with {num_wins} Wins (Std Dev Bounds)'
         )
 
         # Add annotation for final point
