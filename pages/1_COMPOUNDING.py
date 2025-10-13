@@ -74,7 +74,7 @@ if submitted:
             x=alt.X('Trade Number', title='Trade Number'),
             y=alt.Y('Capital', title='Capital ($)', axis=alt.Axis(orient="right")),
             color=alt.Color('Series', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())),
-                            legend=alt.Legend(title="Legend", orient='bottom-right'))
+                            legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
             width=800, height=400,
             title='Capital Growth Over Trades (Std Dev Bounds)'
