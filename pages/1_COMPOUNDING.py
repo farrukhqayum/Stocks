@@ -51,23 +51,22 @@ if submitted:
         pct_growth_final = ((final_capital - initial_capital) / initial_capital) * 100
         st.success(f"After {num_wins} wins, your capital grows to: **${final_capital:,.0f}** ({pct_growth_final:.0f}%)")
 
-        # Prepare labeled DataFrame
         label_upper = f'Upper ({upper_gain_pct*100:.2f}%)'
         label_lower = f'Lower ({lower_gain_pct*100:.2f}%)'
         label_base = f'Base ({win_pct*100:.2f}%)'
         
         df = pd.DataFrame({
             'Trade Number': np.arange(num_wins + 1),
-            label_upper: upper_bound,
             label_base: capitals,
+            label_upper: upper_bound,
             label_lower: lower_bound
         })
         df_melt = df.melt('Trade Number', var_name='Series', value_name='Capital')
 
         color_map = {
-            label_base: "#ffffff",  # white
-            label_upper: "#FF0000", # red
-            label_lower: "#00FF00"  # green
+            label_base: "#ffffff",
+            label_upper: "#FF0000",
+            label_lower: "#00FF00"
         }
 
         chart = alt.Chart(df_melt).mark_line(size=2).encode(
@@ -76,11 +75,10 @@ if submitted:
             color=alt.Color('Series', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())),
                             legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
-            width=800, height=400,
-            title=f'Capital Growth After {num_wins} Wins'
-        )
+            height=400,
+            title=f'Capital Growth with {num_wins} Wins (Std Dev Bounds)'
+        ).interactive()
 
-        # Add annotation for final point
         annotation = alt.Chart(pd.DataFrame({
             'x': [num_wins],
             'y': [final_capital]
