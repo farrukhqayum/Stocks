@@ -3,8 +3,7 @@ import pandas as pd
 import numpy as np
 import altair as alt
 
-st.cache_data.clear()
-st.cache_resource.clear()
+st.set_page_config(layout="centered")
 
 st.header("Just Keep Winning!!!")
 comp_text = """
@@ -16,9 +15,8 @@ Remember, consistent small wins build up to large gains as profits generate more
 """
 st.markdown(comp_text)
 
-# Streamlit inputs
 with st.form(key='compound_form'):
-    initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=10000.0, step=100.0)
+    initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
     win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
     tax_pct_input = st.number_input("Tax/Fee (%)", min_value=0.0, value=0.0, step=0.1)
     tax_rate = tax_pct_input / 100.0
@@ -32,6 +30,10 @@ def compound_growth(initial_capital, gain_pct, num_wins, tax_rate):
     return final_capital
 
 if submitted:
+    # Clear caches dynamically on each new calculation
+    st.cache_data.clear()
+    st.cache_resource.clear()
+
     if num_wins <= 0:
         st.warning("Please enter a positive number of wins.")
     else:
@@ -47,39 +49,48 @@ if submitted:
 
         final_capital = capitals[-1]
         pct_growth_final = ((final_capital - initial_capital) / initial_capital) * 100
-        st.write(f"After {num_wins} wins, your capital grows to: **${final_capital:,.0f}** ({pct_growth_final:.0f}%)")
+        st.success(f"After {num_wins} wins, your capital grows to: **${final_capital:,.0f}** ({pct_growth_final:.0f}%)")
 
-        # Prepare DataFrame for Altair
+        # Prepare labeled DataFrame
+        label_upper = f'Upper ({upper_gain_pct*100:.2f}%)'
+        label_lower = f'Lower ({lower_gain_pct*100:.2f}%)'
+        label_base = f'Base ({win_pct*100:.2f}%)'
+        
         df = pd.DataFrame({
             'Trade Number': np.arange(num_wins + 1),
-            'Base': capitals,
-            'Upper': upper_bound,
-            'Lower': lower_bound
+            label_base: capitals,
+            label_upper: upper_bound,
+            label_lower: lower_bound
         })
         df_melt = df.melt('Trade Number', var_name='Series', value_name='Capital')
 
         color_map = {
-            "Base": "#ffffff",
-            "Upper": "#FF0000",
-            "Lower": "#00FF00"
+            label_base: "#ffffff",  # white
+            label_upper: "#FF0000", # red
+            label_lower: "#00FF00"  # green
         }
 
-        chart = alt.Chart(df_melt).mark_line().encode(
+        chart = alt.Chart(df_melt).mark_line(size=2).encode(
             x=alt.X('Trade Number', title='Trade Number'),
-            y=alt.Y('Capital', title='Capital ($)', axis=alt.Axis(orient="right")),  # y-axis on the right
+            y=alt.Y('Capital', title='Capital ($)', axis=alt.Axis(orient="right")),
             color=alt.Color('Series', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())),
-                            legend=alt.Legend(title="Series")),
+                            legend=alt.Legend(title="Legend", orient='bottom-right'))
         ).properties(
             width=800, height=400,
             title='Capital Growth Over Trades (Std Dev Bounds)'
         )
 
-        # Add annotation for final capital
-        annotation = alt.Chart(pd.DataFrame({'x': [num_wins], 'y': [final_capital]})).mark_text(
-            text=f"${final_capital:,.0f}", dx=-50, dy=-20, fontSize=15, color='grey', opacity=0.7
-        ).encode(
-            x='x:Q',
-            y='y:Q'
-        )
+        # Add annotation for final point
+        annotation = alt.Chart(pd.DataFrame({
+            'x': [num_wins],
+            'y': [final_capital]
+        })).mark_text(
+            text=f"${final_capital:,.0f}",
+            align='right',
+            dx=-10, dy=-10,
+            fontSize=13,
+            color='grey',
+            opacity=0.8
+        ).encode(x='x', y='y')
 
         st.altair_chart(chart + annotation, use_container_width=True)
