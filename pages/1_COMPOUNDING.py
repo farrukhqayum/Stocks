@@ -21,10 +21,10 @@ def compound_growth(initial_capital, gain_pct, num_wins, tax_rate):
     return final_capital
 
 initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
-win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=7.0, step=0.1) / 100.0
+win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
 tax_pct_input = st.number_input("Tax/Fee (%)", min_value=0.0, value=0.0, step=0.1)
 tax_rate = tax_pct_input / 100.0
-num_wins = st.number_input("Number of Trade Wins", min_value=0, value=75, step=1)
+num_wins = st.number_input("Number of Wins", min_value=0, value=75, step=1)
 std_dev = st.number_input("Standard Deviation (fraction)", min_value=0.0, max_value=0.3, value=0.1, step=0.01, format="%.2f")
 
 if st.button("Calculate Growth"):
