@@ -51,6 +51,7 @@ if st.button("Calculate Growth"):
             label_upper = f'Upper: ({upper_gain_pct*100:.2f}%)'
             label_lower = f'Lower: ({lower_gain_pct*100:.2f}%)'
             
+            
             fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
 
             # Plot main capital growth on left y-axis
@@ -68,19 +69,6 @@ if st.button("Calculate Growth"):
             # Optional: synchronize limits if needed
             ax2.set_ylim(ax.get_ylim())
             
-            fig, ax = plt.subplots(figsize=(8, 5), dpi=150)
-
-            # Plot base capital on primary axis
-            ax.plot(capitals, color='black', linewidth=2, linestyle='solid', alpha=0.8, label='Capital (Base)')
-            
-            # Create and plot on secondary axis
-            ax2 = ax.twinx()
-            ax2.plot(upper_bound, color='red', linewidth=0.5, linestyle='dotted', label=label_upper)
-            ax2.plot(lower_bound, color='green', linewidth=0.5, linestyle='dotted', label=label_lower)
-            
-            # Synchronize y-limits
-            ax2.set_ylim(ax.get_ylim())
-            
             # Plot fills on secondary axis (ax2), not on ax
             ax2.fill_between(range(num_wins + 1), capitals, upper_bound, 
                              where=(upper_bound > capitals), facecolor='red', alpha=0.1, interpolate=True)
@@ -89,7 +77,6 @@ if st.button("Calculate Growth"):
             
             # Set right y-axis label
             ax2.set_ylabel('Capital ($)')
-            
             # Set left axis xlabel & title
             ax.set_xlabel('Trade Number', fontsize=8)
             ax.set_title('Capital Growth Over Trades')
