@@ -75,7 +75,7 @@ if submitted:
             color=alt.Color('Series', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())),
                             legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
-            title=f'Capital Growth with {num_wins} Wins'
+            title=f'Capital Growth with {num_wins} Wins',
                 width=400,
                 height=300
         ).interactive()
