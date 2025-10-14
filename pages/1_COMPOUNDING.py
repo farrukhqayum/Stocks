@@ -117,5 +117,5 @@ if submitted:
             "Allocation (%)": "{:.2f}%",
             "Capital Allocated ($)": "${:,.0f}",
             "Expected Gain per Win (%)": "{:.2f}%",
-            f"Final Capital after {num_wins} Wins ($)": "${:,.0f}"
+            f"Capital after {num_wins} Wins ($)": "${:,.0f}"
         }))
