@@ -96,7 +96,15 @@ if submitted:
         st.cache_data.clear()
         st.cache_resource.clear()
         
-        st.header("Diversification Strategy!!!")
+        #st.header("Diversification Strategy!!!")
+        st.markdown("""
+        ### Strategic Capital Allocation Overview
+        
+        Below is a proposed capital split into three stocks along with their expected gains per trade and projected final capital after compounding over your number of wins.
+        
+        This helps visualize how splitting your investment wealth and varying individual stock gains can shape overall portfolio growth.
+        """)
+        
         splits = [0.33, 0.34, 0.33]  # Three parts summing roughly to 1
         expected_gains = [0.01, 0.015, 0.005]  # 1%, 1.5%, 0.5% expected per win
     
