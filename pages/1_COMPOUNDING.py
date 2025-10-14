@@ -31,10 +31,6 @@ def compound_growth(initial_capital, gain_pct, num_wins, tax_rate):
     return final_capital
 
 if submitted:
-    # Clear caches dynamically on each new calculation
-    st.cache_data.clear()
-    st.cache_resource.clear()
-
     if num_wins <= 0:
         st.warning("Please enter a positive number of wins.")
     else:
@@ -95,3 +91,6 @@ if submitted:
         ).encode(x='x', y='y')
 
         st.altair_chart(chart + annotation, use_container_width=True)
+        # Clear caches dynamically on each new calculation
+        st.cache_data.clear()
+        st.cache_resource.clear()
