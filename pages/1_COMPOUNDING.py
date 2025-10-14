@@ -2,8 +2,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
+
+# Clear caches once on start (optional)
 st.cache_data.clear()
 st.cache_resource.clear()
+
 st.set_page_config(layout="centered")
 
 st.header("Just Keep Winning!!!")
@@ -30,6 +33,14 @@ def compound_growth(initial_capital, gain_pct, num_wins, tax_rate):
     final_capital = initial_capital * (1 + effective_gain) ** num_wins
     return final_capital
 
+def format_large_number(x):
+    if x >= 1_000_000:
+        return f"${x/1_000_000:.2f}M"
+    elif x >= 1_000:
+        return f"${x/1_000:.2f}K"
+    else:
+        return f"${x:.2f}"
+
 if submitted:
     if num_wins <= 0:
         st.warning("Please enter a positive number of wins.")
@@ -51,7 +62,7 @@ if submitted:
         label_upper = f'Upper ({upper_gain_pct*100:.2f}%)'
         label_lower = f'Lower ({lower_gain_pct*100:.2f}%)'
         label_base = f'Base ({win_pct*100:.2f}%)'
-        
+
         df = pd.DataFrame({
             'Trade Number': np.arange(num_wins + 1),
             label_base: capitals,
@@ -73,10 +84,9 @@ if submitted:
                             legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
             title=f'Capital Growth with {num_wins} Wins',
-                width=300,
-                height=300
+            width=700,
+            height=400
         ).interactive()
-
 
         annotation = alt.Chart(pd.DataFrame({
             'x': [num_wins],
@@ -91,12 +101,7 @@ if submitted:
         ).encode(x='x', y='y')
 
         st.altair_chart(chart + annotation, use_container_width=True)
-        
-        # Clear caches dynamically on each new calculation
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        
-        #st.header("Diversification Strategy!!!")
+
         st.markdown("""
         ### Strategic Capital Allocation Overview
         
@@ -104,14 +109,13 @@ if submitted:
         
         This helps visualize how splitting your investment wealth and varying individual stock gains can shape overall portfolio growth.
         """)
-        
+
         splits = [0.33, 0.34, 0.33]  # Three parts summing roughly to 1
         expected_gains = [0.01, 0.015, 0.005]  # 1%, 1.5%, 0.5% expected per win
-    
+
         # Calculate final caps per stock using your compound growth function
         final_caps = [compound_growth(initial_capital * sp, gain, num_wins, tax_rate) for sp, gain in zip(splits, expected_gains)]
-    
-        # Build DataFrame for display
+
         df_split = pd.DataFrame({
             "Stock": ["Stock 1", "Stock 2", "Stock 3"],
             "Allocation (%)": [sp * 100 for sp in splits],
@@ -119,18 +123,10 @@ if submitted:
             "Expected Gain per Win (%)": [g * 100 for g in expected_gains],
             f"Capital after {num_wins} Wins ($)": final_caps
         })
-        
-        def format_large_number(x):
-            if x >= 1_000_000:
-                return f"${x/1_000_000:.2f}M"
-            elif x >= 1_000:
-                return f"${x/1_000:.2f}K"
-            else:
-                return f"${x:.2f}"
-        
+
         st.dataframe(df_split.style.format({
             "Allocation (%)": "{:.2f}%",
             "Capital Allocated ($)": format_large_number,
             "Expected Gain per Win (%)": "{:.2f}%",
-            f"Final Capital after {num_wins} Wins ($)": format_large_number
-        }))
+            f"Capital after {num_wins} Wins ($)": format_large_number
+        }), use_container_width=True)
