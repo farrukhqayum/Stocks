@@ -117,12 +117,20 @@ if submitted:
             "Allocation (%)": [sp * 100 for sp in splits],
             "Capital Allocated ($)": [initial_capital * sp for sp in splits],
             "Expected Gain per Win (%)": [g * 100 for g in expected_gains],
-            f"Final Capital after {num_wins} Wins ($)": final_caps
+            f"Capital after {num_wins} Wins ($)": final_caps
         })
-
+        
+        def format_large_number(x):
+            if x >= 1_000_000:
+                return f"${x/1_000_000:.2f}M"
+            elif x >= 1_000:
+                return f"${x/1_000:.2f}K"
+            else:
+                return f"${x:.2f}"
+        
         st.dataframe(df_split.style.format({
             "Allocation (%)": "{:.2f}%",
-            "Capital Allocated ($)": "${:,.0f}",
+            "Capital Allocated ($)": format_large_number,
             "Expected Gain per Win (%)": "{:.2f}%",
-            f"Capital after {num_wins} Wins ($)": "${:,.0f}"
+            f"Final Capital after {num_wins} Wins ($)": format_large_number
         }))
