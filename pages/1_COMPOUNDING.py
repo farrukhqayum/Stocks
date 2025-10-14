@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import altair as alt
-
+st.cache_data.clear()
+st.cache_resource.clear()
 st.set_page_config(layout="centered")
 
 st.header("Just Keep Winning!!!")
