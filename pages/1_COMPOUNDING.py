@@ -91,6 +91,31 @@ if submitted:
         ).encode(x='x', y='y')
 
         st.altair_chart(chart + annotation, use_container_width=True)
+        
         # Clear caches dynamically on each new calculation
         st.cache_data.clear()
         st.cache_resource.clear()
+        
+        st.header("Diversification Strategy!!!")
+        splits = [0.33, 0.34, 0.33]  # Three parts summing roughly to 1
+        expected_gains = [0.01, 0.015, 0.005]  # 1%, 1.5%, 0.5% expected per win
+    
+        # Calculate final caps per stock using your compound growth function
+        final_caps = [compound_growth(initial_capital * sp, gain, num_wins, tax_rate) for sp, gain in zip(splits, expected_gains)]
+    
+        # Build DataFrame for display
+        df_split = pd.DataFrame({
+            "Stock": ["Stock 1", "Stock 2", "Stock 3"],
+            "Allocation (%)": [sp * 100 for sp in splits],
+            "Capital Allocated ($)": [initial_capital * sp for sp in splits],
+            "Expected Gain per Win (%)": [g * 100 for g in expected_gains],
+            f"Final Capital after {num_wins} Wins ($)": final_caps
+        })
+    
+        st.subheader("Strategic Capital Allocation and Expected Outcome")
+        st.dataframe(df_split.style.format({
+            "Allocation (%)": "{:.2f}%",
+            "Capital Allocated ($)": "${:,.0f}",
+            "Expected Gain per Win (%)": "{:.2f}%",
+            f"Final Capital after {num_wins} Wins ($)": "${:,.0f}"
+        }))
