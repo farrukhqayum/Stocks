@@ -119,8 +119,7 @@ if submitted:
             "Expected Gain per Win (%)": [g * 100 for g in expected_gains],
             f"Final Capital after {num_wins} Wins ($)": final_caps
         })
-    
-        st.subheader("Strategic Capital Allocation and Expected Outcome")
+
         st.dataframe(df_split.style.format({
             "Allocation (%)": "{:.2f}%",
             "Capital Allocated ($)": "${:,.0f}",
