@@ -76,7 +76,7 @@ if submitted:
                             legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
             title=f'Capital Growth with {num_wins} Wins',
-                width=400,
+                width=300,
                 height=300
         ).interactive()
 
