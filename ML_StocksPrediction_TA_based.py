@@ -1137,18 +1137,18 @@ def run_app():
     PROFIT_TARGET = st.number_input(
         "Profit Target (%)",
         min_value=0.0,
-        max_value=100.0,
-        value=st.session_state.PROFIT_TARGET * 100,
-        step=0.01,
+        max_value=10.0,
+        value=st.session_state.PROFIT_TARGET,
+        step=0.1,
         key='PROFIT_TARGET'
     ) / 100.0
     
     STOP_LOSS = st.number_input(
         "Stop Loss (%)",
         min_value=0.0,
-        max_value=100.0,
-        value=st.session_state.STOP_LOSS * 100,
-        step=0.01,
+        max_value=10.0,
+        value=st.session_state.STOP_LOSS,
+        step=0.1,
         key='STOP_LOSS'
     ) / 100.0
     
@@ -1238,6 +1238,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
