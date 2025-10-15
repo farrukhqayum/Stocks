@@ -1111,7 +1111,6 @@ def run_app():
     st.markdown(disclaimer)
     st.header("Stocks Signal Forecasting via Machine Learning")
     
-    # Initialize session state values if not already set
     if 'YEARS_OF_DATA' not in st.session_state:
         st.session_state.YEARS_OF_DATA = 3
     
@@ -1128,7 +1127,7 @@ def run_app():
     YEARS_OF_DATA = st.number_input(
         "Years of Data",
         min_value=1,
-        max_value=10,
+        max_value=5,
         value=st.session_state.YEARS_OF_DATA,
         step=1,
         key='YEARS_OF_DATA'
@@ -1160,7 +1159,6 @@ def run_app():
         step=1,
         key='_DAYS'
     )
-
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
     
@@ -1238,6 +1236,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
