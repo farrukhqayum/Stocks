@@ -1111,13 +1111,13 @@ def run_app():
     st.markdown(disclaimer)
     st.header("Stocks Signal Forecasting via Machine Learning")  
 
-    tickers_input = st.text_input("Enter comma-separated tickers (max 20):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
+    tickers_input = st.text_input("Enter comma-separated tickers (max 15):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
     
     if tickers_input:
         TICKERS = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
         
-        if len(TICKERS) > 20:
-            st.error("You can enter up to 20 tickers only. Please reduce your list.")
+        if len(TICKERS) > 15:
+            st.error("You can enter up to 15 tickers only. Please reduce your list.")
         else:
             valid_tickers = []
             invalid_tickers = []
@@ -1187,6 +1187,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
