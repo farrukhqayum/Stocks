@@ -1113,16 +1113,16 @@ def run_app():
     
     # Initialize session state values if not already set
     if 'YEARS_OF_DATA' not in st.session_state:
-        st.session_state.YEARS_OF_DATA = YEARS_OF_DATA
+        st.session_state.YEARS_OF_DATA = 3
     
     if 'PROFIT_TARGET' not in st.session_state:
-        st.session_state.PROFIT_TARGET = PROFIT_TARGET
+        st.session_state.PROFIT_TARGET = 0.0375
     
     if 'STOP_LOSS' not in st.session_state:
-        st.session_state.STOP_LOSS = STOP_LOSS
+        st.session_state.STOP_LOSS = 0.0375
     
     if '_DAYS' not in st.session_state:
-        st.session_state._DAYS = _DAYS
+        st.session_state._DAYS = 22
     
     # Input widgets bound to session state keys
     YEARS_OF_DATA = st.number_input(
@@ -1238,6 +1238,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
