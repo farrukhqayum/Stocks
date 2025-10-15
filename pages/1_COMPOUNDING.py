@@ -117,7 +117,7 @@ if submitted:
         st.markdown("""
         ### Strategic Capital Allocation Overview
         
-        Below is a proposed capital split into three stocks along with their expected gains per trade and projected final capital after compounding over your number of wins.
+        Below is a proposed capital split into three SOLID STOCKS along with their expected gains per trade and projected final capital after compounding over your number of wins.
         
         This helps visualize how splitting your investment wealth and varying individual stock gains can shape overall portfolio growth.
         """)
