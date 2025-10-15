@@ -79,7 +79,7 @@ if submitted:
 
         chart = alt.Chart(df_melt).mark_line(size=2).encode(
             x=alt.X('Trade Number', axis=alt.Axis(labelAngle=-45, labelFontSize=10, labelFlush=False, title='Trade Number')),
-            y=alt.Y('Capital', axis=alt.Axis(format=".2~s", orient="right", title='Capital ($ Millions)')),
+            y=alt.Y('Capital', axis=alt.Axis(format=".0~s", orient="right", title='Capital ($ Millions)')),
             color=alt.Color('Series', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())),
                             legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
@@ -100,7 +100,19 @@ if submitted:
             opacity=0.8
         ).encode(x='x', y='y')
 
-        st.altair_chart(chart + annotation, use_container_width=True)
+        initial_annotation = alt.Chart(pd.DataFrame({
+            'x': [0],
+            'y': [initial_capital]
+        })).mark_text(
+            text=f"Start: ${initial_capital:,.0f}",
+            align='left',
+            dx=10, dy=10,
+            fontSize=13,
+            color='red',
+            opacity=0.8
+        ).encode(x='x', y='y')
+
+        st.altair_chart(chart + annotation + initial_annotation, use_container_width=True)
 
         st.markdown("""
         ### Strategic Capital Allocation Overview
