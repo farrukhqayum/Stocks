@@ -111,7 +111,7 @@ if submitted:
         """)
 
         splits = [0.33, 0.34, 0.33]  # Three parts summing roughly to 1
-        expected_gains = [0.025, 0.025, 0.025]  # 1%, 1.5%, 0.5% expected per win
+        expected_gains = [win_pct, win_pct, win_pct]  # 1%, 1.5%, 0.5% expected per win
 
         # Calculate final caps per stock using your compound growth function
         final_caps = [compound_growth(initial_capital * sp, gain, num_wins, tax_rate) for sp, gain in zip(splits, expected_gains)]
