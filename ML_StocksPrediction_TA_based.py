@@ -1108,9 +1108,14 @@ def run_app():
     st.header("Positional/Swing Trading Guidance")
     st.markdown(desc)    
 
-
     st.markdown(disclaimer)
     st.header("Stocks Signal Forecasting via Machine Learning")
+
+    YEARS_OF_DATA = st.number_input("Years of Data", min_value=1, max_value=5, value=3, step=1)
+    PROFIT_TARGET = st.number_input("Profit Target (%)", min_value=0.0, max_value=10.0, value=3.75, step=1) / 100.0
+    STOP_LOSS = st.number_input("Stop Loss (%)",  min_value=0.0, max_value=10.0, value=3.75, step=1) / 100.0
+    _DAYS = st.number_input("Number of Trade Days (_DAYS)", min_value=10, max_value=30, value=22, step=1)
+    
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
     
@@ -1188,6 +1193,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
