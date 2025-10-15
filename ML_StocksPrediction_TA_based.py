@@ -1109,56 +1109,7 @@ def run_app():
     st.markdown(desc)    
 
     st.markdown(disclaimer)
-    st.header("Stocks Signal Forecasting via Machine Learning")
-    
-    if 'YEARS_OF_DATA' not in st.session_state:
-        st.session_state.YEARS_OF_DATA = 3
-    
-    if 'PROFIT_TARGET' not in st.session_state:
-        st.session_state.PROFIT_TARGET = 0.0375
-    
-    if 'STOP_LOSS' not in st.session_state:
-        st.session_state.STOP_LOSS = 0.0375
-    
-    if '_DAYS' not in st.session_state:
-        st.session_state._DAYS = 22
-    
-    # Input widgets bound to session state keys
-    YEARS_OF_DATA = st.number_input(
-        "Years of Data",
-        min_value=1,
-        max_value=5,
-        value=st.session_state.YEARS_OF_DATA,
-        step=1,
-        key='YEARS_OF_DATA'
-    )
-    
-    PROFIT_TARGET = st.number_input(
-        "Profit Target (%)",
-        min_value=1.0,
-        max_value=10.0,
-        value=st.session_state.PROFIT_TARGET,
-        step=0.1,
-        key='PROFIT_TARGET'
-    ) / 100.0
-    
-    STOP_LOSS = st.number_input(
-        "Stop Loss (%)",
-        min_value=1.0,
-        max_value=10.0,
-        value=st.session_state.STOP_LOSS,
-        step=0.1,
-        key='STOP_LOSS'
-    ) / 100.0
-    
-    _DAYS = st.number_input(
-        "Number of Trade Days (_DAYS)",
-        min_value=1,
-        max_value=100,
-        value=st.session_state._DAYS,
-        step=1,
-        key='_DAYS'
-    )
+    st.header("Stocks Signal Forecasting via Machine Learning")  
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 20):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
     
@@ -1236,6 +1187,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
