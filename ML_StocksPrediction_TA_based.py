@@ -1109,7 +1109,7 @@ def run_app():
     st.markdown(desc)    
 
     st.markdown(disclaimer)
-    st.header("Stocks Signal Forecasting via Machine Learning")  
+    st.header("Machine Learning Signals (Technical Analysis)")  
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 15):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
     
@@ -1187,6 +1187,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
