@@ -108,7 +108,7 @@ if submitted:
             align='left',
             dx=10, dy=10,
             fontSize=13,
-            color='grey,
+            color='grey',
             opacity=0.8
         ).encode(x='x', y='y')
 
