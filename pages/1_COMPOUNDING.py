@@ -94,7 +94,7 @@ if submitted:
         })).mark_text(
             text=f"${final_capital:,.0f}",
             align='right',
-            dx=-10, dy=-10,
+            dx=-5, dy=-5,
             fontSize=13,
             color='grey',
             opacity=0.8
@@ -108,7 +108,7 @@ if submitted:
             align='left',
             dx=10, dy=10,
             fontSize=13,
-            color='red',
+            color='grey,
             opacity=0.8
         ).encode(x='x', y='y')
 
