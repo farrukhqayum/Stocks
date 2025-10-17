@@ -4,16 +4,15 @@ import altair as alt
 
 st.title("Traders' Psychology Pyramid")
 st.markdown("""
-Traders' psychology can be understood as a pyramid, with many beginners at the base and few experts at the peak. Each ascending stage represents a higher level of emotional control, discipline, and trading skill. This model helps visualize the typical progression through the psychological states experienced during the development of a trader[web:9][web:10].
-""")
+Traders' psychology can be understood as a pyramid, with many beginners at the base and few experts at the peak. Each ascending stage represents a higher level of emotional control, discipline, and trading skill. This model helps visualize the typical progression through the psychological states experienced during the development of a trader.""")
 
 # Define pyramid stages and brief descriptions
 stages = [
-    {"Stage": "Novice", "Description": "Optimism and excitement about trading, often lacking deep knowledge[web:3][web:6]."},
+    {"Stage": "Novice", "Description": "Optimism and excitement about trading, often lacking deep knowledge."},
     {"Stage": "Learner", "Description": "Thrill and confidence as early wins occur; traders may become overconfident."},
-    {"Stage": "Struggler", "Description": "Facing anxiety, denial, and fear as losses emerge. Many quit at this stage[web:3][web:6]."},
+    {"Stage": "Struggler", "Description": "Facing anxiety, denial, and fear as losses emerge. Many quit at this stage."},
     {"Stage": "Survivor", "Description": "Gaining risk-awareness and emotional control, learning from mistakes."},
-    {"Stage": "Expert", "Description": "Consistent profitability, discipline, and sustainable growth; the few who reach the top[web:9][web:10]."}
+    {"Stage": "Expert", "Description": "Consistent profitability, discipline, and sustainable growth; the few who reach the top."}
 ]
 
 df = pd.DataFrame(stages)
