@@ -8,9 +8,9 @@ Traders' psychology can be understood as a pyramid, with many beginners at the b
 
 # Define pyramid stages and brief descriptions
 stages = [
-    {"Stage": "Novice", "Description": "Optimism and excitement about trading, often lacking deep knowledge."},
-    {"Stage": "Learner", "Description": "Thrill and confidence as early wins occur; traders may become overconfident."},
-    {"Stage": "Struggler", "Description": "Facing anxiety, denial, and fear as losses emerge. Many quit at this stage."},
+    {"Stage": "Novice", "Description": "Optimism and excitement about trading, often lacking deep knowledge. Focuses on blaming others for own mistakes."},
+    {"Stage": "Learner", "Description": "Thrill and confidence as early wins occur; traders may become overconfident. Consider themselves as experts."},
+    {"Stage": "Struggler", "Description": "Facing anxiety, denial, and fear as losses emerge. Totally, confused. Many quit at this stage."},
     {"Stage": "Survivor", "Description": "Gaining risk-awareness and emotional control, learning from mistakes."},
     {"Stage": "Expert", "Description": "Consistent profitability, discipline, and sustainable growth; the few who reach the top."}
 ]
