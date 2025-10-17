@@ -38,5 +38,5 @@ chart = alt.Chart(df_viz).mark_bar().encode(
 st.altair_chart(chart, use_container_width=True)
 
 st.markdown("""
-The pyramid starts with optimism and excitement and ascends through stages of challenge, learning, and mastery. This structure illustrates how emotional control and expertise are refined as traders move up[web:3][web:6][web:9][web:10].
+The pyramid starts with optimism and excitement and ascends through stages of challenge, learning, and mastery. This structure illustrates how emotional control and expertise are refined as traders move up.
 """)
