@@ -3,10 +3,7 @@ import pandas as pd
 import altair as alt
 
 st.title("Traders' Psychology Pyramid")
-st.markdown("""
-Traders' psychology can be understood as a pyramid, with many beginners at the base and few experts at the peak. Each ascending stage represents a higher level of emotional control, discipline, and trading skill. This model helps visualize the typical progression through the psychological states experienced during the development of a trader.""")
 
-# Define pyramid stages and brief descriptions
 stages = [
     {"Stage": "Novice", "Description": "Optimism and excitement about trading, often lacking deep knowledge. Focuses on blaming others for own mistakes."},
     {"Stage": "Learner", "Description": "Thrill and confidence as early wins occur; traders may become overconfident. Consider themselves as experts."},
@@ -15,28 +12,31 @@ stages = [
     {"Stage": "Expert", "Description": "Consistent profitability, discipline, and sustainable growth; the few who reach the top."}
 ]
 
-df = pd.DataFrame(stages)
+df = pd.DataFrame({
+    "Stage": [s["Stage"] for s in reversed(stages)],  # Reverse for pyramid order (base at bottom)
+    "Level": [5, 4, 3, 2, 1]  # Pyramid levels, base = 5, apex = 1
+})
 
 # Display pyramid data in table
 st.subheader("Trading Psychology Pyramid Stages")
-st.dataframe(df)
+st.dataframe(pd.DataFrame(stages))
 
-# Prepare data for pyramid visualization (inverted bar chart)
-df_viz = pd.DataFrame({
-    "Stage": [s["Stage"] for s in stages],
-    "Level": [5, 4, 3, 2, 1]  # For pyramid visualization: base = 5, top = 1
-})
-
-chart = alt.Chart(df_viz).mark_bar().encode(
-    x=alt.X('Stage', sort=None),
-    y=alt.Y('Level'),
-    color=alt.Color('Stage', legend=None)
+# Create a pyramid-like horizontal bar chart
+bar = alt.Chart(df).mark_bar().encode(
+    y=alt.Y('Stage:N', sort=None),
+    x=alt.X('Level:Q', scale=alt.Scale(domain=[0, 5]), title='Level'),
+    color=alt.Color('Stage:N', legend=None)
 ).properties(
-    title="Traders' Psychology Pyramid (Levels)"
+    height=300,
+    width=350,
+    title="Traders' Psychology Pyramid"
+).configure_axis(
+    labelFontSize=12,
+    titleFontSize=14
 )
 
-st.altair_chart(chart, use_container_width=True)
+st.altair_chart(bar, use_container_width=True)
 
 st.markdown("""
-The pyramid starts with optimism and excitement and ascends through stages of challenge, learning, and mastery. This structure illustrates how emotional control and expertise are refined as traders move up.
+The horizontal bars mirror the shape of a pyramid—wider at the bottom and narrower at the top—helping visualize the journey from novice to expert in trading psychology.
 """)
