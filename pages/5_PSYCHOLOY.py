@@ -15,28 +15,27 @@ stages = [
     {"Stage": "Expert", "Description": "Consistent profitability, discipline, and sustainable growth; the few who reach the top."}
 ]
 
-df = pd.DataFrame({
+df = pd.DataFrame(stages)
+
+# Display pyramid data in table
+st.subheader("Trading Psychology Pyramid Stages")
+st.dataframe(df)
+
+# Prepare data for pyramid visualization (inverted bar chart)
+df_viz = pd.DataFrame({
     "Stage": [s["Stage"] for s in stages],
-    "Width": [100, 80, 60, 40, 20],  # widest at bottom, narrowest at top
-    "Level": [1, 2, 3, 4, 5]         # Use for stack order
+    "Level": [5, 4, 3, 2, 1]  # For pyramid visualization: base = 5, top = 1
 })
 
-pyramid = alt.Chart(df).mark_bar(size=40).encode(
-    y=alt.Y('Stage', sort=df["Stage"].tolist()[::-1]),  # reverse for top = Expert
-    x=alt.X('Width', scale=alt.Scale(domain=[0, 120]), title=''),
+chart = alt.Chart(df_viz).mark_bar().encode(
+    x=alt.X('Stage', sort=None),
+    y=alt.Y('Level'),
     color=alt.Color('Stage', legend=None)
 ).properties(
-    height=300,
-    width=350,
-    title="Trading Psychology Pyramid"
-).configure_axis(
-    labelFontSize=12,
-    titleFontSize=14
-).configure_view(
-    stroke=None  # removes chart border
+    title="Traders' Psychology Pyramid (Levels)"
 )
 
-st.altair_chart(pyramid, use_container_width=True)
+st.altair_chart(chart, use_container_width=True)
 
 st.markdown("""
 The pyramid starts with optimism and excitement and ascends through stages of challenge, learning, and mastery. This structure illustrates how emotional control and expertise are refined as traders move up.
