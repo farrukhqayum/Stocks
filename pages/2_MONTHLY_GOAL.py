@@ -44,7 +44,7 @@ if st.button("Calculate Investment Growth"):
     df_melted = df_investments.melt(id_vars=['Period'], var_name='Wins Per Period', value_name='Investment Value')
 
     # Investment Growth line chart with y-axis on the right
-    growth_chart = alt.Chart(df_melted).mark_line(point=True).encode(
+    growth_chart = alt.Chart(df_melted).mark_line(point=True, size=10).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
         y=alt.Y('Investment Value:Q', title='Investment Value ($)', axis=alt.Axis(orient='right'), scale=alt.Scale(zero=False)),
         color=alt.Color(
@@ -83,12 +83,12 @@ if st.button("Calculate Investment Growth"):
     base = alt.Chart(annotations_df).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
         y=alt.Y('Avg Dollar Gain:Q', title='Average Dollar Gain ($)',
-                axis=alt.Axis(format='~s', labelExpr="replace(datum.label, 'G', 'B')")),
+                axis=alt.Axis(orient='right', format='~s', labelExpr="replace(datum.label, 'G', 'B')")),
         tooltip=['Period', alt.Tooltip('Avg Dollar Gain', format=',.2f')]
     )
 
     line = base.mark_line(
-        point=alt.OverlayMarkDef(filled=True, fill='white', size=20),
+        point=alt.OverlayMarkDef(filled=True, fill='white', size=10),
         color='green'
     )
     text = base.mark_text(
