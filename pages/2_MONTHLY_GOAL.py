@@ -46,7 +46,10 @@ if st.button("Calculate Investment Growth"):
     # Investment Growth line chart with y-axis on the right
     growth_chart = alt.Chart(df_melted).mark_line(point=True, size=1).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
-        y=alt.Y('Investment Value:Q', title='Investment Value ($)', axis=alt.Axis(orient='right', format='~s'), scale=alt.Scale(zero=False)),
+        y=alt.Y('Investment Value:Q', title='Investment Value ($)', 
+                axis=alt.Axis(orient='right', format='~s', 
+                              labelExpr="replace(datum.label, 'G', 'B')), 
+                              scale=alt.Scale(zero=False)),
         color=alt.Color(
             'Wins Per Period:N',
             legend=alt.Legend(
