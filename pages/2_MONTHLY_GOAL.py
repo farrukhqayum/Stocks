@@ -36,7 +36,7 @@ eff_monthly = ((1 + r) ** max_trades - 1) * 100
 
 if st.button("Calculate Investment Growth"):
     st.subheader(f"Effective Win Rate per Period: {eff_monthly:.2f}%")
-    
+
     investment_curves = calculate_investment_growth(P, r, months, max_trades)
     df_investments = create_investment_dataframe(investment_curves, months)
     st.dataframe(df_investments)
@@ -44,20 +44,23 @@ if st.button("Calculate Investment Growth"):
     # Reshape data for Altair line chart: Investment Growth per number of wins
     df_melted = df_investments.melt(id_vars=['Period'], var_name='Wins Per Period', value_name='Investment Value')
 
-    # Investment Growth line chart
+    # Investment Growth line chart with legend inside top-left, transparent background and white text
     growth_chart = alt.Chart(df_melted).mark_line(point=True).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
         y=alt.Y('Investment Value:Q', title='Investment Value ($)', scale=alt.Scale(zero=False)),
-        color=alt.Color('Wins Per Period:N',
-                        legend=alt.Legend(
-                            orient='top-left',
-                            legendX=20,
-                            legendY=20,
-                            fillColor='white',
-                            strokeColor='black',
-                            padding=5,
-                            cornerRadius=3
-                        )),
+        color=alt.Color(
+            'Wins Per Period:N',
+            legend=alt.Legend(
+                orient='top-left',
+                legendX=20,
+                legendY=20,
+                fillColor=None,  # transparent background
+                labelColor='white',
+                titleColor='white',
+                padding=5,
+                cornerRadius=3
+            )
+        ),
         tooltip=['Period', 'Wins Per Period', 'Investment Value']
     ).properties(
         width=700,
@@ -68,7 +71,7 @@ if st.button("Calculate Investment Growth"):
     st.altair_chart(growth_chart, use_container_width=True)
 
     # Calculate average dollar gain per period (per month)
-    df_investments_sorted = df_investments.sort_v('Period').set_index('Period')
+    df_investments_sorted = df_investments.sort_values('Period').set_index('Period')
     avg_dollar_gain_per_period = df_investments_sorted.diff().mean(axis=1).reset_index(name='Avg Dollar Gain')
 
     # Average Dollar Gain line chart
