@@ -517,7 +517,7 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         st.error(f"Error making prediction: {str(e)}")
         return None
 
-def plot_analysis(df, entry_price, timeframe, assessment):
+def plot_analysis(ticker = "TSLA", df, entry_price, timeframe, assessment):
     """Create analysis plot"""
 
     try:
@@ -554,6 +554,12 @@ def plot_analysis(df, entry_price, timeframe, assessment):
                     fontsize=12, weight='bold',
                     bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.3))
         
+        # Add ticker name in the middle
+        ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, 
+                     fontsize=50, color='grey', alpha=0.2,
+                     horizontalalignment='center', verticalalignment='center',
+                     rotation=0, weight='bold', style='italic')    
+
         # RSI plot if available
         if 'RSI' in df.columns:
             rsi_ = df['RSI'].rolling(3).mean()
@@ -767,7 +773,7 @@ def main():
                         st.write(f"**Reasons**: {reasons}")
                         
                         # Plot
-                        fig = plot_analysis(df, entry_price, timeframe, assessment)
+                        fig = plot_analysis(ticker, df, entry_price, timeframe, assessment)
                         st.pyplot(fig)
                     else:
                         st.warning(f"Could not generate prediction for {timeframe}")
