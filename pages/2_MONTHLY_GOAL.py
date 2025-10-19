@@ -81,7 +81,7 @@ if st.button("Calculate Investment Growth"):
     )
 
     line = base.mark_line(
-        point=alt.OverlayMarkDef(filled=True, fill='white', size=60),
+        point=alt.OverlayMarkDef(filled=True, fill='white', size=20),
         color='green'
     )
     text = base.mark_text(
@@ -95,7 +95,7 @@ if st.button("Calculate Investment Growth"):
     )
 
     avg_gain_chart = (line + text).properties(
-        width=700,
+        width=600,
         height=300,
         title='Average Dollar Gain per Period'
     ).interactive()
