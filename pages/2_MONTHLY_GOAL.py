@@ -44,17 +44,18 @@ if st.button("Calculate Investment Growth"):
     # Reshape data for Altair line chart: Investment Growth per number of wins
     df_melted = df_investments.melt(id_vars=['Period'], var_name='Wins Per Period', value_name='Investment Value')
 
-    # Investment Growth line chart with legend inside top-left, transparent background and white text
+    # Investment Growth line chart with y-axis on the right
     growth_chart = alt.Chart(df_melted).mark_line(point=True).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
-        y=alt.Y('Investment Value:Q', title='Investment Value ($)', scale=alt.Scale(zero=False)),
+        y=alt.Y('Investment Value:Q', title='Investment Value ($)', 
+                axis=alt.Axis(orient='right'), scale=alt.Scale(zero=False)),
         color=alt.Color(
             'Wins Per Period:N',
             legend=alt.Legend(
                 orient='top-left',
                 legendX=20,
                 legendY=20,
-                fillColor=None,  # transparent background
+                fillColor=None,
                 labelColor='white',
                 titleColor='white',
                 padding=5,
@@ -74,12 +75,24 @@ if st.button("Calculate Investment Growth"):
     df_investments_sorted = df_investments.sort_values('Period').set_index('Period')
     avg_dollar_gain_per_period = df_investments_sorted.diff().mean(axis=1).reset_index(name='Avg Dollar Gain')
 
-    # Average Dollar Gain line chart
-    avg_gain_chart = alt.Chart(avg_dollar_gain_per_period).mark_line(point=True, color='crimson').encode(
+    # Average Dollar Gain line chart with annotations
+    base = alt.Chart(avg_dollar_gain_per_period).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
         y=alt.Y('Avg Dollar Gain:Q', title='Average Dollar Gain ($)'),
         tooltip=['Period', alt.Tooltip('Avg Dollar Gain', format=',.2f')]
-    ).properties(
+    )
+
+    line = base.mark_line(point=True, color='crimson')
+    text = base.mark_text(
+        align='center',
+        baseline='bottom',
+        dy=-5,  # shift text above the points
+        color='crimson'
+    ).encode(
+        text=alt.Text('Avg Dollar Gain:Q', format='$,.0f')
+    )
+
+    avg_gain_chart = (line + text).properties(
         width=700,
         height=300,
         title='Average Dollar Gain per Period'
