@@ -691,7 +691,7 @@ def main():
                 results = {}
                 
                 # Analyze both timeframes
-                for timeframe, interval in [("1H", "1h"), ("1D", "1d")]:
+                for timeframe, interval in [("1H", "1h"), ("1D", "1d"), ("1W", "1w")]:
                     st.subheader(f"{timeframe} Timeframe Analysis")
                     
                     # Get data
