@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+st.cache_data.clear()
+st.cache_resource.clear()
 warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="MAIN - Machine Learning of Stocks")
 
@@ -1187,6 +1189,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
