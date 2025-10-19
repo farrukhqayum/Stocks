@@ -647,7 +647,7 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
 # Streamlit App
 def main():
     st.title("📊 Entry Position Analyzer")
-    st.write("Analyze your entry position using ML models trained on 1H and 1D timeframes")
+    st.write("Analyze your entry position using ML models trained on 1H and 1D timeframes. Type ticker: e.g. TSLA or BTC-USD.")
     
     # User inputs
     col1, col2, col3 = st.columns(3)
