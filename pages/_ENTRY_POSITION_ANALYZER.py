@@ -886,7 +886,7 @@ def main():
                         st.error("**AVOID** - Poor signals across timeframes")
                         
                     # Show timeframe summary
-                    st.write("**Timeframe Summary:**")
+                    st.write(f"**Timeframe Summary ({ticker}):**")
                     for tf in results.keys():
                         assessment = results[tf]['assessment']
                         color = "🟢" if assessment == "Valid" else "🟡" if assessment == "Risky" else "🔴"
