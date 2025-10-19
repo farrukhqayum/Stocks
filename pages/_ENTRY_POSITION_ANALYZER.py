@@ -811,6 +811,7 @@ def main():
         2. **Set Entry Price**: Your intended entry price
         3. **Define Expectations**: Your target gain and maximum acceptable loss
         4. **Click Analyze**: The system will train ML models and evaluate your entry
+        5. **Forced Entry**: News may force you enter, but you may not be able to repeat it. Hence, it is recommended to wait for an entry instead of pushing forward.
         
         **Assessment Colors:**
         - 🟢 **Valid**: Good entry with strong bullish signals
