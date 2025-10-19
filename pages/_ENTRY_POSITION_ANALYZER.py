@@ -18,8 +18,12 @@ warnings.filterwarnings('ignore')
 # Configuration
 st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 
-# Global Parameters
-YEARS_OF_DATA = 3  # Reduced for faster processing
+# Global Parameters - Adjusted for different timeframes
+YEARS_OF_DATA = {
+    '1H': 1,    # 1 year for hourly
+    '1D': 2,    # 2 years for daily  
+    '1W': 5     # 5 years for weekly (minimum for sufficient data points)
+}
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
 _DAYS = 28
@@ -28,10 +32,27 @@ windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29] # For calculating
 
 # Simplified features for faster processing
 FEATURES = [
-    'High', 'Low', 'Close', 'Volume', 'RSI', 'RSI_SMA', 'SMA1', 'SMA2', 
-    'SMA3', 'SMA_Ratio', 'ATR', 'MACD', 'Signal_Line', 'Volume_MA20',
-    'sumBuyVol', 'sumSellVol', 'Volatility', 'Bull', 'Bear', 'Hold', 'Neutral',
+    # Price High, Low
+    'High', 'Low',
     
+    # Technical Indicators
+    'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'KCu_outer', 'KCl_outer', 'Kasym', 'Kcount', 'STu', 'STl',
+
+    # Moving Averages & Bands
+    'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20', 'SMIIO', 'SMIIO_Signal', 'SMIIO_Osc', 'MACD', 'Signal_Line',
+
+    # Returns & Volatility
+    'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
+
+    # Volume Features
+    'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT', 'OBV', 'MFI', 'VWMA', 'CMF',
+
+    # Candlestick Patterns
+    'Candlesticks', 'gapStrength',
+
+    # Market Sentiment & Signals
+    'Bear', 'Bull', 'Short', 'Hold', 'Neutral', 'StrongBull', 'StrongBear', 'Neutral', 'Exhaustion',
+
     # PIVOTS
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
 ]
@@ -46,16 +67,20 @@ def get_current_price(ticker):
     # Return the closing price of the last available trading session
     return data['Close'][-1]
 
-# Example usage:
-price = get_current_price("TSLA")
-print(f"Current price for TSLA is ${price:.2f}")
-
-
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
     try:
+        # Map interval names for yfinance
+        interval_map = {
+            '1H': '1h',
+            '1D': '1d', 
+            '1W': '1wk'
+        }
+        
+        yf_interval = interval_map.get(interval, interval)
+        
         df = yf.download(ticker, start=start_date, end=end_date, 
-                        interval=interval, progress=False, auto_adjust=True)
+                        interval=yf_interval, progress=False, auto_adjust=True)
         
         if df.empty:
             st.error(f"No data found for {ticker} with interval {interval}")
@@ -94,24 +119,47 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
         st.error(f"Error downloading data for {ticker}: {str(e)}")
         return None
 
-def add_technical_indicators(df):
-    """Add essential technical indicators to dataframe"""
+def add_technical_indicators(df, timeframe='1D'):
+    """Add essential technical indicators to dataframe with timeframe-specific adjustments"""
     try:
         close = df.Close
         df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(3).mean()
-        df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
-        df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
-        df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
+        
+        # Adjust parameters based on timeframe
+        if timeframe == '1W':
+            # Longer periods for weekly data
+            sma_multiplier = 4  # Longer SMAs for weekly
+            atr_period = 14
+            rsi_period = 14
+        else:
+            # Default periods for hourly/daily
+            sma_multiplier = 2
+            atr_period = 14  
+            rsi_period = 14
+            
+        df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5 * sma_multiplier), adjust=False).mean()
+        df['SMA2'] = df['Close'].ewm(span=_DAYS * sma_multiplier, adjust=False).mean()
+        df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2 * sma_multiplier), adjust=False).mean()
         df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
         df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
         df = ta.scaled_volatility(df)
         df = ta.add_candlestickpatterns(df)
         df['RSI']= ta.calculate_rsi(df)
         df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-        ema12 = df['Close'].ewm(span=12, adjust=False).mean()
-        ema26 = df['Close'].ewm(span=24, adjust=False).mean()
+        
+        # Adjust MACD periods for weekly
+        if timeframe == '1W':
+            ema_short = 8
+            ema_long = 17
+        else:
+            ema_short = 12
+            ema_long = 26
+            
+        ema12 = df['Close'].ewm(span=ema_short, adjust=False).mean()
+        ema26 = df['Close'].ewm(span=ema_long, adjust=False).mean()
         df['MACD'] = ema12 - ema26
         df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
+        
         df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
         df['Upper_Band'] = df['SMA1'] + (2 * df['Close'].rolling(20).std())
         df['Lower_Band'] = df['SMA1'] - (2 * df['Close'].rolling(20).std())
@@ -132,13 +180,27 @@ def add_technical_indicators(df):
         df[['VI+', 'VI-']] = ta.calculate_vortex(df)
         df[['STu', 'STl']] = ta.calculate_supertrend(df)
         df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
-        df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
-        df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
-        df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
+        
+        # Adjust return periods based on timeframe
+        if timeframe == '1W':
+            df['return1'] = df['Close'].pct_change(4).rolling(2).mean()   # 1 month
+            df['return2'] = df['Close'].pct_change(13).rolling(2).mean()  # 3 months
+            df['return3'] = df['Close'].pct_change(26).rolling(2).mean()  # 6 months
+        else:
+            df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
+            df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
+            df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
+            
         df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-         # fill nans
+        
+        # fill nans
         cols = ['SMA1', 'SMA2', 'RSI', '-DI', 'Close']
         df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+        
+        # Adjust RSI thresholds for weekly if needed
+        rsi_lower = 25 if timeframe == '1W' else 18
+        rsi_upper = 60 if timeframe == '1W' else 55
+        
         conditions = [
             # BULL
             (
@@ -158,7 +220,7 @@ def add_technical_indicators(df):
             (
                 (
                     (df['SMA1'] < df['SMA2']) &
-                    (df['RSI'].between(18,60)) &
+                    (df['RSI'].between(rsi_lower, 60)) &
                     (df['RSI'] < df['RSI_SMA']) &
                     (df['+DI'] < df['-DI']) &
                     (df['-DI'].between(18, 55))
@@ -383,8 +445,17 @@ def train_models(df, timeframe):
         
         df_model = df.dropna(subset=required_cols)
         
-        if len(df_model) < _Nr:
-            st.warning(f"Insufficient data for {timeframe} modeling: {len(df_model)} rows")
+        # Adjust minimum data requirement based on timeframe
+        min_data = {
+            '1H': 100,
+            '1D': 50, 
+            '1W': 30   # Weekly needs fewer data points due to longer timeframe
+        }
+        
+        required_min = min_data.get(timeframe, _Nr)
+        
+        if len(df_model) < required_min:
+            st.warning(f"Insufficient data for {timeframe} modeling: {len(df_model)} rows (need {required_min})")
             return None, None, None, None, None, None
         
         # Progress indicator
@@ -665,7 +736,7 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
 # Streamlit App
 def main():
     st.title("📊 Entry Position Analyzer")
-    st.write("Analyze your entry position using ML models trained on 1H and 1D timeframes. Type ticker: e.g. TSLA or BTC-USD.")
+    st.write("Analyze your entry position using ML models trained on 1H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD.")
     
     # User inputs
     col1, col2, col3 = st.columns(3)
@@ -684,27 +755,42 @@ def main():
     if st.button("Analyze Entry Position"):
         with st.spinner("Training models and analyzing..."):
             try:
-                # Get current date range
+                # Get current date
                 end_date = datetime.now()
-                start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
                 
                 results = {}
                 
-                # Analyze both timeframes
-                for timeframe, interval in [("1H", "1h"), ("1D", "1d"), ("1W", "1wk", "1w")]:
+                # Analyze all timeframes
+                timeframes = [
+                    ("1H", "1H"),
+                    ("1D", "1D"), 
+                    ("1W", "1W")
+                ]
+                
+                for timeframe, interval in timeframes:
                     st.subheader(f"{timeframe} Timeframe Analysis")
+                    
+                    # Get appropriate start date based on timeframe
+                    years = YEARS_OF_DATA[timeframe]
+                    start_date = end_date - timedelta(days=365 * years)
                     
                     # Get data
                     with st.spinner(f"Fetching {timeframe} data..."):
                         df = get_stock_data(ticker, start_date, end_date, interval)
                     
-                    if df is None or len(df) < 50:
-                        st.warning(f"Insufficient {timeframe} data for {ticker}")
+                    if df is None:
+                        st.warning(f"No data available for {timeframe} timeframe")
+                        continue
+                        
+                    if len(df) < 30:
+                        st.warning(f"Insufficient {timeframe} data for {ticker}: {len(df)} rows")
                         continue
                     
-                    # Add technical indicators
+                    st.write(f"Data points: {len(df)}")
+                    
+                    # Add technical indicators with timeframe-specific adjustments
                     with st.spinner("Calculating technical indicators..."):
-                        df = add_technical_indicators(df)
+                        df = add_technical_indicators(df, timeframe)
                         df = add_pivot_levels(df, window=14)
                         df = add_pivots(df, windows)
                         df = average_pivots(df, windows)
@@ -712,11 +798,11 @@ def main():
                     if df is None:
                         st.warning(f"Error calculating indicators for {timeframe}")
                         continue
+                        
                     # Compute expected returns/losses
                     with st.spinner("Computing expected returns..."):
                         df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
                         df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
-                        
                     
                     # Label hit probabilities
                     with st.spinner("Labeling hit probabilities..."):
@@ -781,30 +867,33 @@ def main():
                     st.write("---")
                 
                 # Overall recommendation
-                if len(results) == 2:
+                if results:
                     st.subheader("🎯 Overall Recommendation")
                     
-                    assessments = [results[tf]['assessment'] for tf in ['1H', '1D']]
+                    assessments = [results[tf]['assessment'] for tf in results.keys()]
                     valid_count = assessments.count('Valid')
                     risky_count = assessments.count('Risky')
                     
-                    if valid_count == 2:
-                        st.success("**STRONG BUY** - Both timeframes show valid entry")
-                    elif valid_count >= 1 or risky_count == 2:
+                    total_timeframes = len(results)
+                    
+                    if valid_count == total_timeframes:
+                        st.success("**STRONG BUY** - All timeframes show valid entry")
+                    elif valid_count >= total_timeframes / 2:
+                        st.success("**BUY** - Majority of timeframes show valid entry")
+                    elif valid_count >= 1 or risky_count >= total_timeframes / 2:
                         st.warning("**CAUTIOUS BUY** - Mixed or risky signals")
                     else:
-                        st.error("**AVOID** - Not recommended in both timeframes")
+                        st.error("**AVOID** - Poor signals across timeframes")
                         
-                elif len(results) == 1:
-                    timeframe = list(results.keys())[0]
-                    assessment = results[timeframe]['assessment']
-                    
-                    if assessment == "Valid":
-                        st.success(f"**CONSIDER BUY** - {timeframe} shows valid entry")
-                    elif assessment == "Risky":
-                        st.warning(f"**CAUTIOUS** - {timeframe} shows risky entry")
-                    else:
-                        st.error(f"**AVOID** - {timeframe} shows poor entry")
+                    # Show timeframe summary
+                    st.write("**Timeframe Summary:**")
+                    for tf in results.keys():
+                        assessment = results[tf]['assessment']
+                        color = "🟢" if assessment == "Valid" else "🟡" if assessment == "Risky" else "🔴"
+                        st.write(f"{color} {tf}: {assessment}")
+                        
+                else:
+                    st.error("No successful analyses completed. Try with a different ticker or time period.")
                         
             except Exception as e:
                 st.error(f"Error analyzing {ticker}: {str(e)}")
@@ -813,11 +902,15 @@ def main():
     # Instructions
     with st.expander("How to use this analyzer"):
         st.write("""
-        1. **Enter Ticker Symbol**: Stock symbol (e.g., AAPL, TSLA, NVDA)
+        1. **Enter Ticker Symbol**: Stock symbol (e.g., AAPL, TSLA, NVDA) or crypto (BTC-USD)
         2. **Set Entry Price**: Your intended entry price
         3. **Define Expectations**: Your target gain and maximum acceptable loss
         4. **Click Analyze**: The system will train ML models and evaluate your entry
-        5. **Forced Entry**: News may force you enter, but you may not be able to repeat it. Hence, it is recommended to wait for an entry instead of pushing forward.
+        
+        **Timeframe Data Requirements:**
+        - **1H**: 1 year of historical data (~2000+ data points)
+        - **1D**: 2 years of historical data (~500+ data points)  
+        - **1W**: 5 years of historical data (~250+ data points)
         
         **Assessment Colors:**
         - 🟢 **Valid**: Good entry with strong bullish signals
@@ -832,6 +925,7 @@ def main():
         - Confidence scores from ensemble models
         
         **Note**: 1H data may not be available for all tickers outside market hours.
+        1W data requires at least 5 years of history for sufficient data points.
         """)
 
 if __name__ == "__main__":
