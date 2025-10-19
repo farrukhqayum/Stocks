@@ -22,7 +22,7 @@ st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 YEARS_OF_DATA = 1  # Reduced for faster processing
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
-_DAYS = 22
+_DAYS = 50
 _Nr = 30  # Reduced minimum data requirement
 
 # Simplified features for faster processing
@@ -82,7 +82,7 @@ def add_technical_indicators(df):
     """Add essential technical indicators to dataframe"""
     try:
         close = df.Close
-        df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
+        df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(3).mean()
         df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
         df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
         df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
@@ -446,7 +446,7 @@ def plot_analysis(df, entry_price, timeframe, assessment):
         ax1.yaxis.tick_right()
         ax1.yaxis.set_label_position("right")
         ax1.set_ylabel('Price')
-        ax1.legend()
+        ax1.legend(fontsize='x-small')
         ax1.grid(True, alpha=0.3)
         
         # Assessment annotation
@@ -480,7 +480,7 @@ def plot_analysis(df, entry_price, timeframe, assessment):
             ax2.yaxis.tick_right()
             ax2.set_ylabel('RSI')
             ax2.set_ylim(0, 100)
-            ax2.legend()
+            ax2.legend(fontsize='x-small')
         else:
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
         
