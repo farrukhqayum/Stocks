@@ -62,3 +62,17 @@ if st.button("Calculate Investment Growth"):
     plot_investment_growth(investment_curves, r, months)
     df_investments = create_investment_dataframe(investment_curves, months)
     st.dataframe(df_investments)
+    
+    # Calculate and plot effective average gains per period
+    avg_gains = df_investments.pct_change().mean() * 100  # Average growth % per column (n_trades)
+    
+    fig2, ax2 = plt.subplots(figsize=(8, 5), dpi=100)
+    ax2.bar(avg_gains.index, avg_gains.values, color='teal', alpha=0.7)
+    ax2.set_title('Effective Average Gains per Period')
+    ax2.set_xlabel('Successful Trades per Period')
+    ax2.set_ylabel('Average Gain (%)')
+    for i, v in enumerate(avg_gains.values):
+        ax2.text(i, v, f'{v:.2f}%', ha='center', va='bottom')
+    ax2.grid(alpha=0.25)
+    plt.tight_layout()
+    st.pyplot(fig2)
