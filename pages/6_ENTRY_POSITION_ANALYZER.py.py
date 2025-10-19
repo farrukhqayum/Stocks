@@ -423,6 +423,7 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
 
 def plot_analysis(df, entry_price, timeframe, assessment):
     """Create analysis plot"""
+
     try:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), 
                                        gridspec_kw={'height_ratios': [3, 1]}, 
@@ -469,9 +470,6 @@ def plot_analysis(df, entry_price, timeframe, assessment):
             ax2.axhline(30, color='green', linestyle='--', alpha=0.5, label='Oversold')
             ax2.axhline(50, color='gray', linestyle='-', alpha=0.3)
 
-            rsi_last = round(df['RSI'].iloc[-1], 1)
-            rsi_sma_last = round(df['RSI'].rolling(20).mean().iloc[-1], 1)
-            price_vs_sma1 = 100 * (current_price - sma1_) / sma1_ if sma1_ != 0 else 0
             ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
             ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
             ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=5, alpha=0.4, label='Short', zorder=10)
