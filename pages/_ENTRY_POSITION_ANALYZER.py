@@ -22,14 +22,17 @@ st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 YEARS_OF_DATA = 1  # Reduced for faster processing
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
-_DAYS = 50
+_DAYS = 25
 _Nr = 30  # Reduced minimum data requirement
 
 # Simplified features for faster processing
 FEATURES = [
     'High', 'Low', 'Close', 'Volume', 'RSI', 'RSI_SMA', 'SMA1', 'SMA2', 
     'SMA3', 'SMA_Ratio', 'ATR', 'MACD', 'Signal_Line', 'Volume_MA20',
-    'sumBuyVol', 'sumSellVol', 'Volatility', 'Bull', 'Bear', 'Hold', 'Neutral'
+    'sumBuyVol', 'sumSellVol', 'Volatility', 'Bull', 'Bear', 'Hold', 'Neutral',
+    
+    # PIVOTS
+    'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
 ]
 
 label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
@@ -192,43 +195,123 @@ def add_technical_indicators(df):
         st.error(f"Error adding technical indicators: {str(e)}")
         return None
 
-def compute_expected_return(df, forward_window=14):
-    """Compute expected returns"""
-    try:
-        df['Expected_Return'] = np.nan
-        close_prices = df['Close'].values
-        
-        for i in range(len(df) - forward_window):
-            current_price = close_prices[i]
-            future_prices = close_prices[i+1:i+1+forward_window]
-            
-            if len(future_prices) > 0:
-                max_future = np.nanmax(future_prices)
-                df.iloc[i, df.columns.get_loc('Expected_Return')] = (max_future - current_price) / current_price
-        
-        return df
-    except Exception as e:
-        st.error(f"Error computing expected returns: {str(e)}")
-        return df
+def add_pivot_levels(df, window=_DAYS):
+    # Compute rolling high/low/close over the window
+    high = df['High'].rolling(window)
+    low = df['Low'].rolling(window)
+    close = df['Close'].rolling(window)
+    # Classic floor trader pivots (you can adjust formulas as needed)
+    PP = (high.max() + low.min() + close.apply(lambda x: x[-1])).div(3)
+    R1 = 2 * PP - low.min()
+    S1 = 2 * PP - high.max()
+    R2 = PP + (high.max() - low.min())
+    S2 = PP - (high.max() - low.min())
+    # Assign to DataFrame
+    df['PP'] = PP.fillna(method='bfill')
+    df['R1'] = R1.fillna(method='bfill')
+    df['S1'] = S1.fillna(method='bfill')
+    df['R2'] = R2.fillna(method='bfill')
+    df['S2'] = S2.fillna(method='bfill')
+    return df
 
-def compute_expected_loss(df, forward_window=14):
-    """Compute expected losses"""
-    try:
-        df['Expected_Loss'] = np.nan
-        close_prices = df['Close'].values
+def add_pivots(df, win=windows):
+    for w in win:
+        roll_high = df['High'].rolling(w)
+        roll_low = df['Low'].rolling(w)
+        roll_close = df['Close'].rolling(w)
+        # Calculate rolling pivots
+        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x[-1])).div(3)
+        R1 = 2 * PP - roll_low.min()
+        S1 = 2 * PP - roll_high.max()
+        R2 = PP + (roll_high.max() - roll_low.min())
+        S2 = PP - (roll_high.max() - roll_low.min())
+        # Store in DataFrame
+        df[f'PP_{w}'] = PP
+        df[f'R1_{w}'] = R1
+        df[f'S1_{w}'] = S1
+        df[f'R2_{w}'] = R2
+        df[f'S2_{w}'] = S2
+    return df
+
+def average_pivots(df, windows=[5, 10, 14, 20]):
+    for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
+        cols = [f'{level}_{w}' for w in windows]
+        # Take row-wise mean, ignore NaN for early rows
+        df[f'{level}_Avg'] = df[cols].mean(axis=1)
+    return df
+    
+def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
+    df['Expected_Return'] = np.nan
+    close_prices = df['Close'].values
+    
+    # Pre-extract pivot arrays
+    pivot_arrays = []
+    for col in r_cols:
+        if col in df.columns:
+            pivot_arrays.append(df[col].values)
+        else:
+            pivot_arrays.append(np.full(len(df), np.nan))
+    
+    for i in range(len(df) - forward_window):
+        current_price = close_prices[i]
         
-        for i in range(len(df) - forward_window):
-            current_price = close_prices[i]
-            future_prices = close_prices[i+1:i+1+forward_window]
-            
-            if len(future_prices) > 0:
-                min_future = np.nanmin(future_prices)
-                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (min_future - current_price) / current_price
+        # Gather valid pivot values for this row
+        pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
+        target_level = max(pivots) if pivots else None
         
-        return df
-    except Exception as e:
-        st.error(f"Error computing expected losses: {str(e)}")
-        return df
+        future_window = close_prices[i+1:i+1+forward_window]
+        
+        if target_level is not None:
+            # Check if future price hits the pivot level
+            hit = False
+            for future_price in future_window:
+                if future_price >= target_level:
+                    df.iloc[i, df.columns.get_loc('Expected_Return')] = (target_level - current_price) / current_price
+                    hit = True
+                    break
+            if not hit and future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_window) - current_price) / current_price
+        else:
+            if future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_window) - current_price) / current_price
+            else:
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = np.nan
+    return df
+
+def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
+    df['Expected_Loss'] = np.nan
+    close_prices = df['Close'].values
+    
+    pivot_arrays = []
+    for col in s_cols:
+        if col in df.columns:
+            pivot_arrays.append(df[col].values)
+        else:
+            pivot_arrays.append(np.full(len(df), np.nan))
+    
+    for i in range(len(df) - forward_window):
+        current_price = close_prices[i]
+        
+        pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
+        target_level = min(pivots) if pivots else None
+        
+        future_window = close_prices[i+1:i+1+forward_window]
+        
+        if target_level is not None:
+            hit = False
+            for future_price in future_window:
+                if future_price <= target_level:
+                    df.iloc[i, df.columns.get_loc('Expected_Loss')] = (target_level - current_price) / current_price
+                    hit = True
+                    break
+            if not hit and future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_window) - current_price) / current_price
+        else:
+            if future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_window) - current_price) / current_price
+            else:
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = np.nan
+    return df
 
 def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05):
     """Label hit probabilities - simplified version"""
@@ -602,15 +685,18 @@ def main():
                     # Add technical indicators
                     with st.spinner("Calculating technical indicators..."):
                         df = add_technical_indicators(df)
+                        df = add_pivot_levels(df, window=14)
+                        df = add_pivots(df, windows)
+                        df = average_pivots(df, windows)
                     
                     if df is None:
                         st.warning(f"Error calculating indicators for {timeframe}")
                         continue
-                    
                     # Compute expected returns/losses
                     with st.spinner("Computing expected returns..."):
-                        df = compute_expected_return(df)
-                        df = compute_expected_loss(df)
+                        df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
+                        df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
+                        
                     
                     # Label hit probabilities
                     with st.spinner("Labeling hit probabilities..."):
