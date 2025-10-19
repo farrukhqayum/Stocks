@@ -1106,9 +1106,10 @@ def tabular_display(df_results):
 def run_app():
 
     with st.expander("Positional/Swing Trading Guidance"):
-        st.write(desc)    
+        st.write(desc)  
+        
     with st.expander("Disclaimer"):
-        st.wrtie(disclaimer)
+        st.write(disclaimer)
         
     st.header("Machine Learning Signals (Technical Analysis)")  
 
@@ -1188,6 +1189,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
