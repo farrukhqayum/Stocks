@@ -22,7 +22,7 @@ st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 YEARS_OF_DATA = 1  # Reduced for faster processing
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
-_DAYS = 25
+_DAYS = 28
 _Nr = 30  # Reduced minimum data requirement
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29] # For calculating returns
 
@@ -527,13 +527,13 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment):
         
         # Price plot
         price = df['Close'].rolling(2).mean()
-        ax1.plot(df.index, price, label='Price', color='black', alpha=0.7, linewidth=1)
+        ax1.plot(df.index, price, label='Price', color='gray', alpha=0.5, linewidth=1)
         
         # SMAs if available
         if 'SMA1' in df.columns:
-            ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='blue', alpha=0.7, linewidth=1)
+            ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='blue', alpha=0.3, linewidth=1)
         if 'SMA2' in df.columns:
-            ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.7, linewidth=1)
+            ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.3, linewidth=1)
         
         # Entry point
         last_date = df.index[-1]
