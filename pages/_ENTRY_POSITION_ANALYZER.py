@@ -517,7 +517,7 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         st.error(f"Error making prediction: {str(e)}")
         return None
 
-def plot_analysis(ticker = "TSLA", df, entry_price, timeframe, assessment):
+def plot_analysis(ticker, df, entry_price, timeframe, assessment):
     """Create analysis plot"""
 
     try:
