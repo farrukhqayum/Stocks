@@ -76,7 +76,7 @@ if st.button("Calculate Investment Growth"):
     base = alt.Chart(avg_dollar_gain_per_period).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
         y=alt.Y('Avg Dollar Gain:Q', title='Average Dollar Gain ($)',
-                axis=alt.Axis(format='~s', labelExpr="replace(datum.label, 'G', 'B')")),
+                axis=alt.Axis(orient = 'right', format='~s', labelExpr="replace(datum.label, 'G', 'B')")),
         tooltip=['Period', alt.Tooltip('Avg Dollar Gain', format=',.2f')]
     )
 
