@@ -431,7 +431,7 @@ def plot_analysis(df, entry_price, timeframe, assessment):
         
         # Price plot
         price = df['Close'].rolling(2).mean()
-        ax1.plot(df.index, df['price'], label='Price', color='black', alpha=0.7, linewidth=1)
+        ax1.plot(df.index, price, label='Price', color='black', alpha=0.7, linewidth=1)
         
         # SMAs if available
         if 'SMA1' in df.columns:
