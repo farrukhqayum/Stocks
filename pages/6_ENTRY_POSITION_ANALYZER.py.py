@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+from imports import *
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -14,40 +14,6 @@ from sklearn.model_selection import train_test_split
 import warnings
 warnings.filterwarnings('ignore')
 
-# Enhanced TA functions to replace the imports
-class TechnicalAnalysis:
-    @staticmethod
-    def calculate_atr(high, low, close, window=14):
-        """Calculate Average True Range"""
-        high_low = high - low
-        high_close = np.abs(high - close.shift())
-        low_close = np.abs(low - close.shift())
-        
-        true_range = np.maximum(high_low, np.maximum(high_close, low_close))
-        return true_range.rolling(window).mean()
-    
-    @staticmethod 
-    def calculate_rsi(series, window=14):
-        """Calculate RSI"""
-        delta = series.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        return rsi
-    
-    @staticmethod
-    def calculate_ema(series, span):
-        """Calculate Exponential Moving Average"""
-        return series.ewm(span=span, adjust=False).mean()
-    
-    @staticmethod
-    def calculate_sma(series, window):
-        """Calculate Simple Moving Average"""
-        return series.rolling(window).mean()
-
-# Initialize TA
-ta = TechnicalAnalysis()
 
 # Configuration
 st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
@@ -114,66 +80,110 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
 def add_technical_indicators(df):
     """Add essential technical indicators to dataframe"""
     try:
-        # Store original close
-        close_orig = df['Close'].copy()
-        
-        # Smooth close price for calculations
-        df['Close_Smooth'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
-        
-        # Moving averages
-        df['SMA1'] = ta.calculate_ema(df['Close_Smooth'], span=int(_DAYS * 0.5))
-        df['SMA2'] = ta.calculate_ema(df['Close_Smooth'], span=_DAYS)
-        df['SMA3'] = ta.calculate_ema(df['Close_Smooth'], span=int(_DAYS * 2))
+        close = df.Close
+        df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
+        df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
+        df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
+        df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
         df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
-        
-        # RSI
-        df['RSI'] = ta.calculate_rsi(df['Close_Smooth'])
+        df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
+        df = ta.scaled_volatility(df)
+        df = ta.add_candlestickpatterns(df)
+        df['RSI']= ta.calculate_rsi(df)
         df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-        
-        # ATR
-        df['ATR'] = ta.calculate_atr(df['High'], df['Low'], df['Close_Smooth'])
-        
-        # MACD
-        ema12 = ta.calculate_ema(df['Close_Smooth'], span=12)
-        ema26 = ta.calculate_ema(df['Close_Smooth'], span=26)
+        ema12 = df['Close'].ewm(span=12, adjust=False).mean()
+        ema26 = df['Close'].ewm(span=24, adjust=False).mean()
         df['MACD'] = ema12 - ema26
-        df['Signal_Line'] = ta.calculate_ema(df['MACD'], span=9)
-        
-        # Volume indicators
+        df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
+        df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
+        df['Upper_Band'] = df['SMA1'] + (2 * df['Close'].rolling(20).std())
+        df['Lower_Band'] = df['SMA1'] - (2 * df['Close'].rolling(20).std())
         df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
-        df['buy_volume'] = (df['Close_Smooth'] > df['Close_Smooth'].shift(1)) * df['Volume']
-        df['sell_volume'] = (df['Close_Smooth'] < df['Close_Smooth'].shift(1)) * df['Volume']
+        df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
+        df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
         df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
         df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
-        
-        # Volatility
-        df['Volatility'] = df['Close_Smooth'].rolling(14).std()
-        
-        # Technical signals - simplified conditions
+        df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'], np.where(df['Close'] > df['Open'], 1, -1), 0)
+        df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
+        df['MFI'] = ta.calculate_mfi(df)
+        df['CMF'] = ta.chaikin_money_flow(df, window=20)
+        df['CCI'] = ta.calculate_cci(df)
+        df['OBV'] = ta.calculate_obv(df)
+        df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
+        df['VWMA'] = ta.calculate_vwma(df)
+        df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
+        df[['VI+', 'VI-']] = ta.calculate_vortex(df)
+        df[['STu', 'STl']] = ta.calculate_supertrend(df)
+        df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
+        df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
+        df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
+        df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
+        df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
+         # fill nans
+        cols = ['SMA1', 'SMA2', 'RSI', '-DI', 'Close']
+        df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
         conditions = [
-            # Bull condition
-            (df['SMA1'] > df['SMA2']) & (df['RSI'] > 50) & (df['Close_Smooth'] > df['SMA1']),
-            
-            # Bear condition  
-            (df['SMA1'] < df['SMA2']) & (df['RSI'] < 50) & (df['Close_Smooth'] < df['SMA1']),
-            
-            # Hold condition
-            (df['SMA1'] > df['SMA2']) & (df['RSI'] > 45) & (df['RSI'] < 70),
-            
-            # Short condition (simplified)
-            (df['SMA1'] < df['SMA2']) & (df['RSI'] < 40)
+            # BULL
+            (
+                (
+                    (df['SMA1'] > df['SMA2']) &
+                    (df['RSI'] >= df['RSI_SMA']) &
+                    (df['RSI'].between(52, 95)) &
+                    (df['+DI'] > df['-DI']) &
+                    (df['+DI'].between(18, 55))
+                ) &
+                (
+                    (df['Close'] > df['SMA1']) &
+                    (df['RSI'] > df['RSI_SMA'])
+                )
+            ),
+            # BEAR
+            (
+                (
+                    (df['SMA1'] < df['SMA2']) &
+                    (df['RSI'].between(18,60)) &
+                    (df['RSI'] < df['RSI_SMA']) &
+                    (df['+DI'] < df['-DI']) &
+                    (df['-DI'].between(18, 55))
+                )           
+            ),
+            # SHORT
+            (
+                (df['SMA1'] < df['SMA2']) &
+                (df['RSI'].between(25, 50)) &
+                (df['-DI'].between(30, 55)) &
+                (df['Close'] > df['SMA1'])
+            ),
+            # HOLD
+            (
+                (
+                    (df['SMA1'] > df['SMA2']) &
+                    (df['RSI'] >= 50)
+                ) |
+                (
+                    (df['RSI'] < df['RSI_SMA']) &
+                    (df['ADX'].between(40, 75))
+                )
+            )
         ]
-        
-        choices = ['Bull', 'Bear', 'Hold', 'Short']
+        choices = ['Bull', 'Bear', 'Short', 'Hold']
         df['TI'] = np.select(conditions, choices, default='Neutral')
-        
-        # One-hot encode TI signals
-        for signal in ['Bull', 'Bear', 'Hold', 'Short', 'Neutral']:
-            df[signal] = (df['TI'] == signal).astype(int)
-        
-        # Restore original close price
-        df['Close'] = close_orig
-        df = df.drop('Close_Smooth', axis=1)
+        df['TI'] = df['TI'].astype('category')
+        df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
+        expected_cols = ['Bull', 'Bear', 'Short', 'Hold', 'Neutral']
+        for col in expected_cols:
+            if col not in df_encoded.columns:
+                df_encoded[col] = 0
+        df= pd.concat([df, df_encoded], axis=1)
+    
+        strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
+        strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
+        df['StrongBull'] = strongbull_condition.astype(int)
+        df['StrongBear'] = strongbear_condition.astype(int)
+        df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
+        df['gapStrength'] = ta.compute_gapStrength(df)
+        df = ta.add_exhaustion_indicator(df)
+        df.Close = close
         
         return df
         
