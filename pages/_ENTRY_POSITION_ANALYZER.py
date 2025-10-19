@@ -713,9 +713,9 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
         reasons.append("Poor risk-reward ratio")
     
     # Price proximity
-    if price_diff_pct > 13:
+    if price_diff_pct > 7:
         reasons.append("Entry price far from current price")
-    elif price_diff_pct > 7:
+    elif price_diff_pct > 5:
         reasons.append("Entry price moderately different")
     else:
         reasons.append("Entry price close to current")
@@ -724,9 +724,9 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     bullish_conditions = (will_hit == 'TP' and hit_prob > 40 and confidence > 40 and pred_rr > 1.5)
     risky_conditions = (will_hit in ['TP', 'Hold'] and confidence > 30 and pred_rr > 1)
     
-    if bullish_conditions and price_diff_pct <= 3:
+    if bullish_conditions and price_diff_pct <= 5:
         assessment = "Valid"
-    elif risky_conditions and price_diff_pct <= 5:
+    elif risky_conditions and price_diff_pct <= 7:
         assessment = "Risky"
     else:
         assessment = "Not Recommended"
