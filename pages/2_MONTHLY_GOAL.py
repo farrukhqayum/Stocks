@@ -76,18 +76,20 @@ if st.button("Calculate Investment Growth"):
     ax2.grid(alpha=0.25)
     plt.tight_layout()
     st.pyplot(fig2)
-    
-    # Calculate average dollar gain per period
-    avg_dollar_gain = df_investments.diff().mean()  # Average change per period for each n_trades
+        # Calculate the average dollar gain for each month
+    avg_dollar_gain_per_period = df_investments.diff(axis=0).mean(axis=1)  # Row-wise mean difference per period
 
-    # Plot the average dollar gain per period as a curve
-    fig3, ax3 = plt.subplots(figsize=(8, 5), dpi=100)
-    ax3.plot(avg_dollar_gain.index, avg_dollar_gain.values, marker='o', color='orange', linewidth=2)
-    ax3.set_title('Average Dollar Gain per Period')
-    ax3.set_xlabel('Successful Trades per Period')
-    ax3.set_ylabel('Average Gain ($)')
-    for i, v in enumerate(avg_dollar_gain.values):
-        ax3.text(i, v, f'${v:,.2f}', ha='center', va='bottom', fontsize=9)
-    ax3.grid(alpha=0.3)
+    # Plot the average dollar gain per month as a curve
+    fig4, ax4 = plt.subplots(figsize=(10, 5), dpi=100)
+    ax4.plot(avg_dollar_gain_per_period.index, avg_dollar_gain_per_period.values,
+             marker='o', color='crimson', linewidth=2)
+    ax4.fill_between(avg_dollar_gain_per_period.index, avg_dollar_gain_per_period.values,
+                     color='crimson', alpha=0.2)
+    ax4.set_title('Average Dollar Gain per Period')
+    ax4.set_xlabel('Period (e.g. Month)')
+    ax4.set_ylabel('Average Gain ($)')
+    for i, v in enumerate(avg_dollar_gain_per_period.values):
+        ax4.text(i, v, f'${v:,.0f}', ha='center', va='bottom', fontsize=8)
+    ax4.grid(alpha=0.3)
     plt.tight_layout()
-    st.pyplot(fig3)
+    st.pyplot(fig4)
