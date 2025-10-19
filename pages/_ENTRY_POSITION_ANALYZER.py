@@ -128,7 +128,7 @@ def add_technical_indicators(df, timeframe='1D'):
         # Adjust parameters based on timeframe
         if timeframe == '1W':
             # Longer periods for weekly data
-            sma_multiplier = 4  # Longer SMAs for weekly
+            sma_multiplier = 2  # Longer SMAs for weekly
             atr_period = 14
             rsi_period = 14
         else:
@@ -149,8 +149,8 @@ def add_technical_indicators(df, timeframe='1D'):
         
         # Adjust MACD periods for weekly
         if timeframe == '1W':
-            ema_short = 8
-            ema_long = 17
+            ema_short = 9
+            ema_long = 22
         else:
             ema_short = 12
             ema_long = 26
