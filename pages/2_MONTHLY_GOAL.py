@@ -76,3 +76,18 @@ if st.button("Calculate Investment Growth"):
     ax2.grid(alpha=0.25)
     plt.tight_layout()
     st.pyplot(fig2)
+    
+    # Calculate average dollar gain per period
+    avg_dollar_gain = df_investments.diff().mean()  # Average change per period for each n_trades
+
+    # Plot the average dollar gain per period as a curve
+    fig3, ax3 = plt.subplots(figsize=(8, 5), dpi=100)
+    ax3.plot(avg_dollar_gain.index, avg_dollar_gain.values, marker='o', color='orange', linewidth=2)
+    ax3.set_title('Average Dollar Gain per Period')
+    ax3.set_xlabel('Successful Trades per Period')
+    ax3.set_ylabel('Average Gain ($)')
+    for i, v in enumerate(avg_dollar_gain.values):
+        ax3.text(i, v, f'${v:,.2f}', ha='center', va='bottom', fontsize=9)
+    ax3.grid(alpha=0.3)
+    plt.tight_layout()
+    st.pyplot(fig3)
