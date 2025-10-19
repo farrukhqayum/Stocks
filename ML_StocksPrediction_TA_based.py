@@ -44,8 +44,6 @@ desc = """
 
 disclaimer = """
 ---
-**Disclaimer:**
-
 - Trading involves substantial risk and may result in significant financial loss.
 - Past performance is not indicative of future results.
 - Always do your own research before making any investment or trading decisions.
@@ -1107,10 +1105,11 @@ def tabular_display(df_results):
 
 def run_app():
 
-    st.header("Positional/Swing Trading Guidance")
-    st.markdown(desc)    
-
-    st.markdown(disclaimer)
+    with st.expander("Positional/Swing Trading Guidance"):
+        st.write(desc)    
+    with st.expander("Disclaimer"):
+        st.wrtie(disclaimer)
+        
     st.header("Machine Learning Signals (Technical Analysis)")  
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 15):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
@@ -1189,6 +1188,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
