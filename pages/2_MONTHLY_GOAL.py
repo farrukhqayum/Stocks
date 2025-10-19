@@ -46,7 +46,7 @@ def plot_investment_growth(investment_curves, r, months):
 def create_investment_dataframe(investment_curves, months):
     month_range = np.arange(0, months + 1)
     df_investments = pd.DataFrame(investment_curves, index=month_range)
-    df_investments.index.name = 'Month'
+    df_investments.index.name = 'Period'
     return df_investments
 
 # Streamlit inputs for parameters
