@@ -72,32 +72,41 @@ if st.button("Calculate Investment Growth"):
     df_investments_sorted = df_investments.sort_values('Period').set_index('Period')
     avg_dollar_gain_per_period = df_investments_sorted.diff().mean(axis=1).reset_index(name='Avg Dollar Gain')
 
-    # Average Dollar Gain line chart with green line and white filled circle points, white text annotations
-    base = alt.Chart(avg_dollar_gain_per_period).encode(
-        x=alt.X('Period:O', title='Period (e.g. Months)'),
-        y=alt.Y('Avg Dollar Gain:Q', title='Average Dollar Gain ($)',
-                axis=alt.Axis(orient = 'right', format='~s', labelExpr="replace(datum.label, 'G', 'B')")),
-        tooltip=['Period', alt.Tooltip('Avg Dollar Gain', format=',.2f')]
-    )
+    if months >= 13 and months <= 24:
+    # Annotate every 2nd period
+    annotations_df = avg_dollar_gain_per_period[avg_dollar_gain_per_period['Period'] % 2 == 0]
+elif months > 24:
+    # Annotate every 3rd period
+    annotations_df = avg_dollar_gain_per_period[avg_dollar_gain_per_period['Period'] % 3 == 0]
+else:
+    # Annotate every period
+    annotations_df = avg_dollar_gain_per_period
 
-    line = base.mark_line(
-        point=alt.OverlayMarkDef(filled=True, fill='white', size=20),
-        color='green'
-    )
-    text = base.mark_text(
-        align='center',
-        baseline='bottom',
-        dy=-8,
-        color='white',
-        fontWeight='bold'
-    ).encode(
-        text=alt.Text('Avg Dollar Gain:Q', format='.2s')
-    )
+base = alt.Chart(annotations_df).encode(
+    x=alt.X('Period:O', title='Period (e.g. Months)'),
+    y=alt.Y('Avg Dollar Gain:Q', title='Average Dollar Gain ($)',
+            axis=alt.Axis(format='~s', labelExpr="replace(datum.label, 'G', 'B')")),
+    tooltip=['Period', alt.Tooltip('Avg Dollar Gain', format=',.2f')]
+)
 
-    avg_gain_chart = (line + text).properties(
-        width=600,
-        height=300,
-        title='Average Dollar Gain per Period'
-    ).interactive()
+line = base.mark_line(
+    point=alt.OverlayMarkDef(filled=True, fill='white', size=20),  # smaller points if needed
+    color='green'
+)
+text = base.mark_text(
+    align='center',
+    baseline='bottom',
+    dy=-8,
+    color='white',
+    fontWeight='bold'
+).encode(
+    text=alt.Text('Avg Dollar Gain:Q', format='.2s')
+)
 
-    st.altair_chart(avg_gain_chart, use_container_width=True)
+avg_gain_chart = (line + text).properties(
+    width=700,
+    height=300,
+    title='Average Dollar Gain per Period'
+).interactive()
+
+st.altair_chart(avg_gain_chart, use_container_width=True)
