@@ -58,6 +58,7 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
             df = df.drop('Datetime', axis=1)
         
         # Ensure we have the required columns
+        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
         required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
         for col in required_cols:
             if col not in df.columns:
