@@ -1,0 +1,44 @@
+# License Agreement
+
+© This work is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0).
+
+## Terms
+
+You are free to:
+
+- Copy, distribute, display, and perform the work
+- Make derivative works and remixes of the work
+
+Under the following conditions:
+
+- **Attribution:** You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner but not in any way that suggests the licensor endorses you or your use.
+- **NonCommercial:** You may not use the material for commercial purposes.
+
+For full license details, visit:  
+https://creativecommons.org/licenses/by-nc/4.0/
+
+***
+
+### Usage guidance for your project
+
+- This license permits personal, educational, and other non-commercial uses of the code.
+- Commercial use, selling, or use in commercial products or services is prohibited without separate permission.
+- Modifications and derivative works are allowed but must also respect the non-commercial condition and maintain attribution.
+
+You can place this license text in a `LICENSE` file in your GitHub repo and/or add it to your README for clarity and legal transparency.
+
+This license ensures your code remains open for personal and non-commercial use while protecting against unauthorized commercial exploitation [3][7].
+
+***
+
+If you want, I can also prepare a formal LICENSE file content with the exact legal text for direct inclusion.
+
+Citations:
+[1] Template:Cc-by-nc-sa-4.0 https://wiki.ubc.ca/Template:Cc-by-nc-sa-4.0
+[2] Template:Cc-by-nc-2.0 https://wiki.ubc.ca/Template:Cc-by-nc-2.0
+[3] About CC Licenses https://creativecommons.org/share-your-work/cclicenses/
+[4] Example of License for Publishing CC BY-NC-ND https://authorservices.wiley.com/asset/Open-Access-Agreement-Sample-CC-BY-NC-ND.pdf
+[5] Creative Commons Licenses | University Library Zurich https://www.ub.uzh.ch/en/wissenschaftlich-arbeiten/Rechtliche-Aspekte/creative-commons.html
+[6] BY-NC-ND 4.0 (plaintext) https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.txt
+[7] Deed - Attribution-NonCommercial 4.0 International https://creativecommons.org/licenses/by-nc/4.0/deed.en
+[8] Downloads https://creativecommons.org/mission/downloads/
