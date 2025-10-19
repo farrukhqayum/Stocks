@@ -442,22 +442,6 @@ def plot_analysis(df, entry_price, timeframe, assessment):
         ax1.plot(last_date, entry_price, '^', markersize=10, color='green', 
                  label=f'Entry: ${entry_price:.2f}')
         
-        # RSI-based background coloring if available
-        if 'RSI' in df.columns:
-            for i in range(len(df)-1):
-                rsi_val = df['RSI'].iloc[i]
-                if rsi_val > 70:
-                    color = 'red'
-                    alpha = 0.1
-                elif rsi_val < 30:
-                    color = 'green' 
-                    alpha = 0.1
-                else:
-                    color = 'yellow'
-                    alpha = 0.05
-                
-                ax1.axvspan(df.index[i], df.index[i+1], alpha=alpha, color=color)
-        
         ax1.set_ylabel('Price')
         ax1.legend()
         ax1.grid(True, alpha=0.3)
@@ -473,10 +457,26 @@ def plot_analysis(df, entry_price, timeframe, assessment):
         
         # RSI plot if available
         if 'RSI' in df.columns:
-            ax2.plot(df.index, df['RSI'], label='RSI', color='purple', linewidth=1)
+            rsi_ = df['RSI'].rolling(3).mean()
+            rsi_sma = df['RSI'].rolling(20).mean()
+            ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.5)
+            ax2.plot(df.index, rsi_, label='RSI', color='gray', linewidth=1.5, alpha=0.5)
+            ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.2, alpha=0.35)
+            ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
+            ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
+            ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.3, label='Dip(?)')
             ax2.axhline(70, color='red', linestyle='--', alpha=0.5, label='Overbought')
             ax2.axhline(30, color='green', linestyle='--', alpha=0.5, label='Oversold')
             ax2.axhline(50, color='gray', linestyle='-', alpha=0.3)
+
+            rsi_last = round(df['RSI'].iloc[-1], 1)
+            rsi_sma_last = round(df['RSI'].rolling(20).mean().iloc[-1], 1)
+            price_vs_sma1 = 100 * (current_price - sma1_) / sma1_ if sma1_ != 0 else 0
+            ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
+            ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
+            ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=5, alpha=0.4, label='Short', zorder=10)
+            ax2.scatter(df.index[df['Hold'] == 1], rsi_[df['Hold'] == 1], color='orange', marker='o', s=5, alpha=0.4, label='Hold', zorder=10)
+    
             ax2.set_ylabel('RSI')
             ax2.set_ylim(0, 100)
             ax2.legend()
