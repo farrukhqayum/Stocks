@@ -34,18 +34,6 @@ months = st.number_input("Number of Periods", min_value=1, value=12, step=1)
 max_trades = st.number_input("Maximum Wins per Period", min_value=1, value=7, step=1)
 eff_monthly = ((1 + r) ** max_trades - 1) * 100
 
-def format_abbr(value):
-    # Helper function to format axis labels in K, M, B
-    abs_val = abs(value)
-    if abs_val >= 1_000_000_000:
-        return f'{value/1_000_000_000:.1f}B'
-    elif abs_val >= 1_000_000:
-        return f'{value/1_000_000:.1f}M'
-    elif abs_val >= 1_000:
-        return f'{value/1_000:.1f}K'
-    else:
-        return str(value)
-
 if st.button("Calculate Investment Growth"):
     st.subheader(f"Effective Win Rate per Period: {eff_monthly:.2f}%")
 
@@ -58,15 +46,13 @@ if st.button("Calculate Investment Growth"):
     # Investment Growth line chart with y-axis on the right
     growth_chart = alt.Chart(df_melted).mark_line(point=True).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
-        y=alt.Y('Investment Value:Q', title='Investment Value ($)',
-                axis=alt.Axis(orient='right'), scale=alt.Scale(zero=False)),
+        y=alt.Y('Investment Value:Q', title='Investment Value ($)', axis=alt.Axis(orient='right'), scale=alt.Scale(zero=False)),
         color=alt.Color(
             'Wins Per Period:N',
             legend=alt.Legend(
                 orient='top-left',
                 legendX=20,
                 legendY=20,
-                fillColor=None,
                 labelColor='white',
                 titleColor='white',
                 padding=5,
@@ -86,24 +72,26 @@ if st.button("Calculate Investment Growth"):
     df_investments_sorted = df_investments.sort_values('Period').set_index('Period')
     avg_dollar_gain_per_period = df_investments_sorted.diff().mean(axis=1).reset_index(name='Avg Dollar Gain')
 
-    # Average Dollar Gain line chart with green line, white circles and white annotations with K, M, B formatting
+    # Average Dollar Gain line chart with green line and white filled circle points, white text annotations
     base = alt.Chart(avg_dollar_gain_per_period).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
         y=alt.Y('Avg Dollar Gain:Q', title='Average Dollar Gain ($)',
-                axis=alt.Axis(format='s', labelExpr="datum.label.replace('G', 'B')")),  # Use Vega format for large numbers
+                axis=alt.Axis(format='~s', labelExpr="replace(datum.label, 'G', 'B')")),
         tooltip=['Period', alt.Tooltip('Avg Dollar Gain', format=',.2f')]
     )
 
-    line = base.mark_line(point={'filled': True, 'fill': 'white'}, color='green', point_size=60)
-    # White circles points via point params, green line, annotations white text
+    line = base.mark_line(
+        point=alt.OverlayMarkDef(filled=True, fill='white', size=60),
+        color='green'
+    )
     text = base.mark_text(
         align='center',
         baseline='bottom',
-        dy=-8,  # shift text above the points
+        dy=-8,
         color='white',
         fontWeight='bold'
     ).encode(
-        text=alt.Text('Avg Dollar Gain:Q', format='.2s')  # Format with K, M, B in Vega shorthand
+        text=alt.Text('Avg Dollar Gain:Q', format='.2s')
     )
 
     avg_gain_chart = (line + text).properties(
