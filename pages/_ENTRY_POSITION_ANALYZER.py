@@ -39,6 +39,18 @@ FEATURES = [
 label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
+def get_current_price(ticker):
+    stock = yf.Ticker(ticker)
+    # Get historical data for 1 day (latest available)
+    data = stock.history(period='1d')
+    # Return the closing price of the last available trading session
+    return data['Close'][-1]
+
+# Example usage:
+price = get_current_price("TSLA")
+print(f"Current price for TSLA is ${price:.2f}")
+
+
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
     try:
@@ -656,7 +668,8 @@ def main():
         ticker = st.text_input("Ticker Symbol", "TSLA").upper()
     
     with col2:
-        entry_price = st.number_input("Entry Price ($)", min_value=0.01, value=250.0, step=0.1)
+        price = get_current_price("TSLA")
+        entry_price = st.number_input("Entry Price ($)", min_value=0.01, value=price, step=0.1)
     
     with col3:
         user_gain = st.number_input("Expected Gain (%)", min_value=0.1, value=5.0, step=0.1)
