@@ -19,7 +19,7 @@ warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 
 # Global Parameters
-YEARS_OF_DATA = 1  # Reduced for faster processing
+YEARS_OF_DATA = 3  # Reduced for faster processing
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
 _DAYS = 28
@@ -691,7 +691,7 @@ def main():
                 results = {}
                 
                 # Analyze both timeframes
-                for timeframe, interval in [("1H", "1h"), ("1D", "1d"), ("1W", "1w")]:
+                for timeframe, interval in [("1H", "1h"), ("1D", "1d"), ("1W", "1wk", "1w")]:
                     st.subheader(f"{timeframe} Timeframe Analysis")
                     
                     # Get data
