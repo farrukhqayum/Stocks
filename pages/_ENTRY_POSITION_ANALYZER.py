@@ -24,6 +24,7 @@ PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
 _DAYS = 25
 _Nr = 30  # Reduced minimum data requirement
+windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29] # For calculating returns
 
 # Simplified features for faster processing
 FEATURES = [
