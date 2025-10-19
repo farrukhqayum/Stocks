@@ -713,9 +713,9 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
         reasons.append("Poor risk-reward ratio")
     
     # Price proximity
-    if price_diff_pct > 5:
+    if price_diff_pct > 13:
         reasons.append("Entry price far from current price")
-    elif price_diff_pct > 2:
+    elif price_diff_pct > 7:
         reasons.append("Entry price moderately different")
     else:
         reasons.append("Entry price close to current")
