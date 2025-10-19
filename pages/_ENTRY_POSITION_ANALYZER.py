@@ -542,7 +542,7 @@ def plot_analysis(df, entry_price, timeframe, assessment):
         ax1.yaxis.tick_right()
         ax1.yaxis.set_label_position("right")
         ax1.set_ylabel('Price')
-        ax1.legend(fontsize='x-small')
+        ax1.legend(loc='lower left', fontsize='x-small')
         ax1.grid(True, alpha=0.3)
         
         # Assessment annotation
@@ -558,14 +558,14 @@ def plot_analysis(df, entry_price, timeframe, assessment):
         if 'RSI' in df.columns:
             rsi_ = df['RSI'].rolling(3).mean()
             rsi_sma = df['RSI'].rolling(20).mean()
-            ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.5)
-            ax2.plot(df.index, rsi_, label='RSI', color='gray', linewidth=1.5, alpha=0.5)
-            ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.2, alpha=0.35)
+            ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.3)
+            ax2.plot(df.index, rsi_, label='RSI', color='gray', linewidth=1.5, alpha=0.3)
+            ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.5, alpha=0.35)
             ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
             ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
             ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.3, label='Dip(?)')
-            ax2.axhline(70, color='red', linestyle='--', alpha=0.5, label='Overbought')
-            ax2.axhline(30, color='green', linestyle='--', alpha=0.5, label='Oversold')
+            ax2.axhline(70, color='red', linestyle='--', alpha=0.3, label='Overbought')
+            ax2.axhline(30, color='green', linestyle='--', alpha=0.3, label='Oversold')
             ax2.axhline(50, color='gray', linestyle='-', alpha=0.3)
 
             ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
@@ -576,7 +576,7 @@ def plot_analysis(df, entry_price, timeframe, assessment):
             ax2.yaxis.tick_right()
             ax2.set_ylabel('RSI')
             ax2.set_ylim(0, 100)
-            ax2.legend(fontsize='x-small')
+            ax2.legend(loc='lower left', fontsize='x-small')
         else:
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
         
