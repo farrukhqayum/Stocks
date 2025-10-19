@@ -668,7 +668,7 @@ def main():
         ticker = st.text_input("Ticker Symbol", "TSLA").upper()
     
     with col2:
-        price = get_current_price("TSLA")
+        price = get_current_price(ticker)
         entry_price = st.number_input("Entry Price ($)", min_value=0.01, value=price, step=0.1)
     
     with col3:
