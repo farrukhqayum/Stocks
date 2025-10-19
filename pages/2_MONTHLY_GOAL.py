@@ -59,7 +59,7 @@ if st.button("Calculate Investment Growth"):
                 cornerRadius=3
             )
         ),
-        tooltip=['Period', 'Wins Per Period', 'Investment Value']
+        tooltip=['Period', 'Wins Per Period', 'Investment Value', format='~s,.2f']
     ).properties(
         width=700,
         height=400,
@@ -84,7 +84,7 @@ if st.button("Calculate Investment Growth"):
         x=alt.X('Period:O', title='Period (e.g. Months)'),
         y=alt.Y('Avg Dollar Gain:Q', title='Average Dollar Gain ($)',
                 axis=alt.Axis(orient='right', format='~s', labelExpr="replace(datum.label, 'G', 'B')")),
-        tooltip=['Period', alt.Tooltip('Avg Dollar Gain', format=',.2f')]
+        tooltip=['Period', alt.Tooltip('Avg Dollar Gain', format='~s,.2f')]
     )
 
     line = base.mark_line(
