@@ -444,6 +444,7 @@ def plot_analysis(df, entry_price, timeframe, assessment):
         ax1.plot(last_date, entry_price, '^', markersize=10, color='green', 
                  label=f'Entry: ${entry_price:.2f}')
         
+        ax1.yaxis.set_label_position("right")
         ax1.set_ylabel('Price')
         ax1.legend()
         ax1.grid(True, alpha=0.3)
@@ -475,7 +476,7 @@ def plot_analysis(df, entry_price, timeframe, assessment):
             ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
             ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=5, alpha=0.4, label='Short', zorder=10)
             ax2.scatter(df.index[df['Hold'] == 1], rsi_[df['Hold'] == 1], color='orange', marker='o', s=5, alpha=0.4, label='Hold', zorder=10)
-    
+            ax2.yaxis.set_label_position("right")
             ax2.set_ylabel('RSI')
             ax2.set_ylim(0, 100)
             ax2.legend()
