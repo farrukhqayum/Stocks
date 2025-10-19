@@ -48,7 +48,7 @@ if st.button("Calculate Investment Growth"):
     growth_chart = alt.Chart(df_melted).mark_line(point=True).encode(
         x=alt.X('Period:O', title='Period (e.g. Months)'),
         y=alt.Y('Investment Value:Q', title='Investment Value ($)', scale=alt.Scale(zero=False)),
-        color=alt.Color('Wins Per Period:N', title='Wins Per Period'),
+        color=alt.Color('Wins Per Period:N', title='Wins Per Period', legend=alt.Legend(orient='left', legendX=10,  legendY=10)),
         tooltip=['Period', 'Wins Per Period', 'Investment Value']
     ).properties(
         width=700,
