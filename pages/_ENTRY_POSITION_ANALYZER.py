@@ -61,6 +61,9 @@ FEATURES = [
 label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
+def update_entry_price():
+    st.session_state.entry_price = st.session_state.entry_price_input
+    
 def check_ticker_valid(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -70,7 +73,7 @@ def check_ticker_valid(ticker):
         return True, info
     except Exception:
         return False, None
-        
+      
 def get_current_price(ticker):
     stock = yf.Ticker(ticker)
     # Get historical data for 1 day (latest available)
@@ -815,7 +818,15 @@ def main():
         price = get_current_price(ticker)
         if "entry_price" not in st.session_state:
             st.session_state.entry_price = price
-        entry_price = st.number_input("Entry Price ($)", min_value=0.01, value=st.session_state.entry_price, step=0.1)
+            
+        entry_price = st.number_input(
+            "Entry Price ($)",
+            min_value=0.01,
+            value=st.session_state.entry_price,
+            step=0.1,
+            key="entry_price_input",
+            on_change=update_entry_price
+        )
     
     with col3:
         user_gain = st.number_input("Expected Gain (%)", min_value=0.1, max_value=20.0, value=5.0, step=0.1)
