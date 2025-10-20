@@ -20,13 +20,13 @@ st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
-    '1H': 1,    # 1 year for hourly
-    '1D': 2,    # 2 years for daily  
+    '1H': 0.6,    # 1 year for hourly
+    '1D': 3,    # 2 years for daily  
     '1W': 5     # 5 years for weekly (minimum for sufficient data points)
 }
 
-PROFIT_TARGET = 0.0375
-STOP_LOSS = 0.0375
+PROFIT_TARGET = 0.05
+STOP_LOSS = 0.05
 _DAYS = 28
 _Nr = 30  # Reduced minimum data requirement
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29] # For calculating returns
