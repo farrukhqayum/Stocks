@@ -20,7 +20,7 @@ st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
-    '1H': 0.6,    # 1 year for hourly
+    '4H': 1,    # 1 year for hourly
     '1D': 3,    # 2 years for daily  
     '1W': 5     # 5 years for weekly (minimum for sufficient data points)
 }
@@ -83,7 +83,7 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
     try:
         # Map interval names for yfinance
         interval_map = {
-            '1H': '1h',
+            '4H': '4H',
             '1D': '1d', 
             '1W': '1wk'
         }
@@ -142,7 +142,7 @@ def add_technical_indicators(df, timeframe='1D'):
             sma_multiplier = 2  # Longer SMAs for weekly
             atr_period = 14
             rsi_period = 14
-        elif timeframe == '1h':
+        elif timeframe == '4H':
             sma_multiplier = 5  # Longer SMAs for weekly
             atr_period = 50
             rsi_period = 50
@@ -463,7 +463,7 @@ def train_models(df, timeframe):
         
         # Adjust minimum data requirement based on timeframe
         min_data = {
-            '1H': 100,
+            '4H': 100,
             '1D': 50, 
             '1W': 30   # Weekly needs fewer data points due to longer timeframe
         }
@@ -753,7 +753,7 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
 # Streamlit App
 def main():
     st.title("📊 Entry Position Analyzer")
-    st.write("Analyze your entry position using ML models trained on 1H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
+    st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
     
     # User inputs
     col1, col2, col3 = st.columns(3)
@@ -786,7 +786,7 @@ def main():
                 
                 # Analyze all timeframes
                 timeframes = [
-                    ("1H", "1H"),
+                    ("4H", "4H"),
                     ("1D", "1D"), 
                     ("1W", "1W")
                 ]
@@ -932,7 +932,7 @@ def main():
         4. **Click Analyze**: The system will train ML models and evaluate your entry
         
         **Timeframe Data Requirements:**
-        - **1H**: 1 year of historical data (~2000+ data points)
+        - **4H**: 1 year of historical data (~2000+ data points)
         - **1D**: 2 years of historical data (~500+ data points)  
         - **1W**: 5 years of historical data (~250+ data points)
         
@@ -948,7 +948,7 @@ def main():
         - Price proximity to current levels
         - Confidence scores from ensemble models
         
-        **Note**: 1H data may not be available for all tickers outside market hours.
+        **Note**: 4H data may not be available for all tickers outside market hours.
         1W data requires at least 5 years of history for sufficient data points.
         """)
 
