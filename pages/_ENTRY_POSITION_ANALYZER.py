@@ -472,9 +472,9 @@ def train_models(df, timeframe):
         
         # Adjust minimum data requirement based on timeframe
         min_data = {
-            '4H': 100,
-            '1D': 50, 
-            '1W': 30   # Weekly needs fewer data points due to longer timeframe
+            '4H': 50,
+            '1D': 30, 
+            '1W': 10   # Weekly needs fewer data points due to longer timeframe
         }
         
         required_min = min_data.get(timeframe, _Nr)
