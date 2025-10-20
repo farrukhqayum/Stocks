@@ -571,7 +571,8 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         # Confidence score
         ratio = (predicted_return / abs(predicted_loss)) if (will_hit != 'None' and predicted_loss != 0) else 0
         ratio = max(ratio, 0)
-        confidence_score = max((hit_prob/100) * ratio, 0) * 100
+        #confidence_score = max((hit_prob/100) * ratio, 0) * 100
+        confidence_score = min(max((hit_prob/100) * ratio, 0) * 100, 100)
         
         return {
             'will_hit': will_hit,
