@@ -809,7 +809,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 #ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
                 ratio = (predicted_return / abs(predicted_loss)) if (will_hit != 'None' and predicted_loss != 0) else 0
                 ratio = max(ratio, 0)
-                confidence_score = max(hit_prob * ratio, 0)
+                confidence_score = min(max((hit_prob/100) * ratio, 0) * 100, 100)
             except Exception as e:
                 confidence_score = 0 
     
