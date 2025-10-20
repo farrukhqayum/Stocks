@@ -99,7 +99,7 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
         
         yf_interval = interval_map.get(interval, interval)
         
-        df = yf.download(ticker, start=start_date, end=end_date, period="max",
+        df = yf.download(ticker, start=start_date, end=end_date, period="5y",
                         interval=yf_interval, progress=False, auto_adjust=True)
         
         if df.empty:
