@@ -144,7 +144,7 @@ def add_technical_indicators(df, timeframe='1D'):
             rsi_period = 14
         else:
             # Default periods for hourly/daily
-            sma_multiplier = 2
+            sma_multiplier = 3
             atr_period = 14  
             rsi_period = 14
             
