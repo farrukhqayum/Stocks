@@ -633,6 +633,22 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment):
         last_date = df.index[-1]
         ax1.plot(last_date, entry_price, '^', markersize=10, color='green', 
                  label=f'Entry: ${entry_price:.2f}')
+
+         if prediction is not None:
+            # Take Profit point
+            tp_price = prediction['predicted_tp']
+            ax1.plot(last_date, tp_price, 'v', markersize=8, color='blue', 
+                     label=f'TP: ${tp_price:.2f}')
+            
+            # Stop Loss point  
+            sl_price = prediction['predicted_sl']
+            ax1.plot(last_date, sl_price, 'v', markersize=8, color='red', 
+                     label=f'SL: ${sl_price:.2f}')
+            
+            # Add horizontal lines for TP and SL
+            ax1.axhline(y=tp_price, color='blue', linestyle='--', alpha=0.3, linewidth=1)
+            ax1.axhline(y=sl_price, color='red', linestyle='--', alpha=0.3, linewidth=1)
+
         ax1.yaxis.tick_right()
         ax1.yaxis.set_label_position("right")
         ax1.set_ylabel('Price')
