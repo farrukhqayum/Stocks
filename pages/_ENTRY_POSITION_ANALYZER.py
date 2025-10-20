@@ -654,8 +654,8 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.yaxis.tick_right()
         ax1.yaxis.set_label_position("right")
         ax1.set_ylabel('Price')
-        ax1.legend(loc='lower left', fontsize='x-small')
-        ax1.grid(True, alpha=0.4)
+        ax1.legend(loc='upper left', fontsize='x-small')
+        ax1.grid(True, alpha=0.5)
 
         textbox = AnchoredText(
         "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
