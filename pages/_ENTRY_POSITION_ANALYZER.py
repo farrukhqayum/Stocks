@@ -758,7 +758,7 @@ def main():
         if ticker:
             is_valid, info = check_ticker_valid(ticker)
             if not is_valid:
-                st.error("Incorrect or delisted ticker. Please enter a valid symbol.")
+                st.error("Please enter a valid ticker name, or check Yahoo Finance for the ticker name.")
                 st.stop()
             else:
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
