@@ -939,7 +939,7 @@ def main():
                         st.write(f"**Reasons**: {reasons}")
                         
                         # Plot
-                        fig = plot_analysis(ticker, df, entry_price, timeframe, assessment)
+                        fig = plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction)
                         st.pyplot(fig)
                     else:
                         st.warning(f"Could not generate prediction for {timeframe}")
