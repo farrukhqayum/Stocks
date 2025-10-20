@@ -631,7 +631,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         
         # Entry point
         last_date = df.index[-1]
-        ax1.plot(last_date, entry_price, 'o', markersize=10, color='black', alpha=0.5
+        ax1.plot(last_date, entry_price, 'o', markersize=10, color='black', alpha=0.5,
                  label=f'Entry: ${entry_price:.2f}')
         
         # Add TP and SL points if prediction is available
