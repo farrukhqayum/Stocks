@@ -676,11 +676,15 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         color_map = {'Valid': 'green', 'Risky': 'orange', 'Not Recommended': 'red'}
         assessment_color = color_map.get(assessment, 'gray')
         
-        ax1.annotate(f'Assessment: {assessment}', 
-                    xy=(0.02, 0.95), xycoords='axes fraction',
-                    fontsize=12, weight='bold',
-                    bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.4))
-        
+        ax1.annotate(
+            f'Assessment: {assessment}', 
+            xy=(0.5, 0.95), xycoords='axes fraction',
+            ha='center',  # horizontal alignment center
+            fontsize=12, 
+            weight='bold',
+            bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.4)
+        )
+
         # Add ticker name in the middle
         ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, 
                      fontsize=50, color='grey', alpha=0.2,
