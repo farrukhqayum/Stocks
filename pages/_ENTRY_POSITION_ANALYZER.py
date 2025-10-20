@@ -637,13 +637,14 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         # Add TP and SL points if prediction is available
         if prediction is not None:
             # Take Profit point
+            future_date = last_date + timedelta(days=20)
             tp_price = prediction['predicted_tp']
-            ax1.plot(last_date+20, tp_price, 'v', markersize=4, color='blue', 
+            ax1.plot(future_date, tp_price, '^', markersize=4, color='blue', 
                      label=f'TP: ${tp_price:.2f}')
             
             # Stop Loss point  
             sl_price = prediction['predicted_sl']
-            ax1.plot(last_date+20, sl_price, 'v', markersize=4, color='red', 
+            ax1.plot(future_date, sl_price, 'v', markersize=4, color='red', 
                      label=f'SL: ${sl_price:.2f}')
             
             # Add horizontal lines for TP and SL
