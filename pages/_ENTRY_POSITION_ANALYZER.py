@@ -835,7 +835,7 @@ def main():
                 ]
                 
                 for timeframe, interval in timeframes:
-                    st.subheader(f"{timeframe} Timeframe Analysis")
+                    st.subheader(f"{timeframe} Timeframe Analysis ({ticker})")
                     
                     # Get appropriate start date based on timeframe
                     years = YEARS_OF_DATA[timeframe]
