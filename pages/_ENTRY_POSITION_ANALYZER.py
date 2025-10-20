@@ -655,6 +655,14 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.set_ylabel('Price')
         ax1.legend(loc='lower left', fontsize='x-small')
         ax1.grid(True, alpha=0.4)
+
+        textbox = AnchoredText(
+        "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
+        loc='lower right',
+        frameon=True,
+        borderpad=1.5,
+        prop=dict(size=10, color='gray', weight='bold')
+        )
         
         # Assessment annotation
         color_map = {'Valid': 'green', 'Risky': 'orange', 'Not Recommended': 'red'}
