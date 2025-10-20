@@ -663,6 +663,13 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         borderpad=1.5,
         prop=dict(size=10, color='gray', weight='bold')
         )
+        ax1.add_artist(textbox)
+        textbox.set_clip_on(True)
+        textbox.set_in_layout(True)
+        textbox.set_zorder(100)
+        textbox.patch.set_facecolor('honeydew')
+        textbox.patch.set_edgecolor('darkgreen')
+        textbox.patch.set_alpha(0.8)
         
         # Assessment annotation
         color_map = {'Valid': 'green', 'Risky': 'orange', 'Not Recommended': 'red'}
