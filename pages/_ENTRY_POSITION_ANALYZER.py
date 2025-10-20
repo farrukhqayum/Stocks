@@ -63,6 +63,12 @@ expected_classes = [0, 1, 2, 3, 4]
 
 def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
+
+def update_price_and_reset_entry():
+    ticker = st.session_state.ticker_input
+    current_price = get_current_price(ticker)
+    st.session_state.current_price = current_price
+    st.session_state.entry_price = current_price
     
 def check_ticker_valid(ticker):
     try:
@@ -804,8 +810,9 @@ def main():
     # User inputs
     col1, col2, col3 = st.columns(3)
     
-    with col1:
-        ticker = st.text_input("Ticker Symbol", "TSLA").upper()
+    with col1:    
+        ticker = st.text_input("Ticker Symbol", "TSLA", key="ticker_input", on_change=update_price_and_reset_entry).upper()
+        
         if ticker:
             is_valid, info = check_ticker_valid(ticker)
             if not is_valid:
@@ -815,17 +822,22 @@ def main():
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
     
     with col2:
-        price = get_current_price(ticker)
+        if "current_price" not in st.session_state:
+            st.session_state.current_price = 0
         if "entry_price" not in st.session_state:
-            st.session_state.entry_price = price
-            
+            st.session_state.entry_price = 0
+
+        # If no current_price yet, fetch initially
+        if st.session_state.current_price == 0:
+            st.session_state.current_price = get_current_price(ticker)
+            st.session_state.entry_price = st.session_state.current_price
+        
+        # Entry price input reflecting session state, won't overwrite user edits until ticker changes
         entry_price = st.number_input(
-            "Entry Price ($)",
-            min_value=0.01,
+            "Entry Price ($)", min_value=0.01,
             value=st.session_state.entry_price,
             step=0.1,
-            key="entry_price_input",
-            on_change=update_entry_price
+            key="entry_price"
         )
     
     with col3:
