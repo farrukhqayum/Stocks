@@ -768,8 +768,8 @@ def main():
         entry_price = st.number_input("Entry Price ($)", min_value=0.01, value=price, step=0.1)
     
     with col3:
-        user_gain = st.number_input("Expected Gain (%)", min_value=0.1, value=3.75, step=0.1)
-        user_loss = st.number_input("Expected Loss (%)", min_value=0.1, value=3.75, step=0.1)
+        user_gain = st.number_input("Expected Gain (%)", min_value=0.1, max_value=20.0, value=5.0, step=0.1)
+        user_loss = st.number_input("Expected Loss (%)", min_value=0.1, max_value=20.0, value=4.5, step=0.1)
     
     if st.button("Analyze Entry Position"):
         with st.spinner("Training models and analyzing..."):
