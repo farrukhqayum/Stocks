@@ -706,17 +706,17 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     user_rr = user_gain / abs(user_loss) if user_loss != 0 else 0
     pred_rr = pred_return / abs(pred_loss) if pred_loss != 0 else 0
     
-    if pred_rr >= 2:
+    if (pred_rr > user_rr & pred_rr >= 2):
         reasons.append("Good risk-reward ratio")
-    elif pred_rr >= 1:
+    elif (pred_rr > user_rr & pred_rr >= 1):
         reasons.append("Moderate risk-reward ratio")
     else:
         reasons.append("Poor risk-reward ratio")
     
     # Price proximity
-    if price_diff_pct > 7:
+    if price_diff_pct > 5:
         reasons.append("Entry price far from current price")
-    elif price_diff_pct > 5:
+    elif price_diff_pct > 2:
         reasons.append("Entry price moderately different")
     else:
         reasons.append("Entry price close to current")
