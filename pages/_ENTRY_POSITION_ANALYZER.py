@@ -24,6 +24,7 @@ YEARS_OF_DATA = {
     '1D': 2,    # 2 years for daily  
     '1W': 5     # 5 years for weekly (minimum for sufficient data points)
 }
+
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
 _DAYS = 28
@@ -60,6 +61,16 @@ FEATURES = [
 label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
+def check_ticker_valid(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        if info is None or info.get("regularMarketPrice") is None:
+            return False, None
+        return True, info
+    except Exception:
+        return False, None
+        
 def get_current_price(ticker):
     stock = yf.Ticker(ticker)
     # Get historical data for 1 day (latest available)
@@ -744,6 +755,13 @@ def main():
     
     with col1:
         ticker = st.text_input("Ticker Symbol", "TSLA").upper()
+        if ticker:
+            is_valid, info = check_ticker_valid(ticker)
+            if not is_valid:
+                st.error("Incorrect or delisted ticker. Please enter a valid symbol.")
+                st.stop()
+            else:
+                st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
     
     with col2:
         price = get_current_price(ticker)
