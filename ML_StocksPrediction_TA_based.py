@@ -910,7 +910,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 "Signal": signal,
                 "Will_Hit": will_hit_str,
                 "Hit_Prob": round(latest_prob_features[f'Prob_Class_{pred_class}'] * 100, 1),
-                "Confidence": round(confidence_score, 1),
+                "Confidence": round(confidence_score, 1)*100,
                 "_Extremes": _Extremes
             })
         except Exception as e:
@@ -1189,6 +1189,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
