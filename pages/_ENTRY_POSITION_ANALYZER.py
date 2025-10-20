@@ -584,6 +584,10 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         predicted_tp = current_price * (1 + predicted_return)
         predicted_sl = current_price * (1 + predicted_loss)
         
+        # Calculate percentage gain/loss from current price
+        tp_percentage = ((predicted_tp - current_price) / current_price) * 100
+        sl_percentage = ((predicted_sl - current_price) / current_price) * 100
+        
         # Confidence score
         ratio = (predicted_return / abs(predicted_loss)) if (will_hit != 'None' and predicted_loss != 0) else 0
         ratio = max(ratio, 0)
@@ -597,6 +601,8 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
             'predicted_sl': predicted_sl,
             'predicted_return': predicted_return * 100,
             'predicted_loss': predicted_loss * 100,
+            'tp_percentage': tp_percentage,  # NEW: Percentage from current price
+            'sl_percentage': sl_percentage,  # NEW: Percentage from current price
             'confidence': confidence_score,
             'current_price': current_price
         }
@@ -859,13 +865,31 @@ def main():
                             'df': df
                         }
                         
-                        # Display results
+                        # Display results - UPDATED WITH PERCENTAGE ANNOTATIONS
                         col1, col2 = st.columns(2)
                         
                         with col1:
                             st.metric("Current Price", f"${current_price:.2f}")
-                            st.metric("Predicted TP", f"${prediction['predicted_tp']:.2f}")
-                            st.metric("Predicted SL", f"${prediction['predicted_sl']:.2f}")
+                            
+                            # Predicted TP with percentage gain
+                            tp_percentage = prediction['tp_percentage']
+                            tp_delta = f"{tp_percentage:+.1f}%"
+                            st.metric(
+                                "Predicted TP", 
+                                f"${prediction['predicted_tp']:.2f}",
+                                delta=tp_delta,
+                                delta_color="normal" if tp_percentage > 0 else "off"
+                            )
+                            
+                            # Predicted SL with percentage loss  
+                            sl_percentage = prediction['sl_percentage']
+                            sl_delta = f"{sl_percentage:+.1f}%"
+                            st.metric(
+                                "Predicted SL", 
+                                f"${prediction['predicted_sl']:.2f}",
+                                delta=sl_delta,
+                                delta_color="normal" if sl_percentage < 0 else "off"
+                            )
                             
                         with col2:
                             st.metric("Will Hit", prediction['will_hit'])
