@@ -614,9 +614,9 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment):
         
         # SMAs if available
         if 'SMA1' in df.columns:
-            ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='blue', alpha=0.3, linewidth=1)
+            ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='orange', alpha=0.4, linewidth=1)
         if 'SMA2' in df.columns:
-            ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.3, linewidth=1)
+            ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.4, linewidth=1)
         
         # Entry point
         last_date = df.index[-1]
@@ -626,7 +626,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment):
         ax1.yaxis.set_label_position("right")
         ax1.set_ylabel('Price')
         ax1.legend(loc='lower left', fontsize='x-small')
-        ax1.grid(True, alpha=0.3)
+        ax1.grid(True, alpha=0.4)
         
         # Assessment annotation
         color_map = {'Valid': 'green', 'Risky': 'orange', 'Not Recommended': 'red'}
@@ -635,7 +635,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment):
         ax1.annotate(f'Assessment: {assessment}', 
                     xy=(0.02, 0.95), xycoords='axes fraction',
                     fontsize=12, weight='bold',
-                    bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.3))
+                    bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.4))
         
         # Add ticker name in the middle
         ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, 
@@ -647,15 +647,15 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment):
         if 'RSI' in df.columns:
             rsi_ = df['RSI'].rolling(3).mean()
             rsi_sma = df['RSI'].rolling(20).mean()
-            ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.3)
-            ax2.plot(df.index, rsi_, label='RSI', color='gray', linewidth=1.5, alpha=0.3)
-            ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.5, alpha=0.35)
+            ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.4)
+            ax2.plot(df.index, rsi_, label='RSI', color='gray', linewidth=1.5, alpha=0.4)
+            ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.5, alpha=0.45)
             ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
             ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
-            ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.3, label='Dip(?)')
-            ax2.axhline(70, color='red', linestyle='--', alpha=0.3, label='Overbought')
-            ax2.axhline(30, color='green', linestyle='--', alpha=0.3, label='Oversold')
-            ax2.axhline(50, color='gray', linestyle='-', alpha=0.3)
+            ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.4, label='Dip(?)')
+            ax2.axhline(70, color='red', linestyle='--', alpha=0.4, label='Overbought')
+            ax2.axhline(30, color='green', linestyle='--', alpha=0.4, label='Oversold')
+            ax2.axhline(50, color='gray', linestyle='-', alpha=0.4)
 
             ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
             ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
@@ -669,7 +669,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment):
         else:
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
         
-        ax2.grid(True, alpha=0.3)
+        ax2.grid(True, alpha=0.4)
         
         plt.title(f'{timeframe} Analysis - {assessment}')
         plt.tight_layout()
