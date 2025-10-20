@@ -25,11 +25,11 @@ YEARS_OF_DATA = {
     '1W': 5     # 5 years for weekly (minimum for sufficient data points)
 }
 
-PROFIT_TARGET = 0.05
-STOP_LOSS = 0.05
+PROFIT_TARGET = 0.0375
+STOP_LOSS = 0.03755
 _DAYS = 28
 _Nr = 30  # Reduced minimum data requirement
-windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29] # For calculating returns
+windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21] # For calculating returns
 
 # Simplified features for faster processing
 FEATURES = [
@@ -146,7 +146,7 @@ def add_technical_indicators(df, timeframe='1D'):
             sma_multiplier = 5  # Longer SMAs for weekly
             atr_period = 50
             rsi_period = 50
-            windows = [10, 13, 15, 17, 19, 21, 23, 25, 27, 29]
+            windows = [10, 13, 15, 17, 19, 21]
         else:
             # Default periods for hourly/daily
             sma_multiplier = 3
