@@ -812,10 +812,9 @@ def main():
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
     
     with col2:
-        if "entry_price" not in st.session_state:
-        st.session_state.entry_price = price
-    
         price = get_current_price(ticker)
+        if "entry_price" not in st.session_state:
+            st.session_state.entry_price = price
         entry_price = st.number_input("Entry Price ($)", min_value=0.01, value=st.session_state.entry_price, step=0.1)
     
     with col3:
