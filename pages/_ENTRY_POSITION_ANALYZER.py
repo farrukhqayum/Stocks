@@ -807,12 +807,16 @@ def main():
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
     
-    # User inputs
+    # Initialize session state variables if missing
+    if "current_price" not in st.session_state:
+        st.session_state.current_price = 0
+    if "entry_price" not in st.session_state:
+        st.session_state.entry_price = 0
+    
     col1, col2, col3 = st.columns(3)
     
-    with col1:    
+    with col1:
         ticker = st.text_input("Ticker Symbol", "TSLA", key="ticker_input", on_change=update_price_and_reset_entry).upper()
-        
         if ticker:
             is_valid, info = check_ticker_valid(ticker)
             if not is_valid:
@@ -822,17 +826,11 @@ def main():
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
     
     with col2:
-        if "current_price" not in st.session_state:
-            st.session_state.current_price = 0
-        if "entry_price" not in st.session_state:
-            st.session_state.entry_price = 0
-
-        # If no current_price yet, fetch initially
+        # Initial fetch if session state current_price is zero
         if st.session_state.current_price == 0:
             st.session_state.current_price = get_current_price(ticker)
             st.session_state.entry_price = st.session_state.current_price
         
-        # Entry price input reflecting session state, won't overwrite user edits until ticker changes
         entry_price = st.number_input(
             "Entry Price ($)", min_value=0.01,
             value=st.session_state.entry_price,
