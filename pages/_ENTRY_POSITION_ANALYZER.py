@@ -21,7 +21,7 @@ st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
     '4H': 1,    # 1 year for hourly
-    '1D': 3,    # 2 years for daily  
+    '1D': 2,    # 2 years for daily  
     '1W': 5     # 5 years for weekly (minimum for sufficient data points)
 }
 
