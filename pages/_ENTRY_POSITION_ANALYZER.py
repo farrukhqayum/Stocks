@@ -142,12 +142,17 @@ def add_technical_indicators(df, timeframe='1D'):
             sma_multiplier = 2  # Longer SMAs for weekly
             atr_period = 14
             rsi_period = 14
+        elif timeframe == '1h':
+            sma_multiplier = 5  # Longer SMAs for weekly
+            atr_period = 50
+            rsi_period = 50
+            windows = [10, 13, 15, 17, 19, 21, 23, 25, 27, 29]
         else:
             # Default periods for hourly/daily
             sma_multiplier = 3
             atr_period = 14  
             rsi_period = 14
-            
+
         df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5 * sma_multiplier), adjust=False).mean()
         df['SMA2'] = df['Close'].ewm(span=_DAYS * sma_multiplier, adjust=False).mean()
         df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2 * sma_multiplier), adjust=False).mean()
