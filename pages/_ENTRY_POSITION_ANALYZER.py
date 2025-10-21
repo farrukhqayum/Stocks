@@ -27,8 +27,8 @@ YEARS_OF_DATA = {
 
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.03755
-_DAYS = 28
-_Nr = 30  # Reduced minimum data requirement
+_DAYS = 14
+_Nr = 10  # Reduced minimum data requirement
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21] # For calculating returns
 
 # Simplified features for faster processing
@@ -164,10 +164,10 @@ def add_technical_indicators(df, timeframe='1D'):
             sma_multiplier = 3
             atr_period = 14  
             rsi_period = 14
-
         df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5 * sma_multiplier), adjust=False).mean()
         df['SMA2'] = df['Close'].ewm(span=_DAYS * sma_multiplier, adjust=False).mean()
         df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2 * sma_multiplier), adjust=False).mean()
+
         df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
         df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
         df = ta.scaled_volatility(df)
@@ -474,13 +474,13 @@ def train_models(df, timeframe):
         df_model = df.dropna(subset=required_cols)
         
         # Adjust minimum data requirement based on timeframe
-        min_data = {
+        MIN_TRAIN_ROWS = {
             '4H': 50,
             '1D': 30, 
-            '1W': 10   # Weekly needs fewer data points due to longer timeframe
+            '1W': 10   # Weekly needs fewer data points
         }
-        
-        required_min = min_data.get(timeframe, _Nr)
+
+        required_min = MIN_TRAIN_ROWS.get(timeframe, _Nr)
         
         if len(df_model) < required_min:
             st.warning(f"Insufficient data for {timeframe} modeling: {len(df_model)} rows (need {required_min})")
@@ -921,8 +921,10 @@ def main():
                         st.warning(f"No data available for {timeframe} timeframe")
                         continue
 
-                    if len(df) < 30:
-                        st.warning(f"Insufficient {timeframe} data for {ticker}: {len(df)} rows")
+                    required_min_raw = MIN_TRAIN_ROWS.get(timeframe, _Nr)
+                    
+                    if len(df) < required_min_raw:
+                        st.warning(f"Insufficient raw data for {timeframe}: {len(df)} rows (need {required_min_raw})")
                         continue
 
                     st.write(f"Data points: {len(df)}")
