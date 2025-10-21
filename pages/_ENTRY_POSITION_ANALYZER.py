@@ -34,7 +34,7 @@ MIN_TRAIN_ROWS = {
 
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.03755
-_DAYS = 14
+_DAYS = 21
 _Nr = 10  # Reduced minimum data requirement
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21] # For calculating returns
 
