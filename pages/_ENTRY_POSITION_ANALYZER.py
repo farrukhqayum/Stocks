@@ -8,6 +8,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from matplotlib.offsetbox import AnchoredText
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -63,12 +64,6 @@ expected_classes = [0, 1, 2, 3, 4]
 
 def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
-
-def update_price_and_reset_entry():
-    ticker = st.session_state.ticker_input
-    current_price = get_current_price(ticker)
-    st.session_state.current_price = current_price
-    st.session_state.entry_price = current_price
     
 def check_ticker_valid(ticker):
     try:
@@ -80,19 +75,24 @@ def check_ticker_valid(ticker):
     except Exception:
         return False, None
       
+  
 def get_current_price(ticker):
-    stock = yf.Ticker(ticker)
-    # Get historical data for 1 day (latest available)
-    data = stock.history(period='1d')
-    # Return the closing price of the last available trading session
+    try:
+        stock = yf.Ticker(ticker)
+        data = stock.history(period='1d')
+        if not data.empty:
+            return data['Close'].iloc[-1]
+        return 0
+    except Exception:
+        return 0
     return data['Close'][-1]
-
+    
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
     try:
         # Map interval names for yfinance
         interval_map = {
-            '4H': '4H',
+            '4H': '4h',
             '1D': '1d', 
             '1W': '1wk'
         }
@@ -282,6 +282,10 @@ def add_technical_indicators(df, timeframe='1D'):
             if col not in df_encoded.columns:
                 df_encoded[col] = 0
         df= pd.concat([df, df_encoded], axis=1)
+        expected_cols = ['Bull', 'Bear', 'Short', 'Hold', 'Neutral']
+        for col in expected_cols:
+            if col not in df.columns:
+                df[col] = 0
     
         strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
         strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
