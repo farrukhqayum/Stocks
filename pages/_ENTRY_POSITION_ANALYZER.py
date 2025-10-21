@@ -903,28 +903,19 @@ def main():
                 st.stop()
             else:
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
-    with col2:
-        # Only fetch current price if unset or invalid
-        if st.session_state[current_price_key] <= 0.01 and ticker:
-            update_price_and_reset_entry()
+   with col2:
+        # Only fetch current price if session-state current_price unset or zero
+        if st.session_state.current_price == 0 and ticker:
+            st.session_state.current_price = get_current_price(ticker)
+            st.session_state.entry_price = st.session_state.current_price
 
-        # Ensure we have a valid entry price
-        entry_price_value = st.session_state[entry_price_key]
-        if entry_price_value < 0.01:
-            # Try to get current price or use safe default
-            if ticker:
-                update_price_and_reset_entry()
-                entry_price_value = st.session_state[entry_price_key]
-            else:
-                entry_price_value = 100.0  # Safe default
-        
-        # Safe number input with guaranteed valid value
+        # Entry price number input bound tightly to session_state entry_price
         entry_price = st.number_input(
             "Entry Price ($)",
             min_value=0.01,
-            value=float(entry_price_value),
+            value=float(st.session_state.entry_price),
             step=0.1,
-            key=entry_price_key
+            key="entry_price"
         )
 
     with col3:
