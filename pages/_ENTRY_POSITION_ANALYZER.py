@@ -818,9 +818,16 @@ def clear_page_session_state():
     for key in st.session_state.keys():
         if key.startswith('entry_analyzer_'):
             keys_to_remove.append(key)
-    
+            
+    # Force price fields to reset on every page load
+    if "current_price" in st.session_state:
+        keys_to_remove.append("current_price")
+    if "entry_price" in st.session_state:
+        keys_to_remove.append("entry_price")
+
     for key in keys_to_remove:
-        del st.session_state[key]
+        # Use .pop() for safer deletion
+        st.session_state.pop(key, None)
 
 def main():
     clear_page_session_state()
