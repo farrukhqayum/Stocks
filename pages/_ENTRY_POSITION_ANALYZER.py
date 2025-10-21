@@ -653,7 +653,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             # Take Profit point
             future_date = last_date + timedelta(days=20)
             x_max = ax1.get_xlim()[1]
-            x_end = future_date + 20
+            x_end = future_date + 20 * pd.Timedelta('1D')
             x_end = min(x_end, x_max)
             
             tp_price = prediction['predicted_tp']
