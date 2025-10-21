@@ -887,40 +887,22 @@ def main():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        # Track the current ticker
-        if 'current_ticker' not in st.session_state:
-            st.session_state.current_ticker = "TSLA"
-        
-        # Ticker input
-        new_ticker = st.text_input(
-            "Ticker Symbol", 
-            value=st.session_state.current_ticker,
-            key="ticker_input"
+        # ticker input with callback to update prices
+        ticker = st.text_input(
+            "Ticker Symbol",
+            value="TSLA",
+            key="ticker_input",
+            on_change=update_price_and_reset_entry
         ).upper()
-        
-        # Update when user enters a new valid ticker
-        if new_ticker and new_ticker != st.session_state.current_ticker:
-            with st.spinner(f"Checking {new_ticker}..."):
-                is_valid, info = check_ticker_valid(new_ticker)
-                if is_valid:
-                    st.session_state.current_ticker = new_ticker
-                    update_price_and_reset_entry()
-                    st.success(f"✅ Updated to {new_ticker}")
-                    # Small delay to show success message
-                    import time
-                    time.sleep(0.5)
-                    st.rerun()
-                else:
-                    st.error(f"❌ Invalid ticker: {new_ticker}")
-                    # Keep the display as current valid ticker but don't update session state
-                    st.info(f"Still using: {st.session_state.current_ticker}")
-    
-        # Always show current valid ticker info
-        is_valid, info = check_ticker_valid(st.session_state.current_ticker)
-        if is_valid:
-            st.write(f"**Active Ticker:** {st.session_state.current_ticker}")
-            st.write(f"*{info.get('shortName', 'No name found')}*")
 
+        # Validate ticker after input
+        if ticker:
+            is_valid, info = check_ticker_valid(ticker)
+            if not is_valid:
+                st.error("Please enter a valid ticker name, or check Yahoo Finance for the ticker name.")
+                st.stop()
+            else:
+                st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
     with col2:
         # Only fetch current price if unset or invalid
         if st.session_state[current_price_key] <= 0.01 and ticker:
