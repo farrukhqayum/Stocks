@@ -820,21 +820,21 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
 
 def update_price_and_reset_entry():
     try:
-        ticker = st.session_state.ticker_input
+        # Get the current ticker from the input
+        ticker = st.session_state.get(ticker_key, "TSLA")
         if ticker:
             current_price = get_current_price(ticker)
-            # Ensure price is valid
             if current_price and current_price > 0:
-                st.session_state.current_price = current_price
-                st.session_state.entry_price = current_price
+                st.session_state[current_price_key] = current_price
+                st.session_state[entry_price_key] = current_price
             else:
                 # Set safe fallback values
-                st.session_state.current_price = 1.0
-                st.session_state.entry_price = 1.0
+                st.session_state[current_price_key] = 100.0
+                st.session_state[entry_price_key] = 100.0
     except Exception:
         # Fallback to safe values on error
-        st.session_state.current_price = 1.0
-        st.session_state.entry_price = 1.0
+        st.session_state[current_price_key] = 100.0
+        st.session_state[entry_price_key] = 100.0
 
 def clear_page_session_state():
     """Clear only this page's session state on load"""
