@@ -887,25 +887,19 @@ def main():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        # Ticker input - use empty default, store in session state
+        # Simple ticker input without complex session state binding
         ticker = st.text_input(
             "Ticker Symbol",
-            value="",  # Empty default, let user type freely
-            key=ticker_key,
-            on_change=update_price_and_reset_entry
+            value="TSLA",  # Simple default value
+            key="ticker_input_simple"  # Simple key without page prefix
         ).upper()
     
-        # If user hasn't entered anything, use the session state value
-        if not ticker:
-            ticker = st.session_state[ticker_key]
-        
-        # If user entered something new, update session state
-        elif ticker != st.session_state[ticker_key]:
-            st.session_state[ticker_key] = ticker
-            # Trigger price update for the new ticker
+        # Update prices when ticker changes
+        if ticker and ('last_ticker' not in st.session_state or st.session_state.last_ticker != ticker):
+            st.session_state.last_ticker = ticker
             update_price_and_reset_entry()
     
-        # Validate ticker after input
+        # Validate ticker
         if ticker:
             is_valid, info = check_ticker_valid(ticker)
             if not is_valid:
