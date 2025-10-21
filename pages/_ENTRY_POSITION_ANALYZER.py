@@ -833,13 +833,15 @@ def main():
         if st.session_state.current_price == 0:
             st.session_state.current_price = get_current_price(ticker)
             st.session_state.entry_price = st.session_state.current_price
-        
+
         entry_price = st.number_input(
-            "Entry Price ($)", min_value=0.01,
-            value=st.session_state.entry_price,
+            "Entry Price ($)",
+            min_value=0.01,
+            value=float(st.session_state.entry_price),
             step=0.1,
             key="entry_price"
         )
+
     
     with col3:
         user_gain = st.number_input("Expected Gain (%)", min_value=0.1, max_value=20.0, value=5.0, step=0.1)
