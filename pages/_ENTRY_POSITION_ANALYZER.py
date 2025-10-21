@@ -671,8 +671,8 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             x_end_raw = future_date + pd.Timedelta(days=20)
             x_end = min(x_end_raw, x_max_date)
             
-            ax1.hlines(y=tp_price, xmin=future_date, xmax=x_end, colors='blue', linestyles='--', alpha=0.3, linewidth=1)
-            ax1.hlines(y=sl_price, xmin=future_date, xmax=x_end, colors='red', linestyles='--', alpha=0.3, linewidth=1)
+            ax1.hlines(y=tp_price, colors='blue', linestyles='--', alpha=0.3, linewidth=1.2)
+            ax1.hlines(y=sl_price, colors='red', linestyles='--', alpha=0.3, linewidth=1.2)
                     
         ax1.yaxis.tick_right()
         ax1.yaxis.set_label_position("right")
