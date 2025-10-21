@@ -652,9 +652,11 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         if prediction is not None:
             # Take Profit point
             future_date = last_date + timedelta(days=20)
-            x_max = ax1.get_xlim()[1]
+            x_max_num = ax1.get_xlim()[1]
+            x_max_date = mdates.num2date(x_max_num)
+            x_max_date = pd.Timestamp(x_max_date)
             x_end = future_date + 20 * pd.Timedelta('1D')
-            x_end = min(x_end, x_max)
+            x_end = min(x_end, x_max_date)
             
             tp_price = prediction['predicted_tp']
             ax1.plot(future_date, tp_price, '^', markersize=4, color='blue')
