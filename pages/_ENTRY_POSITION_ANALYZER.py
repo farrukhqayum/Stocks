@@ -682,7 +682,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
 
         textbox = AnchoredText(
         "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
-        loc='lower right',
+        loc='lower left',
         frameon=True,
         borderpad=1.5,
         prop=dict(size=10, color='gray', weight='bold')
