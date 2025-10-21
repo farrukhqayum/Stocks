@@ -655,12 +655,12 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             
             tp_price = prediction['predicted_tp']
             ax1.plot(future_date, tp_price, '^', markersize=4, color='blue')
-            ax1.annotate(f'TP: ${tp_price:.2f}', xy=(future_date, tp_price), xytext=(5, 0),
+            ax1.annotate(f'TP: ${tp_price:.2f}', xy=(future_date, tp_price), xytext=(5, 5),
                          textcoords='offset points', ha='left', va='center', color='blue')
             
             sl_price = prediction['predicted_sl']
             ax1.plot(future_date, sl_price, 'v', markersize=4, color='red')
-            ax1.annotate(f'SL: ${sl_price:.2f}', xy=(future_date, sl_price), xytext=(5, 0),
+            ax1.annotate(f'SL: ${sl_price:.2f}', xy=(future_date, sl_price), xytext=(5, -5),
                          textcoords='offset points', ha='left', va='center', color='red')
 
             # Add horizontal lines for TP and SL
