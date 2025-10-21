@@ -832,8 +832,39 @@ def clear_page_session_state():
     for key in keys_to_remove:
         del st.session_state[key]
 
-def main():
+def reset_to_defaults(ticker="TSLA"):
+    """Reset all values to default and fetch fresh data"""
+    # Clear existing session state
     clear_page_session_state()
+    
+    # Set default ticker
+    st.session_state.ticker_input = ticker
+    
+    # Fetch fresh current price
+    try:
+        current_price = get_current_price(ticker)
+        if current_price > 0:
+            st.session_state.current_price = current_price
+            st.session_state.entry_price = current_price
+        else:
+            # Fallback values
+            st.session_state.current_price = 100.0  # Reasonable default
+            st.session_state.entry_price = 100.0
+    except Exception:
+        # Fallback values if price fetch fails
+        st.session_state.current_price = 100.0
+        st.session_state.entry_price = 100.0
+    
+    # Set default gain/loss values
+    st.session_state.user_gain = 5.0
+    st.session_state.user_loss = 4.5
+
+def main():
+    # Reset to defaults every time the page loads
+    if 'entry_analyzer_initialized' not in st.session_state:
+        reset_to_defaults()
+        st.session_state.entry_analyzer_initialized = True
+        
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
