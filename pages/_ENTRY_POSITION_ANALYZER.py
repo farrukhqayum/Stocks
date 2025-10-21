@@ -652,19 +652,26 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         if prediction is not None:
             # Take Profit point
             future_date = last_date + timedelta(days=20)
+            x_max = ax1.get_xlim()[1]
+            x_end = future_date + 20
+            x_end = min(x_end, x_max)
+            
             tp_price = prediction['predicted_tp']
-            ax1.plot(future_date, tp_price, '^', markersize=4, color='blue', 
-                     label=f'TP: ${tp_price:.2f}')
+            ax1.plot(future_date, tp_price, '^', markersize=4, color='blue')
+            ax1.annotate(f'TP: ${tp_price:.2f}', xy=(future_date, tp_price), xytext=(5, 0),
+                         textcoords='offset points', ha='left', va='center', color='blue')
             
-            # Stop Loss point  
             sl_price = prediction['predicted_sl']
-            ax1.plot(future_date, sl_price, 'v', markersize=4, color='red', 
-                     label=f'SL: ${sl_price:.2f}')
-            
+            ax1.plot(future_date, sl_price, 'v', markersize=4, color='red')
+            ax1.annotate(f'SL: ${sl_price:.2f}', xy=(future_date, sl_price), xytext=(5, 0),
+                         textcoords='offset points', ha='left', va='center', color='red')
+
             # Add horizontal lines for TP and SL
-            ax1.axhline(y=tp_price, color='blue', linestyle='--', alpha=0.3, linewidth=1)
-            ax1.axhline(y=sl_price, color='red', linestyle='--', alpha=0.3, linewidth=1)
-        
+             ax1.hlines(y=tp_price, xmin=future_date, xmax=x_end, colors='blue',
+                       linestyles='--', alpha=0.3, linewidth=1)
+            ax1.hlines(y=sl_price, xmin=future_date, xmax=x_end, colors='red',
+                       linestyles='--', alpha=0.3, linewidth=1)
+                    
         ax1.yaxis.tick_right()
         ax1.yaxis.set_label_position("right")
         ax1.set_ylabel('Price')
