@@ -8,7 +8,6 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from matplotlib.offsetbox import AnchoredText
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -64,6 +63,12 @@ expected_classes = [0, 1, 2, 3, 4]
 
 def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
+
+def update_price_and_reset_entry():
+    ticker = st.session_state.ticker_input
+    current_price = get_current_price(ticker)
+    st.session_state.current_price = current_price
+    st.session_state.entry_price = current_price
     
 def check_ticker_valid(ticker):
     try:
@@ -76,32 +81,18 @@ def check_ticker_valid(ticker):
         return False, None
       
 def get_current_price(ticker):
-    try:
-        stock = yf.Ticker(ticker)
-        # Get historical data for 2 days to ensure we have data
-        data = stock.history(period='2d')
-        if not data.empty and 'Close' in data.columns and len(data) > 0:
-            price = data['Close'].iloc[-1]
-            if pd.notna(price) and price > 0:
-                return float(price)
-        # If we get here, try alternative method
-        info = stock.info
-        if 'currentPrice' in info and info['currentPrice'] is not None:
-            return float(info['currentPrice'])
-        elif 'regularMarketPrice' in info and info['regularMarketPrice'] is not None:
-            return float(info['regularMarketPrice'])
-        else:
-            return 100.0  # Safe fallback
-    except Exception as e:
-        print(f"Error getting price for {ticker}: {e}")
-        return 100.0  # Safe fallback
-    
+    stock = yf.Ticker(ticker)
+    # Get historical data for 1 day (latest available)
+    data = stock.history(period='1d')
+    # Return the closing price of the last available trading session
+    return data['Close'][-1]
+
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
     try:
         # Map interval names for yfinance
         interval_map = {
-            '4H': '4h',
+            '4H': '4H',
             '1D': '1d', 
             '1W': '1wk'
         }
@@ -291,10 +282,6 @@ def add_technical_indicators(df, timeframe='1D'):
             if col not in df_encoded.columns:
                 df_encoded[col] = 0
         df= pd.concat([df, df_encoded], axis=1)
-        expected_cols = ['Bull', 'Bear', 'Short', 'Hold', 'Neutral']
-        for col in expected_cols:
-            if col not in df.columns:
-                df[col] = 0
     
         strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
         strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
@@ -819,70 +806,21 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     return assessment, " | ".join(reasons)
 
 def update_price_and_reset_entry():
-    try:
-        # Get the current ticker from the input
-        ticker = st.session_state.get(ticker_key, "TSLA")
-        if ticker:
-            current_price = get_current_price(ticker)
-            if current_price and current_price > 0:
-                st.session_state[current_price_key] = current_price
-                st.session_state[entry_price_key] = current_price
-            else:
-                # Set safe fallback values
-                st.session_state[current_price_key] = 100.0
-                st.session_state[entry_price_key] = 100.0
-    except Exception:
-        # Fallback to safe values on error
-        st.session_state[current_price_key] = 100.0
-        st.session_state[entry_price_key] = 100.0
-
-def clear_page_session_state():
-    """Clear only this page's session state on load"""
-    keys_to_remove = []
-    for key in st.session_state.keys():
-        if key.startswith('entry_analyzer_'):
-            keys_to_remove.append(key)
-    
-    for key in keys_to_remove:
-        del st.session_state[key]
+    ticker = st.session_state.ticker_input
+    if ticker:
+        price = get_current_price(ticker)
+        st.session_state.current_price = price
+        st.session_state.entry_price = price
 
 def main():
-    clear_page_session_state()
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
-    # PAGE-SPECIFIC session state initialization
-    page_prefix = "entry_analyzer_"  # Unique prefix for this page
-    
-    # Initialize with page-specific keys
-    current_price_key = f"{page_prefix}current_price"
-    entry_price_key = f"{page_prefix}entry_price"
-    ticker_key = f"{page_prefix}ticker_input"
-    
-    if current_price_key not in st.session_state:
-        st.session_state[current_price_key] = 0.0
-    if entry_price_key not in st.session_state:
-        st.session_state[entry_price_key] = 0.0
-    if ticker_key not in st.session_state:
-        st.session_state[ticker_key] = "TSLA"
-
-    # Safe price update function for this page
-    def update_price_and_reset_entry():
-        try:
-            ticker = st.session_state[ticker_key]
-            if ticker:
-                current_price = get_current_price(ticker)
-                if current_price and current_price > 0:
-                    st.session_state[current_price_key] = current_price
-                    st.session_state[entry_price_key] = current_price
-                else:
-                    # Set safe fallback values
-                    st.session_state[current_price_key] = 100.0
-                    st.session_state[entry_price_key] = 100.0
-        except Exception:
-            # Fallback to safe values on error
-            st.session_state[current_price_key] = 100.0
-            st.session_state[entry_price_key] = 100.0
+    # Initialize session state variables if missing
+    if "current_price" not in st.session_state:
+        st.session_state.current_price = 0
+    if "entry_price" not in st.session_state:
+        st.session_state.entry_price = 0
 
     col1, col2, col3 = st.columns(3)
 
@@ -903,7 +841,8 @@ def main():
                 st.stop()
             else:
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
-   with col2:
+
+    with col2:
         # Only fetch current price if session-state current_price unset or zero
         if st.session_state.current_price == 0 and ticker:
             st.session_state.current_price = get_current_price(ticker)
@@ -925,7 +864,7 @@ def main():
             max_value=20.0,
             value=5.0,
             step=0.1,
-            key=f"{page_prefix}user_gain"
+            key="user_gain"
         )
         user_loss = st.number_input(
             "Expected Loss (%)",
@@ -933,7 +872,7 @@ def main():
             max_value=20.0,
             value=4.5,
             step=0.1,
-            key=f"{page_prefix}user_loss"
+            key="user_loss"
         )
 
     if st.button("Analyze Entry Position"):
