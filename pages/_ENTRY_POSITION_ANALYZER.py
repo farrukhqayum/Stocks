@@ -860,32 +860,34 @@ def reset_to_defaults(ticker="TSLA"):
     st.session_state.user_loss = 4.5
 
 def main():
-    # Reset to defaults every time the page loads
-    if 'entry_analyzer_initialized' not in st.session_state:
-        reset_to_defaults()
-        st.session_state.entry_analyzer_initialized = True
-        
+    # Clear previous session state
+    clear_page_session_state()
+    
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
-    # Initialize session state variables with valid minimum values
+    # Initialize session state with proper defaults
+    if "ticker_input" not in st.session_state:
+        st.session_state.ticker_input = "TSLA"
+    
     if "current_price" not in st.session_state:
-        st.session_state.current_price = 0.01  # Use minimum valid value instead of 0
+        st.session_state.current_price = 0.01
+    
     if "entry_price" not in st.session_state:
-        st.session_state.entry_price = 0.01    # Use minimum valid value instead of 0
+        st.session_state.entry_price = 0.01
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        # ticker input with callback to update prices
+        # Ticker input with callback to update prices
         ticker = st.text_input(
             "Ticker Symbol",
-            value="TSLA",
+            value=st.session_state.ticker_input,
             key="ticker_input",
             on_change=update_price_and_reset_entry
         ).upper()
 
-        # Validate ticker after input
+        # Validate ticker and fetch price on initial load
         if ticker:
             is_valid, info = check_ticker_valid(ticker)
             if not is_valid:
@@ -893,28 +895,30 @@ def main():
                 st.stop()
             else:
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
+                
+                # Fetch current price if not already fetched
+                if st.session_state.current_price <= 0.01:
+                    try:
+                        current_price = get_current_price(ticker)
+                        if current_price and current_price > 0:
+                            st.session_state.current_price = current_price
+                            st.session_state.entry_price = current_price
+                            st.rerun()  # Refresh to show the updated price
+                    except Exception as e:
+                        st.warning(f"Could not fetch current price: {str(e)}")
+                        # Set fallback price
+                        st.session_state.current_price = 100.0
+                        st.session_state.entry_price = 100.0
 
     with col2:
-        # Only fetch current price if session-state current_price is invalid
-        if st.session_state.current_price <= 0.01 and ticker:  # Changed condition
-            try:
-                current_price = get_current_price(ticker)
-                if current_price > 0:  # Only update if we got a valid price
-                    st.session_state.current_price = current_price
-                    st.session_state.entry_price = current_price
-            except Exception:
-                # If price fetch fails, ensure we have valid minimum values
-                st.session_state.current_price = max(st.session_state.current_price, 0.01)
-                st.session_state.entry_price = max(st.session_state.entry_price, 0.01)
-
-        # Ensure entry_price is at least the minimum
+        # Ensure we have a valid entry price
         safe_entry_price = max(float(st.session_state.entry_price), 0.01)
         
-        # Entry price number input with safe value
+        # Entry price number input
         entry_price = st.number_input(
             "Entry Price ($)",
             min_value=0.01,
-            value=safe_entry_price,  # Use the safe value
+            value=safe_entry_price,
             step=0.1,
             key="entry_price"
         )
@@ -937,6 +941,30 @@ def main():
             key="user_loss"
         )
 
+    # Add a refresh button to manually fetch latest price
+    if st.button("🔄 Refresh Current Price"):
+        try:
+            current_price = get_current_price(ticker)
+            if current_price and current_price > 0:
+                st.session_state.current_price = current_price
+                st.session_state.entry_price = current_price
+                st.success(f"Refreshed! Current price: ${current_price:.2f}")
+                st.rerun()
+            else:
+                st.error("Could not fetch current price")
+        except Exception as e:
+            st.error(f"Error fetching price: {str(e)}")
+
+    # Display current price information
+    if st.session_state.current_price > 0.01:
+        st.info(f"💡 Current market price for {ticker}: **${st.session_state.current_price:.2f}**")
+
+    # Rest of your analysis code...
+    if st.button("Analyze Entry Position"):
+        with st.spinner("Training models and analyzing..."):
+            # Your existing analysis code here...
+            pass
+            
     if st.button("Analyze Entry Position"):
         with st.spinner("Training models and analyzing..."):
             try:
