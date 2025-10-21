@@ -640,6 +640,8 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='orange', alpha=0.4, linewidth=1)
         if 'SMA2' in df.columns:
             ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.4, linewidth=1)
+        ax1.fill_between(df.index, df.SMA1, df.SMA2, where=(df.SMA1 > df.SMA2), facecolor='green', alpha=0.15)
+        ax1.fill_between(df.index, df.SMA1, df.SMA2, where=(df.SMA1 < df.SMA2), facecolor='red', alpha=0.15)
         
         # Entry point
         last_date = df.index[-1]
