@@ -862,7 +862,7 @@ def main():
         # Entry price number input bound tightly to session_state entry_price
         entry_price = st.number_input(
             "Entry Price ($)",
-            min_value=0.01,
+            min_value=0.0,
             value=float(st.session_state.entry_price),
             step=0.1,
             key="entry_price"
