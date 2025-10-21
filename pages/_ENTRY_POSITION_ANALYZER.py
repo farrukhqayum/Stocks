@@ -805,25 +805,35 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     
     return assessment, " | ".join(reasons)
 
-# Streamlit App
+def update_price_and_reset_entry():
+    ticker = st.session_state.ticker_input
+    if ticker:
+        price = get_current_price(ticker)
+        st.session_state.current_price = price
+        st.session_state.entry_price = price
+
 def main():
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
-    
+
     # Initialize session state variables if missing
     if "current_price" not in st.session_state:
         st.session_state.current_price = 0
-        
-    if "entry_price" not in st.session_state or st.session_state.entry_price == 0:
-        if ticker:
-            st.session_state.entry_price = get_current_price(ticker)
-        else:
-            st.session_state.entry_price = 0  # or None
+    if "entry_price" not in st.session_state:
+        st.session_state.entry_price = 0
 
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
-        ticker = st.text_input("Ticker Symbol", "TSLA", key="ticker_input", on_change=update_price_and_reset_entry).upper()
+        # ticker input with callback to update prices
+        ticker = st.text_input(
+            "Ticker Symbol",
+            value="TSLA",
+            key="ticker_input",
+            on_change=update_price_and_reset_entry
+        ).upper()
+
+        # Validate ticker after input
         if ticker:
             is_valid, info = check_ticker_valid(ticker)
             if not is_valid:
@@ -831,167 +841,180 @@ def main():
                 st.stop()
             else:
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
-    
+
     with col2:
-        # Initial fetch if session state current_price is zero
-        if st.session_state.current_price == 0:
+        # Only fetch current price if session-state current_price unset or zero
+        if st.session_state.current_price == 0 and ticker:
             st.session_state.current_price = get_current_price(ticker)
             st.session_state.entry_price = st.session_state.current_price
 
-    entry_price = st.number_input(
-        "Entry Price ($)",
-        min_value=0.01,
-        value=st.session_state.entry_price,
-        step=0.1,
-        key="entry_price"
-    )
-    
+        # Entry price number input bound tightly to session_state entry_price
+        entry_price = st.number_input(
+            "Entry Price ($)",
+            min_value=0.01,
+            value=float(st.session_state.entry_price),
+            step=0.1,
+            key="entry_price"
+        )
+
     with col3:
-        user_gain = st.number_input("Expected Gain (%)", min_value=0.1, max_value=20.0, value=5.0, step=0.1)
-        user_loss = st.number_input("Expected Loss (%)", min_value=0.1, max_value=20.0, value=4.5, step=0.1)
-    
+        user_gain = st.number_input(
+            "Expected Gain (%)",
+            min_value=0.1,
+            max_value=20.0,
+            value=5.0,
+            step=0.1,
+            key="user_gain"
+        )
+        user_loss = st.number_input(
+            "Expected Loss (%)",
+            min_value=0.1,
+            max_value=20.0,
+            value=4.5,
+            step=0.1,
+            key="user_loss"
+        )
+
     if st.button("Analyze Entry Position"):
         with st.spinner("Training models and analyzing..."):
             try:
-                # Get current date
+                # Get current date/time
                 end_date = datetime.now()
-                
+
                 results = {}
-                
-                # Analyze all timeframes
+
                 timeframes = [
                     ("4H", "4H"),
-                    ("1D", "1D"), 
-                    ("1W", "1W")
+                    ("1D", "1D"),
+                    ("1W", "1W"),
                 ]
-                
+
                 for timeframe, interval in timeframes:
                     st.subheader(f"{timeframe} Timeframe Analysis ({ticker})")
-                    
-                    # Get appropriate start date based on timeframe
+
                     years = YEARS_OF_DATA[timeframe]
                     start_date = end_date - timedelta(days=365 * years)
-                    
-                    # Get data
+
+                    # Fetch data for timeframe
                     with st.spinner(f"Fetching {timeframe} data..."):
                         df = get_stock_data(ticker, start_date, end_date, interval)
-                    
+
                     if df is None:
                         st.warning(f"No data available for {timeframe} timeframe")
                         continue
-                        
+
                     if len(df) < 30:
                         st.warning(f"Insufficient {timeframe} data for {ticker}: {len(df)} rows")
                         continue
-                    
+
                     st.write(f"Data points: {len(df)}")
-                    
-                    # Add technical indicators with timeframe-specific adjustments
+
+                    # Calculate technical indicators
                     with st.spinner("Calculating technical indicators..."):
                         df = add_technical_indicators(df, timeframe)
                         df = add_pivot_levels(df, window=14)
                         df = add_pivots(df, windows)
                         df = average_pivots(df, windows)
-                    
+
                     if df is None:
                         st.warning(f"Error calculating indicators for {timeframe}")
                         continue
-                        
-                    # Compute expected returns/losses
+
+                    # Compute expected returns and losses
                     with st.spinner("Computing expected returns..."):
                         df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
                         df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
-                    
+
                     # Label hit probabilities
                     with st.spinner("Labeling hit probabilities..."):
-                        df = label_hit_prob_past(df, profit_target=user_gain/100, stop_loss=user_loss/100)
-                    
+                        df = label_hit_prob_past(df, profit_target=user_gain / 100, stop_loss=user_loss / 100)
+
                     # Train models
                     with st.spinner(f"Training {timeframe} ML models..."):
                         models = train_models(df, timeframe)
-                    
+
                     if models[0] is None:
                         st.warning(f"Could not train models for {timeframe} timeframe")
                         continue
-                    
+
                     model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss = models
-                    
+
                     # Make prediction
                     latest_data = df.iloc[[-1]]
-                    prediction = make_prediction(model_class, model_return, model_loss, 
-                                               scaler_cls, scaler_return, scaler_loss, latest_data)
-                    
+                    prediction = make_prediction(
+                        model_class,
+                        model_return,
+                        model_loss,
+                        scaler_cls,
+                        scaler_return,
+                        scaler_loss,
+                        latest_data,
+                    )
+
                     if prediction:
                         current_price = prediction['current_price']
                         assessment, reasons = assess_entry(prediction, user_gain, user_loss, entry_price, current_price)
-                        
-                        # Store results
+
                         results[timeframe] = {
-                            'prediction': prediction,
-                            'assessment': assessment,
-                            'reasons': reasons,
-                            'df': df
+                            "prediction": prediction,
+                            "assessment": assessment,
+                            "reasons": reasons,
+                            "df": df,
                         }
-                        
-                        # Display results - UPDATED WITH PERCENTAGE ANNOTATIONS
+
                         col1, col2 = st.columns(2)
-                        
+
                         with col1:
                             st.metric("Current Price", f"${current_price:.2f}")
-                            
-                            # Predicted TP with percentage gain
+
                             tp_percentage = prediction['tp_percentage']
                             tp_delta = f"{tp_percentage:+.1f}%"
                             st.metric(
-                                "Predicted TP", 
+                                "Predicted TP",
                                 f"${prediction['predicted_tp']:.2f}",
                                 delta=tp_delta,
-                                delta_color="normal" if tp_percentage > 0 else "off"
+                                delta_color="normal" if tp_percentage > 0 else "off",
                             )
-                            
-                            # Predicted SL with percentage loss  
+
                             sl_percentage = prediction['sl_percentage']
                             sl_delta = f"{sl_percentage:+.1f}%"
                             st.metric(
-                                "Predicted SL", 
+                                "Predicted SL",
                                 f"${prediction['predicted_sl']:.2f}",
                                 delta=sl_delta,
-                                delta_color="normal" if sl_percentage < 0 else "off"
+                                delta_color="normal" if sl_percentage < 0 else "off",
                             )
-                            
+
                         with col2:
                             st.metric("Will Hit", prediction['will_hit'])
                             st.metric("Hit Probability", f"{prediction['hit_prob']:.1f}%")
                             st.metric("Confidence", f"{prediction['confidence']:.1f}%")
-                        
-                        # Assessment with color
+
                         if assessment == "Valid":
                             st.success(f"**Assessment**: {assessment}")
                         elif assessment == "Risky":
                             st.warning(f"**Assessment**: {assessment}")
                         else:
                             st.error(f"**Assessment**: {assessment}")
-                            
+
                         st.write(f"**Reasons**: {reasons}")
-                        
-                        # Plot
+
                         fig = plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction)
                         st.pyplot(fig)
                     else:
                         st.warning(f"Could not generate prediction for {timeframe}")
-                    
+
                     st.write("---")
-                
+
                 # Overall recommendation
                 if results:
                     st.subheader("🎯 Overall Recommendation")
-                    
+
                     assessments = [results[tf]['assessment'] for tf in results.keys()]
-                    valid_count = assessments.count('Valid')
-                    risky_count = assessments.count('Risky')
-                    
+                    valid_count = assessments.count("Valid")
+                    risky_count = assessments.count("Risky")
                     total_timeframes = len(results)
-                    
+
                     if valid_count == total_timeframes:
                         st.success("**STRONG BUY** - All timeframes show valid entry")
                     elif valid_count >= total_timeframes / 2:
@@ -1000,49 +1023,50 @@ def main():
                         st.warning("**CAUTIOUS BUY** - Mixed or risky signals")
                     else:
                         st.error("**AVOID** - Poor signals across timeframes")
-                        
-                    # Show timeframe summary
+
                     st.write(f"**Timeframe Summary ({ticker}):**")
                     for tf in results.keys():
                         assessment = results[tf]['assessment']
                         color = "🟢" if assessment == "Valid" else "🟡" if assessment == "Risky" else "🔴"
                         st.write(f"{color} {tf}: {assessment}")
-                        
+
                 else:
                     st.error("No successful analyses completed. Try with a different ticker or time period.")
-                        
+
             except Exception as e:
                 st.error(f"Error analyzing {ticker}: {str(e)}")
                 st.info("Try with a different ticker or check if market is open")
 
-    # Instructions
     with st.expander("How to use this analyzer"):
-        st.write("""
+        st.write(
+            """
         1. **Enter Ticker Symbol**: Stock symbol (e.g., AAPL, TSLA, NVDA) or crypto (BTC-USD)
         2. **Set Entry Price**: Your intended entry price
         3. **Define Expectations**: Your target gain and maximum acceptable loss
         4. **Click Analyze**: The system will train ML models and evaluate your entry
-        
+
         **Timeframe Data Requirements:**
         - **4H**: 1 year of historical data (~2000+ data points)
-        - **1D**: 2 years of historical data (~500+ data points)  
+        - **1D**: 2 years of historical data (~500+ data points)
         - **1W**: 5 years of historical data (~250+ data points)
-        
+
         **Assessment Colors:**
         - 🟢 **Valid**: Good entry with strong bullish signals
         - 🟡 **Risky**: Moderate signals, proceed with caution  
         - 🔴 **Not Recommended**: Poor risk-reward or bearish signals
-        
+
         **The analysis considers:**
         - ML predictions for TP/SL hits
         - Risk-reward ratios
         - Technical indicator alignment
         - Price proximity to current levels
         - Confidence scores from ensemble models
-        
+
         **Note**: 4H data may not be available for all tickers outside market hours.
         1W data requires at least 5 years of history for sufficient data points.
-        """)
+        """
+        )
+
 
 if __name__ == "__main__":
     main()
