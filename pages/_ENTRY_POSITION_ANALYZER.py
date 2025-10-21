@@ -25,6 +25,13 @@ YEARS_OF_DATA = {
     '1W': 5     # 5 years for weekly (minimum for sufficient data points)
 }
 
+MIN_TRAIN_ROWS = {
+    '4H': 50,
+    '1D': 30, 
+    '1W': 10   # Weekly needs fewer data points
+}
+
+
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.03755
 _DAYS = 14
@@ -473,13 +480,6 @@ def train_models(df, timeframe):
         
         df_model = df.dropna(subset=required_cols)
         
-        # Adjust minimum data requirement based on timeframe
-        MIN_TRAIN_ROWS = {
-            '4H': 50,
-            '1D': 30, 
-            '1W': 10   # Weekly needs fewer data points
-        }
-
         required_min = MIN_TRAIN_ROWS.get(timeframe, _Nr)
         
         if len(df_model) < required_min:
