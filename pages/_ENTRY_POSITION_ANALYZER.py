@@ -151,8 +151,9 @@ def add_technical_indicators(df, timeframe='1D'):
             sma_multiplier = 1  # Longer SMAs for weekly
             atr_period = 7
             rsi_period = 9
-            df.Close = close # Roll back as smoothing isn't needed
-            windows = [3, 5, 10, 17, 19, 21]
+            df.Close = close
+            windows = [3, 5, 9, 17, 19, 21]
+            
         elif timeframe == '4H':
             sma_multiplier = 5  # Longer SMAs for weekly
             atr_period = 50
