@@ -812,7 +812,18 @@ def update_price_and_reset_entry():
         st.session_state.current_price = price
         st.session_state.entry_price = price
 
+def clear_page_session_state():
+    """Clear only this page's session state on load"""
+    keys_to_remove = []
+    for key in st.session_state.keys():
+        if key.startswith('entry_analyzer_'):
+            keys_to_remove.append(key)
+    
+    for key in keys_to_remove:
+        del st.session_state[key]
+
 def main():
+    clear_page_session_state()
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
