@@ -810,22 +810,44 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     return assessment, " | ".join(reasons)
 
 def update_price_and_reset_entry():
-    ticker = st.session_state.ticker_input
-    if ticker:
-        price = get_current_price(ticker)
-        st.session_state.current_price = price
-        st.session_state.entry_price = price
+    try:
+        ticker = st.session_state.ticker_input
+        if ticker:
+            current_price = get_current_price(ticker)
+            # Ensure price is valid
+            if current_price and current_price > 0:
+                st.session_state.current_price = current_price
+                st.session_state.entry_price = current_price
+            else:
+                # Set safe fallback values
+                st.session_state.current_price = 1.0
+                st.session_state.entry_price = 1.0
+    except Exception:
+        # Fallback to safe values on error
+        st.session_state.current_price = 1.0
+        st.session_state.entry_price = 1.0
+
+def reset_session_state():
+    """Reset session state to avoid conflicts between page switches"""
+    if "page_loaded" not in st.session_state:
+        st.session_state.current_price = 0.0
+        st.session_state.entry_price = 0.0
+        st.session_state.page_loaded = True
 
 def main():
+    reset_session_state()
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
-    # Initialize session state variables if missing
     if "current_price" not in st.session_state:
-        st.session_state.current_price = 0
+        st.session_state.current_price = 0.0
     if "entry_price" not in st.session_state:
-        st.session_state.entry_price = 0
-
+        st.session_state.entry_price = 0.0
+    if st.session_state.current_price <= 0:
+        st.session_state.current_price = 0.0
+    if st.session_state.entry_price <= 0:
+        st.session_state.entry_price = 0.0
+        
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -847,19 +869,31 @@ def main():
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
 
     with col2:
-        # Only fetch current price if session-state current_price unset or zero
-        if st.session_state.current_price == 0 and ticker:
-            st.session_state.current_price = get_current_price(ticker)
+    # Safely get current price with error handling
+    if st.session_state.current_price <= 0 and ticker:
+        try:
+            current_price = get_current_price(ticker)
+            st.session_state.current_price = max(current_price, 0.01)  # Ensure minimum 0.01
             st.session_state.entry_price = st.session_state.current_price
+        except Exception:
+            st.session_state.current_price = 1.0  # Fallback value
+            st.session_state.entry_price = 1.0
 
-        # Entry price number input bound tightly to session_state entry_price
-        entry_price = st.number_input(
-            "Entry Price ($)",
-            min_value=0.01,
-            value=float(st.session_state.entry_price),
-            step=0.1,
-            key="entry_price"
-        )
+    # Safe entry price input with validation
+    try:
+        entry_price_value = float(st.session_state.entry_price)
+        if entry_price_value < 0.01:
+            entry_price_value = max(st.session_state.current_price, 0.01)
+    except (TypeError, ValueError):
+        entry_price_value = max(st.session_state.current_price, 0.01)
+
+    entry_price = st.number_input(
+        "Entry Price ($)",
+        min_value=0.01,
+        value=float(entry_price_value),
+        step=0.1,
+        key="entry_price"
+    )
 
     with col3:
         user_gain = st.number_input(
