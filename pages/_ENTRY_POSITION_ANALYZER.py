@@ -667,7 +667,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
                          textcoords='offset points', ha='left', va='center', color='red')
 
             # Add horizontal lines for TP and SL
-             ax1.hlines(y=tp_price, xmin=future_date, xmax=x_end, colors='blue',
+            ax1.hlines(y=tp_price, xmin=future_date, xmax=x_end, colors='blue',
                        linestyles='--', alpha=0.3, linewidth=1)
             ax1.hlines(y=sl_price, xmin=future_date, xmax=x_end, colors='red',
                        linestyles='--', alpha=0.3, linewidth=1)
