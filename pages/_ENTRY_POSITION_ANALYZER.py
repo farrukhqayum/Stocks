@@ -813,8 +813,12 @@ def main():
     # Initialize session state variables if missing
     if "current_price" not in st.session_state:
         st.session_state.current_price = 0
-    if "entry_price" not in st.session_state:
-        st.session_state.entry_price = get_current_price(ticker)
+        
+    if "entry_price" not in st.session_state or st.session_state.entry_price == 0:
+        if ticker:
+            st.session_state.entry_price = get_current_price(ticker)
+        else:
+            st.session_state.entry_price = 0  # or None
 
     col1, col2, col3 = st.columns(3)
     
