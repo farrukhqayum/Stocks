@@ -869,31 +869,31 @@ def main():
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
 
     with col2:
-    # Safely get current price with error handling
-    if st.session_state.current_price <= 0 and ticker:
+        # Safely get current price with error handling
+        if st.session_state.current_price <= 0 and ticker:
+            try:
+                current_price = get_current_price(ticker)
+                st.session_state.current_price = max(current_price, 0.01)  # Ensure minimum 0.01
+                st.session_state.entry_price = st.session_state.current_price
+            except Exception:
+                st.session_state.current_price = 1.0  # Fallback value
+                st.session_state.entry_price = 1.0
+    
+        # Safe entry price input with validation
         try:
-            current_price = get_current_price(ticker)
-            st.session_state.current_price = max(current_price, 0.01)  # Ensure minimum 0.01
-            st.session_state.entry_price = st.session_state.current_price
-        except Exception:
-            st.session_state.current_price = 1.0  # Fallback value
-            st.session_state.entry_price = 1.0
-
-    # Safe entry price input with validation
-    try:
-        entry_price_value = float(st.session_state.entry_price)
-        if entry_price_value < 0.01:
+            entry_price_value = float(st.session_state.entry_price)
+            if entry_price_value < 0.01:
+                entry_price_value = max(st.session_state.current_price, 0.01)
+        except (TypeError, ValueError):
             entry_price_value = max(st.session_state.current_price, 0.01)
-    except (TypeError, ValueError):
-        entry_price_value = max(st.session_state.current_price, 0.01)
-
-    entry_price = st.number_input(
-        "Entry Price ($)",
-        min_value=0.01,
-        value=float(entry_price_value),
-        step=0.1,
-        key="entry_price"
-    )
+    
+        entry_price = st.number_input(
+            "Entry Price ($)",
+            min_value=0.01,
+            value=float(entry_price_value),
+            step=0.1,
+            key="entry_price"
+        )
 
     with col3:
         user_gain = st.number_input(
