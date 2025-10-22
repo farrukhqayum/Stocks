@@ -1018,7 +1018,7 @@ def main():
 
                         with col2:
                             hit_value = prediction['will_hit']
-                            hit_prob = prediction['prob_tp'] * 100
+                            hit_prob = prediction['hit_prob'] * 100
                             st.metric(label="Hits", value=f"{hit_value} ({hit_prob:.1f}%)")
                             #st.metric("Hit Probability", f"{prediction['hit_prob']:.1f}%")
                             st.metric("Confidence", f"{prediction['confidence']:.1f}%")
