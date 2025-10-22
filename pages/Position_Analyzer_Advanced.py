@@ -23,11 +23,11 @@ def generate_market_signal(df, rsi_lower=30):
     conditions = [
         # 1. Bullish Reversal
         (df['SMA1'] > df['SMA2']) & (df['SMA1'].shift(1) <= df['SMA2'].shift(1)) &
-        (df['RSI'] > 45) & (df['+DI'] > df['-DI']),
+        (df['RSI'] > 45) & (df['pDI'] > df['mDI']),
 
         # 2. Bearish Reversal
         (df['SMA1'] < df['SMA2']) & (df['SMA1'].shift(1) >= df['SMA2'].shift(1)) &
-        (df['RSI'] < 55) & (df['-DI'] > df['+DI']),
+        (df['RSI'] < 55) & (df['mDI'] > df['pDI']),
 
         # 3. Overbought Bull
         (df['SMA1'] > df['SMA2']) & (df['RSI'] > 85) & (df['ADX'] > 65),
@@ -37,17 +37,17 @@ def generate_market_signal(df, rsi_lower=30):
 
         # 5. Bull
         (df['SMA1'] > df['SMA2']) & (df['RSI'] >= df['RSI_SMA']) &
-        (df['RSI'].between(52, 95)) & (df['+DI'] > df['-DI']) &
-        (df['+DI'].between(18, 55)) & (df['Close'] > df['SMA1']),
+        (df['RSI'].between(52, 95)) & (df['pDI'] > df['mDI']) &
+        (df['pDI'].between(18, 55)) & (df['Close'] > df['SMA1']),
 
         # 6. Bear
         (df['SMA1'] < df['SMA2']) & (df['RSI'].between(rsi_lower, 60)) &
-        (df['RSI'] < df['RSI_SMA']) & (df['+DI'] < df['-DI']) &
-        (df['-DI'].between(18, 55)),
+        (df['RSI'] < df['RSI_SMA']) & (df['pDI'] < df['mDI']) &
+        (df['mDI'].between(18, 55)),
 
         # 7. Short
         (df['SMA1'] < df['SMA2']) & (df['RSI'].between(25, 50)) &
-        (df['-DI'].between(30, 55)) & (df['Close'] > df['SMA1']),
+        (df['mDI'].between(30, 55)) & (df['Close'] > df['SMA1']),
 
         # 8. RangeBound
         (df['ADX'] < 20) & (df['RSI'].between(45, 55)) &
@@ -185,7 +185,7 @@ def main():
         df['SMA2'] = df['Close'].rolling(50).mean()
         df['RSI'] = ta.calculate_rsi(df)
         df['RSI_SMA'] = df['RSI'].rolling(5).mean()
-        df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
+        df[['pDI', 'mDI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
         df.dropna(inplace=True)
 
         df = generate_market_signal(df)
