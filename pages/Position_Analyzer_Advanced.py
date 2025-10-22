@@ -38,7 +38,7 @@ def generate_market_signal(df, rsi_lower=30):
         # 5. Bull
         (df['SMA1'] > df['SMA2']) & (df['RSI'] >= df['RSI_SMA']) &
         (df['RSI'].between(52, 95)) & (df['pDI'] > df['mDI']) &
-        (df['pDI'].between(18, 55)) & (df['Close'] > df['SMA1']),
+        (df['pDI'].between(18, 55)) & (df['Close'] > df['SMA1'].fillna(df['Close'])),
 
         # 6. Bear
         (df['SMA1'] < df['SMA2']) & (df['RSI'].between(rsi_lower, 60)) &
@@ -47,7 +47,7 @@ def generate_market_signal(df, rsi_lower=30):
 
         # 7. Short
         (df['SMA1'] < df['SMA2']) & (df['RSI'].between(25, 50)) &
-        (df['mDI'].between(30, 55)) & (df['Close'] > df['SMA1']),
+        (df['mDI'].between(30, 55)) & (df['Close'] < df['SMA1'].fillna(df['Close'])),
 
         # 8. RangeBound
         (df['ADX'] < 20) & (df['RSI'].between(45, 55)) &
