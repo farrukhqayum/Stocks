@@ -455,14 +455,31 @@ def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05):
             sl_hit = False
             
             confirm_candles = 2
-            for j in range(len(future_prices) - confirm_candles):
-                window = future_prices[j:j+confirm_candles]
-                if np.all(window >= tp_price):
-                    tp_hit = True
-                    break
-                if np.all(window <= sl_price):
-                    sl_hit = True
-                    break
+            for j in range(len(future_prices) - confirm_candles + 1):
+                window_segment = future_prices[j:j+confirm_candles]
+                
+                # FIX: Use np.all() with explicit conditions for each element
+                if len(window_segment) == confirm_candles:
+                    # Check if all prices in window are >= tp_price
+                    all_above_tp = True
+                    for price in window_segment:
+                        if price < tp_price:
+                            all_above_tp = False
+                            break
+                    
+                    # Check if all prices in window are <= sl_price  
+                    all_below_sl = True
+                    for price in window_segment:
+                        if price > sl_price:
+                            all_below_sl = False
+                            break
+                    
+                    if all_above_tp:
+                        tp_hit = True
+                        break
+                    if all_below_sl:
+                        sl_hit = True
+                        break
     
             if tp_hit and not sl_hit:
                 labels.append(2)  # TP hit
