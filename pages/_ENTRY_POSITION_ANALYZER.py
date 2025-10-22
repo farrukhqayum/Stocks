@@ -351,10 +351,14 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
     return df
     
 def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
+    """
+    Compute expected returns with breakout confirmation to avoid false early TP hits.
+    """
     df['Expected_Return'] = np.nan
     close_prices = df['Close'].values
     
-    # Pre-extract pivot arrays
+    confirm_candles = 2  # require at least 2 candles above pivot before confirming hit
+    
     pivot_arrays = []
     for col in r_cols:
         if col in df.columns:
@@ -364,33 +368,37 @@ def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
     
     for i in range(len(df) - forward_window):
         current_price = close_prices[i]
-        
-        # Gather valid pivot values for this row
         pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
         target_level = max(pivots) if pivots else None
-        
         future_window = close_prices[i+1:i+1+forward_window]
         
-        if target_level is not None:
-            # Check if future price hits the pivot level
+        if target_level is not None and len(future_window) >= confirm_candles:
             hit = False
-            for future_price in future_window:
-                if future_price >= target_level:
+            for j in range(len(future_window) - confirm_candles + 1):
+                segment = future_window[j:j+confirm_candles]
+                # confirm that price stays above pivot for confirm_candles in a row
+                if np.all(segment >= target_level):
                     df.iloc[i, df.columns.get_loc('Expected_Return')] = (target_level - current_price) / current_price
                     hit = True
                     break
-            if not hit and future_window.size > 0:
+            if not hit:
                 df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_window) - current_price) / current_price
         else:
             if future_window.size > 0:
                 df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_window) - current_price) / current_price
             else:
                 df.iloc[i, df.columns.get_loc('Expected_Return')] = np.nan
+                
     return df
 
 def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
+    """
+    Compute expected losses with sustained breakdown confirmation to avoid early SL triggers.
+    """
     df['Expected_Loss'] = np.nan
     close_prices = df['Close'].values
+    
+    confirm_candles = 2  # require at least 2 candles below pivot before confirming hit
     
     pivot_arrays = []
     for col in s_cols:
@@ -401,26 +409,27 @@ def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
     
     for i in range(len(df) - forward_window):
         current_price = close_prices[i]
-        
         pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
         target_level = min(pivots) if pivots else None
-        
         future_window = close_prices[i+1:i+1+forward_window]
         
-        if target_level is not None:
+        if target_level is not None and len(future_window) >= confirm_candles:
             hit = False
-            for future_price in future_window:
-                if future_price <= target_level:
+            for j in range(len(future_window) - confirm_candles + 1):
+                segment = future_window[j:j+confirm_candles]
+                # confirm that price stays below pivot for confirm_candles in a row
+                if np.all(segment <= target_level):
                     df.iloc[i, df.columns.get_loc('Expected_Loss')] = (target_level - current_price) / current_price
                     hit = True
                     break
-            if not hit and future_window.size > 0:
+            if not hit:
                 df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_window) - current_price) / current_price
         else:
             if future_window.size > 0:
                 df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_window) - current_price) / current_price
             else:
                 df.iloc[i, df.columns.get_loc('Expected_Loss')] = np.nan
+                
     return df
 
 def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05):
@@ -445,13 +454,16 @@ def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05):
             tp_hit = False
             sl_hit = False
             
-            for price in future_prices:
-                if price >= tp_price:
+            confirm_candles = 2
+            for j in range(len(future_prices) - confirm_candles):
+                window = future_prices[j:j+confirm_candles]
+                if np.all(window >= tp_price):
                     tp_hit = True
                     break
-                if price <= sl_price:
+                if np.all(window <= sl_price):
                     sl_hit = True
                     break
+
             
             if tp_hit and not sl_hit:
                 labels.append(2)  # TP hit
@@ -604,7 +616,7 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         ratio = (predicted_return / abs(predicted_loss)) if (will_hit != 'None' and predicted_loss != 0) else 0
         ratio = max(ratio, 0)
         #confidence_score = max((hit_prob/100) * ratio, 0) * 100
-        confidence_score = min(max((hit_prob/100) * ratio, 0) * 100, 100)
+        confidence_score = min(max(((hit_prob/100)**1.2) * (ratio**0.8), 0) * 100, 100)
         
         return {
             'will_hit': will_hit,
