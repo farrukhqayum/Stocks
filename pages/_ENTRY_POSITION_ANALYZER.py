@@ -369,7 +369,7 @@ def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
     for i in range(len(df) - forward_window):
         current_price = close_prices[i]
         pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
-        target_level = max(pivots) if pivots else None
+        target_level = float(max(pivots)) if pivots else None
         future_window = close_prices[i+1:i+1+forward_window]
         
         if target_level is not None and len(future_window) >= confirm_candles:
@@ -410,7 +410,7 @@ def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
     for i in range(len(df) - forward_window):
         current_price = close_prices[i]
         pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
-        target_level = min(pivots) if pivots else None
+        target_level = float(min(pivots)) if pivots else None
         future_window = close_prices[i+1:i+1+forward_window]
         
         if target_level is not None and len(future_window) >= confirm_candles:
@@ -463,8 +463,7 @@ def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05):
                 if np.all(window <= sl_price):
                     sl_hit = True
                     break
-
-            
+    
             if tp_hit and not sl_hit:
                 labels.append(2)  # TP hit
             elif sl_hit and not tp_hit:
