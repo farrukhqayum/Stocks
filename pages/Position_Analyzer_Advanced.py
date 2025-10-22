@@ -1,29 +1,25 @@
 #!/usr/bin/env python
 # coding: utf-8
 """
-Entry Position Analyzer — Fixed + Enhanced
-- Keeps your original plotting style and annotations
-- Fixes pivot rolling KeyError (uses x.values[-1] safely)
-- Adds improvements: TP-before-SL classifier priority, ADX/ATR filters,
-  dynamic RSI thresholds, 2-of-3 timeframe consensus, R:R gating, blended confidence
+Entry Position Analyzer — Fixed plotting + Streamlit columns summary
+Preserves your original plotting style, fixes pivot calculation, and displays
+final summary using Streamlit columns.
 """
 
-from imports import *  # keep this if you have your custom ta helpers and utils
+from imports import *  # your own ta helpers; keep if present
 import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from matplotlib.offsetbox import AnchoredText
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
 
-# -------------- Config --------------
-st.set_page_config(page_title="Entry Position Analyzer (Fixed)", layout="wide")
+# ---------- Configuration ----------
+st.set_page_config(page_title="Entry Position Analyzer (Fixed Plotting)", layout="wide")
 
 YEARS_OF_DATA = {'4H': 1, '1D': 2, '1W': 5}
 MIN_TRAIN_ROWS = {'4H': 50, '1D': 30, '1W': 10}
@@ -32,7 +28,6 @@ windows = [3,5,7,9,11,13,15,17,19,21]
 EXPECTED_CLASSES = [0,1,2,3,4]
 label2str = {0:'None',1:'SL',2:'TP',3:'Hold',4:'Short'}
 
-# Minimal FEATURES list - extend if your ta module creates other columns
 FEATURES = [
     'High','Low','Close','Volume',
     'SMA1','SMA2','SMA3','SMA_Ratio',
@@ -44,7 +39,7 @@ FEATURES = [
     'KCu','KCl','KCu_outer','KCl_outer','Kasym','Kcount','STu','STl'
 ]
 
-# ---------------- Utilities ----------------
+# ---------- Utilities ----------
 def get_current_price(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -59,10 +54,8 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
         yf_interval = interval_map.get(interval, interval)
         df = yf.download(ticker, start=start_date, end=end_date, interval=yf_interval, progress=False, auto_adjust=True)
         if df.empty:
-            st.error(f"No data found for {ticker} ({interval})")
             return None
         df = df.reset_index()
-        # normalize date column
         if 'Date' in df.columns:
             df['Date'] = pd.to_datetime(df['Date'])
             df.set_index('Date', inplace=True)
@@ -70,46 +63,37 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
             df['Date'] = pd.to_datetime(df['Datetime'])
             df.set_index('Date', inplace=True)
             df.drop(columns=['Datetime'], inplace=True, errors='ignore')
-        # flatten columns if tuple
         df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
         required_cols = ['Open','High','Low','Close','Volume']
         for c in required_cols:
             if c not in df.columns:
-                st.error(f"Missing required column: {c}")
                 return None
         df = df[required_cols].dropna()
         if df.empty:
-            st.error("No valid data after cleaning.")
             return None
         return df
-    except Exception as e:
-        st.error(f"Error downloading data for {ticker}: {str(e)}")
+    except Exception:
         return None
 
-# ---------------- Technicals (wraps your ta module) ----------------
+# ---------- Technical indicators (assumes ta helpers present) ----------
 def add_technical_indicators(df, timeframe='1D'):
     try:
         close_backup = df['Close'].copy()
-        # smooth close for noise
         df['Close'] = df[['Open','High','Low','Close']].mean(axis=1).rolling(3, min_periods=1).mean()
 
-        # timeframe adjustments
         if timeframe == '1W':
             sma_multiplier = 1
-            atr_period = 7
         elif timeframe == '4H':
             sma_multiplier = 3
-            atr_period = 50
         else:
             sma_multiplier = 3
-            atr_period = 14
 
         df['SMA1'] = df['Close'].ewm(span=int(_DAYS*0.5*sma_multiplier), adjust=False).mean()
         df['SMA2'] = df['Close'].ewm(span=_DAYS*sma_multiplier, adjust=False).mean()
         df['SMA3'] = df['Close'].ewm(span=int(_DAYS*2*sma_multiplier), adjust=False).mean()
         df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
 
-        # Use your ta helpers if present (expected in imports)
+        # Use your ta module functions (change names if different)
         df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
         df = ta.scaled_volatility(df)
         df = ta.add_candlestickpatterns(df)
@@ -139,9 +123,7 @@ def add_technical_indicators(df, timeframe='1D'):
         df['OBV'] = ta.calculate_obv(df)
         dmi = ta.calculate_dmi(df, n=14)
         if isinstance(dmi, pd.DataFrame):
-            df['+DI'] = dmi['+DI']
-            df['-DI'] = dmi['-DI']
-            df['ADX'] = dmi['ADX']
+            df['+DI'] = dmi['+DI']; df['-DI'] = dmi['-DI']; df['ADX'] = dmi['ADX']
         df['VWMA'] = ta.calculate_vwma(df)
         kelt = ta.calculate_keltner(df)
         if isinstance(kelt, pd.DataFrame):
@@ -149,9 +131,8 @@ def add_technical_indicators(df, timeframe='1D'):
                 if c in kelt.columns:
                     df[c] = kelt[c]
         vortex = ta.calculate_vortex(df)
-        if isinstance(vortex, pd.DataFrame):
-            if 'VI+' in vortex.columns:
-                df['VI+'] = vortex['VI+']; df['VI-'] = vortex['VI-']
+        if isinstance(vortex, pd.DataFrame) and 'VI+' in vortex.columns:
+            df['VI+'] = vortex['VI+']; df['VI-'] = vortex['VI-']
         stf = ta.calculate_supertrend(df)
         if isinstance(stf, pd.DataFrame) and 'STu' in stf.columns:
             df['STu'] = stf['STu']; df['STl'] = stf['STl']
@@ -159,7 +140,7 @@ def add_technical_indicators(df, timeframe='1D'):
         df['Volatility'] = df['Close'].rolling(14, min_periods=1).std().rolling(3, min_periods=1).mean()
         df[['SMA1','SMA2','RSI','-DI','Close']] = df[['SMA1','SMA2','RSI','-DI','Close']].fillna(method='ffill').fillna(method='bfill')
 
-        # TI classification (keeps original logic)
+        # TI classification
         rsi_lower = 25 if timeframe == '1W' else 18
         conditions = [
             ((df['SMA1'] > df['SMA2']) & (df['RSI'] >= df['RSI_SMA']) & (df['RSI'].between(52,95)) & (df['+DI'] > df['-DI']) & (df['+DI'].between(18,55)) & (df['Close'] > df['SMA1'])),
@@ -179,25 +160,21 @@ def add_technical_indicators(df, timeframe='1D'):
         df = ta.add_exhaustion_indicator(df)
         df['Close'] = close_backup
         return df
-    except Exception as e:
-        st.error(f"Error adding technical indicators: {e}")
+    except Exception:
         return None
 
-# ---------------- Pivot functions (FIXED) ----------------
-def add_pivots(df, win=[3,5,7]):
-    # safe pivot calculation using positional access for the rolling close last item
+# ---------- Pivot functions (fixed) ----------
+def add_pivots(df, win=[3,5,7,9,11,13,15,17,19,21]):
     for w in win:
         roll_high = df['High'].rolling(w)
         roll_low = df['Low'].rolling(w)
         roll_close = df['Close'].rolling(w)
-
-        # Use explicit values[-1] inside apply; guard empty windows
-        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x.values[-1] if len(x) > 0 else np.nan)).div(3)
+        # safe positional access inside apply
+        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x.values[-1] if len(x)>0 else np.nan)).div(3)
         R1 = 2 * PP - roll_low.min()
         S1 = 2 * PP - roll_high.max()
         R2 = PP + (roll_high.max() - roll_low.min())
         S2 = PP - (roll_high.max() - roll_low.min())
-
         df[f'PP_{w}'] = PP
         df[f'R1_{w}'] = R1
         df[f'S1_{w}'] = S1
@@ -212,7 +189,7 @@ def average_pivots(df, windows=[5,10,14,20]):
             df[f'{level}_Avg'] = df[cols].mean(axis=1)
     return df
 
-# ---------------- Expected return/loss & labelling ----------------
+# ---------- Expected return/loss & labeling ----------
 def compute_expected_return(df, forward_window=14, r_cols=['R1_Avg','R2_Avg']):
     df['Expected_Return'] = np.nan
     close = df['Close'].values
@@ -290,12 +267,11 @@ def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05):
     df['Hit_Label'] = labels
     return df
 
-# ---------------- Training ----------------
+# ---------- Training ----------
 def train_models(df, timeframe):
     required_cols = [c for c in FEATURES if c in df.columns] + ['Hit_Label','Expected_Return','Expected_Loss']
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
-        # not fatal; warn and return None
         st.warning(f"Missing cols for modeling ({timeframe}): {missing[:6]}{'...' if len(missing)>6 else ''}")
         return None, None, None, None, None, None
     df_model = df.dropna(subset=required_cols)
@@ -335,7 +311,7 @@ def train_models(df, timeframe):
 
     return model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss
 
-# ---------------- Prediction & Decision ----------------
+# ---------- Prediction & Decision ----------
 def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss, latest_data):
     try:
         feats = [c for c in FEATURES if c in latest_data.columns]
@@ -356,8 +332,15 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         prob_features = {f'Prob_Class_{c}': prob_map[c] for c in EXPECTED_CLASSES}
         latest_reg = pd.concat([latest_data[feats].reset_index(drop=True), pd.DataFrame([prob_features])], axis=1)
 
-        Xr = scaler_return.transform(latest_reg[FEATURES + list(prob_features.keys())])
-        Xl = scaler_loss.transform(latest_reg[FEATURES + list(prob_features.keys())])
+        # make sure regression uses same feature ordering: use FEATURES (subset)
+        reg_feats = [f for f in FEATURES if f in latest_reg.columns] + [f'Prob_Class_{c}' for c in EXPECTED_CLASSES]
+        # fill missing prob cols
+        for pcol in [f'Prob_Class_{c}' for c in EXPECTED_CLASSES]:
+            if pcol not in latest_reg.columns:
+                latest_reg[pcol] = 0.0
+
+        Xr = scaler_return.transform(latest_reg[reg_feats])
+        Xl = scaler_loss.transform(latest_reg[reg_feats])
 
         pred_return = model_return.predict(Xr)[0]
         pred_loss = model_loss.predict(Xl)[0]
@@ -369,7 +352,6 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         tp_pct = (predicted_tp - current_price) / current_price * 100
         sl_pct = (predicted_sl - current_price) / current_price * 100
 
-        # Context scoring
         trend_score = 1.0 if (latest_data['SMA1'].values[0] > latest_data['SMA2'].values[0] and latest_data['Close'].values[0] > latest_data['SMA1'].values[0]) else 0.0
         atr_pct = latest_data['ATR'].values[0] / latest_data['Close'].values[0] * 100 if latest_data['ATR'].values[0] and latest_data['Close'].values[0] else 0.0
         vol_score = max(0.0, 1.0 - (atr_pct / 10.0))
@@ -382,14 +364,13 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         rsi_ok = (rsi < 65) if uptrend else (rsi < 55)
 
         avoid_buy = False
-        if rsi > 70 or latest_data['Close'].values[0] > latest_data['Upper_Band'].values[0] or latest_data['Close'].values[0] > latest_data['SMA1'].values[0] * 1.02:
+        if (rsi > 70) or ('Upper_Band' in latest_data.columns and latest_data['Close'].values[0] > latest_data['Upper_Band'].values[0]) or (latest_data['Close'].values[0] > latest_data['SMA1'].values[0] * 1.02):
             avoid_buy = True
 
         rr = None
         if (current_price - predicted_sl) != 0:
             rr = (predicted_tp - current_price) / (current_price - predicted_sl)
 
-        # Decision rules
         decision = "Hold / Wait"
         will_hit = 'None'
         if prob_tp > 0.65 and blended > 0.45 and rsi_ok and not avoid_buy and rr is not None and rr >= 1.5:
@@ -402,7 +383,6 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
             decision = "Avoid / Short bias"
             will_hit = 'SL'
         else:
-            # fallback to classifier prediction label
             pred_label = int(model_class.predict(latest_scaled)[0])
             will_hit = label2str.get(pred_label, 'None')
             decision = "Hold / Wait"
@@ -421,12 +401,10 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
             'avoid_buy': avoid_buy,
             'current_price': current_price
         }
-
-    except Exception as e:
-        st.error(f"Error making prediction: {e}")
+    except Exception:
         return None
 
-# ---------------- Plotting (YOUR style preserved) ----------------
+# ---------- Plotting (preserve your style but robust) ----------
 def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=None):
     try:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
@@ -447,19 +425,19 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.plot(last_date, entry_price, 'o', markersize=5, color='black', alpha=0.3, label=f'Entry: ${entry_price:.2f}')
 
         if prediction is not None:
-            future_date = last_date + timedelta(days=20)
-            tp_price = prediction['predicted_tp']
-            sl_price = prediction['predicted_sl']
-
-            ax1.plot(future_date, tp_price, '^', markersize=6, color='blue')
-            ax1.annotate(f'TP: ${tp_price:.2f}', xy=(future_date, tp_price), xytext=(5, 5), textcoords='offset points', ha='left', va='center', color='blue')
-
-            ax1.plot(future_date, sl_price, 'v', markersize=6, color='red')
-            ax1.annotate(f'SL: ${sl_price:.2f}', xy=(future_date, sl_price), xytext=(5, -5), textcoords='offset points', ha='left', va='center', color='red')
-
-            # Draw horizontal lines across visible chart
-            ax1.axhline(y=tp_price, color='blue', linestyle='--', alpha=0.3, linewidth=1.2)
-            ax1.axhline(y=sl_price, color='red', linestyle='--', alpha=0.3, linewidth=1.2)
+            # Only plot TP/SL if numeric
+            tp_price = prediction.get('predicted_tp', None)
+            sl_price = prediction.get('predicted_sl', None)
+            if tp_price is not None and np.isfinite(tp_price):
+                future_date = last_date + timedelta(days=20)
+                ax1.plot(future_date, tp_price, '^', markersize=6, color='blue')
+                ax1.annotate(f'TP: ${tp_price:.2f}', xy=(future_date, tp_price), xytext=(5, 5), textcoords='offset points', ha='left', va='center', color='blue')
+                ax1.axhline(y=tp_price, color='blue', linestyle='--', alpha=0.3, linewidth=1.2)
+            if sl_price is not None and np.isfinite(sl_price):
+                future_date = last_date + timedelta(days=20)
+                ax1.plot(future_date, sl_price, 'v', markersize=6, color='red')
+                ax1.annotate(f'SL: ${sl_price:.2f}', xy=(future_date, sl_price), xytext=(5, -5), textcoords='offset points', ha='left', va='center', color='red')
+                ax1.axhline(y=sl_price, color='red', linestyle='--', alpha=0.3, linewidth=1.2)
 
         ax1.yaxis.tick_right()
         ax1.yaxis.set_label_position("right")
@@ -467,17 +445,10 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.legend(loc='upper left', fontsize='x-small')
         ax1.grid(True, alpha=0.5)
 
-        textbox = AnchoredText(
-            "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
-            loc='lower left',
-            frameon=True,
-            borderpad=1.5,
-            prop=dict(size=10, color='gray', weight='bold')
-        )
-        ax1.add_artist(textbox)
-        textbox.patch.set_facecolor('honeydew')
-        textbox.patch.set_edgecolor('darkgreen')
-        textbox.patch.set_alpha(0.8)
+        # Hint box using a robust text + bbox (replaces AnchoredText)
+        hint_text = "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success."
+        ax1.text(0.01, 0.02, hint_text, transform=ax1.transAxes, fontsize=10, color='gray',
+                 bbox=dict(facecolor='honeydew', edgecolor='darkgreen', alpha=0.85, boxstyle='round,pad=0.6'))
 
         color_map = {'Strong Buy': 'green', 'Buy (Cautious)': 'orange', 'Avoid / Short bias': 'red', 'Hold / Wait':'gray'}
         assessment_color = color_map.get(assessment, 'gray')
@@ -502,16 +473,12 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.4)
             ax2.plot(df.index, rsi_, label='RSI', color='gray', linewidth=1.5, alpha=0.4)
             ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.5, alpha=0.45)
-            # Fills similar to your original
             ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
             ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
             ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.14)
-
             ax2.axhline(70, color='red', linestyle='--', alpha=0.4, label='Overbought')
             ax2.axhline(30, color='green', linestyle='--', alpha=0.4, label='Oversold')
             ax2.axhline(50, color='gray', linestyle='-', alpha=0.4)
-
-            # scatter signals
             if 'Bull' in df.columns:
                 ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=6, alpha=0.4, label='Bull', zorder=7)
             if 'Bear' in df.columns:
@@ -520,12 +487,8 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
                 ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=6, alpha=0.4, label='Short', zorder=10)
             if 'Hold' in df.columns:
                 ax2.scatter(df.index[df['Hold'] == 1], rsi_[df['Hold'] == 1], color='orange', marker='o', s=6, alpha=0.4, label='Hold', zorder=10)
-
-            ax2.yaxis.set_label_position("right")
-            ax2.yaxis.tick_right()
-            ax2.set_ylabel('RSI')
-            ax2.set_ylim(0,100)
-            ax2.legend(loc='lower left', fontsize='x-small')
+            ax2.yaxis.set_label_position("right"); ax2.yaxis.tick_right()
+            ax2.set_ylabel('RSI'); ax2.set_ylim(0,100); ax2.legend(loc='lower left', fontsize='x-small')
         else:
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
 
@@ -534,12 +497,12 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         plt.tight_layout()
         return fig
     except Exception as e:
-        st.error(f"Error creating plot: {e}")
+        # won't crash app — return a simple figure with error message
         fig, ax = plt.subplots(figsize=(10,6))
         ax.text(0.5, 0.5, f'Plot error: {e}', ha='center', va='center', transform=ax.transAxes)
         return fig
 
-# ---------------- Aggregate decision ----------------
+# ---------- Aggregate decision ----------
 def aggregate_timeframes(results):
     votes = {'Strong Buy':0, 'Buy (Cautious)':0, 'Avoid / Short bias':0, 'Hold / Wait':0}
     for tf, val in results.items():
@@ -554,13 +517,11 @@ def aggregate_timeframes(results):
     else:
         return 'HOLD/WAIT', votes
 
-# ---------------- Streamlit UI ----------------
+# ---------- Streamlit UI ----------
 def clear_page_session_state():
-    # Remove keys that might pollute subsequent runs
     for k in list(st.session_state.keys()):
         if k.startswith('entry_analyzer_'):
             st.session_state.pop(k, None)
-    # reset price fields on load
     if 'current_price' in st.session_state:
         st.session_state.pop('current_price', None)
     if 'entry_price' in st.session_state:
@@ -568,10 +529,9 @@ def clear_page_session_state():
 
 def main():
     clear_page_session_state()
-    st.title("📊 Entry Position Analyzer (Fixed & Enhanced)")
-    st.write("Type ticker (e.g., TSLA or BTC-USD). The app trains quick RF models — may take a moment.")
+    st.title("📊 Entry Position Analyzer (Fixed Plotting)")
+    st.write("Trains RF models across 4H/1D/1W. Keep network/Internet available for yfinance.")
 
-    # Session defaults
     if 'current_price' not in st.session_state:
         st.session_state.current_price = 0.0
     if 'entry_price' not in st.session_state:
@@ -592,101 +552,112 @@ def main():
         user_loss = st.number_input("Expected Loss (%)", min_value=0.1, max_value=50.0, value=4.5, step=0.1, key="user_loss")
 
     if st.button("Analyze Entry Position"):
-        try:
-            end_date = datetime.now()
-            results = {}
-            timeframes = [('4H','4H'), ('1D','1D'), ('1W','1W')]
+        end_date = datetime.now()
+        results = {}
+        timeframes = [('4H','4H'), ('1D','1D'), ('1W','1W')]
 
-            for timeframe, interval in timeframes:
-                st.subheader(f"{timeframe} analysis for {ticker}")
-                years = YEARS_OF_DATA[timeframe]
-                start_date = end_date - timedelta(days=365 * years)
+        for timeframe, interval in timeframes:
+            st.subheader(f"{timeframe} analysis for {ticker}")
+            years = YEARS_OF_DATA[timeframe]
+            start_date = end_date - timedelta(days=365 * years)
 
-                with st.spinner(f"Fetching {timeframe} data..."):
-                    df = get_stock_data(ticker, start_date, end_date, interval)
-                if df is None:
-                    st.warning(f"No data for {timeframe}")
-                    continue
-                if len(df) < MIN_TRAIN_ROWS.get(timeframe, 10):
-                    st.warning(f"Insufficient raw data for {timeframe}: {len(df)} rows (need {MIN_TRAIN_ROWS.get(timeframe)})")
-                    continue
+            with st.spinner(f"Fetching {timeframe} data..."):
+                df = get_stock_data(ticker, start_date, end_date, interval)
+            if df is None:
+                st.warning(f"No data for {timeframe}")
+                continue
+            if len(df) < MIN_TRAIN_ROWS.get(timeframe, 10):
+                st.warning(f"Insufficient raw data for {timeframe}: {len(df)} rows (need {MIN_TRAIN_ROWS.get(timeframe)})")
+                continue
 
-                with st.spinner("Calculating technical indicators..."):
-                    df = add_technical_indicators(df, timeframe)
-                    df = add_pivots(df, windows)
-                    df = average_pivots(df, windows)
+            with st.spinner("Calculating technical indicators..."):
+                df = add_technical_indicators(df, timeframe)
+                df = add_pivots(df, windows)
+                df = average_pivots(df, windows)
+            if df is None:
+                st.warning(f"Indicator calc failed for {timeframe}")
+                continue
 
-                if df is None:
-                    st.warning(f"Indicator calc failed for {timeframe}")
-                    continue
+            with st.spinner("Computing expected returns & labeling..."):
+                df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg','R2_Avg'])
+                df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg','S2_Avg'])
+                df = label_hit_prob_past(df, window=14, profit_target=user_gain/100.0, stop_loss=user_loss/100.0)
 
-                with st.spinner("Computing expected returns & labeling..."):
-                    df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg','R2_Avg'])
-                    df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg','S2_Avg'])
-                    df = label_hit_prob_past(df, window=14, profit_target=user_gain/100.0, stop_loss=user_loss/100.0)
+            with st.spinner("Training ML models..."):
+                models = train_models(df, timeframe)
+            if models[0] is None:
+                st.warning(f"Could not train models for {timeframe}")
+                continue
+            model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss = models
 
-                with st.spinner("Training ML models..."):
-                    models = train_models(df, timeframe)
-                if models[0] is None:
-                    st.warning(f"Could not train models for {timeframe}")
-                    continue
-                model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss = models
+            latest_data = df.iloc[[-1]]
+            prediction = make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss, latest_data)
+            if prediction:
+                current_price = prediction['current_price']
+                results[timeframe] = prediction
 
-                latest_data = df.iloc[[-1]]
-                prediction = make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss, latest_data)
-                if prediction:
-                    current_price = prediction['current_price']
-                    assessment, reasons = prediction['decision_label'], None
-                    results[timeframe] = {
-                        "prediction": prediction,
-                        "assessment": assessment,
-                        "df": df
-                    }
+                left_col, right_col = st.columns(2)
+                with left_col:
+                    st.metric("Current Price", f"${current_price:.2f}")
+                    st.metric("Will Hit", prediction['will_hit'])
+                    st.metric("Hit Prob (TP)", f"{prediction['prob_tp']*100:.1f}%")
+                with right_col:
+                    st.metric("Predicted TP", f"${prediction['predicted_tp']:.2f}", delta=f"{prediction['tp_pct']:.2f}%")
+                    st.metric("Predicted SL", f"${prediction['predicted_sl']:.2f}", delta=f"{prediction['sl_pct']:.2f}%")
+                    st.metric("Confidence", f"{prediction['blended_confidence_pct']:.1f}%")
 
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.metric("Current Price", f"${current_price:.2f}")
-                        st.metric("Will Hit", prediction['will_hit'])
-                        st.metric("Hit Probability (TP)", f"{prediction['prob_tp']*100:.1f}%")
-                    with c2:
-                        st.metric("Predicted TP", f"${prediction['predicted_tp']:.2f}", delta=f"{prediction['tp_pct']:.2f}%")
-                        st.metric("Predicted SL", f"${prediction['predicted_sl']:.2f}", delta=f"{prediction['sl_pct']:.2f}%")
-                        st.metric("Confidence", f"{prediction['blended_confidence_pct']:.1f}%")
-
-                    if assessment == "Strong Buy":
-                        st.success(f"Assessment: {assessment}")
-                    elif assessment == "Buy (Cautious)":
-                        st.warning(f"Assessment: {assessment}")
-                    else:
-                        st.info(f"Assessment: {assessment}")
-
-                    fig = plot_analysis(ticker, df, entry_price, timeframe, prediction['decision_label'], prediction)
-                    st.pyplot(fig)
+                # Assessment color
+                if prediction['decision_label'] == "Strong Buy":
+                    st.success(f"{timeframe}: {prediction['decision_label']}")
+                elif prediction['decision_label'] == "Buy (Cautious)":
+                    st.warning(f"{timeframe}: {prediction['decision_label']}")
                 else:
-                    st.warning(f"Could not generate prediction for {timeframe}")
-                st.write("---")
+                    st.info(f"{timeframe}: {prediction['decision_label']}")
 
-            if results:
-                overall, votes = aggregate_timeframes({tf: results[tf]['prediction'] for tf in results})
-                st.subheader("🎯 Overall Recommendation")
-                if overall == 'BUY':
-                    st.success("STRONG BUY — multiple timeframes agree")
-                elif overall == 'SHORT/AVOID':
-                    st.error("SHORT / AVOID — multi-timeframe bearish")
-                else:
-                    st.info("HOLD / WAIT — mixed signals")
-
-                st.write("Timeframe summary:")
-                for tf in results.keys():
-                    assessment = results[tf]['prediction']['decision_label']
-                    color = "🟢" if assessment == "Strong Buy" else "🟡" if assessment == "Buy (Cautious)" else "🔴"
-                    st.write(f"{color} {tf}: {assessment} | Conf: {results[tf]['prediction']['blended_confidence_pct']:.1f}%")
+                fig = plot_analysis(ticker, df, entry_price, timeframe, prediction['decision_label'], prediction)
+                st.pyplot(fig)
             else:
-                st.error("No successful analyses completed. Try a different ticker or timeframe.")
+                st.warning(f"Could not generate prediction for {timeframe}")
 
-        except Exception as e:
-            st.error(f"Error analyzing {ticker}: {e}")
-            st.info("Try a different ticker or verify internet / yahoo finance availability.")
+            st.write("---")
+
+        # ---------- Final summary using columns ----------
+        if results:
+            overall, votes = aggregate_timeframes(results)
+            c1, c2, c3 = st.columns([1,2,2])
+            with c1:
+                if overall == 'BUY':
+                    st.success(f"🎯 Overall: {overall}")
+                elif overall == 'SHORT/AVOID':
+                    st.error(f"🎯 Overall: {overall}")
+                else:
+                    st.info(f"🎯 Overall: {overall}")
+
+            with c2:
+                st.write("**Votes**")
+                st.write(votes)
+
+            # Per-timeframe summary in columns
+            tf_cols = st.columns(len(results))
+            for i, (tf, pred) in enumerate(results.items()):
+                with tf_cols[i]:
+                    st.subheader(tf)
+                    st.write(f"Decision: **{pred['decision_label']}**")
+                    st.write(f"Conf: {pred['blended_confidence_pct']:.1f}%")
+                    st.write(f"TP: ${pred['predicted_tp']:.2f} ({pred['tp_pct']:.2f}%)")
+                    st.write(f"SL: ${pred['predicted_sl']:.2f} ({pred['sl_pct']:.2f}%)")
+            # Extra column: quick advice
+            with c3:
+                st.write("**Quick Advice**")
+                if overall == 'BUY':
+                    st.write("Consider entering with staggered sizes near support / predicted SL.")
+                elif overall == 'SHORT/AVOID':
+                    st.write("Avoid longs; consider short bias or wait for stronger set-up.")
+                else:
+                    st.write("No multi-timeframe conviction — wait or reduce size.")
+
+        else:
+            st.error("No successful analyses completed. Try a different ticker or timeframe.")
 
 if __name__ == "__main__":
     main()
