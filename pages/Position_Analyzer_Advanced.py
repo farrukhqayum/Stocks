@@ -183,7 +183,7 @@ def main():
         df = yf.download(ticker, period=period, interval="1d")
         df['SMA1'] = df['Close'].rolling(20).mean()
         df['SMA2'] = df['Close'].rolling(50).mean()
-        df['RSI'] = ta.ta.calculate_rsi(df)
+        df['RSI'] = ta.calculate_rsi(df)
         df['RSI_SMA'] = df['RSI'].rolling(5).mean()
         df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
         df.dropna(inplace=True)
