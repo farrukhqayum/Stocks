@@ -451,8 +451,138 @@ def aggregate_timeframes(results):
     return overall, votes
 
 # --- Plotting (kept compact) ---
+def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=None):
+    """Create analysis plot with TP and SL points"""
+    
+    try:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), 
+                                       gridspec_kw={'height_ratios': [3, 1]}, 
+                                       sharex=True)
+        
+        # Price plot
+        price = df['Close'].rolling(2).mean()
+        ax1.plot(df.index, price, label='Price', color='gray', alpha=0.5, linewidth=1)
+        
+        # SMAs if available
+        if 'SMA1' in df.columns:
+            ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='orange', alpha=0.4, linewidth=1)
+        if 'SMA2' in df.columns:
+            ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.4, linewidth=1)
+        ax1.fill_between(df.index, df.SMA1, df.SMA2, where=(df.SMA1 > df.SMA2), facecolor='green', alpha=0.15)
+        ax1.fill_between(df.index, df.SMA1, df.SMA2, where=(df.SMA1 < df.SMA2), facecolor='red', alpha=0.15)
+        
+        # Entry point
+        last_date = df.index[-1]
+        ax1.plot(last_date, entry_price, 'o', markersize=5, color='black', alpha=0.3,
+                 label=f'Entry: ${entry_price:.2f}')
+        
+        # Add TP and SL points if prediction is available
+        if prediction is not None:
+            # Take Profit point
+            future_date = last_date + timedelta(days=20)
+            
+            tp_price = prediction['predicted_tp']
+            ax1.plot(future_date, tp_price, '^', markersize=4, color='blue')
+            ax1.annotate(f'TP: ${tp_price:.2f}', xy=(future_date, tp_price), xytext=(5, 5),
+                         textcoords='offset points', ha='left', va='center', color='blue')
+            
+            sl_price = prediction['predicted_sl']
+            ax1.plot(future_date, sl_price, 'v', markersize=4, color='red')
+            ax1.annotate(f'SL: ${sl_price:.2f}', xy=(future_date, sl_price), xytext=(5, -5),
+                         textcoords='offset points', ha='left', va='center', color='red')
 
-def plot_analysis(ticker, df, entry_price, timeframe, prediction, assessment):
+            # Add horizontal lines for TP and SL
+            future_date = future_date.tz_localize(None) if future_date.tzinfo else future_date
+            x_max_date_num = ax1.get_xlim()[1]
+            x_max_date = pd.to_datetime(mdates.num2date(x_max_date_num)).tz_localize(None)
+            
+            x_end_raw = future_date + pd.Timedelta(days=20)
+            x_end = min(x_end_raw, x_max_date)
+            
+            ax1.axhline(y=tp_price, color='blue', linestyle='--', alpha=0.3, linewidth=1.2)
+            ax1.axhline(y=sl_price, color='red', linestyle='--', alpha=0.3, linewidth=1.2)
+                    
+        ax1.yaxis.tick_right()
+        ax1.yaxis.set_label_position("right")
+        ax1.set_ylabel('Price')
+        ax1.legend(loc='upper left', fontsize='x-small')
+        ax1.grid(True, alpha=0.5)
+
+        textbox = AnchoredText(
+        "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
+        loc='lower left',
+        frameon=True,
+        borderpad=1.5,
+        prop=dict(size=10, color='gray', weight='bold')
+        )
+        ax1.add_artist(textbox)
+        textbox.set_clip_on(True)
+        textbox.set_in_layout(True)
+        textbox.set_zorder(100)
+        textbox.patch.set_facecolor('honeydew')
+        textbox.patch.set_edgecolor('darkgreen')
+        textbox.patch.set_alpha(0.8)
+        
+        # Assessment annotation
+        color_map = {'Valid': 'green', 'Risky': 'orange', 'Not Recommended': 'red'}
+        assessment_color = color_map.get(assessment, 'gray')
+        
+        ax1.annotate(
+            f'Assessment: {assessment}', 
+            xy=(0.5, 0.95), xycoords='axes fraction',
+            ha='center',  # horizontal alignment center
+            fontsize=12, 
+            weight='bold',
+            bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.4)
+        )
+
+        # Add ticker name in the middle
+        ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, 
+                     fontsize=50, color='grey', alpha=0.2,
+                     horizontalalignment='center', verticalalignment='center',
+                     rotation=0, weight='bold', style='italic')    
+
+        # RSI plot if available
+        if 'RSI' in df.columns:
+            rsi_ = df['RSI'].rolling(3).mean()
+            rsi_sma = df['RSI'].rolling(20).mean()
+            ax2.grid(color='lightgray', linestyle='-', linewidth=0.5, alpha=0.4)
+            ax2.plot(df.index, rsi_, label='RSI', color='gray', linewidth=1.5, alpha=0.4)
+            ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.5, alpha=0.45)
+            ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
+            ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
+            ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.14, label='Dip(?)')
+            ax2.axhline(70, color='red', linestyle='--', alpha=0.4, label='Overbought')
+            ax2.axhline(30, color='green', linestyle='--', alpha=0.4, label='Oversold')
+            ax2.axhline(50, color='gray', linestyle='-', alpha=0.4)
+
+            ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=5, alpha=0.3, label='Bull', zorder=7)
+            ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=5, alpha=0.3, label='Bear', zorder=8)
+            ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=5, alpha=0.3, label='Short', zorder=10)
+            ax2.scatter(df.index[df['Hold'] == 1], rsi_[df['Hold'] == 1], color='orange', marker='o', s=5, alpha=0.3, label='Hold', zorder=10)
+            ax2.yaxis.set_label_position("right")
+            ax2.yaxis.tick_right()
+            ax2.set_ylabel('RSI')
+            ax2.set_ylim(0, 100)
+            ax2.legend(loc='lower left', fontsize='x-small')
+        else:
+            ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
+        
+        ax2.grid(True, alpha=0.3)
+        
+        plt.title(f'{timeframe} Analysis - {assessment}')
+        plt.tight_layout()
+        
+        return fig
+        
+    except Exception as e:
+        st.error(f"Error creating plot: {str(e)}")
+        # Return empty figure
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, f'Plot error: {str(e)}', ha='center', va='center', transform=ax.transAxes)
+        return fig
+        
+def plot_analysis2(ticker, df, entry_price, timeframe, prediction, assessment):
     fig, (ax1, ax2) = plt.subplots(2,1,figsize=(12,8),sharex=True, gridspec_kw={'height_ratios':[3,1]})
     ax1.plot(df.index, df['Close'], label='Close')
     if 'SMA1' in df.columns:
