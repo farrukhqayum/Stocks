@@ -1017,8 +1017,10 @@ def main():
                             )
 
                         with col2:
-                            st.metric("Will Hit", prediction['will_hit'])
-                            st.metric("Hit Probability", f"{prediction['hit_prob']:.1f}%")
+                            hit_value = prediction['will_hit']
+                            hit_prob = prediction['prob_tp'] * 100
+                            st.metric(label="Hits", value=f"{hit_value} ({hit_prob:.1f}%)")
+                            #st.metric("Hit Probability", f"{prediction['hit_prob']:.1f}%")
                             st.metric("Confidence", f"{prediction['confidence']:.1f}%")
 
                         if assessment == "Valid":
