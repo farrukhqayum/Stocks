@@ -1125,7 +1125,11 @@ def main():
                             hit_prob = prediction['hit_prob']
                             rrr = abs(tp_percentage / sl_percentage if sl_percentage != 0 else float('inf'))
                             st.metric(label="Hits", value=f"{hit_value} ({hit_prob:.1f}%)")
-                            st.metric("Risk/Reward", f"{rrr:.2f}")
+                            st.metric(
+                                "Risk/Reward", 
+                                f"{rrr:.2f}", 
+                                delta=-0.5, 
+                                delta_color="normal" if rrr >2 else "off")
                             st.metric("Confidence", f"{prediction['confidence']:.1f}%")
 
                         if assessment == "Valid":
