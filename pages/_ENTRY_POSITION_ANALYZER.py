@@ -1102,7 +1102,7 @@ def main():
                         with col2:
                             hit_value = prediction['will_hit']
                             hit_prob = prediction['hit_prob']
-                            rrr = tp_percentage / sl_percentage if sl_percentage != 0 else float('inf')
+                            rrr = abs(tp_percentage / sl_percentage if sl_percentage != 0 else float('inf'))
                             st.metric(label="Hits", value=f"{hit_value} ({hit_prob:.1f}%)")
                             st.metric("Risk/Reward", f"{rrr:.2f}")
                             st.metric("Confidence", f"{prediction['confidence']:.1f}%")
