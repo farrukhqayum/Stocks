@@ -1098,7 +1098,7 @@ def main():
 
                         st.write(f"**Reasons**: {reasons}")
                         avg_bull, avg_bear = avg_bull_bear_lengths(df)
-                        st.write(f"Average Bull days: {avg_bull:.0f}, Average Bear days: {avg_bear:.0f}")
+                        st.write(f"Average Bull period in {timeframe}: {avg_bull:.0f}, Average Bear in {timeframe}: {avg_bear:.0f}")
                 
                         fig = plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction)
                         st.pyplot(fig)
