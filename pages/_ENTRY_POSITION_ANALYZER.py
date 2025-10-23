@@ -731,7 +731,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             f'Assessment: {assessment}', 
             xy=(0.5, 0.95), xycoords='axes fraction',
             ha='center',  # horizontal alignment center
-            fontsize=12, 
+            fontsize=12, i
             weight='bold',
             bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.4)
         )
@@ -843,6 +843,44 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
         assessment = "Not Recommended"
     
     return assessment, " | ".join(reasons)
+
+def avg_bull_bear_lengths(df):
+    bull = (df['Close'] > df['SMA1']) & (df['SMA1'] > df['SMA2'])
+    bear = (df['Close'] < df['SMA1']) & (df['SMA1'] < df['SMA2'])
+
+    periods = []
+    current_trend = None
+    length = 0
+    for is_bull, is_bear in zip(bull, bear):
+        if is_bull:
+            if current_trend == 'bull':
+                length += 1
+            else:
+                if current_trend is not None:
+                    periods.append((current_trend, length))
+                current_trend = 'bull'
+                length = 1
+        elif is_bear:
+            if current_trend == 'bear':
+                length += 1
+            else:
+                if current_trend is not None:
+                    periods.append((current_trend, length))
+                current_trend = 'bear'
+                length = 1
+        else:
+            if current_trend is not None:
+                periods.append((current_trend, length))
+            current_trend = None
+            length = 0
+    if current_trend is not None:
+        periods.append((current_trend, length))
+    bull_lengths = [length for trend, length in periods if trend == 'bull']
+    bear_lengths = [length for trend, length in periods if trend == 'bear']
+    avg_bull = sum(bull_lengths) / len(bull_lengths) if bull_lengths else 0
+    avg_bear = sum(bear_lengths) / len(bear_lengths) if bear_lengths else 0
+    return avg_bull, avg_bear
+
 
 def update_price_and_reset_entry():
     ticker = st.session_state.ticker_input
@@ -1059,7 +1097,8 @@ def main():
                             st.error(f"**Assessment**: {assessment}")
 
                         st.write(f"**Reasons**: {reasons}")
-
+                        avg_bull, avg_bear = avg_bull_bear_lengths(df)
+                        st.write(f"Average Bull/Bear days", f'{avg_bull:.0f}', f'{avg_bear:.0f}')
                         fig = plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction)
                         st.pyplot(fig)
                     else:
