@@ -58,7 +58,7 @@ _Nr = 50
 YEARS_OF_DATA = 3
 end_date = datetime.now()
 start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
-PROFIT_TARGET = 0.0375
+PROFIT_TARGET = 0.04
 STOP_LOSS = 0.0375
 _DAYS = 22
 _FWDAYS = 14
@@ -1190,6 +1190,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
