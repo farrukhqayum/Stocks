@@ -69,7 +69,7 @@ label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
 def update_entry_price():
-    # This updates session_state.entry_price_input to entry_price in session
+    # User manually changed entry price input
     st.session_state.entry_price = st.session_state.entry_price_input
 
 def update_price_and_reset_entry():
@@ -77,10 +77,9 @@ def update_price_and_reset_entry():
     if ticker and ticker != st.session_state.previous_ticker:
         current_price = get_current_price(ticker)
         st.session_state.current_price = current_price
-        # Only set entry price here if it's a new ticker (initial set)
-        if not st.session_state.initial_prices_set or st.session_state.previous_ticker != ticker:
-            st.session_state.entry_price = current_price
-            st.session_state.initial_prices_set = True
+        # Set entry_price to current price only if ticker changed
+        st.session_state.entry_price = current_price
+        st.session_state.entry_price_input = current_price  # Sync input widget value too
         st.session_state.previous_ticker = ticker
         
 def check_ticker_valid(ticker):
@@ -921,11 +920,17 @@ def main():
     with col1:
         # ticker input with callback to update prices
         ticker = st.text_input(
-        "Ticker Symbol",
-        value="TSLA",
-        key="ticker_input",
-        on_change=update_price_and_reset_entry).upper()
-
+            "Ticker Symbol",
+            value="TSLA",
+            key="ticker_input",
+            on_change=update_price_and_reset_entry,
+        ).upper()
+        
+        # Initialize session state variables safely
+        for key in ["current_price", "entry_price", "entry_price_input", "previous_ticker"]:
+            if key not in st.session_state:
+                st.session_state[key] = 0 if "price" in key else ""
+                
         # Validate ticker after input
         if ticker:
             is_valid, info = check_ticker_valid(ticker)
@@ -956,13 +961,13 @@ def main():
 
         # Entry price number input - this will maintain its value between reruns
         entry_price = st.number_input(
-            "Entry Price ($)",
-            min_value=0.0,
-            value=float(st.session_state.entry_price),
-            step=0.1,
-            key="entry_price_input",
-            on_change=update_entry_price
-        )
+                "Entry Price ($)",
+                min_value=0.0,
+                value=st.session_state.entry_price_input,
+                step=0.1,
+                key="entry_price_input",
+                on_change=update_entry_price,
+            )
 
     with col3:
         user_gain = st.number_input(
