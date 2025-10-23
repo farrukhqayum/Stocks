@@ -241,6 +241,7 @@ def add_technical_indicators(df, timeframe='1D'):
             (df['Close'] < df['SMA1']) &
             (df['SMA1'] < df['SMA2']) &
             (df['RSI'].between(10, 60)) &
+            (df['+DI'] < df['-DI']) &
             (df['-DI'].between(30, 55))
         ),
         # HOLD
