@@ -73,10 +73,11 @@ def update_entry_price():
 
 def update_price_and_reset_entry():
     ticker = st.session_state.ticker_input
-    current_price = get_current_price(ticker)
-    st.session_state.current_price = current_price
-    st.session_state.entry_price = current_price
-    
+    if ticker:
+        current_price = get_current_price(ticker)
+        st.session_state.current_price = current_price
+        st.session_state.entry_price = current_price 
+        
 def check_ticker_valid(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -897,10 +898,7 @@ def clear_page_session_state():
             keys_to_remove.append(key)
             
     # Force price fields to reset on every page load
-    if "current_price" in st.session_state:
-        keys_to_remove.append("current_price")
-    if "entry_price" in st.session_state:
-        keys_to_remove.append("entry_price")
+    keys_to_remove.extend(["current_price", "entry_price"])
 
     for key in keys_to_remove:
         # Use .pop() for safer deletion
@@ -938,10 +936,14 @@ def main():
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
 
     with col2:
-        # Only fetch current price if session-state current_price unset or zero
-        if st.session_state.current_price == 0 and ticker:
-            st.session_state.current_price = get_current_price(ticker)
-            st.session_state.entry_price = st.session_state.current_price
+        # Always update current price when ticker changes or page loads
+        if ticker and (st.session_state.current_price == 0 or st.session_state.ticker_input != ticker):
+            current_price = get_current_price(ticker)
+            st.session_state.current_price = current_price
+            st.session_state.entry_price = current_price  # Reset entry price to current
+
+        # Display current price
+        st.metric("Current Price", f"${st.session_state.current_price:.2f}")
 
         # Entry price number input bound tightly to session_state entry_price
         entry_price = st.number_input(
