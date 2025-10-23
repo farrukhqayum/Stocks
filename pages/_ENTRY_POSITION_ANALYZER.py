@@ -72,11 +72,13 @@ def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
 
 def update_price_and_reset_entry():
+    """This only gets called when the ticker input is changed"""
     ticker = st.session_state.ticker_input
     if ticker:
         current_price = get_current_price(ticker)
         st.session_state.current_price = current_price
-        st.session_state.entry_price = current_price 
+        st.session_state.entry_price = current_price
+        st.session_state.previous_ticker = ticker
         
 def check_ticker_valid(ticker):
     try:
@@ -882,14 +884,6 @@ def avg_bull_bear_lengths(df):
     avg_bear = sum(bear_lengths) / len(bear_lengths) if bear_lengths else 0
     return avg_bull, avg_bear
 
-
-def update_price_and_reset_entry():
-    ticker = st.session_state.ticker_input
-    if ticker:
-        price = get_current_price(ticker)
-        st.session_state.current_price = price
-        st.session_state.entry_price = price
-
 def clear_page_session_state():
     """Clear only this page's session state on load"""
     keys_to_remove = []
@@ -898,7 +892,7 @@ def clear_page_session_state():
             keys_to_remove.append(key)
             
     # Force price fields to reset on every page load
-    keys_to_remove.extend(["current_price", "entry_price", "previous_ticker"])
+    keys_to_remove.extend(["current_price", "entry_price", "initial_prices_set", "previous_ticker"])
 
     for key in keys_to_remove:
         # Use .pop() for safer deletion
@@ -914,6 +908,8 @@ def main():
         st.session_state.current_price = 0
     if "entry_price" not in st.session_state:
         st.session_state.entry_price = 0
+    if "initial_prices_set" not in st.session_state:
+        st.session_state.initial_prices_set = False
     if "previous_ticker" not in st.session_state:
         st.session_state.previous_ticker = ""
 
@@ -938,17 +934,25 @@ def main():
                 st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
 
     with col2:
-        # Only reset entry price when ticker actually changes
-        if ticker and (st.session_state.current_price == 0 or st.session_state.previous_ticker != ticker):
+        # Set initial prices only once when ticker is valid
+        if ticker and not st.session_state.initial_prices_set:
             current_price = get_current_price(ticker)
             st.session_state.current_price = current_price
-            st.session_state.entry_price = current_price  # Reset only on ticker change
+            st.session_state.entry_price = current_price
+            st.session_state.initial_prices_set = True
+            st.session_state.previous_ticker = ticker
+
+        # Reset prices only when ticker actually changes
+        if ticker and st.session_state.previous_ticker != ticker:
+            current_price = get_current_price(ticker)
+            st.session_state.current_price = current_price
+            st.session_state.entry_price = current_price
             st.session_state.previous_ticker = ticker
 
         # Display current price
         st.metric("Current Price", f"${st.session_state.current_price:.2f}")
 
-        # Entry price number input - no automatic reset
+        # Entry price number input - this will maintain its value between reruns
         entry_price = st.number_input(
             "Entry Price ($)",
             min_value=0.0,
