@@ -31,7 +31,7 @@ MIN_TRAIN_ROWS = {
     '1W': 10   # Weekly needs fewer data points
 }
 
-
+DEFAULT_TICKER = "TSLA" 
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.03755
 _DAYS = 21
@@ -900,12 +900,39 @@ def clear_page_session_state():
     for key in keys_to_remove:
         # Use .pop() for safer deletion
         st.session_state.pop(key, None)
+def initialize_session_state():
+    if "ticker_input" not in st.session_state:
+        st.session_state.ticker_input = DEFAULT_TICKER
+    if "previous_ticker" not in st.session_state:
+        st.session_state.previous_ticker = ""
 
+    if "current_price" not in st.session_state:
+        st.session_state.current_price = 0.0
+    if "entry_price" not in st.session_state:
+        st.session_state.entry_price = 0.0
+    if "entry_price_input" not in st.session_state:
+        st.session_state.entry_price_input = 0.0
+    if "initial_prices_set" not in st.session_state:
+        st.session_state.initial_prices_set = False
+
+    # If ticker just initialized OR changed, fetch and set prices
+    ticker = st.session_state.ticker_input.upper()
+    if not st.session_state.initial_prices_set or ticker != st.session_state.previous_ticker:
+        current_price = get_current_price(ticker)
+        if current_price is not None:
+            st.session_state.current_price = current_price
+            st.session_state.entry_price = current_price
+            st.session_state.entry_price_input = current_price
+            st.session_state.initial_prices_set = True
+            st.session_state.previous_ticker = ticker
+            
 def main():
     clear_page_session_state()
+
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
-
+    
+    initialize_session_state()
     col1, col2, col3 = st.columns(3)
 
     with col1:
