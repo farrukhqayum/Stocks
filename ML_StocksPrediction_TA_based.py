@@ -184,19 +184,20 @@ def add_technical_indicators(df):
                 (df['RSI'].between(18,60)) &
                 (df['RSI'] < df['RSI_SMA']) &
                 (df['+DI'] < df['-DI']) &
-                (df['-DI'].between(18, 55))
+                (df['-DI'].between(25, 85))
             )           
         ),
         # SHORT
         (
+            (df['Close'] <= df['SMA1']) &
             (df['SMA1'] < df['SMA2']) &
-            (df['RSI'].between(25, 50)) &
-            (df['-DI'].between(30, 55)) &
-            (df['Close'] > df['SMA1'])
+            (df['RSI'].between(50, 85)) &
+            (df['-DI'] < df['+DI'])
         ),
         # HOLD
         (
             (
+                (df['Close'] > df['SMA2']) &
                 (df['SMA1'] > df['SMA2']) &
                 (df['RSI'].between(40, 90))
             ) |
@@ -205,7 +206,7 @@ def add_technical_indicators(df):
                 (df['ADX'].between(40, 75))
             )
         )
-    ]
+        ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
@@ -1190,6 +1191,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
