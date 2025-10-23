@@ -946,7 +946,6 @@ def main():
         if ticker and st.session_state.previous_ticker != ticker:
             current_price = get_current_price(ticker)
             st.session_state.current_price = current_price
-            st.session_state.entry_price = current_price
             st.session_state.previous_ticker = ticker
 
         # Display current price
