@@ -736,7 +736,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             _s = 10
             ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=_s, alpha=0.3, label='Bull', zorder=7)
             ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=_s, alpha=0.3, label='Bear', zorder=8)
-            ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=_s*2, alpha=0.3, label='Short', zorder=10)
+            ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='magenta', marker='x', s=_s*2, alpha=0.4, label='Short', zorder=10)
             ax2.scatter(df.index[df['Hold'] == 1], rsi_[df['Hold'] == 1], color='orange', marker='o', s=_s, alpha=0.3, label='Hold', zorder=10)
             ax2.yaxis.set_label_position("right")
             ax2.yaxis.tick_right()
