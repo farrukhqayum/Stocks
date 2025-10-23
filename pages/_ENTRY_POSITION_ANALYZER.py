@@ -1184,7 +1184,7 @@ def main():
             """
         1. **Enter Ticker Symbol**: Stock symbol (e.g., AAPL, TSLA, NVDA) or crypto (BTC-USD)
         2. **Set Entry Price**: Your intended entry price
-        3. **Define Expectations**: Your target gain and maximum acceptable loss
+        3. **Define Expectations**: Your target gain and maximum acceptable loss (Conservative 2-5%, aggressive 5-12%, unrealistic 20% or higher
         4. **Click Analyze**: The system will train ML models and evaluate your entry
 
         **Timeframe Data Requirements:**
