@@ -242,48 +242,48 @@ def add_technical_indicators(df, timeframe='1D'):
         rsi_upper = 60 if timeframe == '1W' else 55
         
         conditions = [
-            # BULL
+        # BULL
+        (
             (
-                (
-                    (df['SMA1'] > df['SMA2']) &
-                    (df['RSI'] >= df['RSI_SMA']) &
-                    (df['RSI'].between(52, 95)) &
-                    (df['+DI'] > df['-DI']) &
-                    (df['+DI'].between(18, 55))
-                ) &
-                (
-                    (df['Close'] > df['SMA1']) &
-                    (df['RSI'] > df['RSI_SMA'])
-                )
-            ),
-            # BEAR
+                (df['SMA1'] > df['SMA2']) &
+                (df['RSI'] >= df['RSI_SMA']) &
+                (df['RSI'].between(52, 95)) &
+                (df['+DI'] > df['-DI']) &
+                (df['+DI'].between(18, 55))
+            ) &
             (
-                (
-                    (df['SMA1'] < df['SMA2']) &
-                    (df['RSI'].between(rsi_lower, 60)) &
-                    (df['RSI'] < df['RSI_SMA']) &
-                    (df['+DI'] < df['-DI']) &
-                    (df['-DI'].between(18, 55))
-                )           
-            ),
-            # SHORT
+                (df['Close'] > df['SMA1']) &
+                (df['RSI'] > df['RSI_SMA'])
+            )
+        ),
+        # BEAR
+        (
             (
                 (df['SMA1'] < df['SMA2']) &
-                (df['RSI'].between(25, 50)) &
-                (df['-DI'].between(30, 55)) &
-                (df['Close'] > df['SMA1'])
-            ),
-            # HOLD
+                (df['RSI'].between(18,60)) &
+                (df['RSI'] < df['RSI_SMA']) &
+                (df['+DI'] < df['-DI']) &
+                (df['-DI'].between(18, 55))
+            )           
+        ),
+        # SHORT
+        (
+            (df['SMA1'] < df['SMA2']) &
+            (df['RSI'].between(25, 50)) &
+            (df['-DI'].between(30, 55)) &
+            (df['Close'] > df['SMA1'])
+        ),
+        # HOLD
+        (
             (
-                (
-                    (df['SMA1'] > df['SMA2']) &
-                    (df['RSI'] >= 50)
-                ) |
-                (
-                    (df['RSI'] < df['RSI_SMA']) &
-                    (df['ADX'].between(40, 75))
-                )
+                (df['SMA1'] > df['SMA2']) &
+                (df['RSI'].between(40, 90))
+            ) |
+            (
+                (df['RSI'] < df['RSI_SMA']) &
+                (df['ADX'].between(40, 75))
             )
+        )
         ]
         choices = ['Bull', 'Bear', 'Short', 'Hold']
         df['TI'] = np.select(conditions, choices, default='Neutral')
