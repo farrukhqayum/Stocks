@@ -32,7 +32,7 @@ MIN_TRAIN_ROWS = {
 }
 
 DEFAULT_TICKER = "TSLA" 
-PROFIT_TARGET = 0.0375
+PROFIT_TARGET = 0.04
 STOP_LOSS = 0.03755
 _DAYS = 21
 _Nr = 10  # Reduced minimum data requirement
@@ -995,7 +995,7 @@ def main():
             "Expected Gain (%)",
             min_value=0.1,
             max_value=20.0,
-            value=5.0,
+            value=4.0,
             step=0.1,
             key="user_gain"
         )
@@ -1003,7 +1003,7 @@ def main():
             "Expected Loss (%)",
             min_value=0.1,
             max_value=20.0,
-            value=4.5,
+            value=3.75,
             step=0.1,
             key="user_loss"
         )
