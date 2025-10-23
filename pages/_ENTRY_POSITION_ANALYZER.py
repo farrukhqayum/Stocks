@@ -845,8 +845,8 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     return assessment, " | ".join(reasons)
 
 def avg_bull_bear_lengths(df):
-    bull = (df['Close'] > df['SMA1']) & (df['SMA1'] > df['SMA2'])
-    bear = (df['Close'] < df['SMA1']) & (df['SMA1'] < df['SMA2'])
+    bull = (df['SMA1'] > df['SMA2'])
+    bear = (df['SMA1'] < df['SMA2'])
 
     periods = []
     current_trend = None
