@@ -962,13 +962,13 @@ def main():
 
         # Entry price number input - this will maintain its value between reruns
         entry_price = st.number_input(
-                "Entry Price ($)",
-                min_value=0.0,
-                value=st.session_state.entry_price_input,
-                step=0.1,
-                key="entry_price_input",
-                on_change=update_entry_price,
-            )
+            "Entry Price ($)",
+            min_value=0.0,
+            value=float(st.session_state.entry_price),  # ensure float type
+            step=0.1,
+            key="entry_price_input",
+            on_change=update_entry_price,
+        )
 
     with col3:
         user_gain = st.number_input(
