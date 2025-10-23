@@ -869,13 +869,14 @@ def get_current_price(ticker):
     
 def update_price_and_reset_entry():
     ticker = st.session_state.ticker_input
-    if ticker and ticker != st.session_state.previous_ticker:
+    if ticker != st.session_state.previous_ticker:
         current_price = get_current_price(ticker)
         st.session_state.current_price = current_price
-        # Set entry_price to current price only if ticker changed
         st.session_state.entry_price = current_price
-        st.session_state.entry_price_input = current_price  # Sync input widget value too
+        st.session_state.entry_price_input = current_price
         st.session_state.previous_ticker = ticker
+        st.session_state.initial_prices_set = True
+
         
 def check_ticker_valid(ticker):
     try:
@@ -900,12 +901,12 @@ def clear_page_session_state():
     for key in keys_to_remove:
         # Use .pop() for safer deletion
         st.session_state.pop(key, None)
+        
 def initialize_session_state():
     if "ticker_input" not in st.session_state:
         st.session_state.ticker_input = DEFAULT_TICKER
     if "previous_ticker" not in st.session_state:
         st.session_state.previous_ticker = ""
-
     if "current_price" not in st.session_state:
         st.session_state.current_price = 0.0
     if "entry_price" not in st.session_state:
@@ -927,8 +928,7 @@ def initialize_session_state():
             st.session_state.previous_ticker = ticker
             
 def main():
-    clear_page_session_state()
-
+    #clear_page_session_state()
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
     
@@ -981,7 +981,7 @@ def main():
         entry_price = st.number_input(
             "Entry Price ($)",
             min_value=0.0,
-            value=float(st.session_state.entry_price),  # ensure float type
+            value=float(st.session_state.entry_price_input),  # ensure float type
             step=0.1,
             key="entry_price_input",
             on_change=update_entry_price,
