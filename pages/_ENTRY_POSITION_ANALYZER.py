@@ -68,36 +68,6 @@ FEATURES = [
 label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
-def update_entry_price():
-    # User manually changed entry price input
-    st.session_state.entry_price = st.session_state.entry_price_input
-
-def update_price_and_reset_entry():
-    ticker = st.session_state.ticker_input
-    if ticker and ticker != st.session_state.previous_ticker:
-        current_price = get_current_price(ticker)
-        st.session_state.current_price = current_price
-        # Set entry_price to current price only if ticker changed
-        st.session_state.entry_price = current_price
-        st.session_state.entry_price_input = current_price  # Sync input widget value too
-        st.session_state.previous_ticker = ticker
-        
-def check_ticker_valid(ticker):
-    try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        if info is None or info.get("regularMarketPrice") is None:
-            return False, None
-        return True, info
-    except Exception:
-        return False, None
-      
-def get_current_price(ticker):
-    stock = yf.Ticker(ticker)
-    # Get historical data for 1 day (latest available)
-    data = stock.history(period='1d')
-    # Return the closing price of the last available trading session
-    return data['Close'][-1]
 
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
@@ -886,6 +856,36 @@ def avg_bull_bear_lengths(df):
     avg_bull = sum(bull_lengths) / len(bull_lengths) if bull_lengths else 0
     avg_bear = sum(bear_lengths) / len(bear_lengths) if bear_lengths else 0
     return avg_bull, avg_bear
+def update_entry_price():
+    # User manually changed entry price input
+    st.session_state.entry_price = st.session_state.entry_price_input
+      
+def get_current_price(ticker):
+    stock = yf.Ticker(ticker)
+    # Get historical data for 1 day (latest available)
+    data = stock.history(period='1d')
+    # Return the closing price of the last available trading session
+    return data['Close'][-1]
+    
+def update_price_and_reset_entry():
+    ticker = st.session_state.ticker_input
+    if ticker and ticker != st.session_state.previous_ticker:
+        current_price = get_current_price(ticker)
+        st.session_state.current_price = current_price
+        # Set entry_price to current price only if ticker changed
+        st.session_state.entry_price = current_price
+        st.session_state.entry_price_input = current_price  # Sync input widget value too
+        st.session_state.previous_ticker = ticker
+        
+def check_ticker_valid(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        if info is None or info.get("regularMarketPrice") is None:
+            return False, None
+        return True, info
+    except Exception:
+        return False, None
 
 def clear_page_session_state():
     """Clear only this page's session state on load"""
