@@ -69,15 +69,18 @@ label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
 def update_entry_price():
+    # This updates session_state.entry_price_input to entry_price in session
     st.session_state.entry_price = st.session_state.entry_price_input
 
 def update_price_and_reset_entry():
-    """This only gets called when the ticker input is changed"""
     ticker = st.session_state.ticker_input
-    if ticker:
+    if ticker and ticker != st.session_state.previous_ticker:
         current_price = get_current_price(ticker)
         st.session_state.current_price = current_price
-        st.session_state.entry_price = current_price
+        # Only set entry price here if it's a new ticker (initial set)
+        if not st.session_state.initial_prices_set or st.session_state.previous_ticker != ticker:
+            st.session_state.entry_price = current_price
+            st.session_state.initial_prices_set = True
         st.session_state.previous_ticker = ticker
         
 def check_ticker_valid(ticker):
@@ -918,11 +921,10 @@ def main():
     with col1:
         # ticker input with callback to update prices
         ticker = st.text_input(
-            "Ticker Symbol",
-            value="TSLA",
-            key="ticker_input",
-            on_change=update_price_and_reset_entry
-        ).upper()
+        "Ticker Symbol",
+        value="TSLA",
+        key="ticker_input",
+        on_change=update_price_and_reset_entry).upper()
 
         # Validate ticker after input
         if ticker:
@@ -958,7 +960,8 @@ def main():
             min_value=0.0,
             value=float(st.session_state.entry_price),
             step=0.1,
-            key="entry_price"
+            key="entry_price_input",
+            on_change=update_entry_price
         )
 
     with col3:
