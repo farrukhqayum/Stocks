@@ -1102,9 +1102,9 @@ def main():
                         with col2:
                             hit_value = prediction['will_hit']
                             hit_prob = prediction['hit_prob']
-                            rrr = tp_delta/sl_delta
+                            rrr = tp_delta / sl_delta if sl_delta != 0 else float('inf')
                             st.metric(label="Hits", value=f"{hit_value} ({hit_prob:.1f}%)")
-                            st.metric("Risk/Reward", f"{rrr:.0f}")
+                            st.metric("Risk/Reward", f"{rrr:.2f}")
                             st.metric("Confidence", f"{prediction['confidence']:.1f}%")
 
                         if assessment == "Valid":
