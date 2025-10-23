@@ -856,8 +856,8 @@ def avg_bull_bear_lengths(df):
     avg_bull = sum(bull_lengths) / len(bull_lengths) if bull_lengths else 0
     avg_bear = sum(bear_lengths) / len(bear_lengths) if bear_lengths else 0
     return avg_bull, avg_bear
+
 def update_entry_price():
-    # User manually changed entry price input
     st.session_state.entry_price = st.session_state.entry_price_input
       
 def get_current_price(ticker):
@@ -905,16 +905,6 @@ def main():
     clear_page_session_state()
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
-
-    # Initialize session state variables if missing
-    if "current_price" not in st.session_state:
-        st.session_state.current_price = 0
-    if "entry_price" not in st.session_state:
-        st.session_state.entry_price = 0
-    if "initial_prices_set" not in st.session_state:
-        st.session_state.initial_prices_set = False
-    if "previous_ticker" not in st.session_state:
-        st.session_state.previous_ticker = ""
 
     col1, col2, col3 = st.columns(3)
 
