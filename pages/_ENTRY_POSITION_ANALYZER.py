@@ -37,6 +37,7 @@ STOP_LOSS = 0.03755
 _DAYS = 21
 _Nr = 10  # Reduced minimum data requirement
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21] # For calculating returns
+ind = 'OBV'
 
 # Simplified features for faster processing
 FEATURES = [
@@ -792,9 +793,9 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
 
         # 3. Lower Most Plot
-        ind = 'CMF'
+        
         if ind in df.columns:
-            ax3.plot(df.index, df.OBV, label='ind', color='gray', alpha=0.4, linewidth=1.2)
+            ax3.plot(df.index, df.[ind], label= ind, color='gray', alpha=0.4, linewidth=1.2)
             ax3.yaxis.set_label_position("right")
             ax3.yaxis.tick_right()
             ax3.set_ylabel('ind')
@@ -1064,6 +1065,15 @@ def main():
             key="user_loss",
             help="Tip: Realistic training needs modest/realistic repeatable gains like 2-7%. 10-15% gains results in less data and unrealistic results."             
         )
+
+    opt = ['OBV', 'CCI', 'CMF', 'ADX']
+    default_option_index = 1 
+    
+    ind = st.selectbox(
+        "Choose an option:",
+        opt,
+        index=default_option_index
+    )
 
     if st.button("Analyze Entry Position"):
         with st.spinner("Training models and analyzing..."):
