@@ -994,18 +994,20 @@ def main():
         user_gain = st.number_input(
             "Expected Gain (%)",
             min_value=0.1,
-            max_value=20.0,
-            value=4.0,
+            max_value=10.0,
+            value=2.50,
             step=0.1,
-            key="user_gain"
+            key="user_gain",
+            help="Tip: Realistic training needs modest/realistic repeatable gains like 2-7%. 10-15% gains results in less data and unrealistic results." 
         )
         user_loss = st.number_input(
             "Expected Loss (%)",
             min_value=0.1,
-            max_value=20.0,
-            value=3.75,
+            max_value=10.0,
+            value=2.50,
             step=0.1,
-            key="user_loss"
+            key="user_loss",
+            help="Tip: Realistic training needs modest/realistic repeatable gains like 2-7%. 10-15% gains results in less data and unrealistic results."             
         )
 
     if st.button("Analyze Entry Position"):
