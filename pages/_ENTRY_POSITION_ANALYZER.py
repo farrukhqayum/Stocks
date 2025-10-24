@@ -631,8 +631,8 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
     """Create analysis plot with TP and SL points"""
     
     try:
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), 
-                                       gridspec_kw={'height_ratios': [3, 1]}, 
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 8), 
+                                       gridspec_kw={'height_ratios': [3, 1, 1]}, 
                                        sharex=True)
         
         # Price plot
@@ -746,7 +746,16 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.legend(loc='lower left', fontsize='x-small')
         else:
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
-        
+            
+        if df.OBV in df.columns:
+            ax3.plot(df.index, df.OBV, label='OBV', color='gray', alpha=0.4, linewidth=1.2)
+            ax3.legend(loc='lower left', fontsize='x-small')
+            ax3.yaxis.set_label_position("right")
+            ax3.yaxis.tick_right()
+            ax3.set_ylabel('OBV')
+            ax3.grid(True, alpha=0.3)
+            ax3.text(0.5, 0.5, 'OBV data not available', ha='center', va='center', transform=ax2.transAxes)
+            
         ax2.grid(True, alpha=0.3)
         
         plt.title(f'{timeframe} Analysis - {assessment}')
