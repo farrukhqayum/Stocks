@@ -1182,7 +1182,7 @@ def main():
                             rrr = abs(tp_percentage / sl_percentage if sl_percentage != 0 else float('inf'))
                             st.metric(label="Hits", value=f"{hit_value} ({hit_prob:.1f}%)")
                             st.metric(label="Risk/Reward", value=f"{rrr:.1f}")
-                            color = "green" if rrr > 2 else "red"
+                            color = "green" if rrr > 1.5 else "red"
                             st.markdown(f"<p style='color:{color};'>R/R is {'GOOD' if rrr > 1.5 else 'POOR'}</p>", unsafe_allow_html=True)
                             st.metric("Confidence", f"{prediction['confidence']:.1f}%")
 
