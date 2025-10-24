@@ -792,11 +792,12 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
 
         # 3. Lower Most Plot
-        if 'OBV' in df.columns:
-            ax3.plot(df.index, df.OBV, label='OBV', color='gray', alpha=0.4, linewidth=1.2)
+        ind = 'CMF'
+        if ind in df.columns:
+            ax3.plot(df.index, df.OBV, label='ind', color='gray', alpha=0.4, linewidth=1.2)
             ax3.yaxis.set_label_position("right")
             ax3.yaxis.tick_right()
-            ax3.set_ylabel('OBV')
+            ax3.set_ylabel('ind')
             ax3.grid(True, alpha=0.3)
         else:
             ax3.text(0.5, 0.5, 'OBV data not available', ha='center', va='center', transform=ax2.transAxes)
