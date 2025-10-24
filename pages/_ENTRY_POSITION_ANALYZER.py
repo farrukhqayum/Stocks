@@ -795,7 +795,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         # 3. Lower Most Plot
         
         if ind in df.columns:
-            ax3.plot(df.index, df.[ind], label= ind, color='gray', alpha=0.4, linewidth=1.2)
+            ax3.plot(df.index, df[ind], label= ind, color='gray', alpha=0.4, linewidth=1.2)
             ax3.yaxis.set_label_position("right")
             ax3.yaxis.tick_right()
             ax3.set_ylabel('ind')
