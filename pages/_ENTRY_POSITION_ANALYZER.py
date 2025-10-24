@@ -37,7 +37,6 @@ STOP_LOSS = 0.03755
 _DAYS = 21
 _Nr = 10  # Reduced minimum data requirement
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21] # For calculating returns
-ind = 'OBV'
 
 # Simplified features for faster processing
 FEATURES = [
@@ -672,7 +671,7 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         st.error(f"Error making prediction: {str(e)}")
         return None
 
-def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=None):
+def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=None, ind = 'OBV'):
     """Create analysis plot with TP and SL points"""
     
     try:
@@ -1208,7 +1207,7 @@ def main():
                         avg_bull, avg_bear = avg_bull_bear_lengths(df)
                         st.write(f"Average Bull Market, {timeframe}: {avg_bull:.0f}, Average Bear Market {timeframe}: {avg_bear:.0f}")
                 
-                        fig = plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction)
+                        fig = plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction, ind=ind)
                         st.pyplot(fig)
                     else:
                         st.warning(f"Could not generate prediction for {timeframe}")
