@@ -849,7 +849,7 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     user_rr = user_gain / abs(user_loss) if user_loss != 0 else 0
     pred_rr = pred_return / abs(pred_loss) if pred_loss != 0 else 0
     
-    if (pred_rr > user_rr and pred_rr >= 2):
+    if (pred_rr > user_rr and pred_rr >= 1.5):
         reasons.append("Good risk-reward ratio")
     elif (pred_rr > user_rr and pred_rr >= 1):
         reasons.append("Moderate risk-reward ratio")
@@ -1183,7 +1183,7 @@ def main():
                             st.metric(label="Hits", value=f"{hit_value} ({hit_prob:.1f}%)")
                             st.metric(label="Risk/Reward", value=f"{rrr:.1f}")
                             color = "green" if rrr > 2 else "red"
-                            st.markdown(f"<p style='color:{color};'>R/R is {'GOOD' if rrr > 2 else 'POOR'}</p>", unsafe_allow_html=True)
+                            st.markdown(f"<p style='color:{color};'>R/R is {'GOOD' if rrr > 1.5 else 'POOR'}</p>", unsafe_allow_html=True)
                             st.metric("Confidence", f"{prediction['confidence']:.1f}%")
 
                         if assessment == "Valid":
