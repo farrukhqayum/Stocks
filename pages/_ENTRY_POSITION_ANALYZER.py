@@ -1067,10 +1067,10 @@ def main():
         )
 
     opt = ['OBV', 'CCI', 'CMF', 'ADX']
-    default_option_index = 1 
+    default_option_index = 0 
     
     ind = st.selectbox(
-        "Choose an option:",
+        "Choose 3rd indicator:",
         opt,
         index=default_option_index
     )
