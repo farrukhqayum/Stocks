@@ -568,15 +568,16 @@ if st.button("Run ML Strategy Backtest"):
     st.subheader("Backtest and Equity")
     fig, ax = plt.subplots(figsize=(12, 6))
     
-    ax.plot(df_daily.index, df_daily['Close'], color='gray', linewidth=1.2, alpha=0.5)
-    ax.plot(df_daily.index, df_daily['SMA1'], color='orange', linewidth=1.0, alpha=0.7)
-    ax.plot(df_daily.index, df_daily['SMA2'], color='red', linewidth=1.0, alpha=0.5)
+    ax.plot(df_daily.index, df_daily['Close'], color='gray', linewidth=1.2, alpha=0.5, label = 'Price')
+    ax.plot(df_daily.index, df_daily['SMA10'], color='orange', linewidth=1.0, alpha=0.7, label = 'SMA10')
+    ax.plot(df_daily.index, df_daily['SMA50'], color='red', linewidth=1.0, alpha=0.5, label = 'SMA50')
     
-    ax.fill_between(df_daily.index, df_daily['SMA1'], df_daily['SMA2'],
-                    where=(df_daily['SMA1'] > df_daily['SMA2']),
+    ax.fill_between(df_daily.index, df_daily['SMA10'], df_daily['SMA50'],
+                    where=(df_daily['SMA10'] > df_daily['SMA50']),
                     color='green', alpha=0.15)
-    ax.fill_between(df_daily.index, df_daily['SMA1'], df_daily['SMA2'],
-                    where=(df_daily['SMA1'] < df_daily['SMA2']),
+    
+    ax.fill_between(df_daily.index, df_daily['SMA10'], df_daily['SMA50'],
+                    where=(df_daily['SMA10'] < df_daily['SMA50']),
                     color='red', alpha=0.15)
     
     ax.plot(results['ExitDate'], results['Cumulative'], color='red', linewidth=1.8, alpha=0.5)
