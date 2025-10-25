@@ -762,7 +762,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         )
 
         # Add ticker name in the middle
-        tx = f'{ticker} + ({timeframe})'
+        tx = f'{ticker} ({timeframe})'
         ax1.text(0.5, 0.5, tx, transform=ax1.transAxes, 
                      fontsize=50, color='grey', alpha=0.2,
                      horizontalalignment='center', verticalalignment='center',
