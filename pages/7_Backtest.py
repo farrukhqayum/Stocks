@@ -364,7 +364,9 @@ def get_ml_prediction(df, models):
     # Confidence calculation
     if predicted_loss != 0 and will_hit != 'None':
         ratio = predicted_return / abs(predicted_loss)
-        confidence_score = max(hit_prob * ratio, 0)
+        raw_score = hit_prob * ratio
+        clamped_score = max(min(raw_score, 1), 0)
+        confidence_score = clamped_score * 100
     else:
         confidence_score = hit_prob
     
