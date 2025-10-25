@@ -35,7 +35,7 @@ with st.expander("Backtest Machine Learning Workflow"):
 
 with st.expander("Example: How a TSLA Trade is Entered"):
     st.markdown("""
-- If TSLA (Tesla) closes at $433.72 and weekly SMA10 ($436.68) > SMA50 ($396.15), the weekly filter allows entry.
+- If TSLA (Tesla) closes at $433, and weekly SMA10 ($436) > SMA50 ($396), the weekly filter allows entry.
 - If the ML model predicts a bullish move with strong confidence and no trade is open, the strategy enters at $433.72.
 - TP = $464.08, SL = $403.36 set from entry. Next entry occurs only when current trade closes and all entry signals align again.
     """)
