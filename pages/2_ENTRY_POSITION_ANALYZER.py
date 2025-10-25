@@ -1088,9 +1088,9 @@ def main():
                 results = {}
 
                 timeframes = [
-                    ("4H", "4H"),
-                    ("1D", "1D"),
                     ("1W", "1W"),
+                    ("1D", "1D"),
+                    ("4H", "4H")
                 ]
 
                 for timeframe, interval in timeframes:
