@@ -641,7 +641,7 @@ if st.button("Run ML Strategy Backtest"):
             entry_annotated = True
 
     cx.plot(conf_df['Date'], conf_df['Confidence'], color='violet', alpha=0.8, linewidth=1.3, label='ML Confidence')
-    cx.set_xlabel('Date')
+    cx.set_ylim(0, 100)
     
     ax.set_title(f'{ticker} Price Chart')
     bx.set_title(f'Total Equity Over Time')
