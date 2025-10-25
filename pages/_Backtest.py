@@ -566,7 +566,7 @@ if st.button("Run ML Strategy Backtest"):
 
     # Plot results
     st.subheader("Backtest and Equity")
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, (ax, bx) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
     
     ax.plot(df_daily.index, df_daily['Close'], color='gray', linewidth=1.2, alpha=0.5, label = 'Price')
     ax.plot(df_daily.index, df_daily['SMA10'], color='orange', linewidth=1.0, alpha=0.7, label = 'SMA10')
@@ -580,12 +580,14 @@ if st.button("Run ML Strategy Backtest"):
                     where=(df_daily['SMA10'] < df_daily['SMA50']),
                     color='red', alpha=0.15)
     
-    ax.plot(results['ExitDate'], results['Cumulative'], color='red', linewidth=1.8, alpha=0.5)
-    ax.axhline(1.0, color='red', linestyle='--', alpha=0.5)
+    bx.plot(results['ExitDate'], results['Cumulative'], color='red', linewidth=1.8, alpha=0.5)
+    bx.axhline(1.0, color='red', linestyle='--', alpha=0.5)
+    bx.set_ylabel('Equity')
+    bx.set_xlabel('Date')
     
-    for i in range(0, len(results), 5):
-        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=32, zorder=5)
-        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color='black', s=32, zorder=5)
+    for i in range(0, len(results), 3):
+        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=7, zorder=5, alpha=0.5)
+        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color='black', s=7, zorder=5, alpha=0.5)
         ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]),
                     xytext=(0, -12), textcoords='offset points', fontsize=8)
         ax.annotate(results['Outcome'].iloc[i], (results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i]),
