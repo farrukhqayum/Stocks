@@ -806,11 +806,17 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
 
             # Safely calculate confidence score
+            max_ratio = 10
             try:
-                #ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
-                ratio = (predicted_return / abs(predicted_loss)) if (will_hit != 'None' and predicted_loss != 0) else 0
-                ratio = max(ratio, 0)
-                confidence_score = min(max((hit_prob/100) * ratio, 0) * 100, 100)
+                if (will_hit != 'None' and predicted_loss != 0):
+                    ratio = (predicted_return / abs(predicted_loss))
+                    log_ratio = np.log1p(ratio)
+                    max_log_ratio = np.log1p(max_ratio)
+                    normalized_confidence = log_ratio / max_log_ratio
+                    confidence_score = max(min(normalized_confidence, 1), 0)
+                else:
+                   confidence_score = 0
+                    
             except Exception as e:
                 confidence_score = 0 
     
@@ -1191,6 +1197,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
