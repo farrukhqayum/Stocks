@@ -588,24 +588,25 @@ if st.button("Run ML Strategy Backtest"):
     tp_label_shown = False
     sl_label_shown = False
     other_label_shown = False
-    
+    entry_annotated = False
     for i in range(0, len(results), 2):
         outcome = results['Outcome'].iloc[i]
         color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'black'
-        # show each label only once
-        if outcome == 'TP' and not tp_label_shown:
-            lbl = 'TP'
-            tp_label_shown = True
-        elif outcome == 'SL' and not sl_label_shown:
-            lbl = 'SL'
-            sl_label_shown = True
-        elif outcome not in ['TP', 'SL'] and not other_label_shown:
-            lbl = 'Other'
-            other_label_shown = True
-        else:
-            lbl = None
-        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color=color, label=lbl, s=7, zorder=5, alpha=0.7)
-
+        # Plot entry (all blue, no label)
+        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=7, zorder=5, alpha=0.5)
+        # Plot exit by outcome
+        label = None
+        if outcome == 'TP' and 'TP' not in ax.get_legend_handles_labels()[1]:
+            label = 'TP'
+        elif outcome == 'SL' and 'SL' not in ax.get_legend_handles_labels()[1]:
+            label = 'SL'
+        elif outcome not in ['TP', 'SL'] and 'Other' not in ax.get_legend_handles_labels()[1]:
+            label = 'Other'
+        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color=color, label=label, s=7, zorder=5, alpha=0.7)
+        # Annotate only the first blue entry if desired
+        if not entry_annotated:
+            ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]), xytext=(0, -12), textcoords='offset points', fontsize=8, color='blue')
+            entry_annotated = True
     ax.grid(True, axis='y', linestyle='--', alpha=0.7)
     bx.grid(True, axis='y', linestyle='--', alpha=0.7)
     ax.legend(loc='upper left', fontsize='x-small')
