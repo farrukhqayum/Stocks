@@ -48,6 +48,15 @@ Trade exits when
 - Or the trade holds for the maximum allowed days
 Upon exit, waits for the next valid setup before re-entering.
     """)
+    
+with st.expander("SL/TP triggers inside each day?"):
+    st.markdown('''
+- After entry, *each day's high and low* are checked individually to simulate real-world price movement.
+- If **Stop Loss (SL)** is hit by the day's **Low** (price <= SL), the trade is immediately closed on that date at SL price, even if price finishes higher later.
+- If **Take Profit (TP)** is hit by the day's **High** (price >= TP), the trade is immediately closed on that date at TP price, even if price finishes lower later.
+- If the next day's Open is outside either trigger, this gap condition is detected and the appropriate exit is done at open or the SL/TP boundary (whichever is reached first).
+- This assures that the backtest does not "wait" for daily close, but instead closes as soon as the SL or TP threshold is touched, closely matching real trade slippage logic.
+    ''')
 
 # -------------------------
 # Strategy Parameters
