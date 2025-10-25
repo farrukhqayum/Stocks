@@ -15,7 +15,7 @@ warnings.filterwarnings('ignore')
 # Set page config first
 st.set_page_config(page_title="ML Daily Entry with Weekly Trend Filter", layout="wide")
 
-st.title("🤖 BACKTEST - Favorable Trades Only")
+st.title("🤖 BACKTEST - Combining Weekly & Daily")
 with st.expander("Strategy Summary"):
     st.markdown("""
 - **Weekly Trend Filter:** Only takes long positions when weekly SMA10 > SMA50 (uptrend detected).
