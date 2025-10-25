@@ -613,17 +613,16 @@ if st.button("Run ML Strategy Backtest"):
     ax.legend(loc='upper left', fontsize='x-small')
     bx.legend(loc='lower left', fontsize='x-small')
     
-    # For upper panel
-    ax.set_ylabel('Price', labelpad=8)
+    ax.set_ylabel('Price', labelpad=20)
     ax.yaxis.set_label_position('right')
     ax.yaxis.tick_right()
-    ax.yaxis.set_label_coords(1.02, 0.5)
+    ax.yaxis.set_label_coords(1.08, 0.5)  # further right
     
-    # For lower panel
-    bx.set_ylabel('Equity', labelpad=8)
+    bx.set_ylabel('Equity', labelpad=20)
     bx.yaxis.set_label_position('right')
     bx.yaxis.tick_right()
-    bx.yaxis.set_label_coords(1.02, 0.5)
+    bx.yaxis.set_label_coords(1.08, 0.5)
+
     fig.tight_layout()
     st.pyplot(fig)
 
