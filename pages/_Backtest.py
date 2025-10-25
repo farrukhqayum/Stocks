@@ -582,7 +582,7 @@ if st.button("Run ML Strategy Backtest"):
         ax.annotate(results['Outcome'].iloc[i], (results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i]),
                     xytext=(0, 12), textcoords='offset points', fontsize=8)
     
-    plt.show()
+    st.pyplot(fig)
 
 
     # ML Performance Analysis
