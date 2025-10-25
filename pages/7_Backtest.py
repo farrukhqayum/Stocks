@@ -639,8 +639,8 @@ if st.button("Run ML Strategy Backtest"):
         if not entry_annotated:
             ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]), xytext=(0, -12), textcoords='offset points', fontsize=8, color='blue')
             entry_annotated = True
-    results['Date'] = pd.to_datetime(results['Date'])
-    cx.scatter(results['Date'], results['ML_Confidence'], color='violet', alpha=0.8, label='ML Confidence')
+    rd = pd.to_datetime(results['EntryDate'])
+    cx.scatter(rd, results['ML_Confidence'], color='violet', alpha=0.8, label='ML Confidence')
     #cx.set_ylim(0, 100)
     
     ax.set_title(f'{ticker} Price Chart')
