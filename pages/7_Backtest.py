@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import ta
+from imports import *
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime
@@ -50,8 +50,8 @@ if st.button("Run Backtest"):
     # Indicators
     df['SMA10'] = df['Close'].rolling(10).mean()
     df['SMA50'] = df['Close'].rolling(50).mean()
-    df['RSI'] = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
-    df['ATR'] = ta.volatility.AverageTrueRange(df['High'], df['Low'], df['Close'], window=14).average_true_range()
+    df['RSI'] = ta.calculate_rsi(df['Close'], window=14)
+    df['ATR'] = ta.calculate_atr(df['High'], df['Low'], df['Close'])
 
     # Entry Conditions
     df['trend_up'] = df['SMA10'] > df['SMA50']
