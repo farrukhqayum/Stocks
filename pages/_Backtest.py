@@ -586,8 +586,8 @@ if st.button("Run ML Strategy Backtest"):
     bx.set_xlabel('Date')
     
     for i in range(0, len(results), 3):
-        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=7, zorder=5, alpha=0.5)
-        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color='black', s=7, zorder=5, alpha=0.5)
+        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], label = 'Entry', color='blue', s=7, zorder=5, alpha=0.5)
+        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], label = 'Exit', color='black', s=7, zorder=5, alpha=0.5)
         ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]),
                     xytext=(0, -12), textcoords='offset points', fontsize=8)
         ax.annotate(results['Outcome'].iloc[i], (results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i]),
