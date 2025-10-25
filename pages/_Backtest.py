@@ -557,14 +557,33 @@ if st.button("Run ML Strategy Backtest"):
     st.dataframe(results.sort_values('EntryDate', ascending=False))
 
     # Plot results
-    st.subheader("Equity Curve")
+    st.subheader("Backtest and Equity")
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(results['ExitDate'], results['Cumulative'], linewidth=2)
-    ax.set_title("Strategy Equity Curve")
-    ax.set_ylabel("Growth (1.0 = Start)")
-    ax.grid(True, alpha=0.3)
+    
+    ax.plot(df.index, df['Close'], color='gray', linewidth=1.2, alpha=0.5)
+    ax.plot(df.index, df['SMA1'], color='orange', linewidth=1.0, alpha=0.7)
+    ax.plot(df.index, df['SMA2'], color='red', linewidth=1.0, alpha=0.5)
+    
+    ax.fill_between(df.index, df['SMA1'], df['SMA2'],
+                    where=(df['SMA1'] > df['SMA2']),
+                    color='green', alpha=0.15)
+    ax.fill_between(df.index, df['SMA1'], df['SMA2'],
+                    where=(df['SMA1'] < df['SMA2']),
+                    color='red', alpha=0.15)
+    
+    ax.plot(results['ExitDate'], results['Cumulative'], color='red', linewidth=1.8, alpha=0.5)
     ax.axhline(1.0, color='red', linestyle='--', alpha=0.5)
-    st.pyplot(fig)
+    
+    for i in range(0, len(results), 5):
+        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=32, zorder=5)
+        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color='black', s=32, zorder=5)
+        ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]),
+                    xytext=(0, -12), textcoords='offset points', fontsize=8)
+        ax.annotate(results['Outcome'].iloc[i], (results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i]),
+                    xytext=(0, 12), textcoords='offset points', fontsize=8)
+    
+    plt.show()
+
 
     # ML Performance Analysis
     st.subheader("ML Signal Performance")
@@ -576,23 +595,3 @@ if st.button("Run ML Strategy Backtest"):
         st.dataframe(signal_performance)
 
     st.success("Backtest complete!")
-
-# Add some explanations
-st.sidebar.markdown("""
-### Strategy Explanation
-
-**Weekly Trend Filter:**
-- Uses SMA10 > SMA50 on weekly charts
-- Only takes long positions in uptrends
-
-**ML Entry Signals:**
-- Trained on technical indicators + pivot levels
-- Predicts TP/SL probability
-- Requires confidence threshold
-
-**Risk Management:**
-- 7% fixed TP/SL levels
-- Gap protection at open
-- Max holding period
-- No overlapping trades
-""")
