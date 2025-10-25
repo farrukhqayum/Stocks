@@ -660,8 +660,11 @@ if st.button("Run ML Strategy Backtest"):
         st.dataframe(signal_performance)
 
     st.success("Backtest complete!")
+
+    ################################################################################
+    ### MULTIPLE % TEST #####
     
-    st.success(f"Running Multiple scenarios of TP/SLs and building a table for {ticker}")
+    st.write(f"Running Multiple scenarios of TP/SLs and building a table for {ticker}")
     TP_SL_list = [0.01, 0.03, 0.05, 0.07, 0.10]
     progress = st.progress(0)
     perf_rows = []
@@ -769,6 +772,6 @@ if st.button("Run ML Strategy Backtest"):
         perf_rows.append({'TP/SL %': f'{int(pct * 100)}%', 'Wins': n_win, 'Losses': n_loss, 'Win Rate (%)': win_rate, 'Total Return (%)': total_return, 'Profit Factor': profit_factor})
     
     perf_table = pd.DataFrame(perf_rows)
-    st.subheader('Performance by TP/SL Percent (ML Confidence >= 50%)')
+    st.subheader(f'{ticker} Performance by TP/SL Percent (ML Confidence >= 50%)')
     st.dataframe(perf_table)
 
