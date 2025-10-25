@@ -584,7 +584,11 @@ if st.button("Run ML Strategy Backtest"):
     bx.axhline(1.0, color='red', linestyle='--', alpha=0.5)
     bx.set_ylabel('Equity')
     bx.set_xlabel('Date')
-        
+    entry_label_shown = False
+    tp_label_shown = False
+    sl_label_shown = False
+    other_label_shown = False
+    
     for i in range(0, len(results), 3):
         outcome = results['Outcome'].iloc[i]
         color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'black'
