@@ -15,16 +15,24 @@ warnings.filterwarnings('ignore')
 # Set page config first
 st.set_page_config(page_title="ML Daily Entry with Weekly Trend Filter", layout="wide")
 
-st.title("🤖 ML Daily Entry — Weekly Trend Filter with 7% TP/SL")
-st.markdown("""
-Strategy:
-- **Weekly Trend Filter**: Only take trades when SMA10 > SMA50 on weekly timeframe
-- **Daily ML Entries**: Use ML predictions for entry signals on daily timeframe  
-- **Entry**: At daily close when ML predicts upward movement
-- **Exit**: 7% TP or 7% SL based on daily price action
-- **Risk Management**: Close trade if price jumps ±7% intraday or next day open
-- **Non-overlapping**: Wait for current trade to close before taking next signal
-""")
+st.title("🤖 BACKTEST - Weekly-to-daily Integration")
+with st.expander("Strategy Summary"):
+    st.markdown("""
+- **Weekly Trend Filter:** Only takes long positions when weekly SMA10 > SMA50 (uptrend detected).
+- **Daily ML Entries:** Entry occurs on daily close when the ML model predicts a bullish move ("TP" or "Hold" signal) and confidence is above a set threshold.
+- **Trade Entry:** One new position is opened only if not already in a trade, matching signal and weekly filter.
+- **Trade Exit:** Position closes when price moves +7% (TP) or -7% (SL) intraday or at next open, or when maximum holding days are reached.
+- **No Overlapping Trades:** Strategy waits for the current trade to close before taking the next entry—it never doubles up.
+    """)
+with st.expander("Backtest Machine Learning Workflow"):
+    st.markdown("""
+- **Feature Engineering:** Daily market data is enriched with technical indicators and pivot levels.
+- **Labeling:** Each day is labeled as TP (target hit), SL (stop hit), or neutral, by examining next N days for price moves.
+- **Model Training:** Random Forest models are trained—classification predicts label (TP, SL), regressors estimate expected returns and losses.
+- **Prediction:** For each trade day, model confidence and predictions are computed, guiding entry decisions.
+- **Performance Evaluation:** Trade entries/exits, returns, and equity growth are tracked. The app displays trade stats, signal breakdown, and growth curve.
+    """)
+
 
 # -------------------------
 # Strategy Parameters
