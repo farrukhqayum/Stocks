@@ -589,7 +589,7 @@ if st.button("Run ML Strategy Backtest"):
     sl_label_shown = False
     other_label_shown = False
     
-    for i in range(0, len(results), 3):
+    for i in range(0, len(results), 2):
         outcome = results['Outcome'].iloc[i]
         color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'black'
         # show each label only once
