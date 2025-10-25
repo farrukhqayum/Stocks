@@ -372,8 +372,8 @@ if st.button("Run ML Strategy Backtest"):
     # Prepare daily data with ML features
     with st.spinner('Calculating technical indicators...'):
         df_daily = add_technical_indicators(df_daily)
-        df_daily = add_pivots(df_daily, windows[:5])  # Use first 5 windows for speed
-        df_daily = average_pivots(df_daily, [5, 10, 14])
+        df_daily = add_pivots(df_daily, windows)
+        df_daily = average_pivots(df_daily, windows)
         df_daily = compute_expected_return(df_daily)
         df_daily = compute_expected_loss(df_daily)
         df_daily = label_hit_prob_past(df_daily, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
