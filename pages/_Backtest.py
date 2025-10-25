@@ -140,23 +140,42 @@ def add_technical_indicators(df):
     
     return df
 
-def add_pivots(df, windows):
-    """Add pivot levels"""
-    for w in windows:
+def add_pivot_levels(df, window=_DAYS):
+    high = df['High'].rolling(window)
+    low = df['Low'].rolling(window)
+    close = df['Close'].rolling(window)
+    PP = (high.max() + low.min() + close.apply(lambda x: x[-1])).div(3)
+    R1 = 2 * PP - low.min()
+    S1 = 2 * PP - high.max()
+    R2 = PP + (high.max() - low.min())
+    S2 = PP - (high.max() - low.min())
+    df['PP'] = PP.fillna(method='bfill')
+    df['R1'] = R1.fillna(method='bfill')
+    df['S1'] = S1.fillna(method='bfill')
+    df['R2'] = R2.fillna(method='bfill')
+    df['S2'] = S2.fillna(method='bfill')
+    return df
+
+def add_pivots(df, win=windows):
+    for w in win:
         roll_high = df['High'].rolling(w)
         roll_low = df['Low'].rolling(w)
-        PP = (roll_high.max() + roll_low.min() + df['Close'].rolling(w).apply(lambda x: x[-1])).div(3)
+        roll_close = df['Close'].rolling(w)
+        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x[-1])).div(3)
         R1 = 2 * PP - roll_low.min()
         S1 = 2 * PP - roll_high.max()
+        R2 = PP + (roll_high.max() - roll_low.min())
+        S2 = PP - (roll_high.max() - roll_low.min())
         df[f'PP_{w}'] = PP
         df[f'R1_{w}'] = R1
         df[f'S1_{w}'] = S1
+        df[f'R2_{w}'] = R2
+        df[f'S2_{w}'] = S2
     return df
 
-def average_pivots(df, window_list=[5, 10, 14, 20]):
-    """Average pivot levels"""
-    for level in ['PP', 'R1', 'S1']:
-        cols = [f'{level}_{w}' for w in window_list]
+def average_pivots(df, windows=[5, 10, 14, 20]):
+    for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
+        cols = [f'{level}_{w}' for w in windows]
         df[f'{level}_Avg'] = df[cols].mean(axis=1)
     return df
 
