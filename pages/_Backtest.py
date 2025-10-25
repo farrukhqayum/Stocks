@@ -407,8 +407,11 @@ if st.button("Run ML Strategy Backtest"):
             continue
             
         latest_weekly_date = weekly_dates[weekly_mask][-1]
-        weekly_trend_up = df_weekly.loc[latest_weekly_date, 'trend_up'] if pd.notna(df_weekly.loc[latest_weekly_date, 'trend_up']) else False
-        
+        trend_up_value = df_weekly.loc[latest_weekly_date, 'trend_up']
+        if isinstance(trend_up_value, pd.Series):
+            trend_up_value = trend_up_value.iloc[0]  # take first, or handle as needed
+        weekly_trend_up = bool(trend_up_value) if pd.notna(trend_up_value) else False
+
         # Skip if weekly trend is down (except for exiting trades)
         if not weekly_trend_up and not in_trade:
             continue
