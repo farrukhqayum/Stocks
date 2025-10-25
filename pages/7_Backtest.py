@@ -537,7 +537,7 @@ if st.button("Run ML Strategy Backtest"):
         st.stop()
 
     # Calculate performance metrics
-    initial_cap = 1.0
+    initial_cap = 1000.0
     results['Return_factor'] = 1 + results['Return_%'] / 100.0
     results['Cumulative'] = initial_cap * results['Return_factor'].cumprod()
     
@@ -580,9 +580,10 @@ if st.button("Run ML Strategy Backtest"):
                     where=(df_daily['SMA10'] < df_daily['SMA50']),
                     color='red', alpha=0.15)
     
-    bx.plot(results['ExitDate'], results['Cumulative'], color='red', linewidth=1.8, alpha=0.5)
+    bx.plot(results['ExitDate'], results['Cumulative'], color='gray', linewidth=1.0, alpha=0.5)
+    
     bx.axhline(1.0, color='red', linestyle='--', alpha=0.5)
-    bx.set_ylabel('Equity')
+    bx.set_ylabel('Equity ($)')
     bx.set_xlabel('Date')
     entry_label_shown = False
     tp_label_shown = False
@@ -607,12 +608,23 @@ if st.button("Run ML Strategy Backtest"):
         if not entry_annotated:
             ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]), xytext=(0, -12), textcoords='offset points', fontsize=8, color='blue')
             entry_annotated = True
-    ax.grid(True, axis='y', linestyle='--', alpha=0.7)
-    bx.grid(True, axis='y', linestyle='--', alpha=0.7)
+    ax.grid(alpha=0.3)
+    bx.grid(alpha=0.3)
     ax.legend(loc='upper left', fontsize='x-small')
     bx.legend(loc='lower left', fontsize='x-small')
+    
+    # For upper panel
+    ax.set_ylabel('Price', labelpad=8)
+    ax.yaxis.set_label_position('right')
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_coords(1.02, 0.5)
+    
+    # For lower panel
+    bx.set_ylabel('Equity', labelpad=8)
+    bx.yaxis.set_label_position('right')
+    bx.yaxis.tick_right()
+    bx.yaxis.set_label_coords(1.02, 0.5)
     st.pyplot(fig)
-
 
     # ML Performance Analysis
     st.subheader("ML Signal Performance")
