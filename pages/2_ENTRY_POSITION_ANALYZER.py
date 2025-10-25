@@ -648,11 +648,16 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         tp_percentage = ((predicted_tp - current_price) / current_price) * 100
         sl_percentage = ((predicted_sl - current_price) / current_price) * 100
         
-        # Confidence score
-        ratio = (predicted_return / abs(predicted_loss)) if (will_hit != 'None' and predicted_loss != 0) else 0
-        ratio = max(ratio, 0)
-        #confidence_score = max((hit_prob/100) * ratio, 0) * 100
-        confidence_score = min(max(((hit_prob/100)**1.2) * (ratio**0.8), 0) * 100, 100)
+        # Confidence calculation
+        max_ratio = 10
+        if predicted_loss != 0 and will_hit != 'None':
+            ratio = predicted_return / abs(predicted_loss)
+            log_ratio = np.log1p(ratio)
+            max_log_ratio = np.log1p(max_ratio)
+            normalized_confidence = log_ratio / max_log_ratio
+            confidence_score = max(min(normalized_confidence, 1), 0) * 100
+        else:
+            confidence_score = 0.0
         
         return {
             'will_hit': will_hit,
