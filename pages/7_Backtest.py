@@ -624,6 +624,7 @@ if st.button("Run ML Strategy Backtest"):
     bx.yaxis.set_label_position('right')
     bx.yaxis.tick_right()
     bx.yaxis.set_label_coords(1.02, 0.5)
+    fig.tight_layout()
     st.pyplot(fig)
 
     # ML Performance Analysis
