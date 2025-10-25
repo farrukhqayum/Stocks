@@ -660,3 +660,113 @@ if st.button("Run ML Strategy Backtest"):
         st.dataframe(signal_performance)
 
     st.success("Backtest complete!")
+    
+    st.success(f"Running Multiple scenarios of TP/SLs and building a table for {ticker}")
+    TP_SL_list = [0.01, 0.03, 0.05, 0.07, 0.10]
+    perf_rows = []
+    for pct in TP_SL_list:
+        trades = []
+        in_trade = False
+        current_trade = {}
+        for i, current_date in enumerate(daily_dates):
+            # Weekly filter + ML prediction
+            weekly_mask = weekly_dates <= current_date
+            if not weekly_mask.any():
+                continue
+            latest_weekly_date = weekly_dates[weekly_mask][-1]
+            trend_up_value = df_weekly.loc[latest_weekly_date, 'trend_up']
+            if isinstance(trend_up_value, pd.Series):
+                trend_up_value = trend_up_value.iloc[0]
+            weekly_trend_up = bool(trend_up_value) if pd.notna(trend_up_value) else False
+            if not weekly_trend_up and not in_trade:
+                continue
+            current_data = df_daily.loc[:current_date]
+            if len(current_data) < 100:
+                continue
+            ml_prediction = get_ml_prediction(current_data, models)
+            if ml_prediction is None or ml_prediction['confidence_score'] < 0.5:
+                continue
+            current_ml_signal = ml_prediction['will_hit']
+            current_ml_confidence = ml_prediction['confidence_score']
+            # ENTRY LOGIC
+            if (not in_trade and current_ml_signal in ['TP', 'Hold'] and weekly_trend_up):
+                entry_price = float(df_daily.loc[current_date, 'Close'])
+                TP_price = entry_price * (1 + pct)
+                SL_price = entry_price * (1 - pct)
+                current_trade = {'entry_date': current_date, 'entry_price': entry_price, 'tp_price': TP_price, 'sl_price': SL_price, 'ml_confidence': current_ml_confidence, 'ml_signal': current_ml_signal}
+                in_trade = True
+            # EXIT LOGIC
+            elif in_trade:
+                entry_date = current_trade['entry_date']
+                entry_price = current_trade['entry_price']
+                TP_price = current_trade['tp_price']
+                SL_price = current_trade['sl_price']
+                days_in_trade = (current_date - entry_date).days
+                current_open = float(df_daily.loc[current_date, 'Open'])
+                current_high = float(df_daily.loc[current_date, 'High'])
+                current_low = float(df_daily.loc[current_date, 'Low'])
+                current_close = float(df_daily.loc[current_date, 'Close'])
+                exit_reason = None
+                exit_price = None
+                if current_low <= SL_price:
+                    exit_reason = 'SL'
+                    exit_price = SL_price
+                elif current_high >= TP_price:
+                    exit_reason = 'TP'
+                    exit_price = TP_price
+                elif current_open <= SL_price:
+                    exit_reason = 'Gap_SL'
+                    exit_price = min(current_open, SL_price)
+                elif current_open >= TP_price:
+                    exit_reason = 'Gap_TP'
+                    exit_price = max(current_open, TP_price)
+                elif days_in_trade >= max_holding_days:
+                    exit_reason = 'Max_Hold'
+                    exit_price = current_close
+                if exit_reason:
+                    return_pct = (exit_price / entry_price - 1) * 100.0
+                    trades.append({
+                        'EntryDate': entry_date,
+                        'ExitDate': current_date,
+                        'EntryPrice': entry_price,
+                        'ExitPrice': exit_price,
+                        'Outcome': exit_reason,
+                        'Return_%': return_pct,
+                        'HoldingDays': days_in_trade,
+                        'ML_Confidence': current_trade['ml_confidence'],
+                        'ML_Signal': current_trade['ml_signal']
+                    })
+                    in_trade = False
+                    current_trade = {}
+        # Handle open trade at end
+        if in_trade:
+            last_date = daily_dates[-1]
+            exit_price = float(df_daily.loc[last_date, 'Close'])
+            return_pct = (exit_price / current_trade['entry_price'] - 1) * 100.0
+            trades.append({
+                'EntryDate': current_trade['entry_date'],
+                'ExitDate': last_date,
+                'EntryPrice': current_trade['entry_price'],
+                'ExitPrice': exit_price,
+                'Outcome': 'Open',
+                'Return_%': return_pct,
+                'HoldingDays': (last_date - current_trade['entry_date']).days,
+                'ML_Confidence': current_trade['ml_confidence'],
+                'ML_Signal': current_trade['ml_signal']
+            })
+        result_df = pd.DataFrame(trades)
+        wins = result_df['Return_%'] > 0
+        n_win = wins.sum()
+        n_loss = len(result_df) - n_win
+        win_rate = 100. * n_win / len(result_df) if len(result_df) > 0 else 0
+        total_return = result_df['Return_%'].cumsum().iloc[-1] if len(result_df) > 0 else 0
+        if n_loss > 0:
+            profit_factor = result_df.loc[wins, 'Return_%'].sum() / abs(result_df.loc[~wins, 'Return_%'].sum())
+        else:
+            profit_factor = np.nan
+        perf_rows.append({'TP/SL %': f'{int(pct * 100)}%', 'Wins': n_win, 'Losses': n_loss, 'Win Rate (%)': win_rate, 'Total Return (%)': total_return, 'Profit Factor': profit_factor})
+    
+    perf_table = pd.DataFrame(perf_rows)
+    st.subheader('Performance by TP/SL Percent (ML Confidence >= 50%)')
+    st.dataframe(perf_table)
+
