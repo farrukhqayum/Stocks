@@ -560,15 +560,15 @@ if st.button("Run ML Strategy Backtest"):
     st.subheader("Backtest and Equity")
     fig, ax = plt.subplots(figsize=(12, 6))
     
-    ax.plot(df.index, df['Close'], color='gray', linewidth=1.2, alpha=0.5)
-    ax.plot(df.index, df['SMA1'], color='orange', linewidth=1.0, alpha=0.7)
-    ax.plot(df.index, df['SMA2'], color='red', linewidth=1.0, alpha=0.5)
+    ax.plot(df.index, df_weekly ['Close'], color='gray', linewidth=1.2, alpha=0.5)
+    ax.plot(df.index, df_weekly ['SMA1'], color='orange', linewidth=1.0, alpha=0.7)
+    ax.plot(df.index, df_weekly ['SMA2'], color='red', linewidth=1.0, alpha=0.5)
     
-    ax.fill_between(df.index, df['SMA1'], df['SMA2'],
-                    where=(df['SMA1'] > df['SMA2']),
+    ax.fill_between(df.index, df_weekly['SMA1'], df_weekly['SMA2'],
+                    where=(df_weekly['SMA1'] > df_weekly['SMA2']),
                     color='green', alpha=0.15)
-    ax.fill_between(df.index, df['SMA1'], df['SMA2'],
-                    where=(df['SMA1'] < df['SMA2']),
+    ax.fill_between(df.index, df_weekly['SMA1'], df_weekly['SMA2'],
+                    where=(df_weekly['SMA1'] < df_weekly['SMA2']),
                     color='red', alpha=0.15)
     
     ax.plot(results['ExitDate'], results['Cumulative'], color='red', linewidth=1.8, alpha=0.5)
