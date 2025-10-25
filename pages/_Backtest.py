@@ -67,7 +67,7 @@ if st.button("Run Backtest"):
 
     # --- Entry Logic ---
     df['trend_up'] = df['SMA10'] > df['SMA50']
-    df['pullback'] = (df['Close'].shift(1) < df['SMA10'].shift(1)) & (df['RSI'].shift(1) < 40)
+    df['pullback'] = (df['Close'].shift(1) < df['SMA10'].shift(1)) & (df['RSI'].shift(1) < 45)
     df['recovery'] = (df['Close'] > df['SMA10']) & (df['RSI'] > 50)
     df['signal'] = df['trend_up'] & df['pullback'] & df['recovery']
 
