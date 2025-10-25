@@ -1199,7 +1199,7 @@ def main():
                             st.metric(label="Risk/Reward", value=f"{rrr:.1f}")
                             color = "green" if rrr > 1.5 else "red"
                             st.markdown(f"<p style='color:{color};'>R/R is {'GOOD' if rrr > 1.5 else 'POOR'}</p>", unsafe_allow_html=True)
-                            st.metric("Confidence", f"{prediction['confidence']:.1f}%")
+                            st.metric("CONFIDENCE", f"{prediction['confidence']:.1f}%")
 
                         if assessment == "Valid":
                             st.success(f"**Assessment**: {assessment}")
