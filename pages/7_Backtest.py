@@ -33,6 +33,20 @@ with st.expander("Backtest Machine Learning Workflow"):
 - **Performance Evaluation:** Trade entries/exits, returns, and equity growth are tracked. The app displays trade stats, signal breakdown, and growth curve.
     """)
 
+with st.expander("Example: How a TSLA Trade is Entered"):
+    st.markdown("""
+If TSLA (Tesla) closes at $433.72 and weekly SMA10 ($436.68) > SMA50 ($396.15), the weekly filter allows entry. If the ML model predicts a bullish move with strong confidence and no trade is open, the strategy enters at $433.72.
+TP = $464.08, SL = $403.36 set from entry. Next entry occurs only when current trade closes and all entry signals align again.
+    """)
+
+with st.expander("Example: How a TSLA Trade is Exited"):
+    st.markdown("""
+Trade exits when
+- TSLA price reaches $464.08 (TP)
+- TSLA price drops to $403.36 (SL)
+- Or the trade holds for the maximum allowed days
+Upon exit, waits for the next valid setup before re-entering.
+    """)
 
 # -------------------------
 # Strategy Parameters
