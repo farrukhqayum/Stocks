@@ -584,15 +584,19 @@ if st.button("Run ML Strategy Backtest"):
     bx.axhline(1.0, color='red', linestyle='--', alpha=0.5)
     bx.set_ylabel('Equity')
     bx.set_xlabel('Date')
-    
+        
     for i in range(0, len(results), 3):
-        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], label = 'Entry', color='blue', s=7, zorder=5, alpha=0.5)
-        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], label = 'Exit', color='black', s=7, zorder=5, alpha=0.5)
+        outcome = results['Outcome'].iloc[i]
+        color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'black'
+        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=7, zorder=5, alpha=0.5)
+        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color=color, s=7, zorder=5, alpha=0.7)
         ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]),
                     xytext=(0, -12), textcoords='offset points', fontsize=8)
-        ax.annotate(results['Outcome'].iloc[i], (results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i]),
+        ax.annotate(outcome, (results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i]),
                     xytext=(0, 12), textcoords='offset points', fontsize=8)
-    
+
+    ax.legend(loc='upper left', fontsize='x-small')
+    bx.legend(loc='lower left', fontsize='x-small')
     st.pyplot(fig)
 
 
