@@ -663,11 +663,13 @@ if st.button("Run ML Strategy Backtest"):
     
     st.success(f"Running Multiple scenarios of TP/SLs and building a table for {ticker}")
     TP_SL_list = [0.01, 0.03, 0.05, 0.07, 0.10]
+    progress = st.progress(0)
     perf_rows = []
-    for pct in TP_SL_list:
+    for idx, pct in enumerate(TP_SL_list):
         trades = []
         in_trade = False
         current_trade = {}
+        progress.progress((idx + 1) / len(TP_SL_list))
         for i, current_date in enumerate(daily_dates):
             # Weekly filter + ML prediction
             weekly_mask = weekly_dates <= current_date
