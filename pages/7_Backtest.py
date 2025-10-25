@@ -456,7 +456,11 @@ if st.button("Run ML Strategy Backtest"):
         ml_prediction = get_ml_prediction(current_data, models)
         if ml_prediction is None:
             continue
-        
+    
+        confidence_history = []
+        if ml_prediction is not None:
+            confidence_history.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
+
         current_ml_signal = ml_prediction['will_hit']
         current_ml_confidence = ml_prediction['confidence_score']
         
@@ -555,6 +559,7 @@ if st.button("Run ML Strategy Backtest"):
 
     # Results Analysis
     results = pd.DataFrame(trades)
+    conf_df = pd.DataFrame(confidence_history)
     
     if results.empty:
         st.warning("No trades executed. Check ML predictions and weekly trend conditions.")
@@ -590,7 +595,7 @@ if st.button("Run ML Strategy Backtest"):
 
     # Plot results
     st.subheader("Backtest and Equity")
-    fig, (ax, bx) = plt.subplots(2, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+    fig, (ax, bx, cx) = plt.subplots(3, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1, 1]})
     
     ax.plot(df_daily.index, df_daily['Close'], color='gray', linewidth=1.2, alpha=0.5, label = 'Price')
     ax.plot(df_daily.index, df_daily['SMA10'], color='orange', linewidth=1.0, alpha=0.7, label = 'SMA10')
@@ -632,20 +637,35 @@ if st.button("Run ML Strategy Backtest"):
         if not entry_annotated:
             ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]), xytext=(0, -12), textcoords='offset points', fontsize=8, color='blue')
             entry_annotated = True
+
+    cx.plot(conf_df['Date'], conf_df['Confidence'], color='violet', alpha=0.8, linewidth=1.3, label='ML Confidence')
+    cx.set_xlabel('Date')
+    
+    ax.set_title(f'{ticker} Price Chart')
+    bx.set_title(f'Total Equity Over Time')
+    cx.set_title(f'ML Confidence Over Time')
+
     ax.grid(alpha=0.3)
-    bx.grid(alpha=0.3)
+    bx.grid(alpha=0.3
+    cx.grid(alpha=0.3)
     ax.legend(loc='upper left', fontsize='x-small')
     bx.legend(loc='lower left', fontsize='x-small')
+    cx.legend()
     
     ax.set_ylabel('Price', labelpad=20)
     ax.yaxis.set_label_position('right')
     ax.yaxis.tick_right()
-    ax.yaxis.set_label_coords(1.08, 0.5)  # further right
+    ax.yaxis.set_label_coords(1.08, 0.5)
     
     bx.set_ylabel('Equity', labelpad=20)
     bx.yaxis.set_label_position('right')
     bx.yaxis.tick_right()
     bx.yaxis.set_label_coords(1.08, 0.5)
+
+    cx.set_ylabel('ML Conf', labelpad=20)
+    cx.yaxis.set_label_position('right')
+    cx.yaxis.tick_right()
+    cx.yaxis.set_label_coords(1.08, 0.5)
 
     fig.tight_layout()
     st.pyplot(fig)
