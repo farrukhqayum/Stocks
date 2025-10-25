@@ -250,8 +250,8 @@ if st.button("Run Weekly Backtest"):
 
     # price chart (daily) and mark entry points
     ax1.plot(df_daily.index, df_daily['Close'], label='Close', color='gray',  linewidth=1.0, alpha = 0.5)
-    ax1.plot(df_daily.index, df_daily['SMA1'], label='df_daily.SMA1', color='yellow', linewidth=1.0, alpha = 0.5)
-    ax1.plot(df_daily.index, df_daily['SMA2'], label='df_daily.SMA2', color='red', linewidth=1.0, alpha = 0.5)
+    ax1.plot(df_daily.index, df_daily['SMA10'], label='df_daily.SMA10', color='yellow', linewidth=1.0, alpha = 0.5)
+    ax1.plot(df_daily.index, df_daily['SMA50'], label='df_daily.SMA50', color='red', linewidth=1.0, alpha = 0.5)
     
     # mark weekly-entry points
     for _, r in results.iterrows():
