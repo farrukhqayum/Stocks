@@ -47,6 +47,11 @@ if st.button("Run Backtest"):
     df['SMA50'] = df['Close'].rolling(50).mean()
     df['RSI'] = ta.calculate_rsi(df)
     df['ATR'] = ta.calculate_atr(df['High'], df['Low'], df['Close'])
+    if isinstance(df['RSI'], pd.DataFrame):
+        df['RSI'] = df['RSI'].iloc[:, 0]
+    if isinstance(df['ATR'], pd.DataFrame):
+        df['ATR'] = df['ATR'].iloc[:, 0]
+
 
     # --- Entry Logic ---
     df['trend_up'] = df['SMA10'] > df['SMA50']
