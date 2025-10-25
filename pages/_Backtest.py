@@ -43,18 +43,27 @@ if st.button("Run Backtest"):
         st.stop()
 
     # --- Indicators ---
-    df['SMA10'] = df['Close'].rolling(10).mean()
-    df['SMA50'] = df['Close'].rolling(50).mean()
+    # Ensure df columns are Series (sometimes yfinance returns MultiIndex)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+    
+    # Convert all core OHLC columns to Series explicitly
+    for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+        if isinstance(df[col], pd.DataFrame):
+            df[col] = df[col].iloc[:, 0]
+    
+    # Indicators
+    df['SMA10'] = df['Close'].rolling(10).mean().astype(float)
+    df['SMA50'] = df['Close'].rolling(50).mean().astype(float)
+    
+    # RSI and ATR
     df['RSI'] = ta.calculate_rsi(df)
     if isinstance(df['RSI'], pd.DataFrame):
         df['RSI'] = df['RSI'].iloc[:, 0]
+    
     df['ATR'] = ta.calculate_atr(df['High'], df['Low'], df['Close'])
     if isinstance(df['ATR'], pd.DataFrame):
         df['ATR'] = df['ATR'].iloc[:, 0]
-    if isinstance(df['SMA10'], pd.DataFrame):
-        df['SMA10'] = df['SMA10'].iloc[:, 0]
-    if isinstance(df['SMA50'], pd.DataFrame):
-        df['SMA50'] = df['SMA50'].iloc[:, 0]
 
     # --- Entry Logic ---
     df['trend_up'] = df['SMA10'] > df['SMA50']
