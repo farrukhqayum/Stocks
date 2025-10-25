@@ -249,7 +249,10 @@ if st.button("Run Weekly Backtest"):
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), gridspec_kw={'height_ratios': [3, 1]})
 
     # price chart (daily) and mark entry points
-    ax1.plot(df_daily.index, df_daily['Close'], label='Close', linewidth=1.0)
+    ax1.plot(df_daily.index, df_daily['Close'], label='Close', color='gray',  linewidth=1.0, alpha = 0.5)
+    ax1.plot(df_daily.index, df_daily['SMA1'], label='df_daily.SMA1', color='yellow', linewidth=1.0, alpha = 0.5)
+    ax1.plot(df_daily.index, df_daily['SMA2'], label='df_daily.SMA2', color='red', linewidth=1.0, alpha = 0.5)
+    
     # mark weekly-entry points
     for _, r in results.iterrows():
         ax1.scatter(r['EntryDate'], r['EntryPrice'], color='blue', marker='^', s=80, zorder=5)
