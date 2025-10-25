@@ -588,12 +588,20 @@ if st.button("Run ML Strategy Backtest"):
     for i in range(0, len(results), 3):
         outcome = results['Outcome'].iloc[i]
         color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'black'
-        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', label = outcome, s=7, zorder=5, alpha=0.5)
-        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color=color, label = outcome, s=7, zorder=5, alpha=0.7)
-        ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]),
-                    xytext=(0, -12), textcoords='offset points', fontsize=5)
-        ax.annotate(outcome, (results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i]),
-                    xytext=(0, 12), textcoords='offset points', fontsize=5)
+        # show each label only once
+        if outcome == 'TP' and not tp_label_shown:
+            lbl = 'TP'
+            tp_label_shown = True
+        elif outcome == 'SL' and not sl_label_shown:
+            lbl = 'SL'
+            sl_label_shown = True
+        elif outcome not in ['TP', 'SL'] and not other_label_shown:
+            lbl = 'Other'
+            other_label_shown = True
+        else:
+            lbl = None
+        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color=color, label=lbl, s=7, zorder=5, alpha=0.7)
+
     ax.grid(True, axis='y', linestyle='--', alpha=0.7)
     bx.grid(True, axis='y', linestyle='--', alpha=0.7)
     ax.legend(loc='upper left', fontsize='x-small')
