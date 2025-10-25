@@ -646,7 +646,7 @@ if st.button("Run ML Strategy Backtest"):
     cx.set_title(f'ML Confidence Over Time')
 
     ax.grid(alpha=0.3)
-    bx.grid(alpha=0.3
+    bx.grid(alpha=0.3)
     cx.grid(alpha=0.3)
     ax.legend(loc='upper left', fontsize='x-small')
     bx.legend(loc='lower left', fontsize='x-small')
