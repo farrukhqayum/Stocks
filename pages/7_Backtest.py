@@ -14,7 +14,7 @@ st.set_page_config(page_title="Bull Run Entry Backtester", layout="wide")
 # ======================
 # PAGE HEADER
 # ======================
-st.title("📈 Bull Run Entry Backtester (SMA10, SMA50, RSI Recovery)")
+st.title("📈 Bull Run Entry Backtester")
 st.markdown("""
 This strategy identifies **trend continuation entries** in a bull run when:
 - SMA10 > SMA50 (trend confirmed)  
@@ -50,7 +50,7 @@ if st.button("Run Backtest"):
     # Indicators
     df['SMA10'] = df['Close'].rolling(10).mean()
     df['SMA50'] = df['Close'].rolling(50).mean()
-    df['RSI'] = ta.calculate_rsi(df['Close'], window=14)
+    df['RSI'] = ta.calculate_rsi(df)
     df['ATR'] = ta.calculate_atr(df['High'], df['Low'], df['Close'])
 
     # Entry Conditions
