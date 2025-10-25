@@ -21,6 +21,43 @@ Strategy:
 - **Non-overlapping**: Wait for current trade to close before taking next signal
 """)
 
+def simulate_ml_predictions(df_daily, lookback_days=5):
+    """
+    Simulate ML predictions for demonstration.
+    Replace this function with your actual ML model inference.
+    """
+    # Simple simulation: predict up if recent momentum is positive
+    df = df_daily.copy()
+    
+    # Calculate some features (simulate what your ML model might use)
+    df['returns_1d'] = df['Close'].pct_change(1)
+    df['returns_5d'] = df['Close'].pct_change(5)
+    df['volume_ma'] = df['Volume'].rolling(5).mean()
+    df['volatility'] = df['Close'].rolling(5).std()
+    
+    # Simulate ML predictions (1 = buy, 0 = hold/no action)
+    # This is a simple rule-based simulation - replace with actual ML
+    df['ml_prediction'] = 0
+    df['ml_confidence'] = 0.0
+    
+    # Simple rules to simulate ML (replace with actual model)
+    buy_conditions = (
+        (df['returns_5d'] > -0.02) &  # Not in strong downtrend
+        (df['volume_ma'] > df['Volume'].rolling(20).mean()) &  # Above average volume
+        (df['volatility'] < df['volatility'].rolling(20).mean() * 1.5)  # Not too volatile
+    )
+    
+    df.loc[buy_conditions, 'ml_prediction'] = 1
+    df.loc[buy_conditions, 'ml_confidence'] = np.random.uniform(0.6, 0.9, sum(buy_conditions))
+    
+    # Add some randomness to make it more realistic
+    random_signals = np.random.choice([0, 1], size=len(df), p=[0.9, 0.1])
+    random_mask = (random_signals == 1) & (df['ml_prediction'] == 0)
+    df.loc[random_mask, 'ml_prediction'] = 1
+    df.loc[random_mask, 'ml_confidence'] = np.random.uniform(0.5, 0.7, sum(random_mask))
+    
+    return df
+
 # -------------------------
 # User inputs
 # -------------------------
@@ -286,43 +323,6 @@ if st.button("Run ML Strategy Backtest"):
         )
 
     st.success("Backtest complete!")
-
-def simulate_ml_predictions(df_daily, lookback_days=5):
-    """
-    Simulate ML predictions for demonstration.
-    Replace this function with your actual ML model inference.
-    """
-    # Simple simulation: predict up if recent momentum is positive
-    df = df_daily.copy()
-    
-    # Calculate some features (simulate what your ML model might use)
-    df['returns_1d'] = df['Close'].pct_change(1)
-    df['returns_5d'] = df['Close'].pct_change(5)
-    df['volume_ma'] = df['Volume'].rolling(5).mean()
-    df['volatility'] = df['Close'].rolling(5).std()
-    
-    # Simulate ML predictions (1 = buy, 0 = hold/no action)
-    # This is a simple rule-based simulation - replace with actual ML
-    df['ml_prediction'] = 0
-    df['ml_confidence'] = 0.0
-    
-    # Simple rules to simulate ML (replace with actual model)
-    buy_conditions = (
-        (df['returns_5d'] > -0.02) &  # Not in strong downtrend
-        (df['volume_ma'] > df['Volume'].rolling(20).mean()) &  # Above average volume
-        (df['volatility'] < df['volatility'].rolling(20).mean() * 1.5)  # Not too volatile
-    )
-    
-    df.loc[buy_conditions, 'ml_prediction'] = 1
-    df.loc[buy_conditions, 'ml_confidence'] = np.random.uniform(0.6, 0.9, sum(buy_conditions))
-    
-    # Add some randomness to make it more realistic
-    random_signals = np.random.choice([0, 1], size=len(df), p=[0.9, 0.1])
-    random_mask = (random_signals == 1) & (df['ml_prediction'] == 0)
-    df.loc[random_mask, 'ml_prediction'] = 1
-    df.loc[random_mask, 'ml_confidence'] = np.random.uniform(0.5, 0.7, sum(random_mask))
-    
-    return df
 
 # Add this if you want to run standalone
 if __name__ == "__main__":
