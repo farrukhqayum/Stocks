@@ -382,7 +382,7 @@ def get_ml_prediction(df, models):
         'confidence_score': confidence_score,
         'current_price': current_price
     }
-    confidence_history_full.append({'Date': current_date, 'Confidence': confidence_score})
+    conf.append({'Date': current_date, 'Confidence': confidence_score})
 
 # -------------------------
 # Trading Strategy Backtest
