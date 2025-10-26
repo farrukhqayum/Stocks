@@ -382,7 +382,7 @@ def get_ml_prediction(df, models):
         'confidence_score': confidence_score,
         'current_price': current_price
     }
-    conf_.append({'Date': current_date, 'Confidence': confidence_score})
+    conf_.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
     conf = pd.DataFrame(conf_)
 
 # -------------------------
