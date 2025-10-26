@@ -67,7 +67,7 @@ PROFIT_TARGET = 0.07  # 7%
 STOP_LOSS = 0.07      # 7%
 _DAYS = 22
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
-conf = [] 
+conf_ = [] 
 
 FEATURES = [
     'High', 'Low', 'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 
@@ -382,7 +382,7 @@ def get_ml_prediction(df, models):
         'confidence_score': confidence_score,
         'current_price': current_price
     }
-    conf.append({'Date': current_date, 'Confidence': confidence_score})
+    conf_.append({'Date': current_date, 'Confidence': confidence_score})
 
 # -------------------------
 # Trading Strategy Backtest
@@ -526,6 +526,8 @@ if st.button("Run ML Strategy Backtest"):
         })
 
     progress_bar.empty()
+
+    conf = pd.DataFrame(conf_)
 
     # Results Analysis
     results = pd.DataFrame(trades)
