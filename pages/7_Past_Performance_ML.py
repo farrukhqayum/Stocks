@@ -631,12 +631,18 @@ if st.button("Run ML Strategy Backtest"):
                     where=(df_daily['SMA10'] < df_daily['SMA50']),
                     color='red', alpha=0.15)
 
-    # RSI PLOT    
-    ax1.plot(df_daily.index, df_daily['RSI'], color='orange', linewidth=1.0, alpha=0.5, label = 'RSI')
+    # RSI PLOT
+    rsi_ = df_daily['RSI'].rolling(3).mean()
+    ax1.plot(df_daily.index, rsi_, color='orange', linewidth=1.0, alpha=0.5, label = 'RSI')
     ax1.plot(df_daily.index, df_daily['RSI_SMA'], color='red', linewidth=1.0, alpha=0.5, label = 'RSI_SMA')
     ax1.axhline(y=70, color='green', linestyle='--', alpha=0.5, linewidth=1)
     ax1.axhline(y=50, color='gray', linestyle='--', alpha=0.5, linewidth=1)
     ax1.axhline(y=30, color='red', linestyle='--', alpha=0.5, linewidth=1)
+
+    ax1.scatter(df_daily.index[df_daily['Bull'] == 1], rsi_[df_daily['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
+    ax1.scatter(df_daily.index[df_daily['Bear'] == 1], rsi_[df_daily['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
+    ax1.scatter(df_daily.index[df_daily['Neutral'] == 1], rsi_[df_daily['Neutral'] == 1], color='gray', marker='o', s=3, alpha=0.4, label='Neutral', zorder=10)
+    ax1.scatter(df_daily.index[df_daily['Hold'] == 1], rsi_[df_daily['Hold'] == 1], color='yellow', marker='o', s=4, alpha=0.4, label='Hold', zorder=10)
     
     ax1.fill_between(df_daily.index, df_daily['RSI'], df_daily['RSI_SMA'],
                     where=(df_daily['RSI'] > df_daily['RSI_SMA']),
@@ -649,10 +655,6 @@ if st.button("Run ML Strategy Backtest"):
     ax1.yaxis.set_label_position('right')
     ax1.yaxis.tick_right()
     ax1.yaxis.set_label_coords(1.05, 0.5)
-    ax1.scatter(df_daily.index[df_daily['Bull'] == 1], df_daily['RSI'][df_daily['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
-    ax1.scatter(df_daily.index[df_daily['Bear'] == 1], df_daily['RSI'][df_daily['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
-    ax1.scatter(df_daily.index[df_daily['Neutral'] == 1], df_daily['RSI'][df_daily['Neutral'] == 1], color='gray', marker='o', s=3, alpha=0.4, label='Neutral', zorder=10)
-    ax1.scatter(df_daily.index[df_daily['Hold'] == 1], df_daily['RSI'][df_daily['Hold'] == 1], color='yellow', marker='o', s=4, alpha=0.4, label='Hold', zorder=10)
 
     bx.plot(results['ExitDate'], results['Cumulative'], color='gray', linewidth=1.0, alpha=0.5)
     max_cumulative = results['Cumulative'].max()
