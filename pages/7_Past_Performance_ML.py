@@ -171,9 +171,7 @@ def add_technical_indicators(df):
     df['Bull'] = ((df['SMA10'] > df['SMA50']) & (df['RSI'] > 50)).astype(int)
     df['Bear'] = ((df['SMA10'] < df['SMA50']) & (df['RSI'] < 50)).astype(int)
     df['Neutral'] = ((df['Bull'] == 0) & (df['Bear'] == 0)).astype(int)
-    df['Hold'] = ((df['Close'] > df['SMA50']) & 
-              (df['SMA10'] > df['SMA50']) & 
-              (df['RSI'].between(40, 90))).astype(int)
+    df['Hold'] = ((df['SMA10'] > df['SMA50']) & (df['RSI'].between(52, 90))).astype(int)
 
     
     return df
@@ -613,8 +611,8 @@ if st.button("Run ML Strategy Backtest"):
     ax1.yaxis.set_label_coords(1.05, 0.5)
     ax1.scatter(df_daily.index[df_daily['Bull'] == 1], df_daily['RSI'][df_daily['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
     ax1.scatter(df_daily.index[df_daily['Bear'] == 1], df_daily['RSI'][df_daily['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
-    ax1.scatter(df_daily.index[df_daily['Neutral'] == 1], df_daily['RSI'][df_daily['Neutral'] == 1], color='gray', marker='o', s=5, alpha=0.4, label='Short', zorder=10)
-    ax1.scatter(df_daily.index[df_daily['Hold'] == 1], df_daily['RSI'][df_daily['Hold'] == 1], color='orange', marker='o', s=5, alpha=0.4, label='Hold', zorder=10)
+    ax1.scatter(df_daily.index[df_daily['Neutral'] == 1], df_daily['RSI'][df_daily['Neutral'] == 1], color='gray', marker='o', s=3, alpha=0.4, label='Neutral', zorder=10)
+    ax1.scatter(df_daily.index[df_daily['Hold'] == 1], df_daily['RSI'][df_daily['Hold'] == 1], color='yellow', marker='o', s=4, alpha=0.4, label='Hold', zorder=10)
 
     bx.plot(results['ExitDate'], results['Cumulative'], color='gray', linewidth=1.0, alpha=0.5)
     max_cumulative = results['Cumulative'].max()
@@ -659,6 +657,7 @@ if st.button("Run ML Strategy Backtest"):
     bx.grid(alpha=0.3)
     cx.grid(alpha=0.3)
     ax.legend(loc='upper left', fontsize='x-small')
+    ax1.legend(loc='upper left', fontsize='x-small')
     bx.legend(loc='lower left', fontsize='x-small')
     cx.legend()
     
