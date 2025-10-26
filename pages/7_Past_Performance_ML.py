@@ -171,7 +171,10 @@ def add_technical_indicators(df):
     df['Bull'] = ((df['SMA10'] > df['SMA50']) & (df['RSI'] > 50)).astype(int)
     df['Bear'] = ((df['SMA10'] < df['SMA50']) & (df['RSI'] < 50)).astype(int)
     df['Neutral'] = ((df['Bull'] == 0) & (df['Bear'] == 0)).astype(int)
-    df['Hold'] = ((df['Close'] > df['SMA2']) & (df['SMA1'] > df['SMA2']) & (df['RSI'].between(40, 90))).astype(int)
+    df['Hold'] = ((df['Close'] > df['SMA2']) & 
+              (df['SMA1'] > df['SMA2']) & 
+              (df['RSI'].between(40, 90))).astype(int)
+
     
     return df
 
