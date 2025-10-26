@@ -644,12 +644,12 @@ if st.button("Run ML Strategy Backtest"):
     ax1.scatter(df_daily.index[df_daily['Neutral'] == 1], rsi_[df_daily['Neutral'] == 1], color='gray', marker='o', s=3, alpha=0.4, label='Neutral', zorder=10)
     ax1.scatter(df_daily.index[df_daily['Hold'] == 1], rsi_[df_daily['Hold'] == 1], color='yellow', marker='o', s=4, alpha=0.4, label='Hold', zorder=10)
     
-    ax1.fill_between(df_daily.index, df_daily['RSI'], df_daily['RSI_SMA'],
-                    where=(df_daily['RSI'] > df_daily['RSI_SMA']),
+    ax1.fill_between(df_daily.index, rsi_, df_daily['RSI_SMA'],
+                    where=(rsi_ > df_daily['RSI_SMA']),
                     color='green', alpha=0.15)
     
-    ax1.fill_between(df_daily.index, df_daily['RSI'], df_daily['RSI_SMA'],
-                    where=(df_daily['RSI'] < df_daily['RSI_SMA']),
+    ax1.fill_between(df_daily.index, rsi_, df_daily['RSI_SMA'],
+                    where=(rsi_ < df_daily['RSI_SMA']),
                     color='red', alpha=0.15)
     ax1.set_ylabel('RSI', labelpad=10)
     ax1.yaxis.set_label_position('right')
