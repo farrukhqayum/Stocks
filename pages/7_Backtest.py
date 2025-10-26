@@ -671,7 +671,7 @@ if st.button("Run ML Strategy Backtest"):
     cx.yaxis.set_label_position('right')
     cx.yaxis.tick_right()
     cx.yaxis.set_label_coords(1.08, 0.5)
-    cx.set_ylimit(0, 100)
+    cx.set_ylim(0, 100)
 
     fig.tight_layout()
     st.pyplot(fig)
