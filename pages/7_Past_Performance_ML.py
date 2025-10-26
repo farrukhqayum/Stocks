@@ -63,8 +63,8 @@ This prevents unrealistic trade closing at end-of-day prices only.
 # Strategy Parameters
 # -------------------------
 YEARS_OF_DATA = 3
-PROFIT_TARGET = 0.07  # 7%
-STOP_LOSS = 0.07      # 7%
+PROFIT_TARGET = 0.0375
+STOP_LOSS = 0.0375
 _DAYS = 22
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
 confidence_data = [] 
