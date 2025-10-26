@@ -579,6 +579,10 @@ if st.button("Run ML Strategy Backtest"):
     ax.fill_between(df_daily.index, df_daily['SMA10'], df_daily['SMA50'],
                     where=(df_daily['SMA10'] < df_daily['SMA50']),
                     color='red', alpha=0.15)
+    ax1.set_ylabel('RSI', labelpad=10)
+    ax1.yaxis.set_label_position('right')
+    ax1.yaxis.tick_right()
+    ax1.yaxis.set_label_coords(1.05, 0.5)
     
     ax1.plot(df_daily.index, df_daily['RSI'], color='orange', linewidth=1.0, alpha=0.5, label = 'RSI')
     ax1.plot(df_daily.index, df_daily['RSI_SMA'], color='red', linewidth=1.0, alpha=0.5, label = 'RSI_SMA')
@@ -637,20 +641,20 @@ if st.button("Run ML Strategy Backtest"):
     bx.legend(loc='lower left', fontsize='x-small')
     cx.legend()
     
-    ax.set_ylabel('Price', labelpad=20)
+    ax.set_ylabel('Price', labelpad=10)
     ax.yaxis.set_label_position('right')
     ax.yaxis.tick_right()
-    ax.yaxis.set_label_coords(1.08, 0.5)
+    ax.yaxis.set_label_coords(1.05, 0.5)
     
-    bx.set_ylabel('Equity', labelpad=20)
+    bx.set_ylabel('Equity', labelpad=10)
     bx.yaxis.set_label_position('right')
     bx.yaxis.tick_right()
-    bx.yaxis.set_label_coords(1.08, 0.5)
+    bx.yaxis.set_label_coords(1.05, 0.5)
 
-    cx.set_ylabel('ML Conf', labelpad=20)
+    cx.set_ylabel('ML Conf', labelpad=10)
     cx.yaxis.set_label_position('right')
     cx.yaxis.tick_right()
-    cx.yaxis.set_label_coords(1.08, 0.5)
+    cx.yaxis.set_label_coords(1.05, 0.5)
     cx.set_ylim(0, 100)
 
     fig.tight_layout()
