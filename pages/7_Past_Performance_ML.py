@@ -513,6 +513,7 @@ if st.button("Run ML Strategy Backtest"):
 
         # EXIT LOGIC
         elif in_trade:
+            last_date = daily_dates[-1]
             entry_date = current_trade['entry_date']
             exit_days = (last_date - current_trade['entry_date']).days
             entry_price = current_trade['entry_price']
@@ -779,6 +780,8 @@ if st.button("Run ML Strategy Backtest"):
             
             # EXIT LOGIC
             elif in_trade:
+                last_date = daily_dates[-1]
+                exit_days = (last_date - current_trade['entry_date']).days
                 entry_date = current_trade['entry_date']
                 entry_price = current_trade['entry_price']
                 TP_price = current_trade['tp_price']
@@ -828,6 +831,7 @@ if st.button("Run ML Strategy Backtest"):
         
         if in_trade:
             last_date = daily_dates[-1]
+            exit_days = (last_date - current_trade['entry_date']).days
             exit_price = float(df_daily.loc[last_date, 'Close'])
             return_pct = (exit_price / current_trade['entry_price'] - 1) * 100.0
             trades.append({
