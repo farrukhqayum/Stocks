@@ -581,7 +581,9 @@ if st.button("Run ML Strategy Backtest"):
                     color='red', alpha=0.15)
     
     bx.plot(results['ExitDate'], results['Cumulative'], color='gray', linewidth=1.0, alpha=0.5)
-    
+    max_cumulative = results['Cumulative'].max()
+    bx.set_ylim(0, max_cumulative * 1.05)
+
     bx.axhline(1.0, color='red', linestyle='--', alpha=0.5)
     bx.set_ylabel('Equity ($)')
     bx.set_xlabel('Date')
