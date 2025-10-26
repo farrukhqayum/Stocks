@@ -67,6 +67,7 @@ PROFIT_TARGET = 0.07  # 7%
 STOP_LOSS = 0.07      # 7%
 _DAYS = 22
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
+conf = [] 
 
 FEATURES = [
     'High', 'Low', 'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 
@@ -381,6 +382,7 @@ def get_ml_prediction(df, models):
         'confidence_score': confidence_score,
         'current_price': current_price
     }
+    confidence_history_full.append({'Date': current_date, 'Confidence': confidence_score})
 
 # -------------------------
 # Trading Strategy Backtest
@@ -607,7 +609,8 @@ if st.button("Run ML Strategy Backtest"):
             entry_annotated = True
             
     rd = pd.to_datetime(results['EntryDate'])
-    cx.scatter(rd, results['ML_Confidence'], color='violet', alpha=0.8, s=7, label='ML Confidence')
+    cx.scatter(rd, results['ML_Confidence'], color='blue', alpha=0.8, s=7, label='ML Confidence (Entries)')
+    cx.plot(conf['Date'], conf['Confidence'], color='gray', alpha=0.8, label='ML Confidence')
     #cx.set_ylim(0, 100)
     
     ax.set_title(f'{ticker} Price Chart')
