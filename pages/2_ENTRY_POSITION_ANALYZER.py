@@ -1095,7 +1095,7 @@ def main():
                 ]
 
                 for timeframe, interval in timeframes:
-                    st.subheader(f"{timeframe} Timeframe Analysis ({ticker})")
+                    st.subheader(f"{timeframe} ML of {ticker}")
 
                     years = YEARS_OF_DATA[timeframe]
                     start_date = end_date - timedelta(days=365 * years)
