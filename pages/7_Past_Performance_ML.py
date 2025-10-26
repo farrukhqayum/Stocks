@@ -166,23 +166,41 @@ def add_technical_indicators(df):
     
     # Volatility
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-    df['Bull'] = 0
-    df['Bear'] = 0
-    df['Hold'] = 0
-    df['Neutral'] = 1
-
-    # Simple trend indicators
-    mask_bull = (df['SMA10'] > df['SMA50']) & (df['RSI'] > 50)
-    df.loc[mask_bull, 'Bull'] = 1
-    df.loc[mask_bull, 'Neutral'] = 0  # no overlap
-
-    mask_bear = (df['SMA10'] < df['SMA50']) & (df['RSI'] < 40)
-    df.loc[mask_bear, 'Bear'] = 1
-    df.loc[mask_bear, 'Neutral'] = 0  # no overlap
- 
-    mask_hold = (df['Bull'] == 1) & (df['SMA10'] > df['SMA50']) & (df['RSI'].between(52, 90))
-    df.loc[mask_hold, ['Bull', 'Hold']] = [0, 1]
-    df.loc[mask_hold, 'Neutral'] = 0
+   
+    conditions = [
+        # BULL
+        (
+            (df['SMA10'] > df['SMA50']) &
+            (df['RSI'] >= df['RSI_SMA']) &
+            (df['RSI'].between(52, 95))
+        ),
+        # BEAR
+        (
+            (df['SMA10'] < df['SMA50']) &
+            (df['RSI'].between(18,60)) &
+            (df['RSI'] < df['RSI_SMA'])
+        ),
+        # SHORT
+        (
+            (df['Close'] <= df['SMA1']) &
+            (df['SMA10'] < df['SMA50']) &
+            (df['RSI'].between(50, 85))
+        ),
+        # HOLD
+        (
+            (df['Close'] > df['SMA50']) &
+            (df['SMA10'] > df['SMA50']) &
+            (df['RSI'].between(40, 90))
+        )
+    ]
+    choices = ['Bull', 'Bear', 'Short', 'Hold']
+    
+    df['TI'] = np.select(conditions, choices, default='Neutral')
+    df['Bull'] = (df['TI'] == 'Bull').astype(int)
+    df['Bear'] = (df['TI'] == 'Bear').astype(int)
+    df['Hold'] = (df['TI'] == 'Hold').astype(int)
+    df['Short'] = (df['TI'] == 'Short').astype(int)
+    df['Neutral'] = (df['TI'] == 'Neutral').astype(int)
     
     return df
 
