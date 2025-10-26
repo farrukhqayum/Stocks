@@ -64,8 +64,8 @@ This prevents unrealistic trade closing at end-of-day prices only.
 # Strategy Parameters
 # -------------------------
 YEARS_OF_DATA = 3
-PROFIT_TARGET = 0.025
-STOP_LOSS = 0.025
+PROFIT_TARGET = 0.0375
+STOP_LOSS = 0.0375
 _DAYS = 22
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
 confidence_data = [] 
@@ -728,13 +728,12 @@ if st.button("Run ML Strategy Backtest"):
     short_mask = df_daily['Hit_Label'] == 4
     neutral_mask = df_daily['Hit_Label'] == 0
     
-    ax1.scatter(df_daily.index[tp_mask], rsi_[tp_mask], color='green', marker='^', s=6, alpha=0.7, label='TP (Hit)', zorder=6)
-    ax1.scatter(df_daily.index[sl_mask], rsi_[sl_mask], color='red', marker='v', s=6, alpha=0.7, label='SL (Hit)', zorder=7)
-    ax1.scatter(df_daily.index[hold_mask], rsi_[hold_mask], color='orange', marker='o', s=5, alpha=0.6, label='Hold (Hit)', zorder=8)
-    ax1.scatter(df_daily.index[short_mask], rsi_[short_mask], color='purple', marker='x', s=5, alpha=0.6, label='Short (Hit)', zorder=9)
-    ax1.scatter(df_daily.index[neutral_mask], rsi_[neutral_mask], color='gray', marker='.', s=2, alpha=0.4, label='Neutral (Hit)', zorder=10)
-    
-        
+    ax1.scatter(df_daily.index[tp_mask], rsi_[tp_mask], color='green', marker='^', s=3, alpha=0.4, label='TP', zorder=6)
+    ax1.scatter(df_daily.index[sl_mask], rsi_[sl_mask], color='red', marker='v', s=3, alpha=0.4, label='SL', zorder=7)
+    ax1.scatter(df_daily.index[hold_mask], rsi_[hold_mask], color='orange', marker='o', s=3, alpha=0.4, label='Hold', zorder=8)
+    ax1.scatter(df_daily.index[short_mask], rsi_[short_mask], color='purple', marker='x', s=3, alpha=0.4, label='Short', zorder=9)
+    ax1.scatter(df_daily.index[neutral_mask], rsi_[neutral_mask], color='gray', marker='.', s=3, alpha=0.4, label='Neutral', zorder=10)
+
     ax1.fill_between(df_daily.index, rsi_, df_daily['RSI_SMA'],
                     where=(rsi_ > df_daily['RSI_SMA']),
                     color='green', alpha=0.15)
