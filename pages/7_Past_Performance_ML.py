@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+from imports import *
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -166,7 +167,7 @@ def add_technical_indicators(df):
     
     # Volatility
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-   
+       df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
     conditions = [
     # BULL
         (
