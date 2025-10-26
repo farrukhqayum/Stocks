@@ -182,7 +182,7 @@ def add_technical_indicators(df):
         ),
         # SHORT
         (
-            (df['Close'] <= df['SMA1']) &
+            (df['Close'] <= df['SMA10']) &
             (df['SMA10'] < df['SMA50']) &
             (df['RSI'].between(50, 85))
         ),
