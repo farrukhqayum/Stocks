@@ -67,7 +67,7 @@ PROFIT_TARGET = 0.07  # 7%
 STOP_LOSS = 0.07      # 7%
 _DAYS = 22
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
-conf_ = [] 
+confidence_data = [] 
 
 FEATURES = [
     'High', 'Low', 'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 
