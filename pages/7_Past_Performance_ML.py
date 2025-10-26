@@ -385,7 +385,7 @@ def get_ml_prediction(df, models):
     conf_.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
 
 conf = pd.DataFrame(conf_)
-
+st.write(conf.head())
 # -------------------------
 # Trading Strategy Backtest
 # -------------------------
@@ -609,7 +609,7 @@ if st.button("Run ML Strategy Backtest"):
         if not entry_annotated:
             ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]), xytext=(0, -12), textcoords='offset points', fontsize=8, color='blue')
             entry_annotated = True
-    st.write(conf.columns)
+    
     rd = pd.to_datetime(results['EntryDate'])
     cx.scatter(rd, results['ML_Confidence'], color='blue', alpha=0.8, s=7, label='ML Confidence (Entries)')
     cx.plot(conf['Date'], conf['Confidence'], color='gray', alpha=0.8, label='ML Confidence')
