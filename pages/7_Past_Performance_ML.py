@@ -170,9 +170,8 @@ def add_technical_indicators(df):
     # Simple trend indicators
     df['Bull'] = ((df['SMA10'] > df['SMA50']) & (df['RSI'] > 50)).astype(int)
     df['Bear'] = ((df['SMA10'] < df['SMA50']) & (df['RSI'] < 50)).astype(int)
-    df['Neutral'] = ((df['Bull'] == 0) & (df['Bear'] == 0)).astype(int)
-    df['Hold'] = ((df['SMA10'] > df['SMA50']) & (df['RSI'].between(52, 90))).astype(int)
-
+    df['Hold'] = ((df['Bull'] != 0) & (df['SMA10'] > df['SMA50']) & (df['RSI'].between(52, 90))).astype(int)
+    df['Neutral'] = ((df['Bull'] == 0) & (df['Bear'] == 0) & (df['Hold'] == 0)).astype(int)
     
     return df
 
