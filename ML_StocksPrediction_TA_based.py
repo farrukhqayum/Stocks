@@ -163,50 +163,43 @@ def add_technical_indicators(df):
     cols = ['SMA1', 'SMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     conditions = [
-        # BULL
+    # BULL
         (
             (
-                (df['SMA1'] > df['SMA2']) &
+                (df['SMA10'] > df['SMA50']) &
                 (df['RSI'] >= df['RSI_SMA']) &
-                (df['RSI'].between(52, 95)) &
-                (df['+DI'] > df['-DI']) &
-                (df['+DI'].between(18, 55))
-            ) &
+                (df['RSI'].between(52, 95))
+            )
+            |
             (
-                (df['Close'] > df['SMA1']) &
-                (df['RSI'] > df['RSI_SMA'])
+                (df['RSI'] >= df['RSI_SMA']) & 
+                (df['RSI'] > 50)
             )
         ),
         # BEAR
         (
+            (df['SMA10'] < df['SMA50']) &
+            (df['RSI'].between(18,60)) &
+            (df['RSI'] < df['RSI_SMA'])
+            |
             (
-                (df['SMA1'] < df['SMA2']) &
-                (df['RSI'].between(18,60)) &
-                (df['RSI'] < df['RSI_SMA']) &
-                (df['+DI'] < df['-DI']) &
-                (df['-DI'].between(25, 85))
-            )           
+                (df['RSI'] < df['RSI_SMA']) & 
+                (df['RSI']< 50)
+            )
         ),
         # SHORT
         (
-            (df['Close'] <= df['SMA1']) &
-            (df['SMA1'] < df['SMA2']) &
-            (df['RSI'].between(50, 85)) &
-            (df['-DI'] < df['+DI'])
+            (df['Close'] <= df['SMA10']) &
+            (df['SMA10'] < df['SMA50']) &
+            (df['RSI'].between(50, 85))
         ),
         # HOLD
         (
-            (
-                (df['Close'] > df['SMA2']) &
-                (df['SMA1'] > df['SMA2']) &
-                (df['RSI'].between(40, 90))
-            ) |
-            (
-                (df['RSI'] < df['RSI_SMA']) &
-                (df['ADX'].between(40, 75))
-            )
+            (df['Close'] > df['SMA50']) &
+            (df['SMA10'] > df['SMA50']) &
+            (df['RSI'].between(40, 90))
         )
-        ]
+    ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
@@ -1197,6 +1190,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
