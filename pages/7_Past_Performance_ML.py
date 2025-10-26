@@ -95,9 +95,9 @@ with col4:
 # ML prediction settings
 col5, col6 = st.columns(2)
 with col5:
-    ml_confidence_threshold = st.number_input("ML Confidence Threshold", value=0.5, step=0.1)
+    ml_confidence_threshold = st.number_input("ML Confidence Threshold", min_value=0, max_value=100,  value=50, step=5)
 with col6:
-    max_holding_days = st.number_input("Max Holding Days", value=30, step=5)
+    max_holding_days = st.number_input("Max Holding Days", min_value=3, max_value=100, value=30, step=5)
 
 # -------------------------
 # Technical Analysis Functions (Simplified)
