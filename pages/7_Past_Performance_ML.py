@@ -591,7 +591,7 @@ if st.button("Run ML Strategy Backtest"):
 
     ax.scatter(df_daily.index[df_daily['Bull'] == 1], df_daily['RSI'][df_daily['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
     ax.scatter(df_daily.index[df_daily['Bear'] == 1], df_daily['RSI'][df_daily['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
-    ax.scatter(df_daily.index[df_daily['Short'] == 1], df_daily['RSI'][df_daily['Short'] == 1], color='red', marker='x', s=5, alpha=0.4, label='Short', zorder=10)
+    ax.scatter(df_daily.index[df_daily['Neutral'] == 1], df_daily['RSI'][df_daily['Neutral'] == 1], color='gray', marker='o', s=5, alpha=0.4, label='Short', zorder=10)
     ax.scatter(df_daily.index[df_daily['Hold'] == 1], df_daily['RSI'][df_daily['Hold'] == 1], color='orange', marker='o', s=5, alpha=0.4, label='Hold', zorder=10)
 
     # RSI PLOT    
