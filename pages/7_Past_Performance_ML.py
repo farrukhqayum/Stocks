@@ -526,7 +526,7 @@ if st.button("Run ML Strategy Backtest"):
 
     # Results Analysis
     results = pd.DataFrame(trades)
-    conf_df = pd.DataFrame(confidence_history)
+    #conf_df = pd.DataFrame(confidence_history)
     
     if results.empty:
         st.warning("No trades executed. Check ML predictions and weekly trend conditions.")
