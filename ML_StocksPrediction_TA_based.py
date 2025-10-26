@@ -166,7 +166,7 @@ def add_technical_indicators(df):
     # BULL
         (
             (
-                (df['SMA10'] > df['SMA50']) &
+                (df['SMA1'] > df['SMA2']) &
                 (df['RSI'] >= df['RSI_SMA']) &
                 (df['RSI'].between(52, 95))
             )
@@ -178,7 +178,7 @@ def add_technical_indicators(df):
         ),
         # BEAR
         (
-            (df['SMA10'] < df['SMA50']) &
+            (df['SMA1'] < df['SMA2']) &
             (df['RSI'].between(18,60)) &
             (df['RSI'] < df['RSI_SMA'])
             |
@@ -189,14 +189,14 @@ def add_technical_indicators(df):
         ),
         # SHORT
         (
-            (df['Close'] <= df['SMA10']) &
-            (df['SMA10'] < df['SMA50']) &
+            (df['Close'] <= df['SMA1']) &
+            (df['SMA1'] < df['SMA2']) &
             (df['RSI'].between(50, 85))
         ),
         # HOLD
         (
-            (df['Close'] > df['SMA50']) &
-            (df['SMA10'] > df['SMA50']) &
+            (df['Close'] > df['SMA2']) &
+            (df['SMA1'] > df['SMA2']) &
             (df['RSI'].between(40, 90))
         )
     ]
@@ -1190,6 +1190,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
