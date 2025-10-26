@@ -285,34 +285,112 @@ def compute_expected_loss(df, forward_window=14):
     
     return df
 
-def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05):
-    """Label data based on hit probability"""
-    df['Hit_Label'] = 0  # Default to neutral
+def label_hit_prob_past(
+    df,
+    window=14,
+    profit_target=0.05,
+    stop_loss=0.05,
+    lookback=60,
+    tp_thresh=0.35,
+    sl_thresh=0.4
+):
+    import numpy as np
+    
     close_prices = df['Close'].values
     
-    for i in range(len(df) - window):
+    bull = (df['TI'] == 'Bull')
+    bear = (df['TI'] == 'Bear')
+    hold = (df['TI'] == 'Hold')
+    short = (df['TI'] == 'Short')
+    neutral = (df['TI'] == 'Neutral')
+
+    sma1 = df['SMA1'].values
+    atr = df['ATR'].values
+    rsi = df['RSI'].values
+    adx = df['ADX'].values
+
+    N = len(close_prices)
+    labels = []
+    
+    for i in range(N):
         current_price = close_prices[i]
         tp = current_price * (1 + profit_target)
         sl = current_price * (1 - stop_loss)
-        future_prices = close_prices[i+1:i+1+window]
+        future_prices = close_prices[i + 1 : min(i + 1 + window, N)]
+        tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
+        sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
         
-        tp_hit = any(price >= tp for price in future_prices)
-        sl_hit = any(price <= sl for price in future_prices)
+        lookback_start = max(0, i - lookback)
+        history_tp, history_sl = [], []
+        for j in range(lookback_start, i):
+            hist_price = close_prices[j]
+            hist_tp = hist_price * (1 + profit_target)
+            hist_sl = hist_price * (1 - stop_loss)
+            hist_future = close_prices[j + 1: j + 1 + window]
+            
+            if bull[j]:
+                hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
+                hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
+                hit = hist_tp_hit_idx is not None and (hist_sl_hit_idx is None or hist_tp_hit_idx < hist_sl_hit_idx)
+                history_tp.append(int(hit))
+                
+            if bear[j]:
+                hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
+                hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
+                hit = hist_sl_hit_idx is not None and (hist_tp_hit_idx is None or hist_sl_hit_idx < hist_tp_hit_idx)
+                history_sl.append(int(hit))
         
-        if tp_hit and not sl_hit:
-            df.iloc[i, df.columns.get_loc('Hit_Label')] = 2  # TP
-        elif sl_hit and not tp_hit:
-            df.iloc[i, df.columns.get_loc('Hit_Label')] = 1  # SL
-        elif tp_hit and sl_hit:
-            # Which happened first?
-            for j, price in enumerate(future_prices):
-                if price >= tp:
-                    df.iloc[i, df.columns.get_loc('Hit_Label')] = 2
-                    break
-                elif price <= sl:
-                    df.iloc[i, df.columns.get_loc('Hit_Label')] = 1
-                    break
+        tp_prob = np.mean(history_tp) if len(history_tp) >= 3 else min(np.mean(history_tp) if history_tp else 0.5, tp_thresh)
+        sl_prob = np.mean(history_sl) if len(history_sl) >= 3 else min(np.mean(history_sl) if history_sl else 0.5, sl_thresh)
+        
+        # Initial label assignment priority: TP > SL > Hold > Short > Neutral
+        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bull[i] and tp_prob >= tp_thresh:
+            labels.append(2)  # TP (bull)
+        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and bear[i] and sl_prob >= sl_thresh:
+            labels.append(1)  # SL (bear)
+        elif hold[i]:
+            # Upgrade Hold to TP if breakout early within window
+            if any(p >= tp for p in future_prices):
+                labels.append(2)
+            else:
+                labels.append(3)
+        elif short[i]:
+            labels.append(4)
+        else:
+            if i >= N - window:
+                if bull[i]:
+                    labels.append(2)
+                elif bear[i]:
+                    labels.append(1)
+                else:
+                    labels.append(0)
+            else:
+                labels.append(0)
     
+    # Post-process: Trigger SL immediately on price dip below SMA1 or SMA1-ATR buffer with momentum checks for Hold/TP
+    for i in range(N):
+        if labels[i] in [2, 3]:  # TP or Hold bars
+            current_close = close_prices[i]
+            sma1_now = sma1[i]
+            atr_now = atr[i]
+            rsi_now = rsi[i]
+            adx_now = adx[i]
+
+            future_end = min(i + 1 + window, N)
+            future_closes = close_prices[i + 1 : future_end]
+            future_sma1 = sma1[i + 1 : future_end]
+
+            current_dip = current_close < sma1_now or current_close < (sma1_now - 0.5 * atr_now)
+            future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_sma1))
+
+            bearish_momentum = (rsi_now < 40) and (adx_now > 22)
+            fading_bullish = (rsi_now < 50) or (adx_now < 20)
+            hold_extreme = (labels[i] == 3) and (rsi_now < 45)
+
+            if (current_dip or future_dips) and (bearish_momentum or fading_bullish or hold_extreme):
+                labels[i] = 1  # Trigger SL immediately
+    
+    df['Hit_Label'] = labels
     return df
 
 # -------------------------
