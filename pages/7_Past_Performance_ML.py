@@ -699,7 +699,7 @@ if st.button("Run ML Strategy Backtest"):
     # Plot results
     st.subheader("Backtest and Equity")
     
-    fig, (ax, ax1, bx, cx) = plt.subplots(4, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1, 1, 1]})
+    fig, (ax, ax1, bx, cx) = plt.subplots(4, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1.5, 1, 1]})
     
     ax.plot(df_daily.index, df_daily['Close'], color='gray', linewidth=1.2, alpha=0.5, label = 'Price')
     ax.plot(df_daily.index, df_daily['SMA10'], color='orange', linewidth=1.0, alpha=0.7, label = 'SMA10')
