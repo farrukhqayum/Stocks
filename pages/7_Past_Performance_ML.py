@@ -721,11 +721,20 @@ if st.button("Run ML Strategy Backtest"):
     ax1.axhline(y=50, color='gray', linestyle='--', alpha=0.5, linewidth=1)
     ax1.axhline(y=30, color='red', linestyle='--', alpha=0.5, linewidth=1)
 
-    ax1.scatter(df_daily.index[df_daily['Bull'] == 1], rsi_[df_daily['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='TP', zorder=7)
-    ax1.scatter(df_daily.index[df_daily['Bear'] == 1], rsi_[df_daily['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
-    #ax1.scatter(df_daily.index[df_daily['Neutral'] == 1], rsi_[df_daily['Neutral'] == 1] == 'None'], color='gray', marker='o', s=3, alpha=0.4, label='Neutral', zorder=10)
-    #ax1.scatter(df_daily.index[df_daily['Hold'] == 1], rsi_[df_daily['Hold'] == 1], color='yellow', marker='o', s=4, alpha=0.4, label='Hold', zorder=10)
+    # Hit labels overlay (example)
+    tp_mask = df_daily['Hit_Label'] == 2
+    sl_mask = df_daily['Hit_Label'] == 1
+    hold_mask = df_daily['Hit_Label'] == 3
+    short_mask = df_daily['Hit_Label'] == 4
+    neutral_mask = df_daily['Hit_Label'] == 0
     
+    ax1.scatter(df_daily.index[tp_mask], rsi_[tp_mask], color='green', marker='^', s=6, alpha=0.7, label='TP (Hit)', zorder=6)
+    ax1.scatter(df_daily.index[sl_mask], rsi_[sl_mask], color='red', marker='v', s=6, alpha=0.7, label='SL (Hit)', zorder=7)
+    ax1.scatter(df_daily.index[hold_mask], rsi_[hold_mask], color='orange', marker='o', s=5, alpha=0.6, label='Hold (Hit)', zorder=8)
+    ax1.scatter(df_daily.index[short_mask], rsi_[short_mask], color='purple', marker='x', s=5, alpha=0.6, label='Short (Hit)', zorder=9)
+    ax1.scatter(df_daily.index[neutral_mask], rsi_[neutral_mask], color='gray', marker='.', s=2, alpha=0.4, label='Neutral (Hit)', zorder=10)
+    
+        
     ax1.fill_between(df_daily.index, rsi_, df_daily['RSI_SMA'],
                     where=(rsi_ > df_daily['RSI_SMA']),
                     color='green', alpha=0.15)
