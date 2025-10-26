@@ -998,15 +998,15 @@ def PlotPredictions(df_results):
         y_offset1 = -0.275  # Adjust as needed for your plot
         y_offset2 = -0.575  # Stagger if two boxes per tick
     
-         ax1.text(
-                x_coord + x_offset, y_offset1,
-                f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}',
-                ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
-                bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
-                transform=ax1.get_xaxis_transform(),
-                multialignment='left',
-                clip_on=False
-            )
+        ax1.text(
+            x_coord + x_offset, y_offset1,
+            f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}',
+            ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
+            bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
+            transform=ax1.get_xaxis_transform(),
+            multialignment='left',
+            clip_on=False
+        )
             
         ax1.text(
             x_coord + x_offset, y_offset2,
@@ -1191,6 +1191,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
