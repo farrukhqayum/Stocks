@@ -69,6 +69,7 @@ STOP_LOSS = 0.025
 _DAYS = 22
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
 confidence_data = [] 
+will_hit_history = []
 
 FEATURES = [
     'High', 'Low', 'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 
@@ -720,10 +721,10 @@ if st.button("Run ML Strategy Backtest"):
     ax1.axhline(y=50, color='gray', linestyle='--', alpha=0.5, linewidth=1)
     ax1.axhline(y=30, color='red', linestyle='--', alpha=0.5, linewidth=1)
 
-    ax1.scatter(df_daily.index[df_daily['Bull'] == 1], rsi_[ml_prediction['will_hit'] == 'TP'], color='green', marker='^', s=5, alpha=0.4, label='TP', zorder=7)
-    ax1.scatter(df_daily.index[df_daily['Bear'] == 1], rsi_[ml_prediction['will_hit'] == 'SL'], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
-    #ax1.scatter(df_daily.index[df_daily['Neutral'] == 1], rsi_[ml_prediction['will_hit'] == 'None'], color='gray', marker='o', s=3, alpha=0.4, label='Neutral', zorder=10)
-    #ax1.scatter(df_daily.index[df_daily['Hold'] == 1], rsi_[ml_prediction['will_hit'] == 'Hold'], color='yellow', marker='o', s=4, alpha=0.4, label='Hold', zorder=10)
+    ax1.scatter(df_daily.index[df_daily['Bull'] == 1], rsi_[df_daily['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='TP', zorder=7)
+    ax1.scatter(df_daily.index[df_daily['Bear'] == 1], rsi_[df_daily['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
+    #ax1.scatter(df_daily.index[df_daily['Neutral'] == 1], rsi_[df_daily['Neutral'] == 1] == 'None'], color='gray', marker='o', s=3, alpha=0.4, label='Neutral', zorder=10)
+    #ax1.scatter(df_daily.index[df_daily['Hold'] == 1], rsi_[df_daily['Hold'] == 1], color='yellow', marker='o', s=4, alpha=0.4, label='Hold', zorder=10)
     
     ax1.fill_between(df_daily.index, rsi_, df_daily['RSI_SMA'],
                     where=(rsi_ > df_daily['RSI_SMA']),
