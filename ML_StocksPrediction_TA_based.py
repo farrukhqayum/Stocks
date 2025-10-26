@@ -1009,7 +1009,7 @@ def PlotPredictions(df_results):
             )
             
         ax1.text(
-            x_tick + x_offset, y_offset2,
+            x_coord + x_offset, y_offset2,
             f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{str(row.Will_Hit).split()[0]}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%',
             ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
             bbox=dict(facecolor=ProbColor, alpha=0.3, linewidth=0.3),
@@ -1191,6 +1191,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
