@@ -383,6 +383,7 @@ def get_ml_prediction(df, models):
         'current_price': current_price
     }
     conf_.append({'Date': current_date, 'Confidence': confidence_score})
+    conf = pd.DataFrame(conf_)
 
 # -------------------------
 # Trading Strategy Backtest
@@ -526,8 +527,6 @@ if st.button("Run ML Strategy Backtest"):
         })
 
     progress_bar.empty()
-
-    conf = pd.DataFrame(conf_)
 
     # Results Analysis
     results = pd.DataFrame(trades)
