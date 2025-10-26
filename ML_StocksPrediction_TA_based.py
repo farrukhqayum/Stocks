@@ -992,21 +992,22 @@ def PlotPredictions(df_results):
                  ha='center', va='top', color='red', fontsize=9)
     
         # Bottom annotations: align with x-tick, just below tick label
-        x_tick = x_ticks[i]
+        #x_tick = x_ticks[i]
+        x_coord = i
         x_offset = -0.4 # to fix x-shift if colorbar is added, else put this to zero.
         y_offset1 = -0.275  # Adjust as needed for your plot
         y_offset2 = -0.575  # Stagger if two boxes per tick
     
-        ax1.text(
-            x_tick+x_offset, y_offset1,
-            f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}',
-            ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
-            bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
-            transform=ax1.get_xaxis_transform(),
-            multialignment='left',
-            clip_on=False
-        )
-    
+         ax1.text(
+                x_coord + x_offset, y_offset1,
+                f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}',
+                ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
+                bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
+                transform=ax1.get_xaxis_transform(),
+                multialignment='left',
+                clip_on=False
+            )
+            
         ax1.text(
             x_tick + x_offset, y_offset2,
             f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{str(row.Will_Hit).split()[0]}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%',
@@ -1190,6 +1191,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
