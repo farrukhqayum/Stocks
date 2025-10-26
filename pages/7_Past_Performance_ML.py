@@ -168,17 +168,29 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
    
     conditions = [
-        # BULL
+    # BULL
         (
-            (df['SMA10'] > df['SMA50']) &
-            (df['RSI'] >= df['RSI_SMA']) &
-            (df['RSI'].between(52, 95))
+            (
+                (df['SMA10'] > df['SMA50']) &
+                (df['RSI'] >= df['RSI_SMA']) &
+                (df['RSI'].between(52, 95))
+            )
+            |
+            (
+                (df['RSI'] >= df['RSI_SMA']) & 
+                (df['RSI'] > 50)
+            )
         ),
         # BEAR
         (
             (df['SMA10'] < df['SMA50']) &
             (df['RSI'].between(18,60)) &
             (df['RSI'] < df['RSI_SMA'])
+            |
+            (
+                (df['RSI'] < df['RSI_SMA']) & 
+                (df['RSI']< 50)
+            )
         ),
         # SHORT
         (
