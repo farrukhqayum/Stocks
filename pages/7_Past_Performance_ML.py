@@ -382,7 +382,6 @@ def get_ml_prediction(df, models):
         'confidence_score': confidence_score,
         'current_price': current_price
     }
-    conf_.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
 
 # -------------------------
 # Trading Strategy Backtest
@@ -438,9 +437,11 @@ if st.button("Run ML Strategy Backtest"):
         ml_prediction = get_ml_prediction(current_data, models)
         if ml_prediction is None:
             continue
-        
+        conf_.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
+    
         current_ml_signal = ml_prediction['will_hit']
         current_ml_confidence = ml_prediction['confidence_score']
+        confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
         
         # ENTRY LOGIC (no weekly trend filter)
         if (not in_trade and 
@@ -526,7 +527,9 @@ if st.button("Run ML Strategy Backtest"):
         })
 
     progress_bar.empty()
-
+    conf = pd.DataFrame(confidence_data)
+    conf['Date'] = pd.to_datetime(conf['Date'])
+    
     # Results Analysis
     results = pd.DataFrame(trades)
     conf = pd.DataFrame(conf_)
@@ -611,7 +614,7 @@ if st.button("Run ML Strategy Backtest"):
     
     rd = pd.to_datetime(results['EntryDate'])
     cx.scatter(rd, results['ML_Confidence'], color='blue', alpha=0.8, s=7, label='ML Confidence (Entries)')
-    cx.plot(conf['Date'], conf['Confidence'], color='gray', alpha=0.8, label='ML Confidence')
+    cx.plot(conf['Date'], conf['ML_Confidence'], color='gray', alpha=0.8, label='ML Confidence')
     
     ax.set_title(f'{ticker} Price Chart')
     bx.set_title(f'Total Equity Over Time')
