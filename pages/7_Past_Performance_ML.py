@@ -514,6 +514,7 @@ if st.button("Run ML Strategy Backtest"):
         # EXIT LOGIC
         elif in_trade:
             entry_date = current_trade['entry_date']
+            exit_days = (last_date - current_trade['entry_date']).days
             entry_price = current_trade['entry_price']
             TP_price = current_trade['tp_price']
             SL_price = current_trade['sl_price']
