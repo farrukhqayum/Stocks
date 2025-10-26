@@ -384,8 +384,6 @@ def get_ml_prediction(df, models):
     }
     conf_.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
 
-conf = pd.DataFrame(conf_)
-st.write(conf.head())
 # -------------------------
 # Trading Strategy Backtest
 # -------------------------
@@ -531,7 +529,8 @@ if st.button("Run ML Strategy Backtest"):
 
     # Results Analysis
     results = pd.DataFrame(trades)
-    #conf_df = pd.DataFrame(confidence_history)
+    conf = pd.DataFrame(conf_)
+    conf['Date'] = pd.to_datetime(conf['Date'])
     
     if results.empty:
         st.warning("No trades executed. Check ML predictions and weekly trend conditions.")
