@@ -586,6 +586,8 @@ if st.button("Run ML Strategy Backtest"):
     
     ax1.plot(df_daily.index, df_daily['RSI'], color='orange', linewidth=1.0, alpha=0.5, label = 'RSI')
     ax1.plot(df_daily.index, df_daily['RSI_SMA'], color='red', linewidth=1.0, alpha=0.5, label = 'RSI_SMA')
+    ax1.axhline(y=70, color='green', linestyle='--', alpha=0.5, linewidth=1)
+    ax1.axhline(y=30, color='red', linestyle='--', alpha=0.5, linewidth=1)
     
     ax1.fill_between(df_daily.index, df_daily['RSI'], df_daily['RSI_SMA'],
                     where=(df_daily['RSI'] > df_daily['RSI_SMA']),
