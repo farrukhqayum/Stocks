@@ -581,7 +581,7 @@ if st.button("Run ML Strategy Backtest"):
     net_return_pct = (results['Cumulative'].iloc[-1] - initial_cap) / initial_cap * 100.0
     
     # Display results
-    st.subheader("📊 ML Strategy Performance Summary")
+    st.subheader("📊 ML Strategy Summary ({ticker})")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
