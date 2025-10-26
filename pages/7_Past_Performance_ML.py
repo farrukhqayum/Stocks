@@ -15,48 +15,49 @@ warnings.filterwarnings('ignore')
 # Set page config first
 st.set_page_config(page_title="ML - Stock Past Performance Check", layout="wide")
 
-st.title("🤖 BACKTEST - Combining Weekly & Daily")
-with st.expander("Strategy Summary"):
+st.title("🤖 BACKTEST - ML Strategy Using Daily Data")
+with st.expander("Strategy Overview"):
     st.markdown("""
-- **Weekly Trend Filter:** Only takes long positions when weekly SMA10 > SMA50 (uptrend detected).
-- **Daily ML Entries:** Entry occurs on daily close when the ML model predicts a bullish move ("TP" or "Hold" signal) and confidence is above a set threshold.
-- **Trade Entry:** One new position is opened only if not already in a trade, matching signal and weekly filter.
-- **Trade Exit:** Position closes when price moves +7% (TP) or -7% (SL) intraday or at next open, or when maximum holding days are reached.
-- **No Overlapping Trades:** Strategy waits for the current trade to close before taking the next entry—it never doubles up.
-    """)
-with st.expander("Backtest Machine Learning Workflow"):
-    st.markdown("""
-- **Feature Engineering:** Daily market data is enriched with technical indicators and pivot levels.
-- **Labeling:** Each day is labeled as TP (target hit), SL (stop hit), or neutral, by examining next N days for price moves.
-- **Model Training:** Random Forest models are trained—classification predicts label (TP, SL), regressors estimate expected returns and losses.
-- **Prediction:** For each trade day, model confidence and predictions are computed, guiding entry decisions.
-- **Performance Evaluation:** Trade entries/exits, returns, and equity growth are tracked. The app displays trade stats, signal breakdown, and growth curve.
+- **Daily Trend Filter:** This strategy uses only daily data (no weekly filter).
+- **ML Entry Signals:** Entries occur at daily close when the ML model predicts a bullish move ("TP" or "Hold") with confidence above the threshold.
+- **Trade Entry:** Opens a single position if not already holding a trade and entry signal conditions are met.
+- **Trade Exit:** Closes a position when price reaches +7% (TP) or -7% (SL) intraday, or after maximum allowed holding days.
+- **Sequential Trading:** The strategy waits for the current trade to close before opening a new one—no overlapping trades.
     """)
 
-with st.expander("Example: How a TSLA Trade is Entered"):
+with st.expander("Backtest and ML Workflow"):
     st.markdown("""
-- If TSLA (Tesla) closes at $433, and weekly SMA10 ($436) > SMA50 ($396), the weekly filter allows entry.
-- If the ML model predicts a bullish move with strong confidence and no trade is open, the strategy enters at $433.72.
-- TP = $464.08, SL = $403.36 set from entry. Next entry occurs only when current trade closes and all entry signals align again.
+- **Feature Engineering:** Daily OHLCV data is enriched with technical indicators and pivot points.
+- **Labeling:** Each daily row is labeled as TP (take profit), SL (stop loss), or neutral based on future price moves over a lookahead window.
+- **Model Training:** Random Forest classifiers and regressors predict the likelihood of TP/SL and expected returns/losses.
+- **Prediction:** At each day, the ML model provides a prediction and confidence score that guide trade entries.
+- **Performance:** The app tracks trade results, return distributions, and equity growth over the backtest period.
     """)
 
-with st.expander("Example: How a TSLA Trade is Exited"):
+with st.expander("Example Entry Using Daily Data"):
     st.markdown("""
-Trade exits when
-- TSLA price reaches $464.08 (TP)
-- TSLA price drops to $403.36 (SL)
-- Or the trade holds for the maximum allowed days
-Upon exit, waits for the next valid setup before re-entering.
+- Suppose the stock closes at $100.
+- If the ML model predicts a bullish move with confidence above the threshold, and no open trade exists, entry happens at the daily close ($100).
+- The TP is set at $107 (+7%), and SL is set at $93 (-7%).
+- Next trades only occur after closing the current trade.
     """)
-    
-with st.expander("SL/TP triggers inside each day?"):
-    st.markdown('''
-- After entry, *each day's high and low* are checked individually to simulate real-world price movement.
-- If **Stop Loss (SL)** is hit by the day's **Low** (price <= SL), the trade is immediately closed on that date at SL price, even if price finishes higher later.
-- If **Take Profit (TP)** is hit by the day's **High** (price >= TP), the trade is immediately closed on that date at TP price, even if price finishes lower later.
-- If the next day's Open is outside either trigger, this gap condition is detected and the appropriate exit is done at open or the SL/TP boundary (whichever is reached first).
-- This assures that the backtest does not "wait" for daily close, but instead closes as soon as the SL or TP threshold is touched, closely matching real trade slippage logic.
-    ''')
+
+with st.expander("Example Exit Conditions"):
+    st.markdown("""
+Trades are exited if:
+- Intraday price reaches TP or SL levels.
+- The gap open price exceeds TP or SL boundaries (gap exit).
+- The trade has reached maximum holding days.
+Exits simulate realistic intraday stop-loss and take-profit triggers.
+    """)
+
+with st.expander("Intraday SL/TP Trigger Logic"):
+    st.markdown("""
+- Each day's high and low prices are checked to model intraday SL/TP triggers.
+- Exit occurs immediately on a day when price touches SL or TP, even if closing price differs.
+- Gap openings beyond SL or TP are detected and trigger immediate exit at gap price or SL/TP levels.
+This prevents unrealistic trade closing at end-of-day prices only.
+    """)
 
 # -------------------------
 # Strategy Parameters
@@ -385,27 +386,20 @@ def get_ml_prediction(df, models):
 # Trading Strategy Backtest
 # -------------------------
 if st.button("Run ML Strategy Backtest"):
-    st.write(f"Downloading data for {ticker} and running ML strategy...")
-    
-    # Download data
+    st.write(f"Downloading daily data for {ticker} and running ML strategy...")
+
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
-    
-    with st.spinner('Downloading market data...'):
+    start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)  # Full years as days lookback
+
+    with st.spinner('Downloading daily market data...'):
         df_daily = get_stock_data(ticker, start_date, end_date)
-        df_weekly = yf.download(ticker, period=period, interval="1d", progress=False)
     
-    if df_daily is None or df_daily.empty or df_weekly.empty:
-        st.error("No data returned from Yahoo Finance.")
+    if df_daily is None or df_daily.empty:
+        st.error("No daily data returned from Yahoo Finance.")
         st.stop()
 
-    # Weekly trend analysis
-    with st.spinner('Calculating weekly trends...'):
-        df_weekly['SMA10'] = df_weekly['Close'].rolling(10).mean()
-        df_weekly['SMA50'] = df_weekly['Close'].rolling(50).mean()
-        df_weekly['trend_up'] = df_weekly['SMA10'] > df_weekly['SMA50']
+    # Removed weekly trend logic entirely
 
-    # Prepare daily data with ML features
     with st.spinner('Calculating technical indicators...'):
         df_daily = add_technical_indicators(df_daily)
         df_daily = add_pivots(df_daily, windows)
@@ -414,65 +408,41 @@ if st.button("Run ML Strategy Backtest"):
         df_daily = compute_expected_loss(df_daily)
         df_daily = label_hit_prob_past(df_daily, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
 
-    # Train ML models
     with st.spinner('Training ML models...'):
         models = train_ml_models(df_daily)
     
     if models[0] is None:
         st.error("Insufficient data for ML model training.")
         st.stop()
-
-    # Backtest Logic
+    
     st.write("Running backtest...")
     trades = []
     in_trade = False
     current_trade = {}
-    
-    weekly_dates = df_weekly.index
-    daily_dates = df_daily.index
-    
-    progress_bar = st.progress(0)
-    
-    for i, current_date in enumerate(daily_dates):
-        if i % 100 == 0:  # Update progress less frequently for performance
-            progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
-        
-        # Find corresponding weekly trend
-        weekly_mask = weekly_dates <= current_date
-        if not weekly_mask.any():
-            continue
-            
-        latest_weekly_date = weekly_dates[weekly_mask][-1]
-        trend_up_value = df_weekly.loc[latest_weekly_date, 'trend_up']
-        if isinstance(trend_up_value, pd.Series):
-            trend_up_value = trend_up_value.iloc[0]  # take first, or handle as needed
-        weekly_trend_up = bool(trend_up_value) if pd.notna(trend_up_value) else False
 
-        # Skip if weekly trend is down (except for exiting trades)
-        if not weekly_trend_up and not in_trade:
+    daily_dates = df_daily.index
+
+    progress_bar = st.progress(0)
+
+    for i, current_date in enumerate(daily_dates):
+        if i % 100 == 0:
+            progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
+            
+        current_data = df_daily.loc[:current_date]
+        if len(current_data) < 100:  # Ensure enough data for ML prediction
             continue
         
-        # Get ML prediction (simplified - in practice, you'd retrain periodically)
-        current_data = df_daily.loc[:current_date]
-        if len(current_data) < 100:  # Need sufficient history
-            continue
-            
         ml_prediction = get_ml_prediction(current_data, models)
         if ml_prediction is None:
             continue
-    
-        confidence_history = []
-        if ml_prediction is not None:
-            confidence_history.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
-
+        
         current_ml_signal = ml_prediction['will_hit']
         current_ml_confidence = ml_prediction['confidence_score']
-        
-        # ENTRY LOGIC
+
+        # ENTRY LOGIC (no weekly trend filter)
         if (not in_trade and 
-            current_ml_signal in ['TP', 'Hold'] and  # Bullish signals
-            current_ml_confidence >= ml_confidence_threshold and
-            weekly_trend_up):
+            current_ml_signal in ['TP', 'Hold'] and  
+            current_ml_confidence >= ml_confidence_threshold):
             
             entry_price = float(df_daily.loc[current_date, 'Close'])
             TP_price = entry_price * (1 + TP_pct / 100.0)
@@ -487,14 +457,13 @@ if st.button("Run ML Strategy Backtest"):
                 'ml_signal': current_ml_signal
             }
             in_trade = True
-        
+
         # EXIT LOGIC
         elif in_trade:
             entry_date = current_trade['entry_date']
             entry_price = current_trade['entry_price']
             TP_price = current_trade['tp_price']
             SL_price = current_trade['sl_price']
-            
             days_in_trade = (current_date - entry_date).days
             
             current_open = float(df_daily.loc[current_date, 'Open'])
@@ -505,7 +474,6 @@ if st.button("Run ML Strategy Backtest"):
             exit_reason = None
             exit_price = None
             
-            # Check exit conditions in priority order
             if current_low <= SL_price:
                 exit_reason = 'SL'
                 exit_price = SL_price
@@ -522,10 +490,8 @@ if st.button("Run ML Strategy Backtest"):
                 exit_reason = 'Max_Hold'
                 exit_price = current_close
             
-            # Exit trade if condition met
             if exit_reason:
                 return_pct = (exit_price / entry_price - 1) * 100.0
-                
                 trades.append({
                     'EntryDate': entry_date,
                     'ExitDate': current_date,
@@ -537,16 +503,13 @@ if st.button("Run ML Strategy Backtest"):
                     'ML_Confidence': current_trade['ml_confidence'],
                     'ML_Signal': current_trade['ml_signal']
                 })
-                
                 in_trade = False
                 current_trade = {}
 
-    # Handle open trade at end
     if in_trade:
         last_date = daily_dates[-1]
         exit_price = float(df_daily.loc[last_date, 'Close'])
         return_pct = (exit_price / current_trade['entry_price'] - 1) * 100.0
-        
         trades.append({
             'EntryDate': current_trade['entry_date'],
             'ExitDate': last_date,
