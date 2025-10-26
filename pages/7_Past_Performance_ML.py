@@ -437,7 +437,6 @@ if st.button("Run ML Strategy Backtest"):
         ml_prediction = get_ml_prediction(current_data, models)
         if ml_prediction is None:
             continue
-        conf_.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
     
         current_ml_signal = ml_prediction['will_hit']
         current_ml_confidence = ml_prediction['confidence_score']
@@ -532,9 +531,7 @@ if st.button("Run ML Strategy Backtest"):
     
     # Results Analysis
     results = pd.DataFrame(trades)
-    conf = pd.DataFrame(conf_)
-    conf['Date'] = pd.to_datetime(conf['Date'])
-    
+
     if results.empty:
         st.warning("No trades executed. Check ML predictions and weekly trend conditions.")
         st.stop()
