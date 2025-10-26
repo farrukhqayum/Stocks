@@ -383,7 +383,8 @@ def get_ml_prediction(df, models):
         'current_price': current_price
     }
     conf_.append({'Date': current_date, 'Confidence': ml_prediction['confidence_score']})
-    conf = pd.DataFrame(conf_)
+
+conf = pd.DataFrame(conf_)
 
 # -------------------------
 # Trading Strategy Backtest
