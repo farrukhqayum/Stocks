@@ -393,7 +393,7 @@ if st.button("Run ML Strategy Backtest"):
     
     with st.spinner('Downloading market data...'):
         df_daily = get_stock_data(ticker, start_date, end_date)
-        df_weekly = yf.download(ticker, period=period, interval="1wk", progress=False)
+        df_weekly = yf.download(ticker, period=period, interval="1d", progress=False)
     
     if df_daily is None or df_daily.empty or df_weekly.empty:
         st.error("No data returned from Yahoo Finance.")
