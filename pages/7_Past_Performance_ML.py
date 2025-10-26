@@ -566,7 +566,7 @@ if st.button("Run ML Strategy Backtest"):
 
     # Plot results
     st.subheader("Backtest and Equity")
-    fig, (ax, bx, cx) = plt.subplots(3, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1, 1]})
+    fig, (ax, ax1, bx, cx) = plt.subplots(4, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1, 1, 1]})
     
     ax.plot(df_daily.index, df_daily['Close'], color='gray', linewidth=1.2, alpha=0.5, label = 'Price')
     ax.plot(df_daily.index, df_daily['SMA10'], color='orange', linewidth=1.0, alpha=0.7, label = 'SMA10')
@@ -578,6 +578,17 @@ if st.button("Run ML Strategy Backtest"):
     
     ax.fill_between(df_daily.index, df_daily['SMA10'], df_daily['SMA50'],
                     where=(df_daily['SMA10'] < df_daily['SMA50']),
+                    color='red', alpha=0.15)
+    
+    ax1.plot(df_daily.index, df_daily['RSI'], color='orange', linewidth=1.0, alpha=0.5, label = 'RSI')
+    ax1.plot(df_daily.index, df_daily['RSI_SMA'], color='red', linewidth=1.0, alpha=0.5, label = 'RSI_SMA')
+    
+    ax1.fill_between(df_daily.index, df_daily['RSI'], df_daily['RSI_SMA'],
+                    where=(df_daily['RSI'] > df_daily['RSI_SMA']),
+                    color='green', alpha=0.15)
+    
+    ax1.fill_between(df_daily.index, df_daily['RSI'], df_daily['RSI_SMA'],
+                    where=(df_daily['RSI'] < df_daily['RSI_SMA']),
                     color='red', alpha=0.15)
     
     bx.plot(results['ExitDate'], results['Cumulative'], color='gray', linewidth=1.0, alpha=0.5)
