@@ -304,7 +304,7 @@ def label_hit_prob_past(
     short = (df['TI'] == 'Short')
     neutral = (df['TI'] == 'Neutral')
 
-    sma1 = df['SMA1'].values
+    sma1 = df['SMA10'].values
     atr = df['ATR'].values
     rsi = df['RSI'].values
     adx = df['ADX'].values
