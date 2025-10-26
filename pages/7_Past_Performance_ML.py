@@ -86,7 +86,7 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
 with col2:
-    period = st.selectbox("History period", ["2y", "3y", "5y", "7y"], index=2)
+    period = st.selectbox("History period", ["1y", "2y", "3y", "5y"], index=2)
 with col3:
     TP_pct = st.number_input("TP (%)", value=7.0, step=0.5)
 with col4:
