@@ -946,10 +946,12 @@ def check_ticker_valid(ticker):
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
-        if info is None or info.get("regularMarketPrice") is None:
+        price = info.get("regularMarketPrice") or info.get("previousClose")
+        if info is None or price is None:
             return False, None
         return True, info
-    except Exception:
+    except Exception as e:
+        print(f"Error for {ticker}: {e}")
         return False, None
 
 def clear_page_session_state():
