@@ -805,9 +805,9 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax3.yaxis.tick_right()
             ax3.set_ylabel(ind)
             ax3.grid(True, alpha=0.3)
-            ax2.axhline(0, color='black', linestyle='--', alpha=0.25)
-            ax2.axhline(0, color='green', linestyle='--', alpha=0.25, label = 'OverBought')
-            ax2.axhline(0, color='red', linestyle='--', alpha=0.25, label = 'OverSold')
+            ax3.axhline(0, color='black', linestyle='--', alpha=0.25)
+            ax3.axhline(0, color='green', linestyle='--', alpha=0.25, label = 'OverBought')
+            ax3.axhline(0, color='red', linestyle='--', alpha=0.25, label = 'OverSold')
         else:
             ax3.text(0.5, 0.5, 'selected data are not available', ha='center', va='center', transform=ax2.transAxes)
 
