@@ -1145,8 +1145,8 @@ def run_app():
             f'{"Price":>7} | '
             f'{"Take-profit (%)":>18} | '
             f'{"Stop-loss (%)":>18} | '
-            f'{"Will Hit":>8} | '
-            f'{"Probability (%)":<11} | '
+            f'{"Will Hit":>8} '
+            f'{"(%)":<11} | '
             f'{"Signal (TI)":<8} | '
             f'{"Is High":<7}'
         )
@@ -1191,6 +1191,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
