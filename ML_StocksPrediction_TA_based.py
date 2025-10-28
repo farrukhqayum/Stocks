@@ -77,7 +77,7 @@ FEATURES = [
     'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'KCu_outer', 'KCl_outer', 'Kasym', 'Kcount', 'STu', 'STl',
 
     # Moving Averages & Bands
-    'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20', 'SMIIO', 'SMIIO_Signal', 'SMIIO_Osc', 'MACD', 'Signal_Line',
+    'EMA1', 'EMA2', 'EMA3', 'EMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20', 'SMIIO', 'SMIIO_Signal', 'SMIIO_Osc', 'MACD', 'Signal_Line',
 
     # Returns & Volatility
     'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
@@ -122,10 +122,10 @@ def strip_ansi_codes(text):
 def add_technical_indicators(df):
     close = df.Close
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
-    df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
-    df['SMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
-    df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
-    df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
+    df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
+    df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
+    df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
+    df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df = ta.scaled_volatility(df)
     df = ta.add_candlestickpatterns(df)
@@ -136,8 +136,8 @@ def add_technical_indicators(df):
     df['MACD'] = ema12 - ema26
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
     df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
-    df['Upper_Band'] = df['SMA1'] + (2 * df['Close'].rolling(20).std())
-    df['Lower_Band'] = df['SMA1'] - (2 * df['Close'].rolling(20).std())
+    df['Upper_Band'] = df['EMA1'] + (2 * df['Close'].rolling(20).std())
+    df['Lower_Band'] = df['EMA1'] - (2 * df['Close'].rolling(20).std())
     df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
     df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
     df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
@@ -160,13 +160,13 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
      # fill nans
-    cols = ['SMA1', 'SMA2', 'RSI', '-DI', 'Close']
+    cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     conditions = [
     # BULL
         (
             (
-                (df['SMA1'] > df['SMA2']) &
+                (df['EMA1'] > df['EMA2']) &
                 (df['RSI'] >= df['RSI_SMA']) &
                 (df['RSI'].between(52, 95))
             )
@@ -178,7 +178,7 @@ def add_technical_indicators(df):
         ),
         # BEAR
         (
-            (df['SMA1'] < df['SMA2']) &
+            (df['EMA1'] < df['EMA2']) &
             (df['RSI'].between(18,60)) &
             (df['RSI'] < df['RSI_SMA'])
             |
@@ -189,14 +189,14 @@ def add_technical_indicators(df):
         ),
         # SHORT
         (
-            (df['Close'] <= df['SMA1']) &
-            (df['SMA1'] < df['SMA2']) &
+            (df['Close'] <= df['EMA1']) &
+            (df['EMA1'] < df['EMA2']) &
             (df['RSI'].between(50, 85))
         ),
         # HOLD
         (
-            (df['Close'] > df['SMA2']) &
-            (df['SMA1'] > df['SMA2']) &
+            (df['Close'] > df['EMA2']) &
+            (df['EMA1'] > df['EMA2']) &
             (df['RSI'].between(40, 90))
         )
     ]
@@ -339,7 +339,7 @@ def label_hit_prob_past(
     short = (df['TI'] == 'Short')
     neutral = (df['TI'] == 'Neutral')
 
-    sma1 = df['SMA1'].values
+    EMA1 = df['EMA1'].values
     atr = df['ATR'].values
     rsi = df['RSI'].values
     adx = df['ADX'].values
@@ -402,21 +402,21 @@ def label_hit_prob_past(
             else:
                 labels.append(0)
     
-    # Post-process: Trigger SL immediately on price dip below SMA1 or SMA1-ATR buffer with momentum checks for Hold/TP
+    # Post-process: Trigger SL immediately on price dip below EMA1 or EMA1-ATR buffer with momentum checks for Hold/TP
     for i in range(N):
         if labels[i] in [2, 3]:  # TP or Hold bars
             current_close = close_prices[i]
-            sma1_now = sma1[i]
+            EMA1_now = EMA1[i]
             atr_now = atr[i]
             rsi_now = rsi[i]
             adx_now = adx[i]
 
             future_end = min(i + 1 + window, N)
             future_closes = close_prices[i + 1 : future_end]
-            future_sma1 = sma1[i + 1 : future_end]
+            future_EMA1 = EMA1[i + 1 : future_end]
 
-            current_dip = current_close < sma1_now or current_close < (sma1_now - 0.5 * atr_now)
-            future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_sma1))
+            current_dip = current_close < EMA1_now or current_close < (EMA1_now - 0.5 * atr_now)
+            future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_EMA1))
 
             bearish_momentum = (rsi_now < 40) and (adx_now > 22)
             fading_bullish = (rsi_now < 50) or (adx_now < 20)
@@ -502,8 +502,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     last_date = df.index[-1]
     future_date = last_date + pd.Timedelta(days=_window)
     avg_price = (current_price+loss_price)/2.
-    sma1_ = round(df['SMA1'].iloc[-1], 2)
-    sma2_ = round(df['SMA2'].iloc[-1], 2)
+    EMA1_ = round(df['EMA1'].iloc[-1], 2)
+    EMA2_ = round(df['EMA2'].iloc[-1], 2)
     R1 = round(df['R1_Avg'].iloc[-1], 2)
     R2 = round(df['R2_Avg'].iloc[-1], 2)
     PP = round(df['PP_Avg'].iloc[-1], 2)
@@ -542,9 +542,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             start_idx = idx
             last_signal = row['Signal']
     kcount_absmax = df['Kcount'].abs().max()
-    df['Kcount_sc'] = df['Kcount'] * (df['SMA1'] / kcount_absmax)
-    ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='gold', alpha=0.7, linewidth=1.2)
-    ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
+    df['Kcount_sc'] = df['Kcount'] * (df['EMA1'] / kcount_absmax)
+    ax1.plot(df.index, df['EMA1'], label=f'EMA{int(_DAYS*0.5)}', color='gold', alpha=0.7, linewidth=1.2)
+    ax1.plot(df.index, df['EMA2'], label=f'EMA{int(_DAYS*2)}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
     ax1.plot(df.index, df['KCu'], color='blue', alpha=0.3, linestyle='--', linewidth=1)
     ax1.plot(df.index, df['KCl'], color='red', alpha=0.3, linestyle='--', linewidth=1)
     ax1_ = ax1.twinx()
@@ -553,10 +553,10 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1_.set_ylabel('')
     for line in ax1.lines:
         line.set_zorder(3)
-    ta.add_regression_forecast(ax1, df['SMA1'], last_date, color='orange')
-    ta.add_regression_forecast(ax1, df['SMA2'], last_date, color='red')
-    ax1.fill_between(df.index, df['SMA1'], df['SMA2'], where=(df['SMA1'] > df['SMA2']), facecolor='green', alpha=0.2, interpolate=True, label='BUY-times')
-    ax1.fill_between(df.index, df['SMA1'], df['SMA2'], where=(df['SMA1'] <= df['SMA2']), facecolor='red', alpha=0.2, interpolate=True, label='Stay-away')
+    ta.add_regression_forecast(ax1, df['EMA1'], last_date, color='orange')
+    ta.add_regression_forecast(ax1, df['EMA2'], last_date, color='red')
+    ax1.fill_between(df.index, df['EMA1'], df['EMA2'], where=(df['EMA1'] > df['EMA2']), facecolor='green', alpha=0.2, interpolate=True, label='BUY-times')
+    ax1.fill_between(df.index, df['EMA1'], df['EMA2'], where=(df['EMA1'] <= df['EMA2']), facecolor='red', alpha=0.2, interpolate=True, label='Stay-away')
     if (_FIBS):
         fibs, fib_start, fib_end = get_recent_fib_levels(df)
         fib_colors = {'F:0': 'gray','F:100': 'gray','F:61.8': 'blue','F:125': 'green','F:-125': 'red'}
@@ -595,11 +595,11 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.2, alpha=0.35)
     ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
     ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
-    ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.3, label='Dip(?)')
+    ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.EMA1 > df.EMA2)), facecolor='orange', alpha=0.3, label='Dip(?)')
     
     rsi_last = round(df['RSI'].iloc[-1], 1)
     rsi_sma_last = round(df['RSI'].rolling(20).mean().iloc[-1], 1)
-    price_vs_sma1 = 100 * (current_price - sma1_) / sma1_ if sma1_ != 0 else 0
+    price_vs_EMA1 = 100 * (current_price - EMA1_) / EMA1_ if EMA1_ != 0 else 0
     ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=5, alpha=0.4, label='Bull', zorder=7)
     ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='Bear', zorder=8)
     ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=5, alpha=0.4, label='Short', zorder=10)
@@ -626,9 +626,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     strong_bear = (df['RSI'].iloc[-1] < 40) and (df['ADX'].iloc[-1] > 22) and (df['sumBuyVol'].iloc[-1] < df['sumSellVol'].iloc[-1])
     summary_lines = [
         f"==== Market Technical Summary for {ticker} ====",
-        f"Trend: SMA1 ({sma1_}) is {'above' if sma1_ > sma2_ else 'below'} SMA2 ({sma2_}) → Market is {'bullish' if sma1_ > sma2_ else 'bearish'}.",
+        f"Trend: EMA1 ({EMA1_}) is {'above' if EMA1_ > EMA2_ else 'below'} EMA2 ({EMA2_}) → Market is {'bullish' if EMA1_ > EMA2_ else 'bearish'}.",
         f"Momentum: RSI = {rsi_last} ({'above' if rsi_last > rsi_sma_last else 'below'} its 20-day average of {rsi_sma_last}).",
-        f"Price: ${current_price} is {abs(price_vs_sma1):.2f}% {'above' if price_vs_sma1 > 0 else 'below'} SMA1.",
+        f"Price: ${current_price} is {abs(price_vs_EMA1):.2f}% {'above' if price_vs_EMA1 > 0 else 'below'} EMA1.",
         f"Resistance PIVOTS: (${R1}, ${R2}), PIVOT(${PP}), Support PIVOTS ( ${S1}, ${S2}).",
         f"Trend Strength: Strong Bull: {'Yes' if strong_bull else 'No'}, Strong Bear: {'Yes' if strong_bear else 'No'}.",
         f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%."
@@ -689,7 +689,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
             df['BuyTime'] = (
                 (df['Bull'] == 1) &
-                ((df['Close'] - df['SMA1']) / df['SMA1'] <= 0.02)
+                ((df['Close'] - df['EMA1']) / df['EMA1'] <= 0.02)
             )
             df = add_pivot_levels(df, window=14)
             df = add_pivots(df, windows)
@@ -813,8 +813,8 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             except Exception as e:
                 confidence_score = 0 
     
-            sma1 = latest['SMA1'].values[0]
-            sma2 = latest['SMA2'].values[0]
+            EMA1 = latest['EMA1'].values[0]
+            EMA2 = latest['EMA2'].values[0]
             rsi = latest['RSI'].values[0]
             signal = "TI: ⚪ Neut"
             _Extremes = "High" if df['Exhaustion'].values[-1] >= 0.9 else ("Low" if df['Exhaustion'].values[-1] <= -0.9 else "--")
@@ -1192,6 +1192,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
