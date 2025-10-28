@@ -47,7 +47,7 @@ FEATURES = [
     'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'KCu_outer', 'KCl_outer', 'Kasym', 'Kcount', 'STu', 'STl',
 
     # Moving Averages & Bands
-    'SMA1', 'SMA2', 'SMA3', 'SMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20', 'SMIIO', 'SMIIO_Signal', 'SMIIO_Osc', 'MACD', 'Signal_Line',
+    'EMA1', 'EMA2', 'EMA3', 'EMA_Ratio', 'Upper_Band', 'Lower_Band', 'Volume_MA20', 'SMIIO', 'SMIIO_Signal', 'SMIIO_Osc', 'MACD', 'Signal_Line',
 
     # Returns & Volatility
     'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
@@ -147,11 +147,11 @@ def add_technical_indicators(df, timeframe='1D'):
             sma_multiplier = 3
             atr_period = 14  
             rsi_period = 14
-        df['SMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5 * sma_multiplier), adjust=False).mean()
-        df['SMA2'] = df['Close'].ewm(span=_DAYS * sma_multiplier, adjust=False).mean()
-        df['SMA3'] = df['Close'].ewm(span=int(_DAYS * 2 * sma_multiplier), adjust=False).mean()
+        df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5 * sma_multiplier), adjust=False).mean()
+        df['EMA2'] = df['Close'].ewm(span=_DAYS * sma_multiplier, adjust=False).mean()
+        df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2 * sma_multiplier), adjust=False).mean()
 
-        df['SMA_Ratio'] = df['SMA1'] / df['SMA2']
+        df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
         df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
         df = ta.scaled_volatility(df)
         df = ta.add_candlestickpatterns(df)
@@ -172,8 +172,8 @@ def add_technical_indicators(df, timeframe='1D'):
         df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
         
         df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
-        df['Upper_Band'] = df['SMA1'] + (2 * df['Close'].rolling(20).std())
-        df['Lower_Band'] = df['SMA1'] - (2 * df['Close'].rolling(20).std())
+        df['Upper_Band'] = df['EMA1'] + (2 * df['Close'].rolling(20).std())
+        df['Lower_Band'] = df['EMA1'] - (2 * df['Close'].rolling(20).std())
         df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
         df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
         df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
@@ -205,7 +205,7 @@ def add_technical_indicators(df, timeframe='1D'):
         df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
         
         # fill nans
-        cols = ['SMA1', 'SMA2', 'RSI', '-DI', 'Close']
+        cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
         df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
         
         # Adjust RSI thresholds for weekly if needed
@@ -216,21 +216,21 @@ def add_technical_indicators(df, timeframe='1D'):
         # BULL
         (
             (
-                (df['SMA1'] > df['SMA2']) &
+                (df['EMA1'] > df['EMA2']) &
                 (df['RSI'] >= df['RSI_SMA']) &
                 (df['RSI'].between(52, 95)) &
                 (df['+DI'] > df['-DI']) &
                 (df['+DI'].between(18, 55))
             ) &
             (
-                (df['Close'] > df['SMA1']) &
+                (df['Close'] > df['EMA1']) &
                 (df['RSI'] > df['RSI_SMA'])
             )
         ),
         # BEAR
         (
             (
-                (df['SMA1'] < df['SMA2']) &
+                (df['EMA1'] < df['EMA2']) &
                 (df['RSI'].between(18,60)) &
                 (df['RSI'] < df['RSI_SMA']) &
                 (df['+DI'] < df['-DI']) &
@@ -239,16 +239,16 @@ def add_technical_indicators(df, timeframe='1D'):
         ),
         # SHORT
         (
-            (df['Close'] <= df['SMA1']) &
-            (df['SMA1'] < df['SMA2']) &
+            (df['Close'] <= df['EMA1']) &
+            (df['EMA1'] < df['EMA2']) &
             (df['RSI'].between(50, 85)) &
             (df['-DI'] < df['+DI'])
         ),
         # HOLD
         (
             (
-                (df['Close'] > df['SMA2']) &
-                (df['SMA1'] > df['SMA2']) &
+                (df['Close'] > df['EMA2']) &
+                (df['EMA1'] > df['EMA2']) &
                 (df['RSI'].between(40, 90))
             ) |
             (
@@ -428,7 +428,7 @@ def label_hit_prob_past(
     short = (df['TI'] == 'Short')
     neutral = (df['TI'] == 'Neutral')
 
-    sma1 = df['SMA1'].values
+    EMA1 = df['EMA1'].values
     atr = df['ATR'].values
     rsi = df['RSI'].values
     adx = df['ADX'].values
@@ -494,17 +494,17 @@ def label_hit_prob_past(
     for i in range(N):
         if labels[i] in [2, 3]:  # TP or Hold bars
             current_close = close_prices[i]
-            sma1_now = sma1[i]
+            EMA1_now = EMA1[i]
             atr_now = atr[i]
             rsi_now = rsi[i]
             adx_now = adx[i]
 
             future_end = min(i + 1 + window, N)
             future_closes = close_prices[i + 1 : future_end]
-            future_sma1 = sma1[i + 1 : future_end]
+            future_EMA1 = EMA1[i + 1 : future_end]
 
-            current_dip = current_close < sma1_now or current_close < (sma1_now - 0.5 * atr_now)
-            future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_sma1))
+            current_dip = current_close < EMA1_now or current_close < (EMA1_now - 0.5 * atr_now)
+            future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_EMA1))
 
             bearish_momentum = (rsi_now < 40) and (adx_now > 22)
             fading_bullish = (rsi_now < 50) or (adx_now < 20)
@@ -690,12 +690,12 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.plot(df.index, price, label='Price', color='gray', alpha=0.5, linewidth=1)
         
         # SMAs if available
-        if 'SMA1' in df.columns:
-            ax1.plot(df.index, df['SMA1'], label=f'SMA{int(_DAYS*0.5)}', color='orange', alpha=0.4, linewidth=1)
-        if 'SMA2' in df.columns:
-            ax1.plot(df.index, df['SMA2'], label=f'SMA{int(_DAYS*2)}', color='red', alpha=0.4, linewidth=1)
-        ax1.fill_between(df.index, df.SMA1, df.SMA2, where=(df.SMA1 > df.SMA2), facecolor='green', alpha=0.15)
-        ax1.fill_between(df.index, df.SMA1, df.SMA2, where=(df.SMA1 < df.SMA2), facecolor='red', alpha=0.15)
+        if 'EMA1' in df.columns:
+            ax1.plot(df.index, df['EMA1'], label=f'EMA{int(_DAYS*0.5)}', color='orange', alpha=0.4, linewidth=1)
+        if 'EMA2' in df.columns:
+            ax1.plot(df.index, df['EMA2'], label=f'EMA{int(_DAYS*2)}', color='red', alpha=0.4, linewidth=1)
+        ax1.fill_between(df.index, df.EMA1, df.EMA2, where=(df.EMA1 > df.EMA2), facecolor='green', alpha=0.15)
+        ax1.fill_between(df.index, df.EMA1, df.EMA2, where=(df.EMA1 < df.EMA2), facecolor='red', alpha=0.15)
         
         # Entry point
         last_date = df.index[-1]
@@ -778,7 +778,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.plot(df.index, rsi_sma, label='RSI SMA', color='red', linewidth=1.5, alpha=0.45)
             ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
             ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
-            ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.14, label='Dip(?)')
+            ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.EMA1 > df.EMA2)), facecolor='orange', alpha=0.14, label='Dip(?)')
             ax2.axhline(70, color='red', linestyle='--', alpha=0.4)
             ax2.axhline(30, color='green', linestyle='--', alpha=0.4)
             ax2.axhline(50, color='gray', linestyle='-', alpha=0.4)
@@ -788,7 +788,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=_s, alpha=0.3, label='Bear', zorder=8)
             ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=_s*3, alpha=0.4, label='Short', zorder=9)
             hold_mask = df['Hold'] == 1
-            colors = np.where(df['SMA1'] < df['SMA2'], 'red', 'orange')
+            colors = np.where(df['EMA1'] < df['EMA2'], 'red', 'orange')
             ax2.scatter(df.index[hold_mask], rsi_[hold_mask], color=colors[hold_mask], marker='o', s=_s, alpha=0.3, label='Hold', zorder=10)
             ax2.yaxis.set_label_position("right")
             ax2.yaxis.tick_right()
@@ -892,8 +892,8 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     return assessment, " | ".join(reasons)
 
 def avg_bull_bear_lengths(df):
-    bull = (df['SMA1'] > df['SMA2'])
-    bear = (df['SMA1'] < df['SMA2'])
+    bull = (df['EMA1'] > df['EMA2'])
+    bear = (df['EMA1'] < df['EMA2'])
 
     periods = []
     current_trend = None
