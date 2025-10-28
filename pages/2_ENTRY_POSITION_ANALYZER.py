@@ -947,7 +947,6 @@ def update_price_and_reset_entry():
         st.session_state.previous_ticker = ticker
         st.session_state.initial_prices_set = True
 
-        
 def check_ticker_valid(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -1063,8 +1062,8 @@ def main():
         user_gain = st.number_input(
             "Expected Gain (%)",
             min_value=0.1,
-            max_value=10.0,
-            value=2.50,
+            max_value=15.0,
+            value=3.75,
             step=0.1,
             key="user_gain",
             help="Tip: Realistic training needs modest/realistic repeatable gains like 2-7%. 10-15% gains results in less data and unrealistic results." 
@@ -1072,8 +1071,8 @@ def main():
         user_loss = st.number_input(
             "Expected Loss (%)",
             min_value=0.1,
-            max_value=10.0,
-            value=2.50,
+            max_value=15.0,
+            value=3.75,
             step=0.1,
             key="user_loss",
             help="Tip: Realistic training needs modest/realistic repeatable gains like 2-7%. 10-15% gains results in less data and unrealistic results."             
