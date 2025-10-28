@@ -778,8 +778,8 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.fill_between(df.index, rsi_, 52, where=(df['RSI'] > 52), facecolor='green', alpha=0.15)
             ax2.fill_between(df.index, rsi_, 40, where=(df['RSI'] < 40), facecolor='red', alpha=0.15)
             ax2.fill_between(df.index, rsi_, rsi_sma, where=((df['RSI'] < df['RSI_SMA']) & (df.SMA1 > df.SMA2)), facecolor='orange', alpha=0.14, label='Dip(?)')
-            ax2.axhline(70, color='red', linestyle='--', alpha=0.4, label='Overbought')
-            ax2.axhline(30, color='green', linestyle='--', alpha=0.4, label='Oversold')
+            ax2.axhline(70, color='red', linestyle='--', alpha=0.4)
+            ax2.axhline(30, color='green', linestyle='--', alpha=0.4)
             ax2.axhline(50, color='gray', linestyle='-', alpha=0.4)
             
             _s = 10
