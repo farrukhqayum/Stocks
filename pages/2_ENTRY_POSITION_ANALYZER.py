@@ -20,9 +20,9 @@ st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
-    '4H': 1,    # 1 year for hourly
-    '1D': 2,    # 2 years for daily  
-    '1W': 5     # 5 years for weekly (minimum for sufficient data points)
+    '4H': 1,    
+    '1D': 2,    
+    '1W': 8
 }
 
 MIN_TRAIN_ROWS = {
@@ -130,11 +130,12 @@ def add_technical_indicators(df, timeframe='1D'):
         # Adjust parameters based on timeframe
         if timeframe == '1W':
             # Longer periods for weekly data
-            sma_multiplier = 1  # Longer SMAs for weekly
-            atr_period = 7
-            rsi_period = 9
+            sma_multiplier = 2
+            atr_period = 4
+            rsi_period = 8
             df.Close = close
-            windows = [3, 5, 9, 17, 19, 21]
+            windows = [3, 5, 9]
+            df = df.ffill().bfill()
             
         elif timeframe == '4H':
             sma_multiplier = 5  # Longer SMAs for weekly
