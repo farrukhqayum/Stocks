@@ -516,6 +516,43 @@ def label_hit_prob_past(
     df['Hit_Label'] = labels
     return df
     
+def handle_missing_data(df, required_cols, timeframe):
+    """Handle missing data strategically instead of dropping all rows with any NaN"""
+    df_clean = df[required_cols].copy()
+    
+    # For weekly data, be more lenient with missing values
+    if timeframe == '1W':
+        # Calculate how many NaN values per row
+        nan_counts = df_clean.isnull().sum(axis=1)
+        
+        # Keep rows that have at most 20% missing features
+        max_allowed_nans = len(required_cols) * 0.2
+        keep_mask = nan_counts <= max_allowed_nans
+        
+        df_clean = df_clean[keep_mask]
+        
+        # Fill remaining NaNs with column means for numeric columns
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        df_clean[numeric_cols] = df_clean[numeric_cols].fillna(df_clean[numeric_cols].mean())
+        
+        # For categorical columns, fill with mode
+        categorical_cols = df_clean.select_dtypes(include=['object', 'category']).columns
+        for col in categorical_cols:
+            if col in df_clean.columns:
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown')
+    
+    else:
+        # For other timeframes, use standard dropna but be more careful
+        # Only drop rows where critical columns are missing
+        critical_cols = ['Hit_Label', 'Expected_Return', 'Expected_Loss', 'Close', 'High', 'Low']
+        critical_cols_present = [col for col in critical_cols if col in df_clean.columns]
+        df_clean = df_clean.dropna(subset=critical_cols_present)
+        
+        # Fill remaining NaNs with forward fill
+        df_clean = df_clean.ffill().bfill()
+    
+    return df_clean
+    
 def train_models(df, timeframe):
     """Train ML models for the given timeframe"""
     try:
@@ -527,7 +564,8 @@ def train_models(df, timeframe):
             st.warning(f"Missing columns for {timeframe}: {missing_cols}")
             return None, None, None, None, None, None
         
-        df_model = df.dropna(subset=required_cols)
+        # FIX: Use more strategic NaN handling instead of strict dropna
+        df_model = handle_missing_data(df, required_cols, timeframe)
         
         required_min = MIN_TRAIN_ROWS.get(timeframe, _Nr)
         
@@ -548,7 +586,7 @@ def train_models(df, timeframe):
         progress_bar.progress(25)
         
         model_class = RandomForestClassifier(
-            n_estimators=50,  # Reduced for speed
+            n_estimators=50,
             max_depth=8, 
             random_state=42,
             n_jobs=-1
@@ -575,7 +613,7 @@ def train_models(df, timeframe):
         X_scaled_return = scaler_return.fit_transform(X_reg[FEATURES_with_probs])
         
         model_return = RandomForestRegressor(
-            n_estimators=50,  # Reduced for speed
+            n_estimators=50,
             max_depth=8, 
             random_state=42,
             n_jobs=-1
@@ -589,7 +627,7 @@ def train_models(df, timeframe):
         X_scaled_loss = scaler_loss.fit_transform(X_reg[FEATURES_with_probs])
         
         model_loss = RandomForestRegressor(
-            n_estimators=50,  # Reduced for speed
+            n_estimators=50,
             max_depth=8, 
             random_state=42,
             n_jobs=-1
