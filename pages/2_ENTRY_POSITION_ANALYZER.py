@@ -821,7 +821,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.axhline(30, color='green', linestyle='--', alpha=0.4)
             ax2.axhline(50, color='gray', linestyle='-', alpha=0.4)
             
-            _s = 10
+            _s = 5
             ax2.scatter(df.index[df['Bull'] == 1], rsi_[df['Bull'] == 1], color='green', marker='^', s=_s, alpha=0.3, label='Bull', zorder=7)
             ax2.scatter(df.index[df['Bear'] == 1], rsi_[df['Bear'] == 1], color='red', marker='v', s=_s, alpha=0.3, label='Bear', zorder=8)
             ax2.scatter(df.index[df['Short'] == 1], rsi_[df['Short'] == 1], color='red', marker='x', s=_s*3, alpha=0.4, label='Short', zorder=9)
