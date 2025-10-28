@@ -131,10 +131,10 @@ def add_technical_indicators(df, timeframe='1D'):
         if timeframe == '1W':
             # Longer periods for weekly data
             sma_multiplier = 2
-            atr_period = 4
-            rsi_period = 8
+            atr_period = 5
+            rsi_period = 9
             df.Close = close
-            windows = [3, 5, 9]
+            windows = [3, 5, 7, 9, 11]
             df = df.ffill().bfill()
             
         elif timeframe == '4H':
