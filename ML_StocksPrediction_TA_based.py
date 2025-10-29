@@ -184,7 +184,7 @@ def add_technical_indicators(df):
             |
             (
                 (df['RSI'] < df['RSI_SMA']) & 
-                (df['RSI']< 50)
+                (df['RSI'].between(20, 60))
             )
         ),
         # SHORT
@@ -197,7 +197,7 @@ def add_technical_indicators(df):
         (
             (df['Close'] > df['EMA2']) &
             (df['EMA1'] > df['EMA2']) &
-            (df['RSI'].between(40, 90))
+            (df['RSI'].between(50, 90))
         )
     ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
@@ -1192,6 +1192,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
