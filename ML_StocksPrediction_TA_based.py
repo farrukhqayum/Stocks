@@ -696,13 +696,12 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             Technical Summary:
             + {prompt_}
             """
-    
-    summarizer = load_instruction_model()
-    ai_output = summarizer(prompt, max_length=400, min_length=100, do_sample=False)
-    ai_summary = ai_output[0]['summary_text'].strip().replace('\n', ' ')
 
-    st.markdown(f"### 🧭 {ticker} AI Summary")
-    st.write(ai_summary)
+    summarizer = load_instruction_model()
+    ai_output = summarizer(prompt, max_length=200, do_sample=False)
+    ai_summary = ai_output[0]['generated_text'].strip()
+    st.markdown(f"### 🧭 {ticker} AI Summary\n{ai_summary}")
+
     
 
 #  🟡 Make Predictions (Gain/Loss/Confidence)
@@ -1229,6 +1228,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
