@@ -101,8 +101,6 @@ FEATURES = [
 def load_summarizer():
     return pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
 
-summarizer = load_summarizer()
-
 @st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
     try:
@@ -681,6 +679,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         prompt = (
             "Summarize this technical market report briefly, focusing on trend, risk, and suggested trader action:\n\n"
             + prompt_)
+    
+    summarizer = load_summarizer()
     ai_summary = summarizer(prompt, max_length=200, min_length=40, do_sample=False)[0]['summary_text']
 
     st.markdown("### 🧭 AI Action Summary")
@@ -1211,6 +1211,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
