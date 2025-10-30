@@ -11,7 +11,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from transformers import pipeline
+
 
 st.cache_data.clear()
 st.cache_resource.clear()
@@ -679,29 +679,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
   
     plt.tight_layout()
     st.pyplot(fig)
-    #st.code("\n".join(summary_lines))
-    prompt_ = '\n'.join(summary_lines)
-    
-    # 🔹 AI Enhancement Section
-    
-    with st.spinner("Summarizing..."):
-        prompt = f"""
-            You are an expert trader. Analyze the following technical market summary and give concise, actionable guidance:
-            - Highlight trend direction (bullish/bearish/neutral)
-            - Mention momentum signals (RSI, EMA)
-            - Suggest next action (Buy / Hold / Sell)
-            - Give risk levels if relevant
-            - Write in 2-3 clear sentences, for a trader
-
-            Technical Summary:
-            + {prompt_}
-            """
-
-    summarizer = load_instruction_model()
-    ai_output = summarizer(prompt, max_length=200, do_sample=False)
-    ai_summary = ai_output[0]['generated_text'].strip()
-    st.markdown(f"### 🧭 {ticker} AI Summary\n{ai_summary}")
-
+    st.code("\n".join(summary_lines))
     
 
 #  🟡 Make Predictions (Gain/Loss/Confidence)
@@ -1228,6 +1206,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
