@@ -670,7 +670,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
   
     plt.tight_layout()
     st.pyplot(fig)
-    st.code("\n".join(summary_lines))
+    #st.code("\n".join(summary_lines))
     prompt_ = '\n'.join(summary_lines)
     
     # 🔹 AI Enhancement Section
@@ -681,10 +681,10 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             + prompt_)
     
     summarizer = load_summarizer()
-    ai_summary = summarizer(prompt, max_length=200, min_length=40, do_sample=False)[0]['summary_text']
+    ai_summary = summarizer(prompt, max_length=400, min_length=40, do_sample=True)
 
     st.markdown("### 🧭 AI Action Summary")
-    st.success(ai_summary)
+    st.code(ai_summary)
     
 
 #  🟡 Make Predictions (Gain/Loss/Confidence)
@@ -1211,6 +1211,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
