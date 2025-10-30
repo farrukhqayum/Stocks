@@ -667,7 +667,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     plt.tight_layout()
     st.pyplot(fig)
     st.code("\n".join(summary_lines))
-    prompt_ = '\n.join(summary_lines)
+    prompt_ = '\n'.join(summary_lines)
     # 🔹 AI Enhancement Section
     if st.button("Generate AI Summary"):
         with st.spinner("Summarizing..."):
@@ -1206,6 +1206,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
