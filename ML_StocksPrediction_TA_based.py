@@ -681,7 +681,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             + prompt_)
     
     summarizer = load_summarizer()
-    ai_summary = summarizer(prompt, max_length=400, min_length=40, do_sample=True).strip().replace('\n', ' ')
+    ai_output = summarizer(prompt, max_length=400, min_length=100, do_sample=True)
+    ai_summary = ai_output[0]['summary_text'].strip().replace('\n', ' ')
 
     st.markdown(f"### 🧭 {ticker} AI Summary")
     st.markdown(ai_summary)
@@ -1211,6 +1212,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
