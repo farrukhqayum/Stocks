@@ -668,16 +668,17 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     st.pyplot(fig)
     st.code("\n".join(summary_lines))
     prompt_ = '\n'.join(summary_lines)
+    
     # 🔹 AI Enhancement Section
-    if st.button("Generate AI Summary"):
-        with st.spinner("Summarizing..."):
-            prompt = (
+    
+    with st.spinner("Summarizing..."):
+        prompt = (
             "Summarize this technical market report briefly, focusing on trend, risk, and suggested trader action:\n\n"
-            + prompt)
-        ai_summary = summarizer(prompt, max_length=200, min_length=40, do_sample=False)[0]['summary_text']
+            + prompt_)
+    ai_summary = summarizer(prompt, max_length=200, min_length=40, do_sample=False)[0]['summary_text']
 
-        st.markdown("### 🧭 AI Action Summary")
-        st.success(ai_summary)
+    st.markdown("### 🧭 AI Action Summary")
+    st.success(ai_summary)
     
 
 #  🟡 Make Predictions (Gain/Loss/Confidence)
@@ -1204,6 +1205,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
