@@ -8,9 +8,10 @@ xgboost
 openpyxl
 tabulate
 pandas
-transformers==4.44.2
-torch==2.2.2
+transformers
+torch
 sentencepiece
+
 
 
 
