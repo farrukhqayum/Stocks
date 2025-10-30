@@ -8,9 +8,7 @@ xgboost
 openpyxl
 tabulate
 pandas
-transformers
-torch
-sentencepiece
+
 
 
 
