@@ -685,7 +685,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ai_summary = ai_output[0]['summary_text'].strip().replace('\n', ' ')
 
     st.markdown(f"### 🧭 {ticker} AI Summary")
-    st.markdown(ai_summary)
+    st.write(ai_summary)
     
 
 #  🟡 Make Predictions (Gain/Loss/Confidence)
@@ -1212,6 +1212,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
