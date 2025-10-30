@@ -676,9 +676,17 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # 🔹 AI Enhancement Section
     
     with st.spinner("Summarizing..."):
-        prompt = (
-            "Summarize this technical market report briefly, focusing on trend, risk, and suggested trader action:\n\n"
-            + prompt_)
+        prompt = f"""
+            You are an expert trader. Analyze the following technical market summary and give concise, actionable guidance:
+            - Highlight trend direction (bullish/bearish/neutral)
+            - Mention momentum signals (RSI, EMA)
+            - Suggest next action (Buy / Hold / Sell)
+            - Give risk levels if relevant
+            - Write in 2-3 clear sentences, for a trader
+
+            Technical Summary:
+            + {prompt_}
+            """
     
     summarizer = load_summarizer()
     ai_output = summarizer(prompt, max_length=400, min_length=100, do_sample=True)
@@ -1212,6 +1220,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
