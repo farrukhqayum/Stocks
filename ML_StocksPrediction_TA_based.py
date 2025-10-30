@@ -671,12 +671,10 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     # 🔹 AI Enhancement Section
     if st.button("Generate AI Summary"):
         with st.spinner("Summarizing..."):
-        # Tell the model to focus on actions
-        prompt = (
+            prompt = (
             "Summarize this technical market report briefly, focusing on trend, risk, and suggested trader action:\n\n"
-            + prompt_
-        )
-        ai_summary = summarizer(prompt, max_length=100, min_length=40, do_sample=False)[0]['summary_text']
+            + prompt)
+        ai_summary = summarizer(prompt, max_length=200, min_length=40, do_sample=False)[0]['summary_text']
 
         st.markdown("### 🧭 AI Action Summary")
         st.success(ai_summary)
@@ -1206,6 +1204,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
