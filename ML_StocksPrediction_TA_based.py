@@ -11,6 +11,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from transformers import pipeline
 
 st.cache_data.clear()
 st.cache_resource.clear()
@@ -633,7 +634,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         f"Trend Strength: Strong Bull: {'Yes' if strong_bull else 'No'}, Strong Bear: {'Yes' if strong_bear else 'No'}.",
         f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%."
     ]
-
+    
     hit_interp = {
         'TP': "bullish — consider buying or holding",
         'SL': "bearish — exercise caution or consider selling",
@@ -666,6 +667,19 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     plt.tight_layout()
     st.pyplot(fig)
     st.code("\n".join(summary_lines))
+    prompt_ = '\n.join(summary_lines)
+    # 🔹 AI Enhancement Section
+    if st.button("Generate AI Summary"):
+        with st.spinner("Summarizing..."):
+        # Tell the model to focus on actions
+        prompt = (
+            "Summarize this technical market report briefly, focusing on trend, risk, and suggested trader action:\n\n"
+            + prompt_
+        )
+        ai_summary = summarizer(prompt, max_length=100, min_length=40, do_sample=False)[0]['summary_text']
+
+        st.markdown("### 🧭 AI Action Summary")
+        st.success(ai_summary)
     
 
 #  🟡 Make Predictions (Gain/Loss/Confidence)
@@ -1192,6 +1206,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
