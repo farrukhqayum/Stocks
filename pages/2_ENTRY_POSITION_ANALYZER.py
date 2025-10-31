@@ -68,6 +68,25 @@ FEATURES = [
 label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
+desc = 
+    """
+    ### Entry Conditions
+    - No active open trade, waiting for new entry
+    - RSI (Relative Strength Index) is above its smoothed average (RSI_SMA), indicating bullish momentum
+    - The machine learning model predicts a strong bullish movement ('TP' or 'Hold') with confidence above the set threshold
+    - Take Profit (TP) price is set dynamically to the greater of the user-defined target or ML predicted return
+    - Stop Loss (SL) price is set to the tighter (lesser loss) of the user-defined stop loss or ML predicted loss
+
+    ### Exit Conditions
+    - Exit occurs immediately if intraday price hits the dynamic TP or SL levels
+    - Opening price gaps beyond TP or SL trigger immediate exit at gap price or TP/SL boundary
+    - Trades automatically close after a maximum holding period if no exit triggered earlier
+
+    ### Additional Notes
+    - This approach balances preset risk management with ML-model-driven adaptiveness
+    - The system continuously evaluates trade signals, adjusting entries and exits based on market dynamics and model confidence
+    - Risk-reward ratio and confidence scores help assess and validate each trade decision
+    """
 
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
@@ -1031,10 +1050,11 @@ def initialize_session_state():
             st.session_state.previous_ticker = ticker
             
 def main():
-    #clear_page_session_state()
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
-    
+
+    with st.expander("Trading Strategy Entry and Exit Conditions Overview", expanded=False):
+    st.write(desc)
     initialize_session_state()
     col1, col2, col3 = st.columns(3)
 
