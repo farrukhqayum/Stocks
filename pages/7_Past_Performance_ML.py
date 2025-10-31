@@ -580,10 +580,25 @@ if st.button("Run ML Strategy Backtest"):
             entry_price = float(df_daily.loc[current_date, 'Close'])
             #TP_price = entry_price * (1 + TP_pct / 100.0)
             #SL_price = entry_price * (1 - SL_pct / 100.0)
-                
-            TP_price = entry_price * (1 + ml_prediction['predicted_return'])
-            SL_price = entry_price * (1 + ml_prediction['predicted_loss'])
-               
+
+            tp_given = TP_pct / 100.0
+            sl_given = -SL_pct / 100.0  # Note SL loss is negative
+            
+            predicted_return = ml_prediction['predicted_return']
+            predicted_loss = ml_prediction['predicted_loss']
+            
+            entry_price = float(df_daily.loc[current_date, 'Close'])
+            
+            if tp_given < predicted_return:
+                TP_price = entry_price * (1 + predicted_return)
+            else:
+                TP_price = entry_price * (1 + tp_given)
+            
+            if sl_given > predicted_loss:
+                SL_price = entry_price * (1 + sl_given)
+            else:
+                SL_price = entry_price * (1 + predicted_loss)
+
             current_trade = {
                 'entry_date': current_date,
                 'entry_price': entry_price,
@@ -961,7 +976,7 @@ if st.button("Run ML Strategy Backtest"):
         })
     
     perf_table = pd.DataFrame(perf_rows)
-    st.subheader(f'{ticker} Performance by TP/SL Percent (ML Confidence >= {ML_Confidence}%)')
+    st.subheader(f'{ticker} Performance by TP/SL Percent (ML Confidence >= {ml_confidence_threshold}%)')
     st.dataframe(perf_table)
 
 
