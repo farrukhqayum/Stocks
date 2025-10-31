@@ -573,10 +573,10 @@ if st.button("Run ML Strategy Backtest"):
         confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
         
         # ENTRY LOGIC (no weekly trend filter)
-        if (not in_trade and df_daily.loc[current_date, 'Bull'] == 1 and
+       if (not in_trade and df_daily.loc[current_date, 'RSI'] > df_daily.loc[current_date, 'RSI_SMA'] and
             current_ml_signal in ['TP', 'Hold'] and  
             current_ml_confidence >= ml_confidence_threshold):
-            
+
             entry_price = float(df_daily.loc[current_date, 'Close'])
             TP_price = entry_price * (1 + TP_pct / 100.0)
             SL_price = entry_price * (1 - SL_pct / 100.0)
@@ -851,7 +851,10 @@ if st.button("Run ML Strategy Backtest"):
             current_ml_confidence = ml_prediction['confidence_score']
             
             # ENTRY LOGIC (no weekly trend filter)
-            if (not in_trade and current_ml_signal in ['TP', 'Hold']):
+            if (not in_trade and df_daily.loc[current_date, 'RSI'] > df_daily.loc[current_date, 'RSI_SMA'] and
+                current_ml_signal in ['TP', 'Hold'] and  
+                current_ml_confidence >= ml_confidence_threshold):
+
                 entry_price = float(df_daily.loc[current_date, 'Close'])
                 TP_price = entry_price * (1 + pct)
                 SL_price = entry_price * (1 - pct)
