@@ -573,7 +573,7 @@ if st.button("Run ML Strategy Backtest"):
         confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
         
         # ENTRY LOGIC (no weekly trend filter)
-        if (not in_trade and df_daily.loc[current_date, 'RSI'] > df_daily.loc[current_date, 'RSI_SMA'] and
+        if (not in_trade and
             current_ml_signal in ['TP', 'Hold', 'None'] and  
             current_ml_confidence >= ml_confidence_threshold):
 
@@ -851,7 +851,7 @@ if st.button("Run ML Strategy Backtest"):
             current_ml_confidence = ml_prediction['confidence_score']
             
             # ENTRY LOGIC (no weekly trend filter)
-            if (not in_trade and df_daily.loc[current_date, 'RSI'] > df_daily.loc[current_date, 'RSI_SMA'] and
+            if (not in_trade and
                 current_ml_signal in ['TP', 'Hold', 'None'] and  
                 current_ml_confidence >= ml_confidence_threshold):
 
@@ -958,7 +958,7 @@ if st.button("Run ML Strategy Backtest"):
         })
     
     perf_table = pd.DataFrame(perf_rows)
-    st.subheader(f'{ticker} Performance by TP/SL Percent (ML Confidence >= 50%)')
+    st.subheader(f'{ticker} Performance by TP/SL Percent (ML Confidence >= {ML_Confidence}%)')
     st.dataframe(perf_table)
 
 
