@@ -573,7 +573,7 @@ if st.button("Run ML Strategy Backtest"):
         confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
         
         # ENTRY LOGIC (no weekly trend filter)
-        if (not in_trade and 
+        if (not in_trade and df_daily.Bull == 1 and
             current_ml_signal in ['TP', 'Hold'] and  
             current_ml_confidence >= ml_confidence_threshold):
             
