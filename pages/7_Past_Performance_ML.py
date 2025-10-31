@@ -19,7 +19,7 @@ st.set_page_config(page_title="ML - Stock Past Performance Check", layout="wide"
 st.title("🤖 BACKTEST - ML Strategy Using Daily Data")
 with st.expander("Strategy Overview"):
     st.markdown("""
-- **Daily Trend Filter:** This strategy uses only daily data (no weekly filter).
+- **Daily Trend Filter:** This strategy uses only daily data.
 - **ML Entry Signals:** Entries occur at daily close when the ML model predicts a bullish move ("TP" or "Hold") with confidence above the threshold.
 - **Trade Entry:** Opens a single position if not already holding a trade and entry signal conditions are met.
 - **Trade Exit:** Closes a position when price reaches +7% (TP) or -7% (SL) intraday, or after maximum allowed holding days.
@@ -529,8 +529,6 @@ if st.button("Run ML Strategy Backtest"):
         st.error("No daily data returned from Yahoo Finance.")
         st.stop()
 
-    # Removed weekly trend logic entirely
-
     with st.spinner('Calculating technical indicators...'):
         df_daily = add_technical_indicators(df_daily)
         df_daily = add_pivots(df_daily, windows)
@@ -559,7 +557,7 @@ if st.button("Run ML Strategy Backtest"):
         if i % 100 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
         
-        # Use daily data only, no weekly mask or weekly trend filtering
+        # Use daily data only
         current_data = df_daily.loc[:current_date]
         if len(current_data) < 100:
             continue
@@ -572,7 +570,7 @@ if st.button("Run ML Strategy Backtest"):
         current_ml_confidence = ml_prediction['confidence_score']
         confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
         
-        # ENTRY LOGIC (no weekly trend filter)
+        # ENTRY LOGIC 
         if (not in_trade and
             current_ml_signal in ['TP', 'Hold', 'None'] and  
             current_ml_confidence >= ml_confidence_threshold):
@@ -582,14 +580,14 @@ if st.button("Run ML Strategy Backtest"):
             #SL_price = entry_price * (1 - SL_pct / 100.0)
 
             tp_given = TP_pct / 100.0
-            sl_given = -SL_pct / 100.0  # Note SL loss is negative
+            sl_given = -SL_pct / 100.0
             
             predicted_return = ml_prediction['predicted_return']
             predicted_loss = ml_prediction['predicted_loss']
             
             entry_price = float(df_daily.loc[current_date, 'Close'])
             
-            if tp_given < predicted_return:
+            if tp_given > predicted_return:
                 TP_price = entry_price * (1 + predicted_return)
             else:
                 TP_price = entry_price * (1 + tp_given)
@@ -683,7 +681,7 @@ if st.button("Run ML Strategy Backtest"):
     results = pd.DataFrame(trades)
 
     if results.empty:
-        st.warning("No trades executed. Check ML predictions and weekly trend conditions.")
+        st.warning("No trades executed. Check ML predictions and trend conditions.")
         st.stop()
 
     # Calculate performance metrics
@@ -841,8 +839,7 @@ if st.button("Run ML Strategy Backtest"):
 
     st.success("Backtest complete!")
 
-    ################################################################################
-    ### MULTIPLE % TEST #####
+    ############################## MULTIPLE % TEST #################################
     
     st.write(f"Running multiple TP/SL scenarios and building a performance table for {ticker}")
     
@@ -868,14 +865,32 @@ if st.button("Run ML Strategy Backtest"):
             current_ml_signal = ml_prediction['will_hit']
             current_ml_confidence = ml_prediction['confidence_score']
             
-            # ENTRY LOGIC (no weekly trend filter)
+            # ENTRY LOGIC 
             if (not in_trade and
                 current_ml_signal in ['TP', 'Hold', 'None'] and  
                 current_ml_confidence >= ml_confidence_threshold):
 
                 entry_price = float(df_daily.loc[current_date, 'Close'])
-                TP_price = entry_price * (1 + pct)
-                SL_price = entry_price * (1 - pct)
+                #TP_price = entry_price * (1 + pct)
+                #SL_price = entry_price * (1 - pct)
+                    
+                tp_given = TP_pct / 100.0
+                sl_given = -SL_pct / 100.0
+                
+                predicted_return = ml_prediction['predicted_return']
+                predicted_loss = ml_prediction['predicted_loss']
+                
+                entry_price = float(df_daily.loc[current_date, 'Close'])
+                
+                if tp_given > predicted_return:
+                    TP_price = entry_price * (1 + predicted_return)
+                else:
+                    TP_price = entry_price * (1 + tp_given)
+                
+                if sl_given > predicted_loss:
+                    SL_price = entry_price * (1 + sl_given)
+                else:
+                    SL_price = entry_price * (1 + predicted_loss)
                 
                 current_trade = {
                     'entry_date': current_date,
