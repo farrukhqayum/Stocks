@@ -70,16 +70,16 @@ expected_classes = [0, 1, 2, 3, 4]
 
 desc = """
     ### Entry Conditions
-    - No active open trade, waiting for new entry
-    - RSI (Relative Strength Index) is above its smoothed average (RSI_SMA), indicating bullish momentum
-    - The machine learning model predicts a strong bullish movement ('TP' or 'Hold') with confidence above the set threshold
-    - Take Profit (TP) price is set dynamically to the greater of the user-defined target or ML predicted return
-    - Stop Loss (SL) price is set to the tighter (lesser loss) of the user-defined stop loss or ML predicted loss
+    - Be patient, entry should be when price recovers above moving averages.
+    - Split into two or three buys as no one can predict with precision if the entries are right.
+    - Daily RSI is above its smoothed average (RSI_SMA), indicating a bullish momentum
+    - The machine learning model predicts a strong bullish movement ('TP' or 'Hold', or 'None - directionless') but the confidence is 30-50% with a decent risk/reward ratio predicted by ML.
+    - Take Profit (TP) price should be dynamic to the greater of your target or ML predicted return. Accept 3-7% gains all the times.
+    - Stop Loss (SL) price should be far away from entries such that you hit less SL. To circumvent stop-loss you need to preserve capital to buy more if it dips 10-15%.
 
     ### Exit Conditions
-    - Exit occurs immediately if intraday price hits the dynamic TP or SL levels
-    - Opening price gaps beyond TP or SL trigger immediate exit at gap price or TP/SL boundary
-    - Trades automatically close after a maximum holding period if no exit triggered earlier
+    - Exit an acceptable loss or if you entered when the market was bearish (Close  is below Moving Averages), much like over-trading or revenge trading.
+    - TP when you see 3-7% gains or higher, don't wait too long that it will go higher.
 
     ### Additional Notes
     - This approach balances preset risk management with ML-model-driven adaptiveness
