@@ -68,8 +68,7 @@ FEATURES = [
 label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
-desc = 
-    """
+desc = """
     ### Entry Conditions
     - No active open trade, waiting for new entry
     - RSI (Relative Strength Index) is above its smoothed average (RSI_SMA), indicating bullish momentum
