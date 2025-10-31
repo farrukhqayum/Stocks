@@ -574,7 +574,7 @@ if st.button("Run ML Strategy Backtest"):
         
         # ENTRY LOGIC (no weekly trend filter)
         if (not in_trade and df_daily.loc[current_date, 'RSI'] > df_daily.loc[current_date, 'RSI_SMA'] and
-            current_ml_signal in ['TP', 'Hold'] and  
+            current_ml_signal in ['TP', 'Hold', 'None'] and  
             current_ml_confidence >= ml_confidence_threshold):
 
             entry_price = float(df_daily.loc[current_date, 'Close'])
@@ -852,7 +852,7 @@ if st.button("Run ML Strategy Backtest"):
             
             # ENTRY LOGIC (no weekly trend filter)
             if (not in_trade and df_daily.loc[current_date, 'RSI'] > df_daily.loc[current_date, 'RSI_SMA'] and
-                current_ml_signal in ['TP', 'Hold'] and  
+                current_ml_signal in ['TP', 'Hold', 'None'] and  
                 current_ml_confidence >= ml_confidence_threshold):
 
                 entry_price = float(df_daily.loc[current_date, 'Close'])
