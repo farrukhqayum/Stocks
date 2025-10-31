@@ -48,7 +48,7 @@ with st.expander("Example Exit Conditions"):
 Trades are exited if:
 - Intraday price reaches TP or SL levels.
 - The gap open price exceeds TP or SL boundaries (gap exit).
--- The SL given (as negative) is compared with the ML predicted loss (also negative). If the given SL is less risky (higher, closer to zero) than the predicted ML loss (more negative), use the safer fixed SL. Otherwise, use the ML predicted loss (which implies a wider/slacker SL).
+- If the given SL is higher than the predicted ML loss, it assumes higher risks are taken and uses the higher given SL else it adopts predicted SL.
 - The trade has reached maximum holding days.
 Exits simulate realistic intraday stop-loss and take-profit triggers.
     """)
