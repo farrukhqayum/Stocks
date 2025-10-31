@@ -22,7 +22,7 @@ with st.expander("Strategy Overview"):
 - **Daily Trend Filter:** This strategy uses only daily data.
 - **ML Entry Signals:** Entries occur at daily close when the ML model predicts a bullish move ("TP" or "Hold") with confidence above the threshold.
 - **Trade Entry:** Opens a single position if not already holding a trade and entry signal conditions are met.
-- **Trade Exit:** Closes a position when price reaches +7% (TP) or -7% (SL) intraday, or after maximum allowed holding days.
+- **Trade Exit:** Closes a position when price reaches (TP) or (SL), or after maximum allowed holding days.
 - **Sequential Trading:** The strategy waits for the current trade to close before opening a new one—no overlapping trades.
     """)
 
