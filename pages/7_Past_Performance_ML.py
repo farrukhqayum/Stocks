@@ -872,27 +872,9 @@ if st.button("Run ML Strategy Backtest"):
                 current_ml_confidence >= ml_confidence_threshold):
 
                 entry_price = float(df_daily.loc[current_date, 'Close'])
-                #TP_price = entry_price * (1 + pct)
-                #SL_price = entry_price * (1 - pct)
-                    
-                tp_given = TP_pct / 100.0
-                sl_given = -SL_pct / 100.0
-                
-                predicted_return = ml_prediction['predicted_return']
-                predicted_loss = ml_prediction['predicted_loss']
-                
-                entry_price = float(df_daily.loc[current_date, 'Close'])
-                
-                if tp_given > predicted_return:
-                    TP_price = entry_price * (1 + predicted_return)
-                else:
-                    TP_price = entry_price * (1 + tp_given)
-                
-                if sl_given > predicted_loss:
-                    SL_price = entry_price * (1 + sl_given)
-                else:
-                    SL_price = entry_price * (1 + predicted_loss)
-                
+                TP_price = entry_price * (1 + pct)
+                SL_price = entry_price * (1 - pct)
+                                
                 current_trade = {
                     'entry_date': current_date,
                     'entry_price': entry_price,
