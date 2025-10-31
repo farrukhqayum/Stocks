@@ -1054,7 +1054,8 @@ def main():
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
     with st.expander("Trading Strategy Entry and Exit Conditions Overview", expanded=False):
-    st.write(desc)
+        st.write(desc)
+        
     initialize_session_state()
     col1, col2, col3 = st.columns(3)
 
