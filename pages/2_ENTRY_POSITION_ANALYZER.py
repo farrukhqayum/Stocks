@@ -1052,7 +1052,7 @@ def main():
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
-    with st.expander("Disciplined Entry and Exit Strategy", expanded=False):
+    with st.expander("Disciplined Entry and Exit Strategy (Expand and learn)", expanded=False):
         st.write(desc)
         
     initialize_session_state()
