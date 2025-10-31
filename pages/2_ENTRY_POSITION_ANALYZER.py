@@ -928,12 +928,12 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
         reasons.append("Entry price close to current")
     
     # Overall assessment
-    bullish_conditions = (will_hit == 'TP' and hit_prob > 40 and confidence > 40 and pred_rr > 1.5)
-    risky_conditions = (will_hit in ['TP', 'Hold'] and confidence > 30 and pred_rr > 1)
+    bullish_conditions = (will_hit in ['TP', 'Hold'] and hit_prob > 40 and confidence > 30 and pred_rr > 1.5)
+    risky_conditions = (will_hit in ['TP', 'Hold', 'None'] and confidence > 30 and pred_rr > 1)
     
-    if bullish_conditions and price_diff_pct <= 5:
+    if bullish_conditions and price_diff_pct <= 10:
         assessment = "Valid"
-    elif risky_conditions and price_diff_pct <= 7:
+    elif risky_conditions and price_diff_pct <= 10:
         assessment = "Risky"
     else:
         assessment = "Not Recommended"
