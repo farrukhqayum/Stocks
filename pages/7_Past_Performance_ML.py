@@ -39,7 +39,7 @@ with st.expander("Example Entry Using Daily Data"):
     st.markdown("""
 - Suppose the stock closes at $100.
 - If the ML model predicts a bullish move with confidence above the threshold, and no open trade exists, entry happens at the daily close ($100).
-- The TP is set at $107 (+7%), and SL is set at $93 (-7%).
+- For TP: If the given TP% is smaller than the ML predicted return, meaning ML expects the stock to gain more, it uses the ML predicted target (larger). Otherwise, it keeps the fixed (smaller) given TP.
 - Next trades only occur after closing the current trade.
     """)
 
@@ -48,6 +48,7 @@ with st.expander("Example Exit Conditions"):
 Trades are exited if:
 - Intraday price reaches TP or SL levels.
 - The gap open price exceeds TP or SL boundaries (gap exit).
+-- The SL given (as negative) is compared with the ML predicted loss (also negative). If the given SL is less risky (higher, closer to zero) than the predicted ML loss (more negative), use the safer fixed SL. Otherwise, use the ML predicted loss (which implies a wider/slacker SL).
 - The trade has reached maximum holding days.
 Exits simulate realistic intraday stop-loss and take-profit triggers.
     """)
