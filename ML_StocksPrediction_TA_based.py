@@ -96,20 +96,6 @@ FEATURES = [
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
 ]
 
-# Cache the model so Streamlit doesn’t reload every run
-@st.cache_resource
-def load_summarizer():
-    return pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
-
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
-
-@st.cache_resource
-def load_instruction_model():
-    model_name = "google/flan-t5-small"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-    return pipeline("text2text-generation", model=model, tokenizer=tokenizer)
-
 @st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
     try:
@@ -1206,6 +1192,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
