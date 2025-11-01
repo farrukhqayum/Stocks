@@ -69,6 +69,15 @@ label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
 expected_classes = [0, 1, 2, 3, 4]
 
 desc = """
+    ### Mindset
+    - Not everyone can succeed.
+    - Given you think like, 'I told you so', 'Yes, I was right', you aren't yet fit for this.
+    - Warren Buffet, 'Learn how to hold -50% loss' and buy more. If not, then again you don't fit for stocks.
+    - Manage positions, DCA 2 or three times.
+    - Get stuck or you consumed all the capital, relax and stay away for months or years.
+    - Return when time passes or you got more capital.
+    - It is extremely difficult to make livings with this but you can buy financial freedom in 3-5 years.
+    
     ### Entry Conditions
     - Trade only strong and volatile stocks. This isn't for futuristic ideas.   
     - Be patient, entry should be when price recovers above moving averages.
