@@ -161,7 +161,6 @@ def add_technical_indicators(df, timeframe='1D'):
             sma_multiplier = 2
             atr_period = 5
             rsi_period = 9
-            df.Close = close
             windows = [3, 5, 7, 9, 11]
             df = df.ffill().bfill()
             
@@ -296,7 +295,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df['gapStrength'] = ta.compute_gapStrength(df)
         df = ta.add_exhaustion_indicator(df)
         df.Close = close
-        
         return df
         
     except Exception as e:
