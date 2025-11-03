@@ -97,10 +97,10 @@ def main():
 
         st.write(f"Out of {simulation_runs} simulations:")
         st.write(
-            f"- Hit TP first: {hit_tp_count} times ({hit_tp_count / simulation_runs * 100:.2f}%)"
+            f"- Hit TP ${predicted_tp} first: {hit_tp_count} times ({hit_tp_count / simulation_runs * 100:.2f}%)"
         )
         st.write(
-            f"- Hit SL first: {hit_sl_count} times ({hit_sl_count / simulation_runs * 100:.2f}%)"
+            f"- Hit SL ${predicted_sl} first: {hit_sl_count} times ({hit_sl_count / simulation_runs * 100:.2f}%)"
         )
         st.write(
             f"- Neither hit: {neither_count} times ({neither_count / simulation_runs * 100:.2f}%)"
