@@ -69,7 +69,7 @@ def main():
         "Simulation Length (days)", min_value=1, max_value=252, value=20
     )
     simulation_runs = st.number_input(
-        "Number of Simulations", min_value=100, max_value=10000, value=1000
+        "Number of Simulations", min_value=100, max_value=100000, value=1000
     )
 
     if st.button("Run Simulation"):
