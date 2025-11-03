@@ -79,7 +79,7 @@ def main():
             return
 
         last_price = df["Close"].iloc[-1]
-        st.write(f"Last Close Price: {last_price:.2f}")
+        st.write(f"Last Close Price of {ticker}: {last_price:.2f}")
 
         df["LogReturn"] = np.log(df["Close"] / df["Close"].shift(1))
         mu = df["LogReturn"].mean()
