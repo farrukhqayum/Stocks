@@ -8,21 +8,19 @@ import altair as alt
 @st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
     try:
-        df = yf.download(
-            ticker,
-            start=start_date,
-            end=end_date + timedelta(days=1),
-            interval="1d",
-            auto_adjust=False,
-            progress=False,
-        )
+        df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1),
+                         interval='1d', auto_adjust=False, progress=False)
     except Exception:
         return None
     if df.empty:
         return None
     df = df.reset_index()
-    df["Date"] = pd.to_datetime(df["Date"])
+    df['Date'] = pd.to_datetime(df['Date'])
+    df.set_index('Date', inplace=True)
+    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
     df = df.dropna()
+    if df.empty:
+        return None
     return df
 
 def monte_carlo_simulation(
