@@ -106,6 +106,27 @@ def main():
             f"- Neither hit: {neither_count} times ({neither_count / simulation_runs * 100:.2f}%)"
         )
 
+        # Prepare data for histogram
+        hist_data = pd.DataFrame({
+            "Outcome": ["Hit TP", "Hit SL", "Neither"],
+            "Count": [hit_tp_count, hit_sl_count, neither_count]
+        })
+        
+        # Create Altair bar chart
+        hist_chart = alt.Chart(hist_data).mark_bar().encode(
+            x=alt.X('Outcome:N', title='Simulation Outcome'),
+            y=alt.Y('Count:Q', title='Number of Simulations'),
+            color=alt.Color('Outcome:N', scale=alt.Scale(domain=["Hit TP", "Hit SL", "Neither"], range=["green", "red", "gray"]))
+        ).properties(
+            width=400,
+            height=300,
+            title="Monte Carlo Simulation Outcome Counts"
+        )
+        
+        # Display in Streamlit
+        st.altair_chart(hist_chart, use_container_width=True)
+
+
         # Limit paths to 50 for performance
         sim_subset = sim_df.groupby(sim_df.index // simulation_days).head(simulation_days).copy()
         sim_subset["Simulation"] = (sim_subset.index // simulation_days) + 1
