@@ -24,12 +24,17 @@ def get_stock_data(ticker, start_date, end_date):
     return df
 
 def monte_carlo_simulation(
-    start_price, tp_price, sl_price, mu, sigma, days, simulations
+    start_price, tp_price, sl_price, mu, sigma, days, simulations, risk_free_rate=0.01
 ):
     simulation_results = []
     hit_tp_counts = 0
     hit_sl_counts = 0
     neither_counts = 0
+    
+    dt = 1 / 252  # Trading days in year
+    
+    # Adjust drift using risk-free rate for risk neutral measure
+    mu_adj = risk_free_rate - 0.5 * sigma ** 2
 
     for _ in range(simulations):
         price = start_price
@@ -37,7 +42,7 @@ def monte_carlo_simulation(
         hit_tp = False
         hit_sl = False
         for day in range(days):
-            price = price * np.exp(np.random.normal(mu, sigma))
+            price = price * np.exp(mu_adj * dt + sigma * np.sqrt(dt) * np.random.normal())
             path.append({"Day": day, "Price": price})
             if price >= tp_price:
                 hit_tp = True
@@ -58,13 +63,16 @@ def monte_carlo_simulation(
     return hit_tp_counts, hit_sl_counts, neither_counts, pd.DataFrame(simulation_results)
 
 def main():
-    st.title("Monte Carlo Simulation with Altair Chart")
+    st.title("Monte Carlo Simulation with Altair Chart and Risk-Free Rate")
 
     ticker = st.text_input("Ticker Symbol (e.g. AAPL)", value="AAPL")
     start_date = st.date_input("Start Date", datetime.now() - timedelta(days=365))
     end_date = st.date_input("End Date", datetime.now())
     predicted_tp = st.number_input("Predicted Take Profit Price", min_value=0.0, format="%.2f")
     predicted_sl = st.number_input("Predicted Stop Loss Price", min_value=0.0, format="%.2f")
+    risk_free_rate = st.number_input(
+        "Risk-Free Rate (annual, decimal)", min_value=0.0, max_value=0.2, value=0.01, step=0.001
+    )
     simulation_days = st.number_input(
         "Simulation Length (days)", min_value=1, max_value=252, value=20
     )
@@ -79,6 +87,9 @@ def main():
             return
 
         last_price = df["Close"].iloc[-1]
+        if pd.isna(last_price):
+            st.error("Last close price is not available.")
+            return
         st.write(f"Last Close Price: {last_price:.2f}")
 
         df["LogReturn"] = np.log(df["Close"] / df["Close"].shift(1))
@@ -93,6 +104,7 @@ def main():
             sigma,
             simulation_days,
             simulation_runs,
+            risk_free_rate=risk_free_rate,
         )
 
         st.write(f"Out of {simulation_runs} simulations:")
@@ -123,9 +135,7 @@ def main():
             title="Monte Carlo Simulation Outcome Counts"
         )
         
-        # Display in Streamlit
         st.altair_chart(hist_chart, use_container_width=True)
-
 
         # Limit paths to 50 for performance
         sim_subset = sim_df.groupby(sim_df.index // simulation_days).head(simulation_days).copy()
@@ -160,7 +170,6 @@ def main():
         )
 
         st.altair_chart(line_chart + tp_line + sl_line, use_container_width=True)
-
 
 if __name__ == "__main__":
     main()
