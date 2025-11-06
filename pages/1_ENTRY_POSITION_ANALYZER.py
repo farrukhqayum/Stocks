@@ -1296,14 +1296,30 @@ def main():
                     risky_count = assessments.count("Risky")
                     total_timeframes = len(results)
 
+                    rr_values = []
+                    conf_values = []
+                    for tf in results.keys():
+                        pred = results[tf]['prediction']
+                        if pred:
+                            tp_pct = pred.get('tp_percentage', 0)
+                            sl_pct = pred.get('sl_percentage', 1)  # Avoid zero division (fallback 1)
+                            rr = abs(tp_pct / sl_pct) if sl_pct != 0 else float('inf')
+                            conf = pred.get('confidence', 0)
+                            rr_values.append(rr)
+                            conf_values.append(conf)
+                    avg_rr = np.mean(rr_values) if rr_values else 0
+                    avg_conf = np.mean(conf_values) if conf_values else 0
+                
+                    annotation = f"(Avg R/R: {avg_rr:.2f}, Avg Conf: {avg_conf:.1f}%)"
+                
                     if valid_count == total_timeframes:
-                        st.success("**STRONG BUY** - All timeframes show valid entry")
+                        st.success(f"**STRONG BUY** - All timeframes show valid entry {annotation}")
                     elif valid_count >= total_timeframes / 2:
-                        st.success("**BUY** - Majority of timeframes show valid entry")
+                        st.success(f"**BUY** - Majority of timeframes show valid entry {annotation}")
                     elif valid_count >= 1 or risky_count >= total_timeframes / 2:
-                        st.warning("**CAUTIOUS BUY** - Mixed or risky signals")
+                        st.warning(f"**CAUTIOUS BUY** - Mixed or risky signals {annotation}")
                     else:
-                        st.error("**AVOID** - Poor signals across timeframes")
+                        st.error(f"**AVOID** - Poor signals across timeframes {annotation}")
 
                     st.write(f"**Timeframe Summary ({ticker}):**")
                     for tf in results.keys():
