@@ -144,7 +144,6 @@ def main():
                 tooltip=["Day:Q", "Price:Q", "Simulation:N"],
             )
             .properties(width=700, height=400)
-            .interactive()
         )
 
         # Horizontal lines for TP and SL
