@@ -78,19 +78,19 @@ except Exception:
 
 # --- OPTIONAL: RESAMPLE TO BUSINESS DAYS ---
 if use_business_days:
-    data = data.asfreq('B')  # keep only weekdays
-    data = data.fillna(method='ffill')  # forward-fill weekends
+    data = data.asfreq('B')
+    data = data.fillna(method='ffill')
 
 # --- NORMALIZE TO 100 ---
 if normalize_start:
     data = data / data.iloc[0] * 100
 
-# --- WEIGHTS ---
+# --- NEW WEIGHTS (as requested) ---
 weights = {
-    "Bitcoin (BTC)": 0.3,
-    "S&P 500 (SPX)": 0.4,
-    "Gold (XAU)": -0.15,
-    "US Dollar Index (DXY)": -0.15
+    "Bitcoin (BTC)": 0.25,       # risk-on
+    "S&P 500 (SPX)": 0.40,       # risk-on
+    "Gold (XAU)": -0.15,         # risk-off
+    "US Dollar Index (DXY)": -0.20  # risk-off
 }
 
 # --- COMPUTE MONEY FLOW CURVE ---
@@ -176,10 +176,18 @@ with st.expander("📊 Show Underlying Assets"):
         .encode(
             x='Date:T',
             y='Value:Q',
-            color='Asset:N',
+            color=alt.Color('Asset:N', legend=alt.Legend(
+                title="Assets",
+                orient='top-left',
+                direction='vertical'
+            )),
             tooltip=['Date:T', 'Asset:N', 'Value:Q']
         )
-        .properties(title="Normalized Asset Prices (Indexed)")
+        .properties(
+            title="Normalized Asset Prices (Indexed)",
+            width='container',
+            height=400
+        )
     )
     st.altair_chart(asset_chart, use_container_width=True)
 
