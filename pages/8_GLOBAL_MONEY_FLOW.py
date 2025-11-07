@@ -55,14 +55,14 @@ tickers = {asset: default_tickers[asset] for asset in selected_assets}
 st.sidebar.markdown("### Set Asset Weights (Positive=Risk-On, Negative=Risk-Off)")
 
 default_weights = {
-    "Bitcoin (BTC)": 0.20,
-    "S&P 500 (SPX)": 0.30,
+    "Bitcoin (BTC)": 0.10,
+    "S&P 500 (SPX)": 0.12,
     "Emerging Markets (EEM)": 0.15,
     "Crude Oil (CL)": 0.10,
     "Gold (XAU)": -0.15,
     "US Dollar Index (DXY)": -0.10,
-    "US 10Y Treasury (IEF)": -0.15,
-    "Volatility Index (VIX)": -0.25
+    "US 10Y Treasury (IEF)": -0.10,
+    "Volatility Index (VIX)": -0.025
 }
 
 weights = {}
