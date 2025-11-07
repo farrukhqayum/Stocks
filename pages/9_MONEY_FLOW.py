@@ -102,9 +102,28 @@ for asset, w in weights.items():
 # --- SMOOTHED CURVE ---
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
-# --- MOMENTUM (RATE OF CHANGE) ---
+# --- MOMENTUM (RATE OF CHANGE %) ---
 money_flow_momentum = money_flow_smooth.pct_change() * 100
 money_flow_momentum = money_flow_momentum.fillna(0)
+
+# --- SENTIMENT GAUGE LOGIC ---
+latest_momentum = money_flow_momentum.iloc[-1]
+if latest_momentum > 0.2:
+    sentiment = "🟢 **Risk-On**"
+    sentiment_color = "#16a34a"
+elif latest_momentum < -0.2:
+    sentiment = "🔴 **Risk-Off**"
+    sentiment_color = "#dc2626"
+else:
+    sentiment = "⚪ **Neutral**"
+    sentiment_color = "#a3a3a3"
+
+# --- SENTIMENT DISPLAY ---
+st.markdown(f"""
+<div style="padding:1.2em; border-radius:12px; text-align:center; background-color:{sentiment_color}; color:white; font-size:1.3em; font-weight:bold;">
+{sentiment} — Current Market Sentiment (based on Money Flow Momentum)
+</div>
+""", unsafe_allow_html=True)
 
 # --- MERGE DATA FOR ALTair ---
 df_plot = pd.DataFrame({
