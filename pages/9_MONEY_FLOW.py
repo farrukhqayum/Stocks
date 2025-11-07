@@ -24,6 +24,7 @@ start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days
 end_date = st.sidebar.date_input("End Date", datetime.now())
 smooth_window = st.sidebar.slider("Smoothing (days)", 5, 60, 20)
 normalize_start = st.sidebar.checkbox("Normalize to 100 at start", value=True)
+use_business_days = st.sidebar.checkbox("Remove weekend gaps (use business days only)", value=True)
 
 # --- ASSET TICKERS ---
 st.sidebar.markdown("### Assets Used")
@@ -42,7 +43,7 @@ def load_data(tickers, start, end):
     """Download adjusted close data for all tickers, handle multiindex safely."""
     raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
 
-    # Handle case: MultiIndex columns (Open, High, Low, Close, Adj Close)
+    # Handle MultiIndex columns (Open, High, Low, Close, Adj Close)
     if isinstance(raw.columns, pd.MultiIndex):
         if 'Adj Close' in raw.columns.get_level_values(0):
             df = raw['Adj Close'].copy()
@@ -75,7 +76,12 @@ except Exception:
     tickers["US Dollar Index (DXY)"] = "USDOLLAR"
     data = load_data(tickers, start_date, end_date)
 
-# --- NORMALIZATION ---
+# --- OPTIONAL: RESAMPLE TO BUSINESS DAYS ---
+if use_business_days:
+    data = data.asfreq('B')  # keep only weekdays
+    data = data.fillna(method='ffill')  # forward-fill weekends
+
+# --- NORMALIZE TO 100 ---
 if normalize_start:
     data = data / data.iloc[0] * 100
 
@@ -93,10 +99,12 @@ for asset, w in weights.items():
     if asset in data.columns:
         money_flow += data[asset] * w
 
+# --- SMOOTHED CURVE ---
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
 # --- MOMENTUM (RATE OF CHANGE) ---
-money_flow_momentum = money_flow_smooth.diff().fillna(0)
+money_flow_momentum = money_flow_smooth.pct_change() * 100
+money_flow_momentum = money_flow_momentum.fillna(0)
 
 # --- MERGE DATA FOR ALTair ---
 df_plot = pd.DataFrame({
@@ -104,7 +112,7 @@ df_plot = pd.DataFrame({
     "Money Flow Curve": money_flow,
     "Smoothed Curve": money_flow_smooth,
     "Momentum": money_flow_momentum
-})
+}).dropna()
 
 # --- MONEY FLOW CURVE CHART ---
 base = alt.Chart(df_plot).encode(x='Date:T')
@@ -128,14 +136,15 @@ momentum_chart = (
     .mark_bar()
     .encode(
         x='Date:T',
-        y=alt.Y('Momentum:Q', title='Flow Momentum'),
+        y=alt.Y('Momentum:Q', title='Flow Momentum (%)'),
         color=alt.condition(
             alt.datum.Momentum > 0,
             alt.value('#2ca02c'),
             alt.value('#d62728')
-        )
+        ),
+        tooltip=['Date:T', 'Momentum:Q']
     )
-    .properties(title="📈 Money Flow Momentum (Acceleration)")
+    .properties(title="📈 Money Flow Momentum (Rate of Change %)")
 )
 st.altair_chart(momentum_chart, use_container_width=True)
 
@@ -148,7 +157,8 @@ with st.expander("📊 Show Underlying Assets"):
         .encode(
             x='Date:T',
             y='Value:Q',
-            color='Asset:N'
+            color='Asset:N',
+            tooltip=['Date:T', 'Asset:N', 'Value:Q']
         )
         .properties(title="Normalized Asset Prices (Indexed)")
     )
