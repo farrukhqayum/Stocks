@@ -86,7 +86,7 @@ if submitted:
             title=f'Capital Growth with {num_wins} Wins',
             width=700,
             height=400
-        ).interactive()
+        )
 
         annotation = alt.Chart(pd.DataFrame({
             'x': [num_wins],
