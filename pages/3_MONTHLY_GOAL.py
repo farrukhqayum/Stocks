@@ -69,7 +69,7 @@ if st.button("Calculate Investment Growth"):
         width=700,
         height=400,
         title=f'Investment Growth @ {r*100:.2f}% Profit Rate'
-    ).interactive()
+    )
 
     st.altair_chart(growth_chart, use_container_width=True)
 
@@ -110,6 +110,6 @@ if st.button("Calculate Investment Growth"):
         width=700,
         height=300,
         title='Average Dollar Gain per Period'
-    ).interactive()
+    )
 
     st.altair_chart(avg_gain_chart, use_container_width=True)
