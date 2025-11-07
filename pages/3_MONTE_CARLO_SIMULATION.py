@@ -58,7 +58,7 @@ def monte_carlo_simulation(
     return hit_tp_counts, hit_sl_counts, neither_counts, pd.DataFrame(simulation_results)
 
 def main():
-    st.title("Monte Carlo Simulation with Altair Chart")
+    st.title("Monte Carlo Simulation (Stocks)")
 
     ticker = st.text_input("Ticker Symbol (e.g. AAPL)", value="AAPL")
     start_date = st.date_input("Start Date", datetime.now() - timedelta(days=365))
