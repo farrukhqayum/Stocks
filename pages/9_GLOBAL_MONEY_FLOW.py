@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # --- TITLE ---
-st.title("🌍 Global Money Flow Curve Dashboard")
+st.title("🌍 Global Money Flow")
 st.markdown("""
 This app tracks how capital flows between **risk-on** (BTC, S&P 500)
 and **risk-off** (Gold, DXY) assets to estimate global risk appetite.
@@ -22,7 +22,7 @@ and **risk-off** (Gold, DXY) assets to estimate global risk appetite.
 st.sidebar.header("⚙️ Settings")
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365 * 3))
 end_date = st.sidebar.date_input("End Date", datetime.now())
-smooth_window = st.sidebar.slider("Smoothing (days)", 5, 60, 20)
+smooth_window = st.sidebar.slider("Smoothing (days)", 5, 100, 50)
 normalize_start = st.sidebar.checkbox("Normalize to 100 at start", value=True)
 use_business_days = st.sidebar.checkbox("Remove weekend gaps (use business days only)", value=True)
 
@@ -121,7 +121,7 @@ else:
 # --- SENTIMENT DISPLAY ---
 st.markdown(f"""
 <div style="padding:1.2em; border-radius:12px; text-align:center; background-color:{sentiment_color}; color:white; font-size:1.3em; font-weight:bold;">
-{sentiment} — Current Market Sentiment (based on Money Flow Momentum)
+{sentiment} — Current Money-flow Sentiment
 </div>
 """, unsafe_allow_html=True)
 
