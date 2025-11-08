@@ -1346,15 +1346,9 @@ def main():
                     
                     summary_df = pd.DataFrame(summary_data)
                     summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "R/R", "Assessment"]]
+                    
                     def style_assessment_col(val):
-                        if val.startswith("🟢"):
-                            return 'background-color: #d4edda; color: black; font-weight: bold;'
-                        elif val.startswith("🟡"):
-                            return 'background-color: #fff3cd; color: black; font-weight: bold;'
-                        elif val.startswith("🔴"):
-                            return 'background-color: #f8d7da; color: black; font-weight: bold;'
-                        else:
-                            return ''
+                        return ''
                             
                     st.write(f"**Timeframe Summary ({ticker}):**")
                     for tf in results.keys():
