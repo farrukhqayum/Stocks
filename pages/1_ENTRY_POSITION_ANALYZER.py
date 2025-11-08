@@ -1347,8 +1347,11 @@ def main():
 
                     st.dataframe(
                         summary_df.style.apply(
-                            lambda col: ['background-color: #d4edda' if v == 'Valid' else '#fff3cd' if v == 'Risky' else '#f8d7da' for v in col]
-                            if col.name == "Assessment" else ['']*len(col),
+                            lambda col: [
+                                'background-color: #d4edda;' if v == 'Valid' 
+                                else 'background-color: #fff3cd;' if v == 'Risky' 
+                                else 'background-color: #f8d7da;' for v in col
+                            ] if col.name == "Assessment" else ['']*len(col),
                             axis=0
                         )
                     )
