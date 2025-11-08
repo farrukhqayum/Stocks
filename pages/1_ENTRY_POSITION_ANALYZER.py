@@ -1340,6 +1340,7 @@ def main():
                             "TP ($)": round(pred['predicted_tp'], 2),
                             "SL ($)": round(pred['predicted_sl'], 2),
                             "Conf (%)": round(pred['confidence'], 1),
+                            "Hits": pred['will_hit'],
                             "R/R": round(rr, 2),
                             "Assessment": display_assessment
                         })
@@ -1348,11 +1349,6 @@ def main():
                     summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "R/R", "Assessment"]]
                                                 
                     st.write(f"**Timeframe Summary ({ticker}):**")
-                    for tf in results.keys():
-                        assessment = results[tf]['assessment']
-                        color = "🟢" if assessment == "Valid" else "🟡" if assessment == "Risky" else "🔴"
-                        st.write(f"{color} {tf}: {assessment}")
-
                     st.dataframe(summary_df)
 
                 else:
