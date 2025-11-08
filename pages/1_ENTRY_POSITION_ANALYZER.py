@@ -1346,8 +1346,8 @@ def main():
                         })
                     
                     summary_df = pd.DataFrame(summary_data)
-                    summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "R/R", "Assessment"]]
-                                                
+                    summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "Hits", "R/R", "Assessment"]]
+                                               
                     st.write(f"**Timeframe Summary ({ticker}):**")
                     st.dataframe(summary_df)
 
