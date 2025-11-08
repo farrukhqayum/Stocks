@@ -807,7 +807,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         textbox.patch.set_alpha(0.8)
         
         # Assessment annotation
-        color_map = {'Valid': 'green', 'Risky': 'orange', 'Not Recommended': 'red'}
+        color_map = {'Valid': 'green', 'Risky': 'orange', 'Wait and See': 'red'}
         assessment_color = color_map.get(assessment, 'gray')
         
         ax1.annotate(
@@ -944,7 +944,7 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     elif risky_conditions and price_diff_pct <= 10:
         assessment = "Risky"
     else:
-        assessment = "Not Recommended"
+        assessment = "Wait and See"
     
     return assessment, " | ".join(reasons)
 
@@ -1350,7 +1350,7 @@ def main():
         **Assessment Colors:**
         - 🟢 **Valid**: Good entry with strong bullish signals
         - 🟡 **Risky**: Moderate signals, proceed with caution  
-        - 🔴 **Not Recommended**: Poor risk-reward or bearish signals
+        - 🔴 **Wait and See**: Poor risk-reward or bearish signals
 
         **The analysis considers:**
         - ML predictions for TP/SL hits
