@@ -1346,10 +1346,7 @@ def main():
                     
                     summary_df = pd.DataFrame(summary_data)
                     summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "R/R", "Assessment"]]
-                    
-                    def style_assessment_col(val):
-                        return ''
-                            
+                                                
                     st.write(f"**Timeframe Summary ({ticker}):**")
                     for tf in results.keys():
                         assessment = results[tf]['assessment']
@@ -1357,8 +1354,7 @@ def main():
                         st.write(f"{color} {tf}: {assessment}")
 
                     st.dataframe(
-                        summary_df.style.applymap(
-                            style_assessment_col, subset=["Assessment"]
+                        summary_df.style.applymap('', subset=["Assessment"]
                         )
                     )
 
