@@ -1353,10 +1353,7 @@ def main():
                         color = "🟢" if assessment == "Valid" else "🟡" if assessment == "Risky" else "🔴"
                         st.write(f"{color} {tf}: {assessment}")
 
-                    st.dataframe(
-                        summary_df.style.applymap('', subset=["Assessment"]
-                        )
-                    )
+                    st.dataframe(summary_df)
 
                 else:
                     st.error("No successful analyses completed. Try with a different ticker or time period.")
