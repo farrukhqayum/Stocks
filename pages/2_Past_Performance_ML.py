@@ -192,7 +192,7 @@ def add_technical_indicators(df):
             |
             (
                 (df['RSI'] < df['RSI_SMA']) & 
-                (df['RSI']< 50)
+                (df['RSI'].between(20, 60))
             )
         ),
         # SHORT
@@ -205,7 +205,7 @@ def add_technical_indicators(df):
         (
             (df['Close'] > df['SMA50']) &
             (df['SMA10'] > df['SMA50']) &
-            (df['RSI'].between(40, 90))
+            (df['RSI'].between(50, 90))
         )
     ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
