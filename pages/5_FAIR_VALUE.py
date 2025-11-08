@@ -9,7 +9,7 @@ margin_of_safety = st.slider("Margin of Safety (%)", 10, 50, 30) / 100
 if ticker:
     stock = yf.Ticker(ticker)
     cashflow = stock.cashflow  # quarterly or annual cash flow
-    capex = stock.capitalExpenditures
+    capex = stock.cashflow.loc['Capital Expenditures'][0]
     shares_outstanding = stock.info.get('sharesOutstanding', None)
     
     if cashflow is not None and capex is not None and shares_outstanding:
