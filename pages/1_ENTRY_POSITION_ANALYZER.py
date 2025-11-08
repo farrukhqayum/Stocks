@@ -1322,10 +1322,18 @@ def main():
                         st.error(f"**AVOID** - Poor signals across timeframes {annotation}")
 
                     # BUILD A SUMMARY TABLE
+                    emoji_map = {
+                        "Valid": "🟢 Valid",
+                        "Risky": "🟡 Risky",
+                        "Avoid": "🔴 Avoid",
+                    }
+                    
                     summary_data = []
                     for tf, res in results.items():
                         pred = res['prediction']
                         rr = abs(pred['tp_percentage'] / pred['sl_percentage']) if pred['sl_percentage'] != 0 else float('inf')
+                        assessment_text = res['assessment']
+                        display_assessment = emoji_map.get(assessment_text, assessment_text)
                         summary_data.append({
                             "Timeframe": tf,
                             "Price ($)": round(pred['current_price'], 2),
@@ -1333,12 +1341,21 @@ def main():
                             "SL ($)": round(pred['predicted_sl'], 2),
                             "Conf (%)": round(pred['confidence'], 1),
                             "R/R": round(rr, 2),
-                            "Assessment": res['assessment']
+                            "Assessment": display_assessment
                         })
                     
                     summary_df = pd.DataFrame(summary_data)
                     summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "R/R", "Assessment"]]
-
+                    def style_assessment_col(val):
+                        if val.startswith("🟢"):
+                            return 'background-color: #d4edda; color: black; font-weight: bold;'
+                        elif val.startswith("🟡"):
+                            return 'background-color: #fff3cd; color: black; font-weight: bold;'
+                        elif val.startswith("🔴"):
+                            return 'background-color: #f8d7da; color: black; font-weight: bold;'
+                        else:
+                            return ''
+                            
                     st.write(f"**Timeframe Summary ({ticker}):**")
                     for tf in results.keys():
                         assessment = results[tf]['assessment']
@@ -1346,13 +1363,8 @@ def main():
                         st.write(f"{color} {tf}: {assessment}")
 
                     st.dataframe(
-                        summary_df.style.apply(
-                            lambda col: [
-                                'background-color: #d4edda;' if v == 'Valid' 
-                                else 'background-color: #fff3cd;' if v == 'Risky' 
-                                else 'background-color: #f8d7da;' for v in col
-                            ] if col.name == "Assessment" else ['']*len(col),
-                            axis=0
+                        summary_df.style.applymap(
+                            style_assessment_col, subset=["Assessment"]
                         )
                     )
 
