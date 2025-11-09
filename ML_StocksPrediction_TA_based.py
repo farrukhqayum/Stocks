@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
 st.cache_data.clear()
 st.cache_resource.clear()
@@ -1192,6 +1193,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
