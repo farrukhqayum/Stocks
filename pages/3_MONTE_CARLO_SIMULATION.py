@@ -5,6 +5,8 @@ import numpy as np
 from datetime import datetime, timedelta
 import altair as alt
 
+st.caption("Data sourced via Yahoo Finance • Updated dynamically")
+
 @st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
     try:
