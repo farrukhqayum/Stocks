@@ -17,6 +17,7 @@ warnings.filterwarnings('ignore')
 
 # Configuration
 st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
+st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
