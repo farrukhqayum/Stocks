@@ -570,18 +570,9 @@ if st.button("Run ML Strategy Backtest"):
         current_ml_signal = ml_prediction['will_hit']
         current_ml_confidence = ml_prediction['confidence_score']
         confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
-        
-        current_data = df_daily.loc[:current_date]
-        if len(current_data) < max(50, 100):  # Ensure enough data for SMA50
-            continue
-        current_sma1 = df_daily.loc[current_date, 'SMA10']
-        current_sma2 = df_daily.loc[current_date, 'SMA50']
-        current_rsi = df_daily.loc[current_date, 'RSI']
-    
+            
         # ENTRY LOGIC 
         if (not in_trade and
-            current_sma1 > current_sma2 and
-            current_rsi > 50 or
             current_ml_signal in ['TP', 'Hold', 'None'] and  
             current_ml_confidence >= ml_confidence_threshold):
 
