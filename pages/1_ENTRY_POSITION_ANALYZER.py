@@ -531,7 +531,8 @@ def label_hit_prob_past(
             hold_extreme = (labels[i] == 3) and (rsi_now < 45)
 
             if (current_dip or future_dips) and (bearish_momentum or fading_bullish or hold_extreme):
-                labels[i] = 1  # Trigger SL immediately
+                            if not ((rsi_now > 52) and (current_close > df['EMA2'].iloc[i])):
+                                labels[i] = 1  # Trigger SL immediately
     
     df['Hit_Label'] = labels
     return df
