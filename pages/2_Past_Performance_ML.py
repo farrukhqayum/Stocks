@@ -574,8 +574,8 @@ if st.button("Run ML Strategy Backtest"):
         current_data = df_daily.loc[:current_date]
         if len(current_data) < max(50, 100):  # Ensure enough data for SMA50
             continue
-        current_sma1 = df_daily.loc[current_date, SMA10]
-        current_sma2 = df_daily.loc[current_date, SMA50]
+        current_sma1 = df_daily.loc[current_date, 'SMA10']
+        current_sma2 = df_daily.loc[current_date, 'SMA50']
         current_rsi = df_daily.loc[current_date, 'RSI']
     
         # ENTRY LOGIC 
