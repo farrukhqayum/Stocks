@@ -307,7 +307,7 @@ def label_hit_prob_past(
     short = (df['TI'] == 'Short')
     neutral = (df['TI'] == 'Neutral')
 
-    sma1 = df['SMA10'].values
+    EMA1 = df['EMA1'].values
     atr = df['ATR'].values
     rsi = df['RSI'].values
     adx = df['ADX'].values
@@ -370,28 +370,29 @@ def label_hit_prob_past(
             else:
                 labels.append(0)
     
-    # Post-process: Trigger SL immediately on price dip below SMA1 or SMA1-ATR buffer with momentum checks for Hold/TP
+    # Post-process: Trigger SL immediately on price dip below EMA1 or EMA1-ATR buffer with momentum checks for Hold/TP
     for i in range(N):
         if labels[i] in [2, 3]:  # TP or Hold bars
             current_close = close_prices[i]
-            sma1_now = sma1[i]
+            EMA1_now = EMA1[i]
             atr_now = atr[i]
             rsi_now = rsi[i]
             adx_now = adx[i]
 
             future_end = min(i + 1 + window, N)
             future_closes = close_prices[i + 1 : future_end]
-            future_sma1 = sma1[i + 1 : future_end]
+            future_EMA1 = EMA1[i + 1 : future_end]
 
-            current_dip = current_close < sma1_now or current_close < (sma1_now - 0.5 * atr_now)
-            future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_sma1))
+            current_dip = current_close < EMA1_now or current_close < (EMA1_now - 0.5 * atr_now)
+            future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_EMA1))
 
             bearish_momentum = (rsi_now < 40) and (adx_now > 22)
             fading_bullish = (rsi_now < 50) or (adx_now < 20)
             hold_extreme = (labels[i] == 3) and (rsi_now < 45)
 
             if (current_dip or future_dips) and (bearish_momentum or fading_bullish or hold_extreme):
-                labels[i] = 1  # Trigger SL immediately
+                if not ((rsi_now > 52) and (df['Close'].iloc[i] > df['EMA2'].iloc[i])):
+                    labels[i] = 1
     
     df['Hit_Label'] = labels
     return df
