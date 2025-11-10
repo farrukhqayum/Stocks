@@ -391,7 +391,7 @@ def label_hit_prob_past(
             hold_extreme = (labels[i] == 3) and (rsi_now < 45)
 
             if (current_dip or future_dips) and (bearish_momentum or fading_bullish or hold_extreme):
-                if not ((rsi_now > 52) and (df['Close'].iloc[i] > df['EMA2'].iloc[i])):
+                if not ((rsi_now > 52) and (df['Close'].iloc[i] > df['SMA20'].iloc[i])):
                     labels[i] = 1
     
     df['Hit_Label'] = labels
