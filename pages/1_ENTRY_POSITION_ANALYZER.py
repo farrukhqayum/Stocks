@@ -744,9 +744,9 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
 
             trend_factor = (EMA1 - EMA2) / EMA2
             trend_factor_norm = np.clip(0.5 + trend_factor, 0, 1)  
-            confidence_score = np.clip(blended_conf * trend_factor_norm * 100, 0, 100)
+            confidence_score = np.clip(blended_conf * trend_factor_norm, 0, 100)
         else:
-            confidence_score = hit_prob * 100
+            confidence_score = hit_prob
         
         return {
             'will_hit': will_hit,
