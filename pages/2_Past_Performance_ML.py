@@ -504,19 +504,21 @@ def get_ml_prediction(df, models):
     max_ratio = 10
     EMA1 = df['SMA10'].values[0]
     EMA2 = df['SMA50'].values[0]
+
+    trend_factor = (EMA1 - EMA2) / EMA2
+    trend_factor_norm = np.clip(0.5 + trend_factor / 2, 0, 1)  # Centered at 0.5, spread over [-1,1]
+    
     if predicted_loss != 0 and will_hit != 'None':
-        ratio = predicted_return / abs(predicted_loss)
-        log_ratio = np.log1p(max(ratio, 0))
+        ratio = max(predicted_return / abs(predicted_loss), 0)  # Avoid negative
+        log_ratio = np.log1p(min(ratio, max_ratio))  # Cap at max_ratio to avoid extremes
         max_log_ratio = np.log1p(max_ratio)
-        normalized_confidence = log_ratio / max_log_ratio  # 0–1 based on risk/reward
-
+        normalized_confidence = log_ratio / max_log_ratio
         blended_conf = 0.6 * hit_prob + 0.4 * normalized_confidence
-
-        trend_factor = (EMA1 - EMA2) / EMA2
-        trend_factor_norm = np.clip(0.5 + trend_factor, 0, 1)  
-        confidence_score = np.clip(blended_conf * trend_factor_norm * 100, 0, 100)
+        confidence_score = blended_conf * trend_factor_norm * 100
     else:
-        confidence_score = hit_prob * 100
+        confidence_score = hit_prob * trend_factor_norm * 100
+    
+    confidence_score = np.clip(confidence_score, 0, 100)
 
     return {
         'will_hit': will_hit,
