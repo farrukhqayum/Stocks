@@ -502,8 +502,8 @@ def get_ml_prediction(df, models):
 
    # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
     max_ratio = 10
-    EMA1 = latest['SMA10'].values[0]
-    EMA2 = latest['SMA50'].values[0]
+    EMA1 = df['SMA10'].values[0]
+    EMA2 = df['SMA50'].values[0]
     if predicted_loss != 0 and will_hit != 'None':
         ratio = predicted_return / abs(predicted_loss)
         log_ratio = np.log1p(max(ratio, 0))
