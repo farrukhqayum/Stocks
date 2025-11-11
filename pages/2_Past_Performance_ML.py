@@ -99,7 +99,7 @@ with col4:
 # ML prediction settings
 col5, col6 = st.columns(2)
 with col5:
-    ml_confidence_threshold = st.number_input("ML Confidence Threshold", min_value=0, max_value=100,  value=50, step=5)
+    ml_confidence_threshold = st.number_input("ML Confidence Threshold", min_value=0, max_value=100,  value=80, step=5)
 with col6:
     max_holding_days = st.number_input("Max Holding Days", min_value=3, max_value=60, value=7, step=5)
 
@@ -502,8 +502,8 @@ def get_ml_prediction(df, models):
 
    # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
     max_ratio = 10
-    EMA1 = latest['EMA1'].values[0]
-    EMA2 = latest['EMA2'].values[0]
+    EMA1 = latest['SMA10'].values[0]
+    EMA2 = latest['SMA50'].values[0]
     if predicted_loss != 0 and will_hit != 'None':
         ratio = predicted_return / abs(predicted_loss)
         log_ratio = np.log1p(max(ratio, 0))
