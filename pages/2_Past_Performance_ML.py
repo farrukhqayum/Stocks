@@ -583,6 +583,8 @@ def get_ml_prediction(df, models):
     else:
         confidence_score = hit_prob
 
+    latest_row = latest[FEATURES].iloc[0]
+
     confidence_frac = compute_realistic_confidence(will_hit, hit_prob, predicted_return, predicted_loss, latest_row, calibrator=None)
     confidence_score = confidence_frac * 100
     
