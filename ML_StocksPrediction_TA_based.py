@@ -715,8 +715,17 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             X_scaled_cls = scaler_cls.fit_transform(X_cls)
             X_train_cls, X_val_cls, y_train_cls, y_val_cls = train_test_split(
                 X_scaled_cls, y_cls, test_size=0.2, random_state=42)
-            model_class = RandomForestClassifier(
-                n_estimators=200, max_depth=10, min_samples_leaf=5, random_state=42)
+            #model_class = RandomForestClassifier(n_estimators=200, max_depth=10, min_samples_leaf=5, random_state=42)
+            RandomForestClassifier(
+                n_estimators=400, 
+                max_depth=12, 
+                min_samples_split=4,
+                min_samples_leaf=3,
+                max_features='sqrt',
+                class_weight='balanced',
+                random_state=42
+            )
+
             model_class.fit(X_train_cls, y_train_cls)
             
             # --- Step 2: Extract Full Class Probabilities as Features ---
@@ -1194,6 +1203,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
