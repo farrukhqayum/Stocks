@@ -654,10 +654,13 @@ def train_models(df, timeframe):
         X_scaled_loss = scaler_loss.fit_transform(X_reg[FEATURES_with_probs])
         
         model_loss = RandomForestRegressor(
-            n_estimators=50,
-            max_depth=8, 
-            random_state=42,
-            n_jobs=-1
+                n_estimators=400,
+                max_depth=14,
+                min_samples_leaf=3,
+                max_features='sqrt',
+                ccp_alpha=0.001,
+                random_state=42,
+                n_jobs=-1
         )
         model_loss.fit(X_scaled_loss, y_loss)
         progress_bar.progress(100)
