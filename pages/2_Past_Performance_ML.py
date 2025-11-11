@@ -396,6 +396,91 @@ def label_hit_prob_past(
     
     df['Hit_Label'] = labels
     return df
+import numpy as np
+
+def compute_realistic_confidence(
+    will_hit,                # 'TP','SL','Hold','Short','None'
+    clf_prob,                # probability from RF for the predicted class (0..1)
+    predicted_return,        # model_return (fraction, e.g. 0.03)
+    predicted_loss,          # model_loss (fraction, e.g. -0.02)
+    latest_row,              # the last-row DataFrame slice for trend features (pandas Series)
+    calibrator=None,         # optional callable to calibrate clf_prob -> calibrated_prob
+    vol_norm_window=14,
+    max_return_ratio=5.0,
+    w_clf=0.6,               # weight for calibrated classifier prob
+    w_return=0.4,            # weight for return-based component
+    trend_strength_floor=0.4,
+    epsilon=1e-9
+):
+    """
+    Returns confidence in range [0,1].
+    """
+
+    # 1) Calibrate classifier probability if calibrator provided
+    if calibrator is not None:
+        try:
+            clf_prob = float(calibrator.predict_proba([[clf_prob]])[0,1]) if hasattr(calibrator, 'predict_proba') else float(calibrator(clf_prob))
+        except Exception:
+            # fallback: use raw prob
+            clf_prob = float(clf_prob)
+
+    clf_prob = np.clip(clf_prob, 0.0, 1.0)
+
+    # 2) Compute a volatility-normalized expected-return score
+    
+    # Use ATR or rolling std as volatility proxy if available
+    if 'ATR' in latest_row.index and not np.isnan(latest_row['ATR']) and latest_row['ATR'] > 0:
+        vol_proxy = float(latest_row['ATR']) / max(float(latest_row['Close']), epsilon)
+    else:
+        # fallback to percent std if ATR not present
+        vol_proxy = float(latest_row.get('Volatility', 0.01))  # as fraction
+
+    vol_proxy = max(vol_proxy, 1e-4)
+
+    ret = float(predicted_return) if predicted_return is not None else 0.0
+    loss = float(predicted_loss) if predicted_loss is not None else -0.01
+    return_to_vol = ret / vol_proxy
+
+    return_to_vol = np.clip(return_to_vol, -max_return_ratio, max_return_ratio)
+    return_score = 1.0 / (1.0 + np.exp(-0.8 * (return_to_vol)))  # adjust slope as needed
+
+    if will_hit == 'SL' or will_hit == 'Short':
+        # For SL predictions, treat negative predicted_loss magnitude as "signal strength"
+        # predicted_loss is negative; use abs()
+        loss_mag = abs(loss) if loss != 0 else 0.0
+        loss_to_vol = loss_mag / vol_proxy
+        loss_to_vol = np.clip(loss_to_vol, 0.0, max_return_ratio)
+        return_score = 1.0 / (1.0 + np.exp(-0.8 * (loss_to_vol)))
+
+    trend_mul = 1.0
+    try:
+        ema1 = float(latest_row.get('EMA1', np.nan))
+        ema2 = float(latest_row.get('EMA2', np.nan))
+        adx = float(latest_row.get('ADX', 0))
+        rsi = float(latest_row.get('RSI', 50))
+
+        if will_hit == 'TP' or will_hit == 'Hold':
+            if not np.isnan(ema1) and not np.isnan(ema2) and ema1 > ema2:
+                trend_mul += min(max((adx / 30.0), 0.05), 0.5)  # add up to +0.5 depending on ADX
+            else:
+                trend_mul -= min(0.5, 0.35)  # penalize if trend disagrees
+        elif will_hit == 'SL' or will_hit == 'Short':
+            if not np.isnan(ema1) and not np.isnan(ema2) and ema1 < ema2:
+                trend_mul += min(max((adx / 30.0), 0.05), 0.5)
+            else:
+                trend_mul -= min(0.5, 0.35)
+        else:
+            # neutral / none - small down-weight
+            trend_mul *= 0.9
+    except Exception:
+        trend_mul = 1.0
+
+    trend_mul = np.clip(trend_mul, trend_strength_floor, 1.5)
+    blended_raw = (w_clf * clf_prob) + (w_return * return_score)
+    blended_trend = blended_raw * trend_mul
+    final_conf = np.clip(blended_trend, 0.0, 0.995)
+
+    return float(final_conf)
 
 # -------------------------
 # ML Model Functions
@@ -497,6 +582,9 @@ def get_ml_prediction(df, models):
         confidence_score = max(min(normalized_confidence, 1), 0) * 100
     else:
         confidence_score = hit_prob
+
+    confidence_frac = compute_realistic_confidence(will_hit, clf_prob, predicted_return, predicted_loss, latest_row, calibrator=None)
+    confidence_score = confidence_frac * 100
     
     return {
         'will_hit': will_hit,
