@@ -500,32 +500,23 @@ def get_ml_prediction(df, models):
     else:
         confidence_score = hit_prob
 
-    # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
+   # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
     max_ratio = 10
+    EMA1 = latest['EMA1'].values[0]
+    EMA2 = latest['EMA2'].values[0]
     if predicted_loss != 0 and will_hit != 'None':
         ratio = predicted_return / abs(predicted_loss)
         log_ratio = np.log1p(max(ratio, 0))
         max_log_ratio = np.log1p(max_ratio)
         normalized_confidence = log_ratio / max_log_ratio  # 0–1 based on risk/reward
 
-        w_prob, w_ratio = 0.6, 0.4
-        blended_conf = (w_prob * hit_prob) + (w_ratio * normalized_confidence)
-    
-        trend_mul = 1.0
-        if 'SMA10' in latest.index and 'SMA50' in latest.index:
-            ema_short = latest['SMA10']
-            ema_long = latest['SMA50']
-            if will_hit == 'TP':
-                trend_mul = 1.15 if ema_short > ema_long else 0.85
-            elif will_hit == 'SL':
-                trend_mul = 1.15 if ema_short < ema_long else 0.85
-    
-        confidence_score = np.clip(blended_conf * trend_mul * 100, 0, 100)
+        blended_conf = 0.6 * hit_prob + 0.4 * normalized_confidence
+
+        trend_factor = (EMA1 - EMA2) / EMA2
+        trend_factor_norm = np.clip(0.5 + trend_factor, 0, 1)  
+        confidence_score = np.clip(blended_conf * trend_factor_norm * 100, 0, 100)
     else:
         confidence_score = hit_prob * 100
-
-    confidence_score = np.interp(confidence_score, [35, 75], [25, 95])
-    confidence_score = np.clip(confidence_score, 0, 100)
 
     return {
         'will_hit': will_hit,
