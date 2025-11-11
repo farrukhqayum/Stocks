@@ -748,9 +748,16 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             X_scaled_return = scaler_return.fit_transform(X_reg)
             X_train_ret, X_val_ret, y_train_ret, y_val_ret = train_test_split(
                 X_scaled_return, y_return, test_size=0.2, random_state=42)
+            #model_return = RandomForestRegressor(n_estimators=200, max_depth=10, min_samples_leaf=5, max_features='sqrt', ccp_alpha=0.01)
             model_return = RandomForestRegressor(
-                n_estimators=200, max_depth=10, min_samples_leaf=5,
-                max_features='sqrt', ccp_alpha=0.01)
+                n_estimators=400,
+                max_depth=14,
+                min_samples_leaf=3,
+                max_features='sqrt',
+                ccp_alpha=0.001,
+                random_state=42,
+                n_jobs=-1
+            )
             model_return.fit(X_train_ret, y_train_ret)
             
             # --- Step 4: Train Loss Model ---
@@ -1203,6 +1210,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
