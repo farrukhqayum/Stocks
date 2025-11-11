@@ -847,19 +847,11 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 max_log_ratio = np.log1p(max_ratio)
                 normalized_confidence = log_ratio / max_log_ratio  # 0–1 based on risk/reward
         
-                w_prob, w_ratio = 0.6, 0.4
-                blended_conf = (w_prob * hit_prob) + (w_ratio * normalized_confidence)
-            
-                trend_mul = 1.0
-                if 'EMA1' in latest.index and 'EMA2' in latest.index:
-                    ema_short = latest['EMA1']
-                    ema_long = latest['EMA2']
-                    if will_hit == 'TP':
-                        trend_mul = 1.15 if ema_short > ema_long else 0.85
-                    elif will_hit == 'SL':
-                        trend_mul = 1.15 if ema_short < ema_long else 0.85
-            
-                confidence_score = np.clip(blended_conf * trend_mul * 100, 0, 100)
+                blended_conf = 0.6 * hit_prob + 0.4 * normalized_confidence
+
+                trend_factor = (EMA1 - EMA2) / EMA2
+                trend_factor_norm = np.clip(0.5 + trend_factor, 0, 1)  
+                confidence_score = np.clip(blended_conf * trend_factor_norm * 100, 0, 100)
             else:
                 confidence_score = hit_prob * 100
 
@@ -1240,5 +1232,6 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
