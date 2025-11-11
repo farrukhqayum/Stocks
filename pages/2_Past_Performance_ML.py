@@ -580,12 +580,40 @@ def get_ml_prediction(df, models):
         max_log_ratio = np.log1p(max_ratio)
         normalized_confidence = log_ratio / max_log_ratio
         confidence_score = max(min(normalized_confidence, 1), 0) * 100
+        w_prob, w_ratio = 0.6, 0.4
+        confidence_score = (w_prob * hit_prob * 100) + (w_ratio * normalized_confidence * 100)
     else:
         confidence_score = hit_prob
 
-    confidence_frac = compute_realistic_confidence(will_hit, hit_prob, predicted_return, predicted_loss, latest, calibrator=None)
-    confidence_score = confidence_frac * 100
+    # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
+    max_ratio = 10
+    if predicted_loss != 0 and will_hit != 'None':
+        ratio = predicted_return / abs(predicted_loss)
+        log_ratio = np.log1p(max(ratio, 0))
+        max_log_ratio = np.log1p(max_ratio)
+        normalized_confidence = log_ratio / max_log_ratio  # 0–1 based on risk/reward
     
+        # Blend with classifier probability (directional certainty)
+        w_prob, w_ratio = 0.6, 0.4
+        blended_conf = (w_prob * hit_prob) + (w_ratio * normalized_confidence)
+    
+        # Optional trend alignment boost
+        trend_mul = 1.0
+        if 'EMA1' in latest_row.index and 'EMA2' in latest_row.index:
+            ema_short = latest_row['EMA1']
+            ema_long = latest_row['EMA2']
+            if will_hit == 'TP':
+                trend_mul = 1.15 if ema_short > ema_long else 0.85
+            elif will_hit == 'SL':
+                trend_mul = 1.15 if ema_short < ema_long else 0.85
+    
+        confidence_score = np.clip(blended_conf * trend_mul * 100, 0, 100)
+    else:
+        confidence_score = hit_prob * 100
+
+    confidence_score = np.interp(confidence_score, [35, 75], [25, 95])
+    confidence_score = np.clip(confidence_score, 0, 100)
+
     return {
         'will_hit': will_hit,
         'hit_prob': hit_prob,
