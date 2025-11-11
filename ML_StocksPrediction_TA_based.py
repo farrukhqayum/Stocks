@@ -959,7 +959,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 "Signal": signal,
                 "Will_Hit": will_hit_str,
                 "Hit_Prob": round(latest_prob_features[f'Prob_Class_{pred_class}'] * 100, 1),
-                "Confidence": round(confidence_score, 1)*100,
+                "Confidence": round(confidence_score, 1),
                 "_Extremes": _Extremes
             })
         except Exception as e:
@@ -1026,9 +1026,9 @@ def PlotPredictions(df_results):
             else 'yellow'
         )
         
-        if row.Signal == "TI: ✅ Bullish" and row.Confidence > 10 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
+        if row.Signal == "TI: ✅ Bullish" and row.Confidence > 90 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
             ProbColor = 'green'
-        elif row.Signal == "TI: 🔻 Bearish" and row.Confidence > 10 and str(row.Will_Hit).split()[0] == 'SL':
+        elif row.Signal == "TI: 🔻 Bearish" and row.Confidence < 40 and str(row.Will_Hit).split()[0] == 'SL':
             ProbColor = 'red'
         else:
             ProbColor = 'white'
@@ -1240,4 +1240,5 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
