@@ -11,7 +11,6 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from sklearn.pipeline import Pipeline
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
@@ -712,14 +711,11 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             # --- Step 1: Train TP Hit Classifier ---
             X_cls = df_model[FEATURES]
             y_cls = df_model['Hit_Label'].astype(int)
-            
-            X_train_cls, X_val_cls, y_train_cls, y_val_cls = train_test_split(
-                X_cls, y_cls, test_size=0.2, random_state=42)
-
             scaler_cls = StandardScaler()
-            X_train_scaled = scaler_cls.fit_transform(X_train_cls)
-            X_val_scaled = scaler_cls.transform(X_val_cls)
-
+            X_scaled_cls = scaler_cls.fit_transform(X_cls)
+            X_train_cls, X_val_cls, y_train_cls, y_val_cls = train_test_split(
+                X_scaled_cls, y_cls, test_size=0.2, random_state=42)
+            #model_class = RandomForestClassifier(n_estimators=200, max_depth=10, min_samples_leaf=5, random_state=42)
             model_class = RandomForestClassifier(
                 n_estimators=400, 
                 max_depth=12, 
@@ -729,7 +725,8 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 class_weight='balanced',
                 random_state=42
             )
-            model_class.fit(X_train_scaled, y_train_cls)
+
+            model_class.fit(X_train_cls, y_train_cls)
             
             # --- Step 2: Extract Full Class Probabilities as Features ---
             cls_probs = model_class.predict_proba(X_scaled_cls)
@@ -1218,84 +1215,3 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
