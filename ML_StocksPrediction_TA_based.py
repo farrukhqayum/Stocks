@@ -994,16 +994,15 @@ def PlotPredictions(df_results):
             else 'red' if row.Signal == "TI: 🔻 Bearish"
             else 'yellow'
         )
-        ProbColor = 'green' if (row.Signal == "TI: ✅ Bullish" and row.Confidence > 30 and str(row.Will_Hit).split()[0] == 'TP') else 'white'
-    
-        if row.Signal == "TI: ✅ Bullish" and row.Confidence > 30 and str(row.Will_Hit).split()[0] == 'TP':
+        
+        if row.Signal == "TI: ✅ Bullish" and row.Confidence > 10 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
             ProbColor = 'green'
-        elif row.Signal == "TI: 🔻 Bearish" and row.Confidence > 30 and str(row.Will_Hit).split()[0] == 'SL':
+        elif row.Signal == "TI: 🔻 Bearish" and row.Confidence > 10 and str(row.Will_Hit).split()[0] == 'SL':
             ProbColor = 'red'
         else:
             ProbColor = 'white'
     
-        # Top annotations (unchanged)
+        # Top annotations
         ax1.text(i, row["Max (%)"] + 0.5, f'{row["Max (%)"]:.1f}%',
                  ha='center', va='bottom', fontsize=9)
         ax2.text(i, row["Loss (%)"] + 0.5, f'{row["Loss (%)"]:.1f}%',
@@ -1210,6 +1209,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
