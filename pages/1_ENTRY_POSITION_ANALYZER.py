@@ -607,11 +607,14 @@ def train_models(df, timeframe):
         progress_bar.progress(25)
         
         model_class = RandomForestClassifier(
-            n_estimators=50,
-            max_depth=8, 
-            random_state=42,
-            n_jobs=-1
-        )
+                n_estimators=400, 
+                max_depth=12, 
+                min_samples_split=4,
+                min_samples_leaf=3,
+                max_features='sqrt',
+                class_weight='balanced',
+                random_state=42
+            )
         model_class.fit(X_scaled_cls, y_cls)
         progress_bar.progress(50)
         
@@ -634,10 +637,13 @@ def train_models(df, timeframe):
         X_scaled_return = scaler_return.fit_transform(X_reg[FEATURES_with_probs])
         
         model_return = RandomForestRegressor(
-            n_estimators=50,
-            max_depth=8, 
-            random_state=42,
-            n_jobs=-1
+                n_estimators=400,
+                max_depth=14,
+                min_samples_leaf=3,
+                max_features='sqrt',
+                ccp_alpha=0.001,
+                random_state=42,
+                n_jobs=-1
         )
         model_return.fit(X_scaled_return, y_return)
         progress_bar.progress(75)
