@@ -835,10 +835,35 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                    confidence_score = 0
                     
             except Exception as e:
-                confidence_score = 0 
-    
+                confidence_score = 0
+
+            # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
+            max_ratio = 10
             EMA1 = latest['EMA1'].values[0]
             EMA2 = latest['EMA2'].values[0]
+            if predicted_loss != 0 and will_hit != 'None':
+                ratio = predicted_return / abs(predicted_loss)
+                log_ratio = np.log1p(max(ratio, 0))
+                max_log_ratio = np.log1p(max_ratio)
+                normalized_confidence = log_ratio / max_log_ratio  # 0–1 based on risk/reward
+        
+                w_prob, w_ratio = 0.6, 0.4
+                blended_conf = (w_prob * hit_prob) + (w_ratio * normalized_confidence)
+            
+                trend_mul = 1.0
+                if 'EMA1' in latest.index and 'EMA2' in latest.index:
+                    ema_short = latest['EMA1']
+                    ema_long = latest['EMA2']
+                    if will_hit == 'TP':
+                        trend_mul = 1.15 if ema_short > ema_long else 0.85
+                    elif will_hit == 'SL':
+                        trend_mul = 1.15 if ema_short < ema_long else 0.85
+            
+                confidence_score = np.clip(blended_conf * trend_mul * 100, 0, 100)
+            else:
+                confidence_score = hit_prob * 100
+
+
             rsi = latest['RSI'].values[0]
             signal = "TI: ⚪ Neut"
             _Extremes = "High" if df['Exhaustion'].values[-1] >= 0.9 else ("Low" if df['Exhaustion'].values[-1] <= -0.9 else "--")
@@ -1215,3 +1240,4 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
