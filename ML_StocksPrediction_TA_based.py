@@ -767,8 +767,14 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             X_train_loss, X_val_loss, y_train_loss, y_val_loss = train_test_split(
                 X_scaled_loss, y_loss, test_size=0.2, random_state=42)
             model_loss = RandomForestRegressor(
-                n_estimators=200, max_depth=10, min_samples_leaf=5,
-                max_features='sqrt', ccp_alpha=0.01)
+                n_estimators=400,
+                max_depth=14,
+                min_samples_leaf=3,
+                max_features='sqrt',
+                ccp_alpha=0.001,
+                random_state=42,
+                n_jobs=-1
+            )
             model_loss.fit(X_train_loss, y_train_loss)
             
             # --- Step 5: Live Prediction ---
@@ -1209,6 +1215,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
