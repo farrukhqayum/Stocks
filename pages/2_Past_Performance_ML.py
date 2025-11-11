@@ -798,7 +798,7 @@ if st.button("Run ML Strategy Backtest"):
     rd = pd.to_datetime(results['EntryDate'])
     cx.scatter(rd, results['ML_Confidence'], color='blue', alpha=0.8, s=7, label='ML Confidence (Entries)')
     cx.plot(conf['Date'], conf['ML_Confidence'], color='gray', alpha=0.5, linewidth=1.0, label='ML Confidence')
-    cx.fill_between(df_daily.index, 0, 20, color='red', alpha=0.15)
+    cx.fill_between(df_daily.index, 0, ml_confidence_threshold, color='red', alpha=0.15)
     
     ax.set_title(f'{ticker} Price Chart')
     bx.set_title(f'Total Equity Over Time')
