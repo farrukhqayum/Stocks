@@ -745,12 +745,12 @@ if st.button("Run ML Strategy Backtest"):
     hold_mask = df_daily['Hit_Label'] == 3
     short_mask = df_daily['Hit_Label'] == 4
     neutral_mask = df_daily['Hit_Label'] == 0
-    
-    ax1.scatter(df_daily.index[tp_mask], rsi_[tp_mask], color='green', marker='^', s=3, alpha=0.4, label='TP', zorder=6)
-    ax1.scatter(df_daily.index[sl_mask], rsi_[sl_mask], color='red', marker='v', s=3, alpha=0.4, label='SL', zorder=7)
-    ax1.scatter(df_daily.index[hold_mask], rsi_[hold_mask], color='orange', marker='o', s=3, alpha=0.4, label='Hold', zorder=8)
-    ax1.scatter(df_daily.index[short_mask], rsi_[short_mask], color='purple', marker='x', s=3, alpha=0.4, label='Short', zorder=9)
-    ax1.scatter(df_daily.index[neutral_mask], rsi_[neutral_mask], color='gray', marker='.', s=3, alpha=0.4, label='Neutral', zorder=10)
+    _s = 5
+    ax1.scatter(df_daily.index[tp_mask], rsi_[tp_mask], color='green', marker='^', s=_s, alpha=0.4, label='TP', zorder=6)
+    ax1.scatter(df_daily.index[sl_mask], rsi_[sl_mask], color='red', marker='v', s=_s, alpha=0.4, label='SL', zorder=7)
+    ax1.scatter(df_daily.index[hold_mask], rsi_[hold_mask], color='orange', marker='o', s=_s, alpha=0.4, label='Hold', zorder=8)
+    ax1.scatter(df_daily.index[short_mask], rsi_[short_mask], color='purple', marker='x', s=_s, alpha=0.4, label='Short', zorder=9)
+    ax1.scatter(df_daily.index[neutral_mask], rsi_[neutral_mask], color='gray', marker='.', s=_s, alpha=0.4, label='Neutral', zorder=10)
 
     ax1.fill_between(df_daily.index, rsi_, df_daily['RSI_SMA'],
                     where=(rsi_ > df_daily['RSI_SMA']),
