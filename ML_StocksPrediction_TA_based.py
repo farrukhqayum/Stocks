@@ -712,25 +712,23 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             # --- Step 1: Train TP Hit Classifier ---
             X_cls = df_model[FEATURES]
             y_cls = df_model['Hit_Label'].astype(int)
+            scaler_cls = StandardScaler()
+            X_scaled_cls = scaler_cls.fit_transform(X_cls)
             
             X_train_cls, X_val_cls, y_train_cls, y_val_cls = train_test_split(
                 X_scaled_cls, y_cls, test_size=0.2, random_state=42)
 
-            pipe = Pipeline([
-                ('scaler', StandardScaler()),
-                ('model', RandomForestClassifier(
-                    n_estimators=400,
-                    max_depth=12,
-                    min_samples_split=4,
-                    min_samples_leaf=3,
-                    max_features='sqrt',
-                    class_weight='balanced',
-                    random_state=42
-                ))
-            ])
-            
-            pipe.fit(X_train_cls, y_train_cls)
+            model_class = RandomForestClassifier(
+                n_estimators=400, 
+                max_depth=12, 
+                min_samples_split=4,
+                min_samples_leaf=3,
+                max_features='sqrt',
+                class_weight='balanced',
+                random_state=42
+            )
 
+            model_class.fit(X_train_cls, y_train_cls)
             
             # --- Step 2: Extract Full Class Probabilities as Features ---
             cls_probs = model_class.predict_proba(X_scaled_cls)
@@ -1219,6 +1217,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
