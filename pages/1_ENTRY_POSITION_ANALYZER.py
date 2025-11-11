@@ -727,6 +727,26 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
             confidence_score = max(min(normalized_confidence, 1), 0) * 100
         else:
             confidence_score = 0.0
+
+        # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
+        
+        max_ratio = 10
+        EMA1 = latest_data['EMA1'].values[0]
+        EMA2 = latest_data['EMA2'].values[0]
+        
+        if predicted_loss != 0 and will_hit != 'None':
+            ratio = predicted_return / abs(predicted_loss)
+            log_ratio = np.log1p(max(ratio, 0))
+            max_log_ratio = np.log1p(max_ratio)
+            normalized_confidence = log_ratio / max_log_ratio  # 0–1 based on risk/reward
+    
+            blended_conf = 0.6 * hit_prob + 0.4 * normalized_confidence
+
+            trend_factor = (EMA1 - EMA2) / EMA2
+            trend_factor_norm = np.clip(0.5 + trend_factor, 0, 1)  
+            confidence_score = np.clip(blended_conf * trend_factor_norm * 100, 0, 100)
+        else:
+            confidence_score = hit_prob * 100
         
         return {
             'will_hit': will_hit,
