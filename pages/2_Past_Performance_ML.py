@@ -488,11 +488,9 @@ def compute_confidence(probs,
     if short_return is None:
         short_return = -abs(tp_return)
 
-    # normalize keys via label_map if provided
     if label_map:
         probs = { label_map.get(k, k): v for k, v in probs.items() }
 
-    # mapping label -> numeric return
     values = {
         'TP': tp_return,
         'SL': sl_return,
@@ -501,7 +499,6 @@ def compute_confidence(probs,
         'Short': short_return
     }
 
-    # compute expected return
     expected = 0.0
     eps = 1e-12
     for lbl, p in probs.items():
@@ -510,8 +507,6 @@ def compute_confidence(probs,
 
     # squash into -1..1 (preserve sign). tanh is simple and stable:
     conf_unit = math.tanh(alpha * expected)
-
-    # scale to desired range
     confidence = conf_unit * scale
 
     return confidence, expected
