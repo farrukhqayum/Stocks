@@ -771,7 +771,7 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         #--- OPTIMIZED CONFIDENCE CALCULATIONS ---
     
         label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
-        probs = {label_map[i]: float(pred_class[i]) for i in range(len(pred_class))}
+        probs = {label_map[i]: float(latest_prob_features[f'Prob_Class_{i}']) for i in label_map.keys()}
         confidence_score, exp = compute_confidence(probs, predicted_return, predicted_loss, alpha=200, scale=100)
         
         return {
