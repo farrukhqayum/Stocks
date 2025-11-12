@@ -14,7 +14,7 @@ import warnings, math
 warnings.filterwarnings('ignore')
 
 # Set page config first
-st.set_page_config(page_title="ML - Stock Past Performance Check", layout="wide")
+st.set_page_config(page_title="ML - Stock Past Performance", layout="wide")
 
 st.title("🤖 BACKTEST - ML Strategy Using Daily Data")
 with st.expander("Strategy Overview"):
