@@ -697,8 +697,7 @@ if st.button("Run ML Strategy Backtest"):
     avg_return = results['Return_%'].mean()
     net_return_pct = (results['Cumulative'].iloc[-1] - initial_cap) / initial_cap * 100.0
 
-    trades_df = pd.DataFrame(trades)
-    avg_holding_days = trades_df['HoldingDays'].mean()
+    avg_holding_days = results['HoldingDays'].mean()
     
     # Display results
     st.subheader(f"📊 ML Strategy Summary ({ticker})")
