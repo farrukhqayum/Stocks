@@ -457,6 +457,64 @@ def train_ml_models(df):
     model_loss.fit(X_scaled_loss, y_loss)
     
     return model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss
+import math
+import numpy as np
+
+def compute_confidence(probs,
+                       tp_return,
+                       sl_return=None,
+                       hold_return=None,
+                       short_return=None,
+                       label_map=None,
+                       alpha=200.0,
+                       scale=100.0):
+    """
+    probs: dict mapping label names (or label ids) -> probability (sum ~= 1)
+        e.g. {'TP':0.6, 'SL':0.2, 'None':0.1, 'Hold':0.1}
+    tp_return: numeric (e.g. 0.03 for +3%)
+    sl_return: numeric negative (e.g. -0.02). If None, assumed -tp_return (symmetry).
+    hold_return: numeric (default: 0.0). Could be a small fraction of tp_return.
+    short_return: numeric (default: -tp_return)
+    label_map: optional dict mapping your label ids to names used above.
+    alpha: sensitivity for squashing (higher => more extreme mapping)
+    scale: multiply the final -1..1 by this to get convenient units (e.g. 100)
+    Returns: confidence (float); positive => expect gain, negative => expect loss
+    """
+    # default values
+    if sl_return is None:
+        sl_return = -abs(tp_return)
+    if hold_return is None:
+        hold_return = 0.0
+    if short_return is None:
+        short_return = -abs(tp_return)
+
+    # normalize keys via label_map if provided
+    if label_map:
+        probs = { label_map.get(k, k): v for k, v in probs.items() }
+
+    # mapping label -> numeric return
+    values = {
+        'TP': tp_return,
+        'SL': sl_return,
+        'None': 0.0,
+        'Hold': hold_return,
+        'Short': short_return
+    }
+
+    # compute expected return
+    expected = 0.0
+    eps = 1e-12
+    for lbl, p in probs.items():
+        val = values.get(lbl, 0.0)
+        expected += p * val
+
+    # squash into -1..1 (preserve sign). tanh is simple and stable:
+    conf_unit = math.tanh(alpha * expected)
+
+    # scale to desired range
+    confidence = conf_unit * scale
+
+    return confidence, expected
 
 def get_ml_prediction(df, models):
     """Get ML prediction for the latest data point"""
@@ -501,25 +559,8 @@ def get_ml_prediction(df, models):
         confidence_score = hit_prob
 
    # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
-    max_ratio = 10
-    EMA1 = df['SMA10'].values[0]
-    EMA2 = df['SMA50'].values[0]
-
-    trend_factor = (EMA1 - EMA2) / EMA2
-    trend_factor_norm = np.clip(0.5 + trend_factor / 2, 0, 1)  # Centered at 0.5, spread over [-1,1]
+    confidence_score, exp = compute_confidence(probs, predicted_return, predicted_loss, alpha=200, scale=100)
     
-    if predicted_loss != 0 and will_hit != 'None':
-        ratio = max(predicted_return / abs(predicted_loss), 0)  # Avoid negative
-        log_ratio = np.log1p(min(ratio, max_ratio))  # Cap at max_ratio to avoid extremes
-        max_log_ratio = np.log1p(max_ratio)
-        normalized_confidence = log_ratio / max_log_ratio
-        blended_conf = 0.6 * hit_prob + 0.4 * normalized_confidence
-        confidence_score = blended_conf * trend_factor_norm * 100
-    else:
-        confidence_score = hit_prob * trend_factor_norm * 100
-    
-    confidence_score = np.clip(confidence_score, 0, 100)
-
     return {
         'will_hit': will_hit,
         'hit_prob': hit_prob,
