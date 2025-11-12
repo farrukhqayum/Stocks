@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-import warnings
+import warnings, math
 warnings.filterwarnings('ignore')
 
 # Set page config first
@@ -457,8 +457,6 @@ def train_ml_models(df):
     model_loss.fit(X_scaled_loss, y_loss)
     
     return model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss
-import math
-import numpy as np
 
 def compute_confidence(probs,
                        tp_return,
