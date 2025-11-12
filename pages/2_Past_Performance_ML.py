@@ -702,13 +702,13 @@ if st.button("Run ML Strategy Backtest"):
     
     # Display results
     st.subheader(f"📊 ML Strategy Summary ({ticker})")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
     col3.metric("Avg Return per Trade", f"{avg_return:.2f}%")
-    col4.metric("Net Return", f"{net_return_pct:.2f}%")
-    col5.metric("Avg Holding Days", f"{avg_holding_days:.2f}")
-    
+    col4.metric("Avg Holding Days", f"{avg_holding_days:.2f}")
+    col5.metric("Net Return", f"{net_return_pct:.2f}%")
+
     # Trade outcomes breakdown
     st.subheader("Trade Outcomes")
     outcome_counts = results['Outcome'].value_counts()
