@@ -11,7 +11,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import math
+import math, emoji
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
@@ -457,7 +457,11 @@ def get_recent_fib_levels(df, left=_FibLen, right=_FibLen):
     fib_start = min(last_high_idx, last_low_idx)
     fib_end = max(last_high_idx, last_low_idx)
     return fibs, fib_start, fib_end
-
+    
+def extract_emojis(text):
+    # Returns a string with only the emoji characters from the input
+    return ''.join(c for c in text if c in emoji.EMOJI_DATA)
+    
 def colored_row(text, color):
     colors = {
         'green': '\033[92m',
@@ -883,7 +887,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 hit_price_str = "None"
             
             row_text = (
-                f"{n:>3} | "
+                f"{extract_emojis(signal):<2} "
                 f"{ticker:<7} | "
                 f"${current_price:>7.2f} | "
                 f"TP:${tp_str:>4}({predicted_return*100:5.2f}%) | "
@@ -896,7 +900,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             )
             
             st.code(strip_ansi_codes(row_text))
-            n += 1
             
             # Append results with formatted Will_Hit string
             if will_hit is None or str(will_hit).lower() == "nan":
@@ -1158,7 +1161,7 @@ def run_app():
                 st.code(f"The indicators use OHLC with a mean of 2-days to suppress noise/spikes")
 
         row_text = (
-            f'{"Number":<5} | '
+            f'{"#" } | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
             f'{"Take-profit (%)":>18} | '
@@ -1210,6 +1213,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
