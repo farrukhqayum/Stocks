@@ -11,6 +11,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import math
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
@@ -1254,6 +1255,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
