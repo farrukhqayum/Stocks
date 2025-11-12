@@ -8,6 +8,8 @@ xgboost
 openpyxl
 tabulate
 pandas
+emoji
+
 
 
 
