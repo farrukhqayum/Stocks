@@ -558,8 +558,11 @@ def get_ml_prediction(df, models):
     else:
         confidence_score = hit_prob
 
-   # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
-    confidence_score, exp = compute_confidence(hit_prob, predicted_return, predicted_loss, alpha=200, scale=100)
+    # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
+
+    label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
+    probs = {label_map[i]: float(class_probs[i]) for i in range(len(class_probs))}
+    confidence_score, exp = compute_confidence(probs, predicted_return, predicted_loss, alpha=200, scale=100)
     
     return {
         'will_hit': will_hit,
