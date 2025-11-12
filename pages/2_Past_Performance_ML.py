@@ -544,20 +544,7 @@ def get_ml_prediction(df, models):
     current_price = df['Close'].iloc[-1]
     predicted_return = model_return.predict(latest_scaled_return)[0]
     predicted_loss = model_loss.predict(latest_scaled_loss)[0]
-    
-    # Confidence calculation
-    max_ratio = 10
-    if predicted_loss != 0 and will_hit != 'None':
-        ratio = predicted_return / abs(predicted_loss)
-        log_ratio = np.log1p(ratio)
-        max_log_ratio = np.log1p(max_ratio)
-        normalized_confidence = log_ratio / max_log_ratio
-        confidence_score = max(min(normalized_confidence, 1), 0) * 100
-        w_prob, w_ratio = 0.6, 0.4
-        confidence_score = (w_prob * hit_prob * 100) + (w_ratio * normalized_confidence * 100)
-    else:
-        confidence_score = hit_prob
-
+   
     # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
 
     label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
