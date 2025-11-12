@@ -537,58 +537,7 @@ def label_hit_prob_past(
     
     df['Hit_Label'] = labels
     return df
-    
-def compute_confidence(probs,
-                       tp_return,
-                       sl_return=None,
-                       hold_return=None,
-                       short_return=None,
-                       label_map=None,
-                       alpha=200.0,
-                       scale=100.0):
-    """
-    probs: dict mapping label names (or label ids) -> probability (sum ~= 1)
-        e.g. {'TP':0.6, 'SL':0.2, 'None':0.1, 'Hold':0.1}
-    tp_return: numeric (e.g. 0.03 for +3%)
-    sl_return: numeric negative (e.g. -0.02). If None, assumed -tp_return (symmetry).
-    hold_return: numeric (default: 0.0). Could be a small fraction of tp_return.
-    short_return: numeric (default: -tp_return)
-    label_map: optional dict mapping your label ids to names used above.
-    alpha: sensitivity for squashing (higher => more extreme mapping)
-    scale: multiply the final -1..1 by this to get convenient units (e.g. 100)
-    Returns: confidence (float); positive => expect gain, negative => expect loss
-    """
-    # default values
-    if sl_return is None:
-        sl_return = -abs(tp_return)
-    if hold_return is None:
-        hold_return = 0.0
-    if short_return is None:
-        short_return = -abs(tp_return)
-
-    if label_map:
-        probs = { label_map.get(k, k): v for k, v in probs.items() }
-
-    values = {
-        'TP': tp_return,
-        'SL': sl_return,
-        'None': 0.0,
-        'Hold': hold_return,
-        'Short': short_return
-    }
-
-    expected = 0.0
-    eps = 1e-12
-    for lbl, p in probs.items():
-        val = values.get(lbl, 0.0)
-        expected += p * val
-
-    # squash into -1..1 (preserve sign). tanh is simple and stable:
-    conf_unit = math.tanh(alpha * expected)
-    confidence = conf_unit * scale
-
-    return confidence, expected
-                           
+                               
 def handle_missing_data(df, required_cols, timeframe):
     """Handle missing data strategically instead of dropping all rows with any NaN"""
     df_clean = df[required_cols].copy()
@@ -769,12 +718,16 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         tp_percentage = ((predicted_tp - current_price) / current_price) * 100
         sl_percentage = ((predicted_sl - current_price) / current_price) * 100
         
-   
-        #--- OPTIMIZED CONFIDENCE CALCULATIONS ---
-    
-        label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
-        probs = {label_map[i]: float(latest_prob_features[f'Prob_Class_{i}']) for i in label_map.keys()}
-        confidence_score, exp = compute_confidence(probs, predicted_return, predicted_loss, alpha=200, scale=100)
+        # Confidence calculation
+        max_ratio = 10
+        if predicted_loss != 0 and will_hit != 'None':
+            ratio = predicted_return / abs(predicted_loss)
+            log_ratio = np.log1p(ratio)
+            max_log_ratio = np.log1p(max_ratio)
+            normalized_confidence = log_ratio / max_log_ratio
+            confidence_score = max(min(normalized_confidence, 1), 0) * 100
+        else:
+            confidence_score = 0.0
         
         return {
             'will_hit': will_hit,
