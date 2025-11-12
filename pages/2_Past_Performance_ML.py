@@ -538,10 +538,17 @@ def get_ml_prediction(df, models):
     predicted_return = model_return.predict(latest_scaled_return)[0]
     predicted_loss = model_loss.predict(latest_scaled_loss)[0]
    
-    # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
-    probs = {label_map[i]: float(class_probs[i]) for i in range(len(class_probs))}
-    confidence_score, exp = compute_confidence(probs, predicted_return, predicted_loss, alpha=200, scale=100)
-    
+    # Confidence calculation
+    max_ratio = 10
+    if predicted_loss != 0 and will_hit != 'None':
+        ratio = predicted_return / abs(predicted_loss)
+        log_ratio = np.log1p(ratio)
+        max_log_ratio = np.log1p(max_ratio)
+        normalized_confidence = log_ratio / max_log_ratio
+        confidence_score = max(min(normalized_confidence, 1), 0) * 100
+    else:
+        confidence_score = 0.0
+
     return {
         'will_hit': will_hit,
         'hit_prob': hit_prob,
@@ -870,7 +877,7 @@ if st.button("Run ML Strategy Backtest"):
     cx.yaxis.set_label_position('right')
     cx.yaxis.tick_right()
     cx.yaxis.set_label_coords(1.05, 0.5)
-    cx.set_ylim(-100, 100)
+    cx.set_ylim(0, 100)
 
     fig.tight_layout()
     st.pyplot(fig)
