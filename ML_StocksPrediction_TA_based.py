@@ -1000,7 +1000,7 @@ def PlotPredictions(df_results):
             else 'yellow'
         )
         
-        if row.Signal == "TI: ✅ Bullish" and row.Confidence > 90 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
+        if row.Signal == "TI: ✅ Bullish" and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
             ProbColor = 'green'
         elif row.Signal == "TI: 🔻 Bearish" and row.Confidence < 40 and str(row.Will_Hit).split()[0] == 'SL':
             ProbColor = 'red'
@@ -1214,6 +1214,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
