@@ -541,8 +541,6 @@ def get_ml_prediction(df, models):
     predicted_loss = model_loss.predict(latest_scaled_loss)[0]
    
     # --- OPTIMIZED CONFIDENCE CALCULATIONS ---
-
-    label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
     probs = {label_map[i]: float(class_probs[i]) for i in range(len(class_probs))}
     confidence_score, exp = compute_confidence(probs, predicted_return, predicted_loss, alpha=200, scale=100)
     
