@@ -12,6 +12,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import warnings
+import math
 warnings.filterwarnings('ignore')
 
 
@@ -586,7 +587,8 @@ def compute_confidence(probs,
     conf_unit = math.tanh(alpha * expected)
     confidence = conf_unit * scale
 
-    return confidence, expected    
+    return confidence, expected
+                           
 def handle_missing_data(df, required_cols, timeframe):
     """Handle missing data strategically instead of dropping all rows with any NaN"""
     df_clean = df[required_cols].copy()
