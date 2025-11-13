@@ -1150,7 +1150,7 @@ def main():
             help="Tip: Realistic training needs modest/realistic repeatable gains like 2-7%. 10-15% gains results in less data and unrealistic results."             
         )
 
-    opt = ['OBV', 'CCI', 'CMF', 'ADX']
+    opt = ['OBV', 'CCI', 'CMF', 'MFI', 'ADX']
     default_option_index = 0 
     
     ind = st.selectbox(
