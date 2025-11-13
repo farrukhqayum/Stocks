@@ -279,7 +279,7 @@ def chaikin_money_flow(df, window=20):
     mfm = ((close - low) - (high - close)) / (high - low)
     mfm = mfm.replace([np.inf, -np.inf], 0).fillna(0)
     mfv = mfm * volume
-    cmf = mfv.rolling(window).sum() / volume.rolling(window).sum()
+    cmf = mfv.rolling(window).sum() *-1/ volume.rolling(window).sum()
     return cmf
 
 def calculate_mfi(data, period=20):
