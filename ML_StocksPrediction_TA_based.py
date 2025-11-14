@@ -1099,7 +1099,7 @@ def tabular_display(df_results):
     _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'\([^)]*\)', '', regex=True)
     _df['Will_Hit'] = _df['Will_Hit'].str.replace(r'[^A-Za-z]+', '', regex=True)
 
-    custom_order = ['TP', 'Hold', 'SL', 'Short', 'None']
+    custom_order = ['TP', 'Hold', 'None', 'SL', 'Short']
     ord_map = {label: i for i, label in enumerate(custom_order)}
     _df['who'] = _df['Will_Hit'].map(lambda x: ord_map.get(x, len(custom_order)))
 
@@ -1219,6 +1219,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
