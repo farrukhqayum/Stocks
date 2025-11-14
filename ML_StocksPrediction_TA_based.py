@@ -644,7 +644,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%."
     ]
 
-    sig_ = f'{signal}, R/R: {rrr:.1f}, ML Conf: {conf:0.f}%'
+    sig_ = f'{signal}, R/R: {rrr:.1f}, ML Conf: {conf:.0f}%'
     hit_interp = {
         'TP': "bullish — consider buying or holding",
         'SL': "bearish — exercise caution or consider selling",
@@ -1216,6 +1216,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
