@@ -500,7 +500,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     current_price = round(df['Close'].iloc[-1], 2)
     gain = round(predictions['Max (%)'], 1)
     loss = round(predictions['Loss (%)'], 1)
-    rrr = gain/loss
+    rrr = abs(gain/loss)
     gain_price = current_price * (1 + gain/100)
     loss_price = current_price * (1 + loss/100)
     hit_prob = predictions.Hit_Prob
@@ -644,7 +644,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%."
     ]
 
-    sig_ = f'{signal}, R/R: {rrr:.1f}, ML Conf: {conf:.0f}%'
+    sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
+
     hit_interp = {
         'TP': "bullish — consider buying or holding",
         'SL': "bearish — exercise caution or consider selling",
@@ -1216,6 +1217,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
