@@ -630,10 +630,11 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ta.plot_divergences(df, bull_div, bear_div, hbull_div, hbear_div, dtop, dbot, ax1, ax2)
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
     fig.autofmt_xdate()
+    
     strong_bull = (df['RSI'].iloc[-1] > 52) and (df['ADX'].iloc[-1] > 22) and (df['sumBuyVol'].iloc[-1] > df['sumSellVol'].iloc[-1])
     strong_bear = (df['RSI'].iloc[-1] < 40) and (df['ADX'].iloc[-1] > 22) and (df['sumBuyVol'].iloc[-1] < df['sumSellVol'].iloc[-1])
+    
     summary_lines = [
-        f"==== Market Technical Summary for {ticker} ====",
         f"Trend: EMA1 ({EMA1_}) is {'above' if EMA1_ > EMA2_ else 'below'} EMA2 ({EMA2_}) → Market is {'bullish' if EMA1_ > EMA2_ else 'bearish'}.",
         f"Momentum: RSI = {rsi_last} ({'above' if rsi_last > rsi_sma_last else 'below'} its 20-day average of {rsi_sma_last}).",
         f"Price: ${current_price} is {abs(price_vs_EMA1):.2f}% {'above' if price_vs_EMA1 > 0 else 'below'} EMA1.",
@@ -673,7 +674,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
   
     plt.tight_layout()
     st.pyplot(fig)
-    st.code("\n".join(summary_lines))
+    with st.expander(action):
+        st.code("\n".join(summary_lines))
 
                            
 #  🟡 Make Predictions (Gain/Loss/Confidence)
@@ -1058,7 +1060,7 @@ def PlotPredictions(df_results):
     # Space management
     plt.title(f'{today} - ML Predictions of Tickers (From Current Price)', fontsize=16, color='black', pad=20)
     plt.tight_layout()
-    plt.subplots_adjust(bottom=0.35)  # Increase if needed for annotation visibility
+    plt.subplots_adjust(bottom=0.35)
 
     st.pyplot(fig)
 
@@ -1212,6 +1214,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
