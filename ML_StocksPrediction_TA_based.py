@@ -863,7 +863,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             elif will_hit == 'Hold':
                 hit_price = predicted_tp
                 signal = "TI: 🟡 Hold"
-                sc = 'magenta'
+                sc = 'orange'
             elif will_hit == 'SL':
                 hit_price = predicted_sl
                 signal = "TI: 🔻 Bearish"
@@ -1007,6 +1007,8 @@ def PlotPredictions(df_results):
         
         if row.Signal == "TI: ✅ Bullish" and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
             ProbColor = 'green'
+        elif row.Signal == "TI: 🟡 Hold" and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['Hold']:
+            ProbColor = 'orange'
         elif row.Signal == "TI: 🔻 Bearish" and row.Confidence < 40 and str(row.Will_Hit).split()[0] == 'SL':
             ProbColor = 'red'
         else:
@@ -1217,6 +1219,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
