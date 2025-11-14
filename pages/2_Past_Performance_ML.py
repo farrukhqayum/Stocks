@@ -16,11 +16,11 @@ warnings.filterwarnings('ignore')
 # Set page config first
 st.set_page_config(page_title="ML - Stock Past Performance", layout="wide")
 
-st.title("🤖 BACKTEST - ML Strategy Using Daily Data")
+st.title("🤖 TEST ML Strategy Using Daily Data")
 with st.expander("Strategy Overview"):
     st.markdown("""
 - **Daily Trend Filter:** This strategy uses only daily data.
-- **ML Entry Signals:** Entries occur at daily close when the ML model predicts a bullish move ("TP" or "Hold") with confidence above the threshold.
+- **ML Entry Signals:** Entries occur at daily close when the ML model predicts a bullish move ("TP", "Hold", or "None") with confidence above the threshold (Try 20%).
 - **Trade Entry:** Opens a single position if not already holding a trade and entry signal conditions are met.
 - **Trade Exit:** Closes a position when price reaches (TP) or (SL), or after maximum allowed holding days.
 - **Sequential Trading:** The strategy waits for the current trade to close before opening a new one—no overlapping trades.
@@ -59,6 +59,13 @@ with st.expander("Intraday SL/TP Trigger Logic"):
 - Exit occurs immediately on a day when price touches SL or TP, even if closing price differs.
 - Gap openings beyond SL or TP are detected and trigger immediate exit at gap price or SL/TP levels.
 This prevents unrealistic trade closing at end-of-day prices only.
+    """)
+
+with st.expander("Try ETH-USD or XRP-USD"):
+    st.markdown("""
+- 7% TP target
+- Put SL far away like 50%
+- Put ML Confidence to 20%
     """)
 
 # -------------------------
