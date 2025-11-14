@@ -500,6 +500,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     current_price = round(df['Close'].iloc[-1], 2)
     gain = round(predictions['Max (%)'], 1)
     loss = round(predictions['Loss (%)'], 1)
+    rrr = gain/loss
     gain_price = current_price * (1 + gain/100)
     loss_price = current_price * (1 + loss/100)
     hit_prob = predictions.Hit_Prob
@@ -642,7 +643,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         f"Trend Strength: Strong Bull: {'Yes' if strong_bull else 'No'}, Strong Bear: {'Yes' if strong_bear else 'No'}.",
         f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%."
     ]
-    
+
+    sig_ = f'{signal}, R/R: {rrr:.1f}, ML Conf: {conf:0.f}%'
     hit_interp = {
         'TP': "bullish — consider buying or holding",
         'SL': "bearish — exercise caution or consider selling",
@@ -674,7 +676,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
   
     plt.tight_layout()
     st.pyplot(fig)
-    with st.expander(action):
+    with st.expander(f'{action}, {sig_}'):
         st.code("\n".join(summary_lines))
 
                            
@@ -1214,6 +1216,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
