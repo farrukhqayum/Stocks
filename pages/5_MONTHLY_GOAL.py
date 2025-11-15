@@ -15,14 +15,15 @@ def calculate_investment_growth(P, r, months, max_trades, tax_rate=0.0):
     for n_trades in range(1, max_trades + 1):
         investment_values = [P]
         for m in range(1, months + 1):
-            previous_value = investment_values[-1]
-            monthly_profit = previous_value * (r * n_trades)
-            gross_value = previous_value + monthly_profit
-            fee = gross_value * tax_rate
-            new_value = gross_value - fee
-            investment_values.append(round(new_value))
+            value = investment_values[-1]
+            for win in range(n_trades):
+                trade_profit = value * r
+                trade_fee = (value + trade_profit) * tax_rate
+                value = value + trade_profit - trade_fee
+            investment_values.append(round(value, 2))
         investment_curves[n_trades] = investment_values
     return investment_curves
+
 
 def create_investment_dataframe(investment_curves, months):
     month_range = np.arange(0, months + 1)
