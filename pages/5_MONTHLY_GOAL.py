@@ -33,7 +33,7 @@ def create_investment_dataframe(investment_curves, months):
 # User inputs
 P = st.number_input("Initial Investment ($)", min_value=0.0, value=1000.0, max_value=10000000.0, step=100.0)
 r = st.number_input("Profit Rate per Trade (%)", min_value=0.0, value=3.75, max_value=50.0, step=0.01) / 100.0
-fee = st.number_input("Fee/Tax Rate Per Period (%)", min_value=0.0, value=1, max_value=50.0, step=1) / 100.0
+fee = st.number_input("Fee/Tax Rate Per Period (%)", min_value=0.0, value=1.0, max_value=50.0, step=1.0) / 100.0
 months = st.number_input("Number of Periods", min_value=1, value=12, max_value=50, step=1)
 max_trades = st.number_input("Maximum Wins per Period", min_value=1, value=7, max_value=20, step=1)
 eff_monthly = ((1 + r) ** max_trades - 1) * 100
