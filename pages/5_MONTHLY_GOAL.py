@@ -10,13 +10,16 @@ You need to track how much profit you need to achieve to compound effectively.
 Below is a strategic projection of your potential growth.
 """)
 
-def calculate_investment_growth(P, r, months, max_trades):
+def calculate_investment_growth(P, r, months, max_trades, tax_rate=0.0):
     investment_curves = {}
     for n_trades in range(1, max_trades + 1):
         investment_values = [P]
         for m in range(1, months + 1):
-            monthly_profit = investment_values[-1] * (r * n_trades)
-            new_value = investment_values[-1] + monthly_profit
+            previous_value = investment_values[-1]
+            monthly_profit = previous_value * (r * n_trades)
+            gross_value = previous_value + monthly_profit
+            fee = gross_value * tax_rate
+            new_value = gross_value - fee
             investment_values.append(round(new_value))
         investment_curves[n_trades] = investment_values
     return investment_curves
@@ -30,6 +33,7 @@ def create_investment_dataframe(investment_curves, months):
 # User inputs
 P = st.number_input("Initial Investment ($)", min_value=0.0, value=1000.0, max_value=10000000.0, step=100.0)
 r = st.number_input("Profit Rate per Trade (%)", min_value=0.0, value=3.75, max_value=50.0, step=0.01) / 100.0
+fee = st.number_input("Fee/Tax Rate Per Period (%)", min_value=0.0, value=1, max_value=50.0, step=1) / 100.0
 months = st.number_input("Number of Periods", min_value=1, value=12, max_value=50, step=1)
 max_trades = st.number_input("Maximum Wins per Period", min_value=1, value=7, max_value=20, step=1)
 eff_monthly = ((1 + r) ** max_trades - 1) * 100
@@ -37,7 +41,7 @@ eff_monthly = ((1 + r) ** max_trades - 1) * 100
 if st.button("Calculate Investment Growth"):
     st.subheader(f"Effective Win Rate per Period: {eff_monthly:.2f}%")
 
-    investment_curves = calculate_investment_growth(P, r, months, max_trades)
+    investment_curves = calculate_investment_growth(P, r, months, max_trades, fee)
     df_investments = create_investment_dataframe(investment_curves, months)
 
     # Reshape data for Altair line chart: Investment Growth per number of wins
