@@ -1169,7 +1169,7 @@ def run_app():
                 st.code(f"The indicators use OHLC with a mean of 2-days to suppress noise/spikes")
 
         row_text = (
-            f'{"#" } | '
+            f'{"ML" } | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
             f'{"Take-profit (%)":>18} | '
@@ -1219,6 +1219,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
