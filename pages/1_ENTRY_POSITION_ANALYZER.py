@@ -586,7 +586,7 @@ def train_models(df, timeframe):
             st.warning(f"Missing columns for {timeframe}: {missing_cols}")
             return None, None, None, None, None, None
         
-        # FIX: Use more strategic NaN handling instead of strict dropna
+        # Use strategic NaN handling instead of strict dropna
         df_model = handle_missing_data(df, required_cols, timeframe)
         
         required_min = MIN_TRAIN_ROWS.get(timeframe, _Nr)
@@ -595,32 +595,35 @@ def train_models(df, timeframe):
             st.warning(f"Insufficient data for {timeframe} modeling: {len(df_model)} rows (need {required_min})")
             return None, None, None, None, None, None
         
-        # Progress indicator
-        progress_text = f"Training {timeframe} models..."
         progress_bar = st.progress(0)
         
-        # Classifier for Hit Label
+        # Prepare features and labels for classification
         X_cls = df_model[FEATURES]
         y_cls = df_model['Hit_Label'].astype(int)
         
+        X_train_cls, X_test_cls, y_train_cls, y_test_cls = train_test_split(
+            X_cls, y_cls, test_size=0.2, random_state=42
+        )
+        
         scaler_cls = StandardScaler()
-        X_scaled_cls = scaler_cls.fit_transform(X_cls)
+        X_train_scaled_cls = scaler_cls.fit_transform(X_train_cls)
+        X_test_scaled_cls = scaler_cls.transform(X_test_cls)
         progress_bar.progress(25)
         
+        # Train classification model on training set only
         model_class = RandomForestClassifier(
-                n_estimators=400, 
-                max_depth=12, 
-                min_samples_split=4,
-                min_samples_leaf=3,
-                max_features='sqrt',
-                class_weight='balanced',
-                random_state=42
-            )
-        model_class.fit(X_scaled_cls, y_cls)
+            n_estimators=400, 
+            max_depth=12, 
+            min_samples_split=4,
+            min_samples_leaf=3,
+            max_features='sqrt',
+            class_weight='balanced',
+            random_state=42
+        )
+        model_class.fit(X_train_scaled_cls, y_train_cls)
         progress_bar.progress(50)
         
-        # Get class probabilities
-        cls_probs = model_class.predict_proba(X_scaled_cls)
+        cls_probs = model_class.predict_proba(scaler_cls.transform(X_cls))
         prob_df = pd.DataFrame(0, index=df_model.index, 
                               columns=[f'Prob_Class_{c}' for c in expected_classes])
         
@@ -628,42 +631,51 @@ def train_models(df, timeframe):
             if c in expected_classes:
                 prob_df[f'Prob_Class_{c}'] = cls_probs[:, i]
         
-        # Prepare features with probabilities
         FEATURES_with_probs = FEATURES + [f'Prob_Class_{c}' for c in expected_classes]
         X_reg = pd.concat([df_model[FEATURES], prob_df], axis=1)
         
-        # Return model
+        # Prepare data for regression (Expected_Return)
         y_return = df_model['Expected_Return']
+        X_train_ret, X_test_ret, y_train_ret, y_test_ret = train_test_split(
+            X_reg[FEATURES_with_probs], y_return, test_size=0.2, random_state=42
+        )
+        
         scaler_return = StandardScaler()
-        X_scaled_return = scaler_return.fit_transform(X_reg[FEATURES_with_probs])
+        X_train_scaled_ret = scaler_return.fit_transform(X_train_ret)
+        X_test_scaled_ret = scaler_return.transform(X_test_ret)
         
         model_return = RandomForestRegressor(
-                n_estimators=400,
-                max_depth=14,
-                min_samples_leaf=3,
-                max_features='sqrt',
-                ccp_alpha=0.001,
-                random_state=42,
-                n_jobs=-1
+            n_estimators=400,
+            max_depth=14,
+            min_samples_leaf=3,
+            max_features='sqrt',
+            ccp_alpha=0.001,
+            random_state=42,
+            n_jobs=-1
         )
-        model_return.fit(X_scaled_return, y_return)
+        model_return.fit(X_train_scaled_ret, y_train_ret)
         progress_bar.progress(75)
         
-        # Loss model
+        # Prepare data for regression (Expected_Loss)
         y_loss = df_model['Expected_Loss']
+        X_train_loss, X_test_loss, y_train_loss, y_test_loss = train_test_split(
+            X_reg[FEATURES_with_probs], y_loss, test_size=0.2, random_state=42
+        )
+        
         scaler_loss = StandardScaler()
-        X_scaled_loss = scaler_loss.fit_transform(X_reg[FEATURES_with_probs])
+        X_train_scaled_loss = scaler_loss.fit_transform(X_train_loss)
+        X_test_scaled_loss = scaler_loss.transform(X_test_loss)
         
         model_loss = RandomForestRegressor(
-                n_estimators=400,
-                max_depth=14,
-                min_samples_leaf=3,
-                max_features='sqrt',
-                ccp_alpha=0.001,
-                random_state=42,
-                n_jobs=-1
+            n_estimators=400,
+            max_depth=14,
+            min_samples_leaf=3,
+            max_features='sqrt',
+            ccp_alpha=0.001,
+            random_state=42,
+            n_jobs=-1
         )
-        model_loss.fit(X_scaled_loss, y_loss)
+        model_loss.fit(X_train_scaled_loss, y_train_loss)
         progress_bar.progress(100)
         
         return model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss
