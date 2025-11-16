@@ -1005,9 +1005,10 @@ def PlotPredictions(df_results):
     for i, (_, row) in enumerate(df_plot.iterrows()):
         # Color assignment for signal types
         fcolor = (
-            'green' if row.Signal == "Bull"
-            else 'red' if row.Signal == "Bear"
-            else 'yellow'
+            'green' if "Bull" in row.Signal
+            else 'red' if "Bear" in row.Signal
+            else 'yellow' if "Hold" in row.Signal
+            else 'white'
         )
         
         if "Bull" in row.Signal and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
@@ -1225,6 +1226,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
