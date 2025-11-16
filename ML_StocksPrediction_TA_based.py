@@ -854,26 +854,32 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             bear_mode = pd.Series(df.Bear.values[-lookback_n:]).mode().iloc[0]
             neutral_mode = pd.Series(df.Neutral.values[-lookback_n:]).mode().iloc[0]
             hit_price = None
-    
+
+            TI = df.TI.values[-1]
+
+            if TI == 'Bull':
+                signal = "TI: ✅ Bullish"
+            elif TI == 'Bear':
+                signal = "TI: 🔻 Bearish"
+            elif TI == 'Hold':
+                signal = "TI: 🟡 Hold"
+            else 
+                signal = "TI: ⚪ Neutral"
+            
             if will_hit == 'TP':
                 hit_price = predicted_tp
-                signal = "TI: ✅ " + df.TI.values[-1]
                 sc = 'green'
             elif will_hit == 'Hold':
                 hit_price = predicted_tp
-                signal = "TI: 🟡 " + df.TI.values[-1]
                 sc = 'orange'
             elif will_hit == 'SL':
                 hit_price = predicted_sl
-                signal = "TI: 🔻 " + df.TI.values[-1]
                 sc = 'red'
             elif will_hit == 'Short':
                 hit_price = predicted_sl
-                signal = "TI: 🔻 "+ df.TI.values[-1]
                 sc = 'darkred'
             else:
                 hit_price = None
-                signal = "TI: ⚪ " + df.TI.values[-1]
                 sc = 'white'
     
             def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
@@ -934,7 +940,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 "SL": round(predicted_sl, 1),
                 "Loss (%)": round(predicted_loss * 100, 1),
                 "Risk": "🔴 High Risk" if (abs(predicted_loss) > STOP_LOSS) else "🟢 Low Risk",
-                "Signal": df.TI.values[-1],
+                "Signal": signal,
                 "Will_Hit": will_hit_str,
                 "Hit_Prob": round(latest_prob_features[f'Prob_Class_{pred_class}'] * 100, 1),
                 "Confidence": round(confidence_score, 1),
@@ -1169,7 +1175,7 @@ def run_app():
                 st.code(f"The indicators use OHLC with a mean of 2-days to suppress noise/spikes")
 
         row_text = (
-            f'{"ML" } | '
+            f'{"#" } | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
             f'{"Take-profit (%)":>18} | '
@@ -1219,6 +1225,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
