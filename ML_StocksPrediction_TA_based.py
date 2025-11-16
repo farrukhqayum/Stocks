@@ -1078,16 +1078,17 @@ def is_valid_ticker(ticker):
 ###### Tabulate Data
 def style_rows(row):
     signal = row.Signal
+    hits = row.Will_Hit
     hit_prob = row.Hit_Prob
     exhaustion = row.get("_Extremes", False) in ["High", "Low"]
 
     if exhaustion:
         return ['background-color: rgba(128, 128, 128, 0.5)'] * len(row) 
-    elif 'Hold' in signal:
+    elif 'Hold' in signal and 'Hold' in hits:
         return ['background-color: rgba(255, 0, 255, 0.3)'] * len(row)  # Magenta semi-transparent
-    elif ('Bull' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
+    elif ('Bull' in signal) and ('TP' in hits) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
         return ['background-color: rgba(144, 238, 144, 0.3)'] * len(row)  # LightGreen semi-transparent
-    elif (('Bear' in signal) or ('Short' in signal)) and (hit_prob > 40):
+    elif (('Bear' in signal) or ('SL' in hits) and ('Short' in signal)) and (hit_prob > 40):
         return ['background-color: rgba(240, 128, 128, 0.3)'] * len(row)  # LightCoral semi-transparent
     else:
         return ['color: gray'] * len(row)
@@ -1218,6 +1219,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
