@@ -725,7 +725,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             scaler_cls = StandardScaler()
             X_scaled_cls = scaler_cls.fit_transform(X_cls)
             X_train_cls, X_val_cls, y_train_cls, y_val_cls = train_test_split(
-                X_scaled_cls, y_cls, test_size=0.2, random_state=42)
+                X_scaled_cls, y_cls, test_size=0.5, random_state=42)
             #model_class = RandomForestClassifier(n_estimators=200, max_depth=10, min_samples_leaf=5, random_state=42)
             model_class = RandomForestClassifier(
                 n_estimators=400, 
@@ -741,7 +741,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             
             # --- Step 2: Extract Full Class Probabilities as Features ---
             cls_probs = model_class.predict_proba(X_scaled_cls)
-            
             # Extract probability columns for all expected classes safely
             prob_df = pd.DataFrame(0, index=np.arange(len(cls_probs)), columns=[f'Prob_Class_{c}' for c in expected_classes])
             for i, c in enumerate(model_class.classes_):
@@ -758,7 +757,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             scaler_return = StandardScaler()
             X_scaled_return = scaler_return.fit_transform(X_reg)
             X_train_ret, X_val_ret, y_train_ret, y_val_ret = train_test_split(
-                X_scaled_return, y_return, test_size=0.2, random_state=42)
+                X_scaled_return, y_return, test_size=0.5, random_state=42)
             #model_return = RandomForestRegressor(n_estimators=200, max_depth=10, min_samples_leaf=5, max_features='sqrt', ccp_alpha=0.01)
             model_return = RandomForestRegressor(
                 n_estimators=400,
@@ -776,7 +775,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             scaler_loss = StandardScaler()
             X_scaled_loss = scaler_loss.fit_transform(X_reg)
             X_train_loss, X_val_loss, y_train_loss, y_val_loss = train_test_split(
-                X_scaled_loss, y_loss, test_size=0.2, random_state=42)
+                X_scaled_loss, y_loss, test_size=0.5, random_state=42)
             model_loss = RandomForestRegressor(
                 n_estimators=400,
                 max_depth=14,
@@ -1219,6 +1218,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
