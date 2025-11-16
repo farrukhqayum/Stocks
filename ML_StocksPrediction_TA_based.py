@@ -857,23 +857,23 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
             if will_hit == 'TP':
                 hit_price = predicted_tp
-                signal = "TI: ✅ Bullish"
+                signal = "TI: ✅ " + df.TI.values[-1]
                 sc = 'green'
             elif will_hit == 'Hold':
                 hit_price = predicted_tp
-                signal = "TI: 🟡 Hold"
+                signal = "TI: 🟡 " + df.TI.values[-1]
                 sc = 'orange'
             elif will_hit == 'SL':
                 hit_price = predicted_sl
-                signal = "TI: 🔻 Bearish"
+                signal = "TI: 🔻 " + df.TI.values[-1]
                 sc = 'red'
             elif will_hit == 'Short':
                 hit_price = predicted_sl
-                signal = "TI: 🔻 Bearish"
+                signal = "TI: 🔻 "+ df.TI.values[-1]
                 sc = 'darkred'
             else:
                 hit_price = None
-                signal = "TI: ⚪ Neut"
+                signal = "TI: ⚪ " + df.TI.values[-1]
                 sc = 'white'
     
             def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
@@ -1218,6 +1218,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
