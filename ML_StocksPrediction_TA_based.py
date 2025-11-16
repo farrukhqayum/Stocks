@@ -582,8 +582,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.annotate(f'${current_price}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%', xy=(future_date, loss_price), xytext=(10, -10), textcoords='offset points', ha='left', va='top', color='red', fontsize=9, fontname='Segoe UI Emoji', bbox=dict(facecolor='white', alpha=0.4, edgecolor='none'))
 
     signal_color = (
-        'green' if 'Bullish' in predictions['Signal'] else
-        'red' if 'Bearish' in predictions['Signal'] else
+        'green' if 'Bull' in predictions['Signal'] else
+        'red' if 'Bear' in predictions['Signal'] else
         'yellow' if 'Hold' in predictions['Signal'] else
         'gray'
     )
@@ -999,16 +999,16 @@ def PlotPredictions(df_results):
     for i, (_, row) in enumerate(df_plot.iterrows()):
         # Color assignment for signal types
         fcolor = (
-            'green' if row.Signal == "TI: ✅ Bullish"
-            else 'red' if row.Signal == "TI: 🔻 Bearish"
+            'green' if row.Signal == "Bull"
+            else 'red' if row.Signal == "Bear"
             else 'yellow'
         )
         
-        if row.Signal == "TI: ✅ Bullish" and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
+        if row.Signal == "Bull" and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
             ProbColor = 'green'
-        elif row.Signal == "TI: 🟡 Hold" and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['Hold']:
+        elif row.Signal == "Hold" and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['Hold']:
             ProbColor = 'orange'
-        elif row.Signal == "TI: 🔻 Bearish" and row.Confidence < 40 and str(row.Will_Hit).split()[0] == 'SL':
+        elif row.Signal == "Bear" and row.Confidence < 40 and str(row.Will_Hit).split()[0] == 'SL':
             ProbColor = 'red'
         else:
             ProbColor = 'white'
@@ -1085,9 +1085,9 @@ def style_rows(row):
         return ['background-color: rgba(128, 128, 128, 0.5)'] * len(row) 
     elif 'Hold' in signal:
         return ['background-color: rgba(255, 0, 255, 0.3)'] * len(row)  # Magenta semi-transparent
-    elif ('Bullish' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
+    elif ('Bull' in signal) and (hit_prob > 40) and (row['Max (%)'] > abs(row['Loss (%)'])):
         return ['background-color: rgba(144, 238, 144, 0.3)'] * len(row)  # LightGreen semi-transparent
-    elif (('Bearish' in signal) or ('Short' in signal)) and (hit_prob > 40):
+    elif (('Bear' in signal) or ('Short' in signal)) and (hit_prob > 40):
         return ['background-color: rgba(240, 128, 128, 0.3)'] * len(row)  # LightCoral semi-transparent
     else:
         return ['color: gray'] * len(row)
@@ -1218,6 +1218,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
