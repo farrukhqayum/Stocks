@@ -863,7 +863,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 signal = "TI: 🔻 Bearish"
             elif TI == 'Hold':
                 signal = "TI: 🟡 Hold"
-            else 
+            else: 
                 signal = "TI: ⚪ Neutral"
             
             if will_hit == 'TP':
@@ -1225,6 +1225,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
