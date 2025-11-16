@@ -843,7 +843,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             else:
                 confidence_score = 0.0
 
-            rsi = latest['RSI'].values[0]
+            rsi = latest['RSI'].values[-1]
             signal = "TI: ⚪ Neut"
             _Extremes = "High" if df['Exhaustion'].values[-1] >= 0.9 else ("Low" if df['Exhaustion'].values[-1] <= -0.9 else "--")
                 
@@ -934,7 +934,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 "SL": round(predicted_sl, 1),
                 "Loss (%)": round(predicted_loss * 100, 1),
                 "Risk": "🔴 High Risk" if (abs(predicted_loss) > STOP_LOSS) else "🟢 Low Risk",
-                "Signal": signal,
+                "Signal": df.TI.values[-1],
                 "Will_Hit": will_hit_str,
                 "Hit_Prob": round(latest_prob_features[f'Prob_Class_{pred_class}'] * 100, 1),
                 "Confidence": round(confidence_score, 1),
@@ -1218,6 +1218,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
