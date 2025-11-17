@@ -3,10 +3,6 @@ import pandas as pd
 import numpy as np
 import altair as alt
 
-# Clear caches once on start (optional)
-st.cache_data.clear()
-st.cache_resource.clear()
-
 st.set_page_config(layout="centered")
 
 st.header("Just Keep Winning!!!")
@@ -22,13 +18,15 @@ st.markdown(comp_text)
 with st.form(key='compound_form'):
     initial_capital = st.number_input("Initial Capital ($)", min_value=0.0, value=1000.0, step=100.0)
     win_pct = st.number_input("Avg. Win (%)", min_value=0.0, value=3.75, step=0.1) / 100.0
-    tax_pct_input = st.number_input("Fee per Trade (%)", min_value=0.0, value=0.0, step=0.1)
-    tax_rate = tax_pct_input / 100.0  # <-- now fee per trade, not tax on gains
+    tax_pct_input = st.number_input(
+        "Fee per Trade (%)", min_value=0.0, value=0.0, step=0.1,
+        help="Enter your broker, exchange or trading fee as a percent of each trade amount."
+    )
+    tax_rate = tax_pct_input / 100.0  # fee per trade, not tax on gains
     num_wins = st.number_input("Number of Wins", min_value=0, value=75, step=1)
-    std_dev = st.number_input("Standard Deviation (fraction)", min_value=0.0, max_value=0.4, value=0.2, step=0.01, format="%.2f")
+    std_dev = st.number_input("Standard Deviation (fraction)", min_value=0.0, max_value=0.4, value=0.20, step=0.01, format="%.2f")
     submitted = st.form_submit_button("Calculate Growth")
 
-# NEW: realistic compounding with fee per trade
 def compound_growth(initial_capital, gain_pct, num_wins, tax_rate):
     capital = initial_capital
     total_fee = 0
@@ -50,13 +48,13 @@ if submitted:
     if num_wins <= 0:
         st.warning("Please enter a positive number of wins.")
     else:
-
-        # Base, upper, lower gains WITH fee applied each trade
+        # Growth series for chart
         def grow_series(gain_pct):
             caps = [initial_capital]
             capital = initial_capital
             for _ in range(num_wins):
-                capital = capital * (1 + gain_pct) - (capital * tax_rate)
+                fee = capital * tax_rate
+                capital = capital * (1 + gain_pct) - fee
                 caps.append(capital)
             return caps
 
@@ -91,8 +89,8 @@ if submitted:
         }
 
         chart = alt.Chart(df_melt).mark_line(size=2).encode(
-            x=alt.X('Trade Number', axis=alt.Axis(labelAngle=-45, labelFontSize=10, labelFlush=False, title='Trade Number')),
-            y=alt.Y('Capital', axis=alt.Axis(format=".2s", orient="right", title='Capital ($)', labelExpr="replace(datum.label, 'G', 'B')")),
+            x=alt.X('Trade Number', axis=alt.Axis(labelAngle=-45, labelFontSize=10, title='Trade Number')),
+            y=alt.Y('Capital', axis=alt.Axis(format=".2s", title='Capital ($)')),
             color=alt.Color('Series', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())),
                             legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
@@ -103,27 +101,30 @@ if submitted:
 
         st.altair_chart(chart, use_container_width=True)
 
-        # TABLE SECTION (unchanged except uses new compound formula)
+        # Table with fee breakdown for 3 splits
         splits = [0.33, 0.34, 0.33]
         expected_gains = [win_pct, win_pct, win_pct]
 
-        final_caps, fees = [
+        results = [
             compound_growth(initial_capital * sp, gain, num_wins, tax_rate)
             for sp, gain in zip(splits, expected_gains)
         ]
+        final_caps = [fc for fc, fee in results]
+        total_fees = [fee for fc, fee in results]
 
         df_split = pd.DataFrame({
             "Stock": ["Stock 1", "Stock 2", "Stock 3"],
             "Allocation (%)": [sp * 100 for sp in splits],
             "Capital Allocated ($)": [initial_capital * sp for sp in splits],
             "Expected Gain per Win (%)": [g * 100 for g in expected_gains],
-            f"Capital after {num_wins} Wins ($)": final_caps
-            f"total fee": fees
+            f"Capital after {num_wins} Wins ($)": final_caps,
+            "Total Fee ($)": total_fees
         })
 
         st.dataframe(df_split.style.format({
             "Allocation (%)": "{:.2f}%",
             "Capital Allocated ($)": format_large_number,
             "Expected Gain per Win (%)": "{:.2f}%",
-            f"Capital after {num_wins} Wins ($)": format_large_number
+            f"Capital after {num_wins} Wins ($)": format_large_number,
+            "Total Fee ($)": format_large_number
         }), use_container_width=True)
