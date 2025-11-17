@@ -90,7 +90,7 @@ if submitted:
 
         chart = alt.Chart(df_melt).mark_line(size=2).encode(
             x=alt.X('Trade Number', axis=alt.Axis(labelAngle=-45, labelFontSize=10, title='Trade Number')),
-            y=alt.Y('Capital', axis=alt.Axis(format=".2s", title='Capital ($)')),
+            y=alt.Y('Capital', orient='right', axis=alt.Axis(format=".2s", title='Capital ($)')),
             color=alt.Color('Series', scale=alt.Scale(domain=list(color_map.keys()), range=list(color_map.values())),
                             legend=alt.Legend(title="Legend", orient='top-left'))
         ).properties(
