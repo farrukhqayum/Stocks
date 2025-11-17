@@ -31,9 +31,12 @@ with st.form(key='compound_form'):
 # NEW: realistic compounding with fee per trade
 def compound_growth(initial_capital, gain_pct, num_wins, tax_rate):
     capital = initial_capital
+    total_fee = 0
     for _ in range(num_wins):
-        capital = capital * (1 + gain_pct) - (capital * tax_rate)
-    return capital
+        fee = capital * tax_rate
+        capital = capital * (1 + gain_pct) - fee
+        total_fee += fee
+    return capital, total_fee
 
 def format_large_number(x):
     if x >= 1_000_000:
@@ -104,7 +107,7 @@ if submitted:
         splits = [0.33, 0.34, 0.33]
         expected_gains = [win_pct, win_pct, win_pct]
 
-        final_caps = [
+        final_caps, fees = [
             compound_growth(initial_capital * sp, gain, num_wins, tax_rate)
             for sp, gain in zip(splits, expected_gains)
         ]
@@ -115,6 +118,7 @@ if submitted:
             "Capital Allocated ($)": [initial_capital * sp for sp in splits],
             "Expected Gain per Win (%)": [g * 100 for g in expected_gains],
             f"Capital after {num_wins} Wins ($)": final_caps
+            f"total fee": fees
         })
 
         st.dataframe(df_split.style.format({
