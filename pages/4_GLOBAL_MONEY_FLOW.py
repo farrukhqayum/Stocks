@@ -169,7 +169,7 @@ df_plot = pd.DataFrame({
 }).dropna()
 
 # --- MONEY FLOW CURVE CHART ---
-df_plot['Money Flow Smooth'] = money_flow_smooth
+df_plot['Global Money Flow'] = money_flow_smooth
 mean_smooth = money_flow_smooth.mean()
 
 base = alt.Chart(df_plot).encode(x='Date:T')
@@ -192,7 +192,7 @@ fill_area = base.mark_area(
     y='Money Flow Smooth:Q',
     y2=alt.value(0),
     color=alt.condition(
-        alt.datum['Money Flow Smooth'] > mean_smooth,
+        alt.datum['Global Money Flow'] > mean_smooth,
         alt.value('green'),
         alt.value('red')
     )
@@ -345,7 +345,7 @@ combined_df = pd.DataFrame({
 
 combined_long_df = combined_df.melt(
     id_vars='Date',
-    value_vars=['Money Flow Smooth', 'Stock Price'],
+    value_vars=['Global Money Flow', 'Stock Price'],
     var_name='Series',
     value_name='Value'
 )
@@ -353,7 +353,7 @@ combined_long_df = combined_df.melt(
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 color_scale = alt.Scale(
-    domain=['Money Flow Smooth', 'Stock Price'],
+    domain=['Global Money Flow', 'Stock Price'],
     range=['blue', 'gray']
 )
 
@@ -361,7 +361,7 @@ money_flow_line = base.mark_line().encode(
     y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
     color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left'))
 ).transform_filter(
-    alt.datum.Series == 'Money Flow Smooth'
+    alt.datum.Series == 'Global Money Flow'
 )
 
 stock_price_line = base.mark_line().encode(
