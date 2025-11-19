@@ -194,7 +194,7 @@ fill_area = base.mark_area(opacity=0.15).encode(
 )
 
 final_chart = fill_area + smooth_chart
-
+st.altair_chart(curve_chart+smooth_chart, use_container_width=True)
 st.altair_chart(final_chart, use_container_width=True)
 
 # --- MOMENTUM CHART ---
