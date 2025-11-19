@@ -357,7 +357,7 @@ color_scale = alt.Scale(
     range=['blue', 'gray']
 )
 
-money_flow_line = base.mark_line().encode(
+money_flow_line = base.mark_line(color='#1f77b4', opacity=0.6).encode(
     y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
     color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left'))
 ).transform_filter(
