@@ -238,10 +238,6 @@ corr_matrix.index.name = 'Ticker'
 corr_melt = corr_matrix.reset_index().melt('Ticker')
 corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
 
-# Remove self-correlations and rows with missing values
-corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]  # keep all unique pairs
-corr_melt = corr_melt.dropna(subset=['Correlation'])  # NEW
-
 # Heatmap
 heatmap = (
     alt.Chart(corr_melt)
