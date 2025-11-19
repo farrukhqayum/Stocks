@@ -327,7 +327,7 @@ else:
         raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
 
 user_stock_data = user_stock_data.fillna(method='ffill')
-smoothed = user_stock_data.rolling(window=3, min_periods=1).mean()
+smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
 smoothed.iloc[-1] = user_stock_data.iloc[-1]
 
 if normalize_start:
