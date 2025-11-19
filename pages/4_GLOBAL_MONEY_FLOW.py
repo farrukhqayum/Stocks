@@ -335,7 +335,7 @@ if normalize_start:
 
 money_flow_s = money_flow_s.squeeze()
 user_stock_series = user_stock_data.squeeze()
-money_flow_aligned, user_stock_aligned = money_flow_s.align(smoothed, join='inner')
+money_flow_aligned, user_stock_aligned = money_flow_s.align(user_stock_series, join='inner')
 
 combined_df = pd.DataFrame({
     "Date": money_flow_aligned.index,
