@@ -352,7 +352,12 @@ money_flow_line = base.mark_line(color='blue').encode(
 
 # Stock price line in orange with a second Y axis
 stock_price_line = base.mark_line(color='orange').encode(
-    y=alt.Y('Stock Price:Q', axis=alt.Axis(title='Stock Price'), scale=alt.Scale(zero=False))
+    y=alt.Y(
+        'Stock Price:Q',
+        axis=alt.Axis(title='Stock Price'),
+        scale=alt.Scale(zero=False)
+    ),
+    color=alt.value('gray')
 )
 
 # Combine with layered chart, scales remain separate by default
