@@ -349,7 +349,7 @@ base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 color_scale = alt.Scale(
     domain=['Money Flow Smooth', 'Stock Price'],
-    range=['blue', 'orange']  # your desired colors here
+    range=['blue', 'gray']  # your desired colors here
 )
 
 money_flow_line = base.mark_line().encode(
