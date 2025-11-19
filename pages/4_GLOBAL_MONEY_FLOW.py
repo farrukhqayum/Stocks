@@ -259,6 +259,9 @@ text = (
         text=alt.Text('Correlation:Q', format=".2f")
     )
 )
+
+st.altair_chart(heatmap + text, use_container_width=True)
+
 st.altair_chart(heatmap + text, use_container_width=True)
 
 st.markdown("""
