@@ -232,19 +232,11 @@ st.markdown("""
 # Compute correlation matrix
 corr_matrix = data.corr()
 
-**corr_matrix.index.name = 'Ticker'**
-
 # Melt into long format (Ticker vs columns)
 corr_melt = corr_matrix.reset_index().melt('Ticker')
 corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
 
 corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
-
-**order = list(corr_matrix.columns)**
-**corr_melt['Asset1'] = pd.Categorical(corr_melt['Asset1'], categories=order, ordered=True)**
-**corr_melt['Asset2'] = pd.Categorical(corr_melt['Asset2'], categories=order, ordered=True)**
-
-**corr_melt = corr_melt.dropna(subset=['Correlation'])**
 
 # Heatmap
 heatmap = (
@@ -271,7 +263,6 @@ text = (
 )
 
 st.altair_chart(heatmap + text, use_container_width=True)
-
 
 
 st.markdown("""
