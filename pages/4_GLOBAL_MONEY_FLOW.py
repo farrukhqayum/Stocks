@@ -304,19 +304,26 @@ st.markdown("""
 - Provide the ticker and study its normalized graph in relation to global money flow.
 """)
 
-user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
+uuser_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
 raw = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
 
 if isinstance(raw.columns, pd.MultiIndex):
+    # Check if 'Adj Close' is present at level 0
     if 'Adj Close' in raw.columns.get_level_values(0):
         user_stock_data = raw['Adj Close'].copy()
     elif 'Close' in raw.columns.get_level_values(0):
         user_stock_data = raw['Close'].copy()
     else:
-        raise ValueError("No 'Adj Close' or 'Close' data found.")
+        raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
 else:
-    user_stock_data = raw.copy()
-    
+    # For single-level columns (unlikely for yf.download but safe fallback)
+    if 'Adj Close' in raw.columns:
+        user_stock_data = raw['Adj Close'].copy()
+    elif 'Close' in raw.columns:
+        user_stock_data = raw['Close'].copy()
+    else:
+        raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
+
 user_stock_data = user_stock_data.fillna(method='ffill')
 
 if normalize_start:
