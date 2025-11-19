@@ -25,7 +25,7 @@ Includes BTC, S&P 500, Emerging Markets, Gold, US Dollar, Treasury Bonds, Oil, a
 st.sidebar.header("⚙️ Settings")
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365*2))
 end_date = st.sidebar.date_input("End Date", datetime.now())
-smooth_window = st.sidebar.slider("Smoothing (days)", 5, 100, 50)
+smooth_window = st.sidebar.slider("Smoothing (days)", 5, 100, 21)
 normalize_start = st.sidebar.checkbox("Normalize to 100 at start", value=True)
 use_business_days = st.sidebar.checkbox("Remove weekend gaps (use business days only)", value=True)
 
