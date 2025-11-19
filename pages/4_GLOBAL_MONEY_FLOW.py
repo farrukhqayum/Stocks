@@ -251,7 +251,7 @@ heatmap = (
 
 text = (
     alt.Chart(corr_melt)
-    .mark_text(baseline='middle', align='center', fontSize=12, color='black')
+    .mark_text(baseline='middle', align='center', fontSize=5, color='black')
     .encode(
         x='Asset1:N',
         y='Asset2:N',
