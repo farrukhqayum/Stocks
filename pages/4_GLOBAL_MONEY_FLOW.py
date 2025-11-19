@@ -261,5 +261,3 @@ st.markdown("""
 """)
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
-
-    .properties(title="
