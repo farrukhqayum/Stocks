@@ -245,15 +245,18 @@ with st.expander("📊 Show Underlying Assets"):
     st.altair_chart(asset_chart, use_container_width=True)
 
 # --- INTERPRETATION ---
-st.markdown("""
-### 🧠 Interpretation
-- 📈 **Rising Curve:** Capital flowing into *risk-on* assets → bullish market sentiment.  
-- 📉 **Falling Curve:** Money shifting to *safe* assets → defensive / risk-off tone.  
-- ⚖️ **Flat Curve:** Neutral or mixed capital rotation.  
-- 🟢 **Positive Momentum:** Acceleration of risk-on flows.  
-- 🔴 **Negative Momentum:** Acceleration of risk-off flows.  
-- 🔗 **Correlation Shifts:** Changing relationships between assets highlight regime changes (e.g., BTC aligning with SPX).
-""")
+with st.expander("🧠 Interpretation"):
+    st.markdown("""
+    ### How to read the above chart.
+    - 📈 **Rising Curve:** Capital flowing into *risk-on* assets → bullish market sentiment.  
+    - 📉 **Falling Curve:** Money shifting to *safe* assets → defensive / risk-off tone.  
+    - ⚖️ **Flat Curve:** Neutral or mixed capital rotation.  
+    - 🟢 **Positive Momentum:** Acceleration of risk-on flows.  
+    - 🔴 **Negative Momentum:** Acceleration of risk-off flows.  
+    - 🔗 **Correlation Shifts:** Changing relationships between assets highlight regime changes (e.g., BTC aligning with SPX).
+    """)
+
+# --- CORRELATION ---
 with st.expander(" 🧠 Correlation Matrix"):
     st.markdown("""
     ### 🧠 Correlation of multiple assets
