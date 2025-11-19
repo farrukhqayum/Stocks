@@ -356,12 +356,16 @@ stock_price_line = base.mark_line(color='orange').encode(
 )
 
 # Combine with layered chart, scales remain separate by default
-combined_chart = alt.layer(money_flow_line, stock_price_line).resolve_scale(
-    y='independent'  # Allows separate y-axis scales for clarity
+combined_chart = alt.layer(
+    money_flow_line, stock_price_line
+).resolve_scale(
+    y='independent'
 ).properties(
     width=800,
     height=400,
     title='Stock Price vs Money Flow Smooth'
+).configure_legend(
+    orient='top-left'
 )
 
 st.altair_chart(combined_chart, use_container_width=True)
