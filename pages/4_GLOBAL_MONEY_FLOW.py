@@ -132,6 +132,7 @@ for asset, w in weights.items():
         money_flow += data[asset] * w
 
 # --- SMOOTHED CURVE ---
+money_flow_s = money_flow.rolling(3).mean()
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
 # --- MOMENTUM (RATE OF CHANGE %) ---
@@ -160,7 +161,7 @@ st.markdown(f"""
 # --- MERGE DATA FOR ALTair ---
 df_plot = pd.DataFrame({
     "Date": money_flow.index,
-    "Money Flow Curve": money_flow,
+    "Money Flow Curve": money_flow_s,
     "Smoothed Curve": money_flow_smooth,
     "Momentum": money_flow_momentum
 }).dropna()
