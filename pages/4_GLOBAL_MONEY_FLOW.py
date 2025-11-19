@@ -331,7 +331,7 @@ else:
 price = user_stock_data.iloc[-1]
 smoothed = user_stock_data.rolling(window=3).mean()
 user_stock_data = smoothed.fillna(method='ffill')
-user_stock_data[-1] = price
+user_stock_data.iloc[-1] = price
 
 if normalize_start:
     user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
