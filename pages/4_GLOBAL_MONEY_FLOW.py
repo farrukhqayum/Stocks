@@ -304,7 +304,7 @@ st.markdown("""
 - Provide the ticker and study its normalized graph in relation to global money flow.
 """)
 
-uuser_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
+user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
 raw = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
 
 if isinstance(raw.columns, pd.MultiIndex):
