@@ -183,9 +183,11 @@ smooth_chart = (
 )
 
 # Conditional transparent fill (area) under smoothed curve
-fill_area = base.mark_area(opacity=0.15).encode(
+fill_area = base.mark_area(
+    opacity=0.15
+).encode(
     y='Money Flow Smooth:Q',
-    y2=alt.value(0),  # Fill area down to y=0 line
+    y2=alt.value(0),
     color=alt.condition(
         alt.datum['Money Flow Smooth'] > mean_smooth,
         alt.value('green'),
