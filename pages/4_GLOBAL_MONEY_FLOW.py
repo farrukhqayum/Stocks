@@ -330,12 +330,17 @@ if normalize_start:
     user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
 
 money_flow_s = money_flow_s.squeeze()
+# Align indices of money flow smooth and user stock data
+money_flow_aligned, user_stock_aligned = money_flow_s.align(
+    user_stock_data, join='inner'
+)
 
+# Build combined DataFrame with aligned indices and matching lengths
 combined_df = pd.DataFrame({
-    "Date": data.index,
-    "Money Flow Smooth": money_flow_s,
-    "Stock Price": user_stock_data.reindex(data.index).fillna(method='ffill')
-}).dropna()
+    "Date": money_flow_aligned.index,
+    "Money Flow Smooth": money_flow_aligned.values,
+    "Stock Price": user_stock_aligned.values
+})
 
 # Basic base chart with date on X axis
 base = alt.Chart(combined_df).encode(x='Date:T')
