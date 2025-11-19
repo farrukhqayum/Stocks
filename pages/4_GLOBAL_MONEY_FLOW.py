@@ -353,7 +353,7 @@ color_scale = alt.Scale(
 )
 
 money_flow_line = base.mark_line().encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title='Money Flow', orient='left')),
+    y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
     color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left'))
 ).transform_filter(
     alt.datum.Series == 'Money Flow Smooth'
