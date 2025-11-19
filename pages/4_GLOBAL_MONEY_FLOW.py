@@ -251,14 +251,13 @@ heatmap = (
 
 text = (
     alt.Chart(corr_melt)
-    .mark_text(baseline='middle', align='center', fontSize=12, color='white')
+    .mark_text(baseline='middle', align='center', fontSize=12, color='black')
     .encode(
         x='Asset1:N',
         y='Asset2:N',
-        text=alt.Text('Correlation:Q', format=".2f")
+        text=alt.Text('Correlation:Q', format=".2f")   # 2‑decimal format
     )
 )
-
 st.altair_chart(heatmap + text, use_container_width=True)
 
 st.markdown("""
