@@ -307,12 +307,11 @@ st.markdown("""
 - Provide the ticker and study its normalized graph in relation to global money flow.
 - Use the left panel to choose and press ENTER.
 """)
-
 user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
 raw = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
 
+# Extract 'Adj Close' or 'Close' safely
 if isinstance(raw.columns, pd.MultiIndex):
-    # Check if 'Adj Close' is present at level 0
     if 'Adj Close' in raw.columns.get_level_values(0):
         user_stock_data = raw['Adj Close'].copy()
     elif 'Close' in raw.columns.get_level_values(0):
@@ -320,43 +319,41 @@ if isinstance(raw.columns, pd.MultiIndex):
     else:
         raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
 else:
-    # For single-level columns (unlikely for yf.download but safe fallback)
     if 'Adj Close' in raw.columns:
         user_stock_data = raw['Adj Close'].copy()
     elif 'Close' in raw.columns:
         user_stock_data = raw['Close'].copy()
     else:
         raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
-        
-price = user_stock_data.iloc[-1]
-smoothed = user_stock_data.rolling(window=3).mean()
-user_stock_data = smoothed.fillna(method='ffill')
-user_stock_data.iloc[-1] = price
+
+user_stock_data = user_stock_data.fillna(method='ffill')
+smoothed = user_stock_data.rolling(window=3, min_periods=1).mean()
+smoothed.iloc[-1] = user_stock_data.iloc[-1]
 
 if normalize_start:
-    user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
+    smoothed = smoothed / smoothed.iloc[0] * 100
 
 money_flow_s = money_flow_s.squeeze()
-# Align indices of money flow smooth and user stock data
-money_flow_aligned, user_stock_aligned = money_flow_s.align(
-    user_stock_data, join='inner'
-)
+money_flow_aligned, user_stock_aligned = money_flow_s.align(smoothed, join='inner')
 
-# Build combined DataFrame with aligned indices and matching lengths
 combined_df = pd.DataFrame({
     "Date": money_flow_aligned.index,
-    "Money Flow Smooth": money_flow_aligned.values.squeeze(),
-    "Stock Price": user_stock_aligned.values.squeeze()
+    "Money Flow Smooth": money_flow_aligned,
+    "Stock Price": user_stock_aligned
 })
-combined_long_df = combined_df.melt(id_vars='Date', 
-                                   value_vars=['Money Flow Smooth', 'Stock Price'],
-                                   var_name='Series', value_name='Value')
+
+combined_long_df = combined_df.melt(
+    id_vars='Date',
+    value_vars=['Money Flow Smooth', 'Stock Price'],
+    var_name='Series',
+    value_name='Value'
+)
 
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 color_scale = alt.Scale(
     domain=['Money Flow Smooth', 'Stock Price'],
-    range=['blue', 'gray']  # your desired colors here
+    range=['blue', 'gray']
 )
 
 money_flow_line = base.mark_line().encode(
@@ -368,7 +365,7 @@ money_flow_line = base.mark_line().encode(
 
 stock_price_line = base.mark_line().encode(
     y=alt.Y('Value:Q', axis=alt.Axis(title=f'{user_ticker} Price', orient='right')),
-    color=alt.Color('Series:N', scale=color_scale, legend=None) 
+    color=alt.Color('Series:N', scale=color_scale, legend=None)
 ).transform_filter(
     alt.datum.Series == 'Stock Price'
 )
@@ -385,4 +382,5 @@ combined_chart = alt.layer(
 )
 
 st.altair_chart(combined_chart, use_container_width=True)
+
 
