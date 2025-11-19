@@ -74,16 +74,6 @@ for asset in selected_assets:
         format="%.2f"
     )
 
-def rolling_correlations(df, window=90):
-    # Compute pairwise rolling correlations
-    corr_dict = {}
-    assets = df.columns
-    for i in range(len(assets)):
-        for j in range(i+1, len(assets)):
-            pair = f"{assets[i]} vs {assets[j]}"
-            corr_dict[pair] = df[assets[i]].rolling(window).corr(df[assets[j]])
-    return pd.DataFrame(corr_dict)
-
 # --- DATA FETCH FUNCTION ---
 @st.cache_data
 def load_data(tickers, start, end):
@@ -228,6 +218,37 @@ with st.expander("📊 Show Underlying Assets"):
     )
     st.altair_chart(asset_chart, use_container_width=True)
 
+# --- ROLLING CORRELATIONS ---
+st.sidebar.markdown("### Rolling Correlations")
+corr_window = st.sidebar.slider("Correlation Window (days)", 30, 180, 90)
+
+def rolling_correlations(df, window=90):
+    """Compute rolling correlations between all asset pairs."""
+    corr_dict = {}
+    assets = df.columns
+    for i in range(len(assets)):
+        for j in range(i+1, len(assets)):
+            pair = f"{assets[i]} vs {assets[j]}"
+            corr_dict[pair] = df[assets[i]].rolling(window).corr(df[assets[j]])
+    return pd.DataFrame(corr_dict)
+
+corr_df = rolling_correlations(data, corr_window)
+
+corr_chart = (
+    alt.Chart(corr_df.reset_index().melt('Date'))
+    .mark_line()
+    .encode(
+        x='Date:T',
+        y=alt.Y('value:Q', title='Rolling Correlation'),
+        color='variable:N',
+        tooltip=['Date:T', 'variable:N', 'value:Q']
+    )
+    .properties(title="🔗 Rolling Asset Correlations")
+    .interactive()
+)
+
+st.altair_chart(corr_chart, use_container_width=True)
+
 # --- INTERPRETATION ---
 st.markdown("""
 ### 🧠 Interpretation
@@ -235,21 +256,10 @@ st.markdown("""
 - 📉 **Falling Curve:** Money shifting to *safe* assets → defensive / risk-off tone.  
 - ⚖️ **Flat Curve:** Neutral or mixed capital rotation.  
 - 🟢 **Positive Momentum:** Acceleration of risk-on flows.  
-- 🔴 **Negative Momentum:** Acceleration of risk-off flows.
+- 🔴 **Negative Momentum:** Acceleration of risk-off flows.  
+- 🔗 **Correlation Shifts:** Changing relationships between assets highlight regime changes (e.g., BTC aligning with SPX).
 """)
 
-window = st.sidebar.slider("Correlation Window (days)", 30, 180, 90)
-
-corr_df = rolling_correlations(processed_df, window)
-
-chart = alt.Chart(corr_df.reset_index().melt('Date')).mark_line().encode(
-    x='Date:T',
-    y=alt.Y('value:Q', title='Rolling Correlation'),
-    color='variable:N',
-    tooltip=['Date:T', 'value:Q', 'variable:N']
-).properties(title="Rolling Asset Correlations").interactive()
-
-st.altair_chart(chart, use_container_width=True)
-
-
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
+
+    .properties(title="
