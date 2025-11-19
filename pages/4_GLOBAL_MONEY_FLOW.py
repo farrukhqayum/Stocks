@@ -339,7 +339,7 @@ money_flow_aligned, user_stock_aligned = money_flow_s.align(user_stock_series, j
 
 combined_df = pd.DataFrame({
     "Date": money_flow_aligned.index,
-    "Money Flow Smooth": money_flow_aligned,
+    "Global Money Flow": money_flow_aligned,
     "Stock Price": user_stock_aligned
 })
 
