@@ -290,92 +290,93 @@ text = (
 )
 
 st.altair_chart(heatmap + text, use_container_width=True)
+with st.expander("🔎 Heatmap Interpretation"):
+    st.markdown("""
+    ### How to read the heatmap
+    - **Correlation close to +1:** Assets move together (e.g., SPX & EEM).  
+    - **Correlation close to -1:** Assets move opposite (e.g., Gold vs SPX).  
+    - **Near 0:** Assets are largely independent.  
+    """)
 
-st.markdown("""
-### 🔎 Heatmap Interpretation
-- **Correlation close to +1:** Assets move together (e.g., SPX & EEM).  
-- **Correlation close to -1:** Assets move opposite (e.g., Gold vs SPX).  
-- **Near 0:** Assets are largely independent.  
-""")
-
-
-st.markdown("""
-### 🧠 💹 📈  STUDY A STOCK WITH MONEY FLOW
-- Provide the ticker and study its normalized graph in relation to global money flow.
-""")
-
-user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
-raw = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
-
-if isinstance(raw.columns, pd.MultiIndex):
-    # Check if 'Adj Close' is present at level 0
-    if 'Adj Close' in raw.columns.get_level_values(0):
-        user_stock_data = raw['Adj Close'].copy()
-    elif 'Close' in raw.columns.get_level_values(0):
-        user_stock_data = raw['Close'].copy()
+with st.expander(" 💹 📈  STUDY A STOCK WITH MONEY FLOW"):
+    st.markdown("""
+    ### Ticker vs. Global Money Flow
+    - Provide the ticker and study its normalized graph in relation to global money flow.
+    - Use the left panel to choose and press ENTER.
+    """)
+    
+    user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
+    raw = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
+    
+    if isinstance(raw.columns, pd.MultiIndex):
+        # Check if 'Adj Close' is present at level 0
+        if 'Adj Close' in raw.columns.get_level_values(0):
+            user_stock_data = raw['Adj Close'].copy()
+        elif 'Close' in raw.columns.get_level_values(0):
+            user_stock_data = raw['Close'].copy()
+        else:
+            raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
     else:
-        raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
-else:
-    # For single-level columns (unlikely for yf.download but safe fallback)
-    if 'Adj Close' in raw.columns:
-        user_stock_data = raw['Adj Close'].copy()
-    elif 'Close' in raw.columns:
-        user_stock_data = raw['Close'].copy()
-    else:
-        raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
-
-user_stock_data = user_stock_data.fillna(method='ffill')
-
-if normalize_start:
-    user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
-
-money_flow_s = money_flow_s.squeeze()
-# Align indices of money flow smooth and user stock data
-money_flow_aligned, user_stock_aligned = money_flow_s.align(
-    user_stock_data, join='inner'
-)
-
-# Build combined DataFrame with aligned indices and matching lengths
-combined_df = pd.DataFrame({
-    "Date": money_flow_aligned.index,
-    "Money Flow Smooth": money_flow_aligned.values.squeeze(),
-    "Stock Price": user_stock_aligned.values.squeeze()
-})
-combined_long_df = combined_df.melt(id_vars='Date', 
-                                   value_vars=['Money Flow Smooth', 'Stock Price'],
-                                   var_name='Series', value_name='Value')
-
-base = alt.Chart(combined_long_df).encode(x='Date:T')
-
-color_scale = alt.Scale(
-    domain=['Money Flow Smooth', 'Stock Price'],
-    range=['blue', 'gray']  # your desired colors here
-)
-
-money_flow_line = base.mark_line().encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
-    color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left'))
-).transform_filter(
-    alt.datum.Series == 'Money Flow Smooth'
-)
-
-stock_price_line = base.mark_line().encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title=f'{user_ticker} Price', orient='right')),
-    color=alt.Color('Series:N', scale=color_scale, legend=None) 
-).transform_filter(
-    alt.datum.Series == 'Stock Price'
-)
-
-combined_chart = alt.layer(
-    money_flow_line,
-    stock_price_line
-).resolve_scale(
-    y='independent'
-).properties(
-    width=800,
-    height=400,
-    title='Stock Price vs Money Flow Smooth'
-)
-
-st.altair_chart(combined_chart, use_container_width=True)
+        # For single-level columns (unlikely for yf.download but safe fallback)
+        if 'Adj Close' in raw.columns:
+            user_stock_data = raw['Adj Close'].copy()
+        elif 'Close' in raw.columns:
+            user_stock_data = raw['Close'].copy()
+        else:
+            raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
+    
+    user_stock_data = user_stock_data.fillna(method='ffill')
+    
+    if normalize_start:
+        user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
+    
+    money_flow_s = money_flow_s.squeeze()
+    # Align indices of money flow smooth and user stock data
+    money_flow_aligned, user_stock_aligned = money_flow_s.align(
+        user_stock_data, join='inner'
+    )
+    
+    # Build combined DataFrame with aligned indices and matching lengths
+    combined_df = pd.DataFrame({
+        "Date": money_flow_aligned.index,
+        "Money Flow Smooth": money_flow_aligned.values.squeeze(),
+        "Stock Price": user_stock_aligned.values.squeeze()
+    })
+    combined_long_df = combined_df.melt(id_vars='Date', 
+                                       value_vars=['Money Flow Smooth', 'Stock Price'],
+                                       var_name='Series', value_name='Value')
+    
+    base = alt.Chart(combined_long_df).encode(x='Date:T')
+    
+    color_scale = alt.Scale(
+        domain=['Money Flow Smooth', 'Stock Price'],
+        range=['blue', 'gray']  # your desired colors here
+    )
+    
+    money_flow_line = base.mark_line().encode(
+        y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
+        color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left'))
+    ).transform_filter(
+        alt.datum.Series == 'Money Flow Smooth'
+    )
+    
+    stock_price_line = base.mark_line().encode(
+        y=alt.Y('Value:Q', axis=alt.Axis(title=f'{user_ticker} Price', orient='right')),
+        color=alt.Color('Series:N', scale=color_scale, legend=None) 
+    ).transform_filter(
+        alt.datum.Series == 'Stock Price'
+    )
+    
+    combined_chart = alt.layer(
+        money_flow_line,
+        stock_price_line
+    ).resolve_scale(
+        y='independent'
+    ).properties(
+        width=800,
+        height=400,
+        title='Stock Price vs Money Flow Smooth'
+    )
+    
+    st.altair_chart(combined_chart, use_container_width=True)
 
