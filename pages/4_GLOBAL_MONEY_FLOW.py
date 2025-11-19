@@ -317,7 +317,7 @@ if isinstance(raw.columns, pd.MultiIndex):
 else:
     user_stock_data = raw.copy()
     
-user_stock_data = uuser_stock_data.fillna(method='ffill')
+user_stock_data = user_stock_data.fillna(method='ffill')
 
 if normalize_start:
     user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
