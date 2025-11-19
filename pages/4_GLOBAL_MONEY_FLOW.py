@@ -365,7 +365,7 @@ money_flow_line = base.mark_line(color='#1f77b4', opacity=0.6).encode(
 )
 
 stock_price_line = base.mark_line().encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title=f'{user_ticker} Price', orient='right')),
+    y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
     color=alt.Color('Series:N', scale=color_scale, legend=None)
 ).transform_filter(
     alt.datum.Series == 'Stock Price'
