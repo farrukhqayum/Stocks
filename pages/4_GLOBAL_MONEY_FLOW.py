@@ -338,8 +338,8 @@ money_flow_aligned, user_stock_aligned = money_flow_s.align(
 # Build combined DataFrame with aligned indices and matching lengths
 combined_df = pd.DataFrame({
     "Date": money_flow_aligned.index,
-    "Money Flow Smooth": money_flow_aligned.values,
-    "Stock Price": user_stock_aligned.values
+    "Money Flow Smooth": money_flow_aligned.values.squeeze(),
+    "Stock Price": user_stock_aligned.values.squeeze()
 })
 
 # Basic base chart with date on X axis
