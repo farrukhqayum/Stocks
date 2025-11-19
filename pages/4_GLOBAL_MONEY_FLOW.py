@@ -334,7 +334,7 @@ if normalize_start:
     smoothed = smoothed / smoothed.iloc[0] * 100
 
 money_flow_s = money_flow_s.squeeze()
-user_stock_series = user_stock_data.squeeze()
+user_stock_series = smoothed.squeeze()
 money_flow_aligned, user_stock_aligned = money_flow_s.align(user_stock_series, join='inner')
 
 combined_df = pd.DataFrame({
