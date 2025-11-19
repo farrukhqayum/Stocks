@@ -354,17 +354,17 @@ base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 color_scale = alt.Scale(
     domain=['Global Money Flow', 'Stock Price'],
-    range=['blue', 'gray']
+    range=['1f77b4', 'gray']
 )
 
-money_flow_line = base.mark_line(color='#1f77b4', opacity=0.6).encode(
+money_flow_line = base.mark_line(color='#1f77b4', opacity=0.4).encode(
     y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
     color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left'))
 ).transform_filter(
     alt.datum.Series == 'Global Money Flow'
 )
 
-stock_price_line = base.mark_line().encode(
+stock_price_line = base.mark_line(opacity=0.4).encode(
     y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
     color=alt.Color('Series:N', scale=color_scale, legend=None)
 ).transform_filter(
