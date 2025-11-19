@@ -347,20 +347,20 @@ combined_long_df = combined_df.melt(id_vars='Date',
 
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
-# Define separate y-encodings for each series with conditional axis placement
-money_flow_line = base.transform_filter(
+money_flow_line = base.mark_line().encode(
+    y=alt.Y('Value:Q', axis=alt.Axis(title='Money Flow', orient='left')),
+    color=alt.Color('Series:N', legend=alt.Legend(orient='top-left'))
+).transform_filter(
     alt.datum.Series == 'Money Flow Smooth'
-).mark_line().encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title='Money Flow', orient='left'))
 )
 
-stock_price_line = base.transform_filter(
+stock_price_line = base.mark_line().encode(
+    y=alt.Y('Value:Q', axis=alt.Axis(title='Stock Price', orient='right')),
+    color=alt.Color('Series:N', legend=None)  # Legend shown only once, here disables duplicate
+).transform_filter(
     alt.datum.Series == 'Stock Price'
-).mark_line(color='orange').encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title='Stock Price', orient='right'))
 )
 
-# Layer the lines with independent y scales
 combined_chart = alt.layer(
     money_flow_line,
     stock_price_line
@@ -370,8 +370,7 @@ combined_chart = alt.layer(
     width=800,
     height=400,
     title='Stock Price vs Money Flow Smooth'
-).configure_legend(
-    orient='top-left'
 )
 
 st.altair_chart(combined_chart, use_container_width=True)
+
