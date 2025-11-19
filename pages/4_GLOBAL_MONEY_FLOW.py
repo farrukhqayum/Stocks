@@ -342,8 +342,11 @@ combined_df = pd.DataFrame({
     "Stock Price": user_stock_aligned.values.squeeze()
 })
 
-# Basic base chart with date on X axis
-base = alt.Chart(combined_df).encode(x='Date:T')
+combined_long_df = combined_df.melt(id_vars='Date', 
+    value_vars=['Money Flow Smooth', 'Stock Price'], 
+    var_name='Series', value_name='Value')
+
+base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 # Money flow smooth line in blue
 money_flow_line = base.mark_line(color='blue').encode(
@@ -360,17 +363,12 @@ stock_price_line = base.mark_line(color='orange').encode(
     color=alt.value('gray')
 )
 
-# Combine with layered chart, scales remain separate by default
-combined_chart = alt.layer(
-    money_flow_line, stock_price_line
-).resolve_scale(
-    y='independent'
+line_chart = base.mark_line().encode(
+    y='Value:Q',
+    color=alt.Color('Series:N', legend=alt.Legend(orient='top-left'))
 ).properties(
     width=800,
     height=400,
     title='Stock Price vs Money Flow Smooth'
-).configure_legend(
-    orient='top-left'
 )
-
-st.altair_chart(combined_chart, use_container_width=True)
+st.altair_chart(line_chart, use_container_width=True)
