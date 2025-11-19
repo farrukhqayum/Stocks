@@ -363,7 +363,7 @@ stock_price_line = base.mark_line().encode(
     y=alt.Y('Value:Q', axis=alt.Axis(title=f'{user_ticker} Price', orient='right')),
     color=alt.Color('Series:N', scale=color_scale, legend=None) 
 ).transform_filter(
-    alt.datum.Series == '{user_ticker} Price'
+    alt.datum.Series == 'Stock Price'
 )
 
 combined_chart = alt.layer(
