@@ -74,6 +74,11 @@ for asset in selected_assets:
         format="%.2f"
     )
 
+# Normalize weights 
+abs_sum = sum(abs(w) for w in weights.values())
+if abs_sum != 0:  # avoid division by zero
+    weights = {k: (v / abs_sum) * 100 for k, v in weights.items()}
+    
 # --- DATA FETCH FUNCTION ---
 @st.cache_data
 def load_data(tickers, start, end):
