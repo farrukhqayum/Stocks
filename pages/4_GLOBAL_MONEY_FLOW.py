@@ -230,8 +230,8 @@ st.markdown("""
 """)
 
 corr_matrix = data.corr()
-corr_melt = corr_matrix.reset_index().melt(id_vars='index', var_name='Asset2', value_name='Correlation')
-corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
+corr_matrix.index.name = 'Asset1'    # Set a proper name for the index
+corr_melt = corr_matrix.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
 corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
 
 # Heatmap
