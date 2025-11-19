@@ -4,6 +4,8 @@ import pandas as pd
 import altair as alt
 from datetime import datetime, timedelta
 
+st.caption("Data sourced via Yahoo Finance • Updated dynamically")
+
 # --- PAGE CONFIG ---
 st.set_page_config(
     page_title="Global Money Flow Curve",
@@ -253,6 +255,11 @@ st.markdown("""
 - 🔗 **Correlation Shifts:** Changing relationships between assets highlight regime changes (e.g., BTC aligning with SPX).
 """)
 
+st.markdown("""
+### 🧠 Correlation Matrix
+- Study the relationship between various assets.
+""")
+
 corr_matrix = data.corr()
 corr_matrix.index.name = 'Asset1'    # Set a proper name for the index
 corr_melt = corr_matrix.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
@@ -284,7 +291,6 @@ text = (
 
 st.altair_chart(heatmap + text, use_container_width=True)
 
-
 st.markdown("""
 ### 🔎 Heatmap Interpretation
 - **Correlation close to +1:** Assets move together (e.g., SPX & EEM).  
@@ -292,4 +298,46 @@ st.markdown("""
 - **Near 0:** Assets are largely independent.  
 """)
 
-st.caption("Data sourced via Yahoo Finance • Updated dynamically")
+
+st.markdown("""
+### 🧠 💹 📈  STUDY A STOCK WITH MONEY FLOW
+- Provide the ticker and study its normalized graph in relation to global money flow.
+""")
+
+
+user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="AAPL")
+user_stock_data = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
+user_stock_data = user_stock_data['Adj Close'].fillna(method='ffill')
+
+if normalize_start:
+    user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
+
+combined_df = pd.DataFrame({
+    "Date": data.index,
+    "Money Flow Smooth": money_flow_s,
+    "Stock Price": user_stock_data.reindex(data.index).fillna(method='ffill')
+}).dropna()
+
+# Basic base chart with date on X axis
+base = alt.Chart(combined_df).encode(x='Date:T')
+
+# Money flow smooth line in blue
+money_flow_line = base.mark_line(color='blue').encode(
+    y=alt.Y('Money Flow Smooth:Q', axis=alt.Axis(title='Money Flow Smooth'))
+)
+
+# Stock price line in orange with a second Y axis
+stock_price_line = base.mark_line(color='orange').encode(
+    y=alt.Y('Stock Price:Q', axis=alt.Axis(title='Stock Price'), scale=alt.Scale(zero=False))
+)
+
+# Combine with layered chart, scales remain separate by default
+combined_chart = alt.layer(money_flow_line, stock_price_line).resolve_scale(
+    y='independent'  # Allows separate y-axis scales for clarity
+).properties(
+    width=800,
+    height=400,
+    title='Stock Price vs Money Flow Smooth'
+)
+
+st.altair_chart(combined_chart, use_container_width=True)
