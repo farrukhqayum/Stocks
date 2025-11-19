@@ -232,18 +232,11 @@ st.markdown("""
 # Compute correlation matrix
 corr_matrix = data.corr()
 
-# Melt into long format
 corr_melt = corr_matrix.reset_index().melt('Ticker')
 corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
 
-# Remove self-correlations (diagonal)
+# Remove self-correlations only
 corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
-
-# Keep only one of each pair (lower triangle)
-asset_order = list(corr_matrix.columns)
-corr_melt = corr_melt[
-    corr_melt.apply(lambda row: asset_order.index(row['Asset1']) < asset_order.index(row['Asset2']), axis=1)
-]
 
 heatmap = (
     alt.Chart(corr_melt)
