@@ -329,6 +329,8 @@ user_stock_data = user_stock_data.fillna(method='ffill')
 if normalize_start:
     user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
 
+money_flow_s = money_flow_s.squeeze()
+
 combined_df = pd.DataFrame({
     "Date": data.index,
     "Money Flow Smooth": money_flow_s,
