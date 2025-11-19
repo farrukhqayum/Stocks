@@ -305,11 +305,17 @@ st.markdown("""
 """)
 
 user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
-user_stock_data = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
-if isinstance(user_stock_data.columns, pd.MultiIndex):
-    user_stock_data = user_stock_data['Adj Close']
+raw = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
+
+if isinstance(raw.columns, pd.MultiIndex):
+    if 'Adj Close' in raw.columns.get_level_values(0):
+        user_stock_data = raw['Adj Close'].copy()
+    elif 'Close' in raw.columns.get_level_values(0):
+        user_stock_data = raw['Close'].copy()
+    else:
+        raise ValueError("No 'Adj Close' or 'Close' data found.")
 else:
-    user_stock_data = user_stock_data['Close']
+    user_stock_data = raw.copy()
     
 user_stock_data = uuser_stock_data.fillna(method='ffill')
 
