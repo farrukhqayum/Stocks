@@ -229,14 +229,10 @@ st.markdown("""
 - 🔗 **Correlation Shifts:** Changing relationships between assets highlight regime changes (e.g., BTC aligning with SPX).
 """)
 
-# Compute correlation matrix (ensure clean numeric data)
-data_num = data.select_dtypes(include='number').dropna(axis=1, how='all')
-corr_matrix = data_num.corr()
-
-corr_matrix.index.name = 'Ticker'
-
-corr_melt = corr_matrix.reset_index().melt('Ticker')
+corr_matrix = data.corr()
+corr_melt = corr_matrix.reset_index().melt(id_vars='index', var_name='Asset2', value_name='Correlation')
 corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
+corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
 
 # Heatmap
 heatmap = (
