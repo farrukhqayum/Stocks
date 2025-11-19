@@ -234,6 +234,10 @@ st.sidebar.markdown("### Pairwise Correlation Heatmap")
 corr_matrix = data.corr()
 
 # Melt correlation matrix for Altair
+print(corr_matrix.reset_index().columns)
+corr_melt = corr_matrix.reset_index().melt('Asset')
+corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
+
 corr_melt = corr_matrix.reset_index().rename(columns={'index': 'Asset1'}).melt('Asset1')
 corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
 
