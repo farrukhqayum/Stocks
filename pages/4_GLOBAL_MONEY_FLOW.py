@@ -329,6 +329,7 @@ else:
         raise ValueError("No 'Adj Close' or 'Close' data found in downloaded data.")
 
 user_stock_data = user_stock_data.fillna(method='ffill')
+user_stock_data = user_stock_data.rolling(3).mean()
 
 if normalize_start:
     user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
