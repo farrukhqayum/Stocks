@@ -236,6 +236,7 @@ corr_matrix = data.corr()
 # Melt correlation matrix for Altair
 corr_melt = corr_matrix.reset_index().melt('Ticker')
 corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
+corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
 
 heatmap = (
     alt.Chart(corr_melt)
@@ -251,7 +252,7 @@ heatmap = (
 
 text = (
     alt.Chart(corr_melt)
-    .mark_text(baseline='middle', align='center', fontSize=5, color='black')
+    .mark_text(baseline='middle', align='center', fontSize=12, color='black')
     .encode(
         x='Asset1:N',
         y='Asset2:N',
