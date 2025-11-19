@@ -218,37 +218,6 @@ with st.expander("📊 Show Underlying Assets"):
     )
     st.altair_chart(asset_chart, use_container_width=True)
 
-# --- ROLLING CORRELATIONS ---
-st.sidebar.markdown("### Rolling Correlations")
-corr_window = st.sidebar.slider("Correlation Window (days)", 30, 180, 90)
-
-def rolling_correlations(df, window=90):
-    """Compute rolling correlations between all asset pairs."""
-    corr_dict = {}
-    assets = df.columns
-    for i in range(len(assets)):
-        for j in range(i+1, len(assets)):
-            pair = f"{assets[i]} vs {assets[j]}"
-            corr_dict[pair] = df[assets[i]].rolling(window).corr(df[assets[j]])
-    return pd.DataFrame(corr_dict)
-
-corr_df = rolling_correlations(data, corr_window)
-
-corr_chart = (
-    alt.Chart(corr_df.reset_index().melt('Date'))
-    .mark_line()
-    .encode(
-        x='Date:T',
-        y=alt.Y('value:Q', title='Rolling Correlation'),
-        color='variable:N',
-        tooltip=['Date:T', 'variable:N', 'value:Q']
-    )
-    .properties(title="🔗 Rolling Asset Correlations")
-    .interactive()
-)
-
-st.altair_chart(corr_chart, use_container_width=True)
-
 # --- INTERPRETATION ---
 st.markdown("""
 ### 🧠 Interpretation
@@ -258,6 +227,45 @@ st.markdown("""
 - 🟢 **Positive Momentum:** Acceleration of risk-on flows.  
 - 🔴 **Negative Momentum:** Acceleration of risk-off flows.  
 - 🔗 **Correlation Shifts:** Changing relationships between assets highlight regime changes (e.g., BTC aligning with SPX).
+""")
+
+# --- PAIRWISE CORRELATION HEATMAP ---
+st.sidebar.markdown("### Pairwise Correlation Heatmap")
+corr_matrix = data.corr()
+
+# Melt correlation matrix for Altair
+corr_melt = corr_matrix.reset_index().melt('index')
+corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
+
+heatmap = (
+    alt.Chart(corr_melt)
+    .mark_rect()
+    .encode(
+        x=alt.X('Asset1:N', title=None),
+        y=alt.Y('Asset2:N', title=None),
+        color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1,1))),
+        tooltip=['Asset1', 'Asset2', 'Correlation']
+    )
+    .properties(title="🔥 Pairwise Asset Correlation Heatmap")
+)
+
+text = (
+    alt.Chart(corr_melt)
+    .mark_text(baseline='middle', align='center', fontSize=12, color='white')
+    .encode(
+        x='Asset1:N',
+        y='Asset2:N',
+        text=alt.Text('Correlation:Q', format=".2f")
+    )
+)
+
+st.altair_chart(heatmap + text, use_container_width=True)
+
+st.markdown("""
+### 🔎 Heatmap Interpretation
+- **Correlation close to +1:** Assets move together (e.g., SPX & EEM).  
+- **Correlation close to -1:** Assets move opposite (e.g., Gold vs SPX).  
+- **Near 0:** Assets are largely independent.  
 """)
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
