@@ -341,34 +341,37 @@ combined_df = pd.DataFrame({
     "Money Flow Smooth": money_flow_aligned.values.squeeze(),
     "Stock Price": user_stock_aligned.values.squeeze()
 })
-
 combined_long_df = combined_df.melt(id_vars='Date', 
-    value_vars=['Money Flow Smooth', 'Stock Price'], 
-    var_name='Series', value_name='Value')
+                                   value_vars=['Money Flow Smooth', 'Stock Price'],
+                                   var_name='Series', value_name='Value')
 
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
-# Money flow smooth line in blue
-money_flow_line = base.mark_line(color='blue').encode(
-    y=alt.Y('Money Flow Smooth:Q', axis=alt.Axis(title='Money Flow Smooth'))
+# Define separate y-encodings for each series with conditional axis placement
+money_flow_line = base.transform_filter(
+    alt.datum.Series == 'Money Flow Smooth'
+).mark_line().encode(
+    y=alt.Y('Value:Q', axis=alt.Axis(title='Money Flow', orient='left'))
 )
 
-# Stock price line in orange with a second Y axis
-stock_price_line = base.mark_line(color='orange').encode(
-    y=alt.Y(
-        'Stock Price:Q',
-        axis=alt.Axis(title='Stock Price'),
-        scale=alt.Scale(zero=False)
-    ),
-    color=alt.value('gray')
+stock_price_line = base.transform_filter(
+    alt.datum.Series == 'Stock Price'
+).mark_line(color='orange').encode(
+    y=alt.Y('Value:Q', axis=alt.Axis(title='Stock Price', orient='right'))
 )
 
-line_chart = base.mark_line().encode(
-    y='Value:Q',
-    color=alt.Color('Series:N', legend=alt.Legend(orient='top-left'))
+# Layer the lines with independent y scales
+combined_chart = alt.layer(
+    money_flow_line,
+    stock_price_line
+).resolve_scale(
+    y='independent'
 ).properties(
     width=800,
     height=400,
     title='Stock Price vs Money Flow Smooth'
+).configure_legend(
+    orient='top-left'
 )
-st.altair_chart(line_chart, use_container_width=True)
+
+st.altair_chart(combined_chart, use_container_width=True)
