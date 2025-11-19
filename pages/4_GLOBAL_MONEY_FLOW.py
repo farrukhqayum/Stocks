@@ -254,49 +254,50 @@ st.markdown("""
 - 🔴 **Negative Momentum:** Acceleration of risk-off flows.  
 - 🔗 **Correlation Shifts:** Changing relationships between assets highlight regime changes (e.g., BTC aligning with SPX).
 """)
-
-st.markdown("""
-### 🧠 Correlation Matrix
-- Study the relationship between various assets.
-""")
-
-corr_matrix = data.corr()
-corr_matrix.index.name = 'Asset1'    # Set a proper name for the index
-corr_melt = corr_matrix.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
-corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
-
-# Heatmap
-heatmap = (
-    alt.Chart(corr_melt)
-    .mark_rect()
-    .encode(
-        x=alt.X('Asset1:N', title=None),
-        y=alt.Y('Asset2:N', title=None),
-        color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1))),
-        tooltip=['Asset1', 'Asset2', alt.Tooltip('Correlation:Q', format='.2f')]
-    )
-    .properties(title="🔥 Pairwise Asset Correlation Heatmap")
-)
-
-# Annotations (black, 2 decimals, smaller font to avoid overlap)
-text = (
-    alt.Chart(corr_melt)
-    .mark_text(baseline='middle', align='center', fontSize=10, color='black')
-    .encode(
-        x='Asset1:N',
-        y='Asset2:N',
-        text=alt.Text('Correlation:Q', format=".2f")
-    )
-)
-
-st.altair_chart(heatmap + text, use_container_width=True)
-with st.expander("🔎 Heatmap Interpretation"):
+with st.expander(" 🧠 Correlation Matrix"):
     st.markdown("""
-    ### How to read the heatmap
-    - **Correlation close to +1:** Assets move together (e.g., SPX & EEM).  
-    - **Correlation close to -1:** Assets move opposite (e.g., Gold vs SPX).  
-    - **Near 0:** Assets are largely independent.  
+    ### 🧠 Correlation of multiple assets
+    - Study the relationship between various assets.
     """)
+    
+    corr_matrix = data.corr()
+    corr_matrix.index.name = 'Asset1'    # Set a proper name for the index
+    corr_melt = corr_matrix.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
+    corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
+    
+    # Heatmap
+    heatmap = (
+        alt.Chart(corr_melt)
+        .mark_rect()
+        .encode(
+            x=alt.X('Asset1:N', title=None),
+            y=alt.Y('Asset2:N', title=None),
+            color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1))),
+            tooltip=['Asset1', 'Asset2', alt.Tooltip('Correlation:Q', format='.2f')]
+        )
+        .properties(title="🔥 Pairwise Asset Correlation Heatmap")
+    )
+    
+    # Annotations (black, 2 decimals, smaller font to avoid overlap)
+    text = (
+        alt.Chart(corr_melt)
+        .mark_text(baseline='middle', align='center', fontSize=10, color='black')
+        .encode(
+            x='Asset1:N',
+            y='Asset2:N',
+            text=alt.Text('Correlation:Q', format=".2f")
+        )
+    )
+    
+    st.altair_chart(heatmap + text, use_container_width=True)
+    
+    with st.expander("🔎 Heatmap Interpretation"):
+        st.markdown("""
+        ### How to read the heatmap
+        - **Correlation close to +1:** Assets move together (e.g., SPX & EEM).  
+        - **Correlation close to -1:** Assets move opposite (e.g., Gold vs SPX).  
+        - **Near 0:** Assets are largely independent.  
+        """)
 
 with st.expander(" 💹 📈  STUDY A STOCK WITH MONEY FLOW"):
     st.markdown("""
