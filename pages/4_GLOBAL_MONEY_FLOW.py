@@ -166,6 +166,9 @@ df_plot = pd.DataFrame({
 }).dropna()
 
 # --- MONEY FLOW CURVE CHART ---
+df_plot['Money Flow Smooth'] = money_flow_smooth
+mean_smooth = money_flow_smooth.mean()
+
 base = alt.Chart(df_plot).encode(x='Date:T')
 
 curve_chart = (
@@ -179,7 +182,20 @@ smooth_chart = (
     .encode(y='Smoothed Curve:Q')
 )
 
-st.altair_chart(curve_chart + smooth_chart, use_container_width=True)
+# Conditional transparent fill (area) under smoothed curve
+fill_area = base.mark_area(opacity=0.15).encode(
+    y='Money Flow Smooth:Q',
+    y2=alt.value(0),  # Fill area down to y=0 line
+    color=alt.condition(
+        alt.datum['Money Flow Smooth'] > mean_smooth,
+        alt.value('green'),
+        alt.value('red')
+    )
+)
+
+final_chart = fill_area + smooth_chart
+
+st.altair_chart(final_chart, use_container_width=True)
 
 # --- MOMENTUM CHART ---
 momentum_chart = (
