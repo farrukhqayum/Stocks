@@ -304,10 +304,14 @@ st.markdown("""
 - Provide the ticker and study its normalized graph in relation to global money flow.
 """)
 
-
-user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="AAPL")
+user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
 user_stock_data = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
-user_stock_data = user_stock_data['Adj Close'].fillna(method='ffill')
+if isinstance(user_stock_data.columns, pd.MultiIndex):
+    user_stock_data = user_stock_data['Adj Close']
+else:
+    user_stock_data = user_stock_data['Close']
+    
+user_stock_data = uuser_stock_data.fillna(method='ffill')
 
 if normalize_start:
     user_stock_data = user_stock_data / user_stock_data.iloc[0] * 100
