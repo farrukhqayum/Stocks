@@ -347,18 +347,23 @@ combined_long_df = combined_df.melt(id_vars='Date',
 
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
+color_scale = alt.Scale(
+    domain=['Money Flow Smooth', 'Stock Price'],
+    range=['blue', 'gray']  # your desired colors here
+)
+
 money_flow_line = base.mark_line().encode(
     y=alt.Y('Value:Q', axis=alt.Axis(title='Money Flow', orient='left')),
-    color=alt.Color('Series:N', legend=alt.Legend(orient='top-left'))
+    color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left'))
 ).transform_filter(
     alt.datum.Series == 'Money Flow Smooth'
 )
 
 stock_price_line = base.mark_line().encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title='Stock Price', orient='right')),
-    color=alt.Color('Series:N', legend=None)  # Legend shown only once, here disables duplicate
+    y=alt.Y('Value:Q', axis=alt.Axis(title=f'{user_ticker} Price', orient='right')),
+    color=alt.Color('Series:N', scale=color_scale, legend=None) 
 ).transform_filter(
-    alt.datum.Series == 'Stock Price'
+    alt.datum.Series == '{user_ticker} Price'
 )
 
 combined_chart = alt.layer(
