@@ -232,24 +232,34 @@ st.markdown("""
 # Compute correlation matrix
 corr_matrix = data.corr()
 
+**corr_matrix.index.name = 'Ticker'**
+
+# Melt into long format (Ticker vs columns)
 corr_melt = corr_matrix.reset_index().melt('Ticker')
 corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
 
-# Remove self-correlations only
 corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
 
+**order = list(corr_matrix.columns)**
+**corr_melt['Asset1'] = pd.Categorical(corr_melt['Asset1'], categories=order, ordered=True)**
+**corr_melt['Asset2'] = pd.Categorical(corr_melt['Asset2'], categories=order, ordered=True)**
+
+**corr_melt = corr_melt.dropna(subset=['Correlation'])**
+
+# Heatmap
 heatmap = (
     alt.Chart(corr_melt)
     .mark_rect()
     .encode(
-        x='Asset1:N',
-        y='Asset2:N',
-        color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1,1))),
-        tooltip=['Asset1', 'Asset2', 'Correlation']
+        x=alt.X('Asset1:N', title=None),
+        y=alt.Y('Asset2:N', title=None),
+        color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1))),
+        tooltip=['Asset1', 'Asset2', alt.Tooltip('Correlation:Q', format='.2f')]
     )
     .properties(title="🔥 Pairwise Asset Correlation Heatmap")
 )
 
+# Annotations (black, 2 decimals, smaller font to avoid overlap)
 text = (
     alt.Chart(corr_melt)
     .mark_text(baseline='middle', align='center', fontSize=10, color='black')
@@ -262,7 +272,7 @@ text = (
 
 st.altair_chart(heatmap + text, use_container_width=True)
 
-st.altair_chart(heatmap + text, use_container_width=True)
+
 
 st.markdown("""
 ### 🔎 Heatmap Interpretation
