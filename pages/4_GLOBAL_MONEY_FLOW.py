@@ -236,13 +236,16 @@ corr_matrix = data.corr()
 # Melt correlation matrix for Altair
 corr_melt = corr_matrix.reset_index().melt('Ticker')
 corr_melt.columns = ['Asset1', 'Asset2', 'Correlation']
-
+corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
+asset_order = list(corr_matrix.columns)
+mask = corr_melt.apply(lambda row: asset_order.index(row['Asset1']) < asset_order.index(row['Asset2']), axis=1)
+corr_melt = corr_melt[mask]
 heatmap = (
     alt.Chart(corr_melt)
     .mark_rect()
     .encode(
-        x=alt.X('Asset1:N', title=None),
-        y=alt.Y('Asset2:N', title=None),
+        x='Asset1:N',
+        y='Asset2:N',
         color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1,1))),
         tooltip=['Asset1', 'Asset2', 'Correlation']
     )
@@ -251,11 +254,11 @@ heatmap = (
 
 text = (
     alt.Chart(corr_melt)
-    .mark_text(baseline='middle', align='center', fontSize=12, color='black')
+    .mark_text(baseline='middle', align='center', fontSize=10, color='black')
     .encode(
         x='Asset1:N',
         y='Asset2:N',
-        text=alt.Text('Correlation:Q', format=".2f")   # 2‑decimal format
+        text=alt.Text('Correlation:Q', format=".2f")
     )
 )
 st.altair_chart(heatmap + text, use_container_width=True)
