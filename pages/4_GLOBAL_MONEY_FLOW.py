@@ -354,7 +354,7 @@ base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 color_scale = alt.Scale(
     domain=['Global Money Flow', 'Stock Price'],
-    range=['1f77b4', 'gray']
+    range=['#1f77b4', 'gray']
 )
 
 money_flow_line = base.mark_line(color='#1f77b4', opacity=0.4).encode(
