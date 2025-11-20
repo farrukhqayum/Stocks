@@ -138,7 +138,7 @@ money_flow_s = money_flow.rolling(3).mean()
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
 # --- MOMENTUM (RATE OF CHANGE %) ---
-money_flow_momentum = money_flow_smooth.pct_change() * 100
+money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
 money_flow_momentum = money_flow_momentum.fillna(0)
 
 # --- SENTIMENT GAUGE LOGIC ---
@@ -147,7 +147,7 @@ if 0.2 < latest_momentum <= 1.8:
     sentiment = "🟢 **Risk-On/Bullish**"
     sentiment_color = "#16a34a"
 elif latest_momentum > 1.8:
-    sentiment = "🟡 **Risk-On Peaking**"
+    sentiment = "🟡 **Risk-off Peaking**"
     sentiment_color = "#ffcc00"
 elif -1.8 <= latest_momentum < -0.2:
     sentiment = "🔴 **Risk-Off/Defensive**"
