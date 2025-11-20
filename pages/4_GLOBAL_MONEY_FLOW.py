@@ -143,12 +143,18 @@ money_flow_momentum = money_flow_momentum.fillna(0)
 
 # --- SENTIMENT GAUGE LOGIC ---
 latest_momentum = money_flow_momentum.iloc[-1]
-if latest_momentum > 0.2:
+if 0.2 < latest_momentum <= 1.8:
     sentiment = "🟢 **Risk-On/Bullish**"
     sentiment_color = "#16a34a"
-elif latest_momentum < -0.2:
+elif latest_momentum > 1.8:
+    sentiment = "🟡 **Risk-On Peaking**"
+    sentiment_color = "#ffcc00"
+elif -1.8 <= latest_momentum < -0.2:
     sentiment = "🔴 **Risk-Off/Defensive**"
     sentiment_color = "#dc2626"
+elif latest_momentum < -1.8:
+    sentiment = "🟠 **Risk-on Bottoming**"
+    sentiment_color = "#ff6600"
 else:
     sentiment = "⚪ **Neutral**"
     sentiment_color = "#a3a3a3"
