@@ -138,7 +138,7 @@ money_flow_s = money_flow.rolling(3).mean()
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
 # --- MOMENTUM (RATE OF CHANGE %) ---
-money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
+money_flow_momentum = money_flow_smooth.pct_change(periods=50) * 100
 money_flow_momentum = money_flow_momentum.fillna(0)
 
 # --- SENTIMENT GAUGE LOGIC ---
