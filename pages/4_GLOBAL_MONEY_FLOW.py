@@ -430,7 +430,10 @@ for ticker in ticker_list:
                 prices = raw_data['Adj Close']
             else:
                 prices = raw_data['Close']
-                
+
+        st.write(f"Ticker: {ticker}, raw rows: {len(raw_data)}, prices length: {len(prices)}")
+        st.write(f"Aligned GF rows: {len(gf)}, Ticker rows: {len(stk)}")
+
         series = prices.fillna(method='ffill')
 
         if normalize_start and not series.isnull().all():
