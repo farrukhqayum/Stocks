@@ -437,9 +437,6 @@ for ticker in ticker_list:
             series = series / series.iloc[0] * 100
 
         gf, stk = money_flow_s.align(series.squeeze(), join='inner')
-
-        st.write(f"Ticker: {ticker}, raw rows: {len(series)}, aligned GF rows: {len(gf)}, aligned Stock rows: {len(stk)}")
-
         if gf.count() > 0 and stk.count() > 0:
             corr_coef = gf.corr(stk)
             corr_results.append({'Ticker': ticker, 'Correlation': corr_coef})
