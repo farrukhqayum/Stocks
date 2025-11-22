@@ -409,21 +409,21 @@ st.altair_chart(final_chart, use_container_width=True)
 ###### MULTIPLE TICKERS CORRELATION WITH GLOBAL MARKET ##########
 
 ticker_text = st.text_area(
-    "Enter one ticker per line (min 15 required):",
+    "Enter one ticker per line (min 5 required):",
     value="\n".join(["COIN", "MSTR", "TSLA", "GOOG", "NVDA", "META", "NFLX", "TSLA"])
 )
 
 ticker_list = [t.strip().upper() for t in ticker_text.splitlines() if t.strip()]
 
-if len(ticker_list) < 15:
-    st.error("Please enter at least 15 tickers.")
+if len(ticker_list) < 5:
+    st.error("Please enter at least 5 tickers.")
     st.stop()
 
 corr_results = []
 
 for ticker in ticker_list:
     try:
-        raw_data = load_data({ticker: ticker}, start=start_date, end=end_date)  # load_data accepts dict of {name:ticker}
+        raw_data = load_data({ticker: ticker}, start=start_date, end=end_date)
         if isinstance(raw_data.columns, pd.MultiIndex):
             prices = raw_data['Adj Close'] if 'Adj Close' in raw_data.columns.get_level_values(0) else raw_data['Close']
         else:
