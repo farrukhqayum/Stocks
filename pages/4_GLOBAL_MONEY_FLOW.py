@@ -356,7 +356,7 @@ combined_long_df = combined_df.melt(
     value_name='Value'
 )
 
-cw_ = 90
+cw_ = 21
 combined_df['Correlation'] = combined_df['Global Money Flow'].rolling(cw_).corr(combined_df['Stock Price'])
 latest_corr = combined_df['Correlation'].iloc[-1]*100
 
