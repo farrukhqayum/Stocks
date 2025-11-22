@@ -438,14 +438,14 @@ for ticker in ticker_list:
 
         gf, stk = money_flow_s.align(series.squeeze(), join='inner')
         if gf.count() > 0 and stk.count() > 0:
-            corr_coef = gf.corr(stk)*100
+            corr_coef = round(gf.corr(stk)*100)
             corr_results.append({'Ticker': ticker, 'Correlation': corr_coef})
         else:
             corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
 
     except Exception as e:
         st.warning(f"Error processing ticker {ticker}: {e}")
-        corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
+        corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
 corr_df = pd.DataFrame(corr_results).dropna()
 corr_df = corr_df.sort_values('Correlation')
