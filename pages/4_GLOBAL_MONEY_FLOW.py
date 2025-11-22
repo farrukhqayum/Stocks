@@ -428,7 +428,7 @@ for ticker in ticker_list:
     try:
         if ticker not in all_data.columns:
             st.warning(f"Ticker {ticker} data not found")
-            corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
+            corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
             continue
 
         series = all_data[ticker].fillna(method='ffill')
@@ -439,9 +439,9 @@ for ticker in ticker_list:
         gf, stk = money_flow_s.align(series.squeeze(), join='inner')
         if gf.count() > 0 and stk.count() > 0:
             corr_coef = round(gf.corr(stk)*100)
-            corr_results.append({'Ticker': ticker, 'Correlation': corr_coef})
+            corr_results.append({'Ticker': ticker, 'Correlation %': corr_coef})
         else:
-            corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
+            corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
     except Exception as e:
         st.warning(f"Error processing ticker {ticker}: {e}")
