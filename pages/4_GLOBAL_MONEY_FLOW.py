@@ -406,47 +406,48 @@ combined_chart = alt.layer(
 final_chart = combined_chart + correlation_text
 st.altair_chart(final_chart, use_container_width=True)
 
-###### MULTIPLE TICKERS CORRELATION WITH GLOBAL MARKET ##########
+# MULTIPLE TICKERS CORRELATION WITH GLOBAL MARKET
 
 tickers_input = st.text_input("Enter tickers separated by commas (min 5 required):", value="COIN,MSTR,TSLA,GOOG,NVDA,META,NFLX")
+
 ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
 
 if len(ticker_list) < 5:
     st.error("Please enter at least 5 tickers.")
     st.stop()
 
-corr_results = []
+all_tickers_dict = {t: t for t in ticker_list}  # use ticker string as key and value
+try:
+    all_data = load_data(all_tickers_dict, start=start_date, end=end_date)
+except Exception as e:
+    st.error(f"Failed to load data for tickers: {e}")
+    st.stop()
 
+corr_results = []
 for ticker in ticker_list:
     try:
-        raw_data = load_data({ticker: ticker}, start=start_date, end=end_date)
-        if isinstance(raw_data.columns, pd.MultiIndex):
-            if 'Adj Close' in raw_data.columns.get_level_values(0):
-                prices = raw_data['Adj Close']
-            else:
-                prices = raw_data['Close']
-        else:
-            if 'Adj Close' in raw_data.columns:
-                prices = raw_data['Adj Close']
-            else:
-                prices = raw_data['Close']
+        if ticker not in all_data.columns:
+            st.warning(f"Ticker {ticker} data not found")
+            corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
+            continue
 
-        st.write(f"Ticker: {ticker}, raw rows: {len(raw_data)}, prices length: {len(prices)}")
-        st.write(f"Aligned GF rows: {len(gf)}, Ticker rows: {len(stk)}")
-
-        series = prices.fillna(method='ffill')
+        series = all_data[ticker].fillna(method='ffill')
 
         if normalize_start and not series.isnull().all():
             series = series / series.iloc[0] * 100
 
-        # Align with money flow series
         gf, stk = money_flow_s.align(series.squeeze(), join='inner')
+
+        st.write(f"Ticker: {ticker}, raw rows: {len(series)}, aligned GF rows: {len(gf)}, aligned Stock rows: {len(stk)}")
+
         if gf.count() > 0 and stk.count() > 0:
             corr_coef = gf.corr(stk)
             corr_results.append({'Ticker': ticker, 'Correlation': corr_coef})
         else:
             corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
+
     except Exception as e:
+        st.warning(f"Error processing ticker {ticker}: {e}")
         corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
 
 corr_df = pd.DataFrame(corr_results).dropna()
@@ -454,7 +455,3 @@ corr_df = corr_df.sort_values('Correlation')
 
 st.markdown("### Stock/ETF Correlation with Global Money Flow")
 st.dataframe(corr_df, use_container_width=True)
-
-
-
-
