@@ -421,9 +421,16 @@ for ticker in ticker_list:
     try:
         raw_data = load_data({ticker: ticker}, start=start_date, end=end_date)
         if isinstance(raw_data.columns, pd.MultiIndex):
-            prices = raw_data['Adj Close'] if 'Adj Close' in raw_data.columns.get_level_values(0) else raw_data['Close']
+            if 'Adj Close' in raw_data.columns.get_level_values(0):
+                prices = raw_data['Adj Close']
+            else:
+                prices = raw_data['Close']
         else:
-            prices = raw_data['Adj Close'] if 'Adj Close' in raw_data.columns else raw_data['Close']
+            if 'Adj Close' in raw_data.columns:
+                prices = raw_data['Adj Close']
+            else:
+                prices = raw_data['Close']
+                
         series = prices.fillna(method='ffill')
 
         if normalize_start and not series.isnull().all():
