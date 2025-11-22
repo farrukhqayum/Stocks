@@ -356,6 +356,21 @@ combined_long_df = combined_df.melt(
     value_name='Value'
 )
 
+correlation_window = 20
+combined_df['Correlation'] = combined_df['Global Money Flow'].rolling(correlation_window).corr(combined_df['Stock Price'])
+latest_corr = combined_df['Correlation'].iloc[-1]
+
+correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
+    align='center',
+    baseline='top',
+    fontSize=14,
+    color='black'
+).encode(
+    x=alt.value(400),  # Adjust pixel horiz center for your chart width
+    y=alt.value(10),
+    text=alt.value(f'Latest Correlation: {latest_corr:.3f}')
+)
+
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 color_scale = alt.Scale(
@@ -388,6 +403,7 @@ combined_chart = alt.layer(
     title='Stock Price vs Money Flow Smooth'
 )
 
-st.altair_chart(combined_chart, use_container_width=True)
+final_chart = combined_chart + correlation_text
+st.altair_chart(final_chart, use_container_width=True)
 
 
