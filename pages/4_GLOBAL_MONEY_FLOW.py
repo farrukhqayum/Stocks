@@ -209,7 +209,7 @@ st.altair_chart(curve_chart+smooth_chart, use_container_width=True)
 st.altair_chart(final_chart, use_container_width=True)
 
 # --- MOMENTUM CHART ---
-@st.cache_data
+
 momentum_chart = (
     alt.Chart(df_plot)
     .mark_bar()
@@ -343,7 +343,7 @@ if normalize_start:
 money_flow_s = money_flow_s.squeeze()
 user_stock_series = smoothed.squeeze()
 money_flow_aligned, user_stock_aligned = money_flow_s.align(user_stock_series, join='inner')
-@st.cache_data
+
 combined_df = pd.DataFrame({
     "Date": money_flow_aligned.index,
     "Global Money Flow": money_flow_aligned,
