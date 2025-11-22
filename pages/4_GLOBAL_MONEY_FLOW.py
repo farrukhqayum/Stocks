@@ -448,7 +448,7 @@ for ticker in ticker_list:
         corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
 corr_df = pd.DataFrame(corr_results).dropna()
-corr_df = corr_df.sort_values('Correlation')
+corr_df = corr_df.sort_values('Correlation %')
 
 st.markdown("### Given List's Correlation with Global Money Flow")
 st.dataframe(corr_df, use_container_width=False, height=600, width=700)
