@@ -438,7 +438,7 @@ for ticker in ticker_list:
 
         gf, stk = money_flow_s.align(series.squeeze(), join='inner')
         if gf.count() > 0 and stk.count() > 0:
-            corr_coef = gf.corr(stk)
+            corr_coef = gf.corr(stk)*100
             corr_results.append({'Ticker': ticker, 'Correlation': corr_coef})
         else:
             corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
