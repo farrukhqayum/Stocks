@@ -408,7 +408,7 @@ st.altair_chart(final_chart, use_container_width=True)
 
 ###### MULTIPLE TICKERS CORRELATION WITH GLOBAL MARKET ##########
 
-ticker_text = st.text_area(
+ticker_text = st..text_input(
     "Enter one ticker per line (min 5 required):",
     value="\n".join(["COIN", "MSTR", "TSLA", "GOOG", "NVDA", "META", "NFLX", "TSLA"])
 )
