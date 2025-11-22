@@ -363,8 +363,8 @@ latest_corr = combined_df['Correlation'].iloc[-1]
 correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
     align='center',
     baseline='top',
-    fontSize=14,
-    color='black'
+    fontSize=16,
+    color='gray'
 ).encode(
     x=alt.value(400),  # Adjust pixel horiz center for your chart width
     y=alt.value(10),
