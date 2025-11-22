@@ -406,42 +406,49 @@ combined_chart = alt.layer(
 final_chart = combined_chart + correlation_text
 st.altair_chart(final_chart, use_container_width=True)
 
-tickers = st.text_area(
+###### MULTIPLE TICKERS CORRELATION WITH GLOBAL MARKET ##########
+
+ticker_text = st.text_area(
     "Enter one ticker per line (min 15 required):",
     value="\n".join(["COIN", "MSTR", "TSLA", "GOOG", "NVDA", "META", "NFLX", "TSLA"])
-).splitlines()
-ticker_list = [t.strip().upper() for t in ticker_list if t.strip()]
+)
+
+ticker_list = [t.strip().upper() for t in ticker_text.splitlines() if t.strip()]
+
 if len(ticker_list) < 15:
     st.error("Please enter at least 15 tickers.")
     st.stop()
 
-for ticker in tickers:
+corr_results = []
+
+for ticker in ticker_list:
     try:
-        raw_data = load_data(ticker, start=start_date, end=end_date, progress=False)
-        series = prices.fillna(method='ffill')
-         if isinstance(raw_data.columns, pd.MultiIndex):
+        raw_data = load_data({ticker: ticker}, start=start_date, end=end_date)  # load_data accepts dict of {name:ticker}
+        if isinstance(raw_data.columns, pd.MultiIndex):
             prices = raw_data['Adj Close'] if 'Adj Close' in raw_data.columns.get_level_values(0) else raw_data['Close']
         else:
             prices = raw_data['Adj Close'] if 'Adj Close' in raw_data.columns else raw_data['Close']
         series = prices.fillna(method='ffill')
-        
+
         if normalize_start and not series.isnull().all():
             series = series / series.iloc[0] * 100
-        # Align to global money flow dates
+
+        # Align with money flow series
         gf, stk = money_flow_s.align(series.squeeze(), join='inner')
-        if (gf.count() > 0) and (stk.count() > 0):
+        if gf.count() > 0 and stk.count() > 0:
             corr_coef = gf.corr(stk)
             corr_results.append({'Ticker': ticker, 'Correlation': corr_coef})
         else:
             corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
-    
     except Exception as e:
-            # Handle bad tickers gracefully
-            corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
+        corr_results.append({'Ticker': ticker, 'Correlation': float('nan')})
 
-corr_df = pd.DataFrame(corr_results).dropna().sort_values('Correlation')
+corr_df = pd.DataFrame(corr_results).dropna()
+corr_df = corr_df.sort_values('Correlation')
+
 st.markdown("### Stock/ETF Correlation with Global Money Flow")
 st.dataframe(corr_df, use_container_width=True)
+
 
 
 
