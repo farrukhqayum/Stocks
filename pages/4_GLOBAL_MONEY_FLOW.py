@@ -408,12 +408,8 @@ st.altair_chart(final_chart, use_container_width=True)
 
 ###### MULTIPLE TICKERS CORRELATION WITH GLOBAL MARKET ##########
 
-ticker_text = st.text_input(
-    "Enter one ticker per line (min 5 required):",
-    value=("MSTR, COIN, SNAP, U, CRM, INTC, TSLA, AMD, UNH, SMCI, BABA, XPEV, NIO")
-)
-
-ticker_list = [t.strip().upper() for t in ticker_text.splitlines() if t.strip()]
+tickers_input = st.text_input("Enter tickers separated by commas (min 5 required):", value="COIN,MSTR,TSLA,GOOG,NVDA,META,NFLX")
+ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
 
 if len(ticker_list) < 5:
     st.error("Please enter at least 5 tickers.")
