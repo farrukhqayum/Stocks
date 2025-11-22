@@ -410,7 +410,7 @@ st.altair_chart(final_chart, use_container_width=True)
 
 ticker_text = st..text_input(
     "Enter one ticker per line (min 5 required):",
-    value="\n".join(["COIN", "MSTR", "TSLA", "GOOG", "NVDA", "META", "NFLX", "TSLA"])
+    value=("MSTR, COIN, SNAP, U, CRM, INTC, TSLA, AMD, UNH, SMCI, BABA, XPEV, NIO")
 )
 
 ticker_list = [t.strip().upper() for t in ticker_text.splitlines() if t.strip()]
