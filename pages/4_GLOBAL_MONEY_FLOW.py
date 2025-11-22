@@ -408,7 +408,7 @@ st.altair_chart(final_chart, use_container_width=True)
 
 ###### MULTIPLE TICKERS CORRELATION WITH GLOBAL MARKET ##########
 
-ticker_text = st..text_input(
+ticker_text = st.text_input(
     "Enter one ticker per line (min 5 required):",
     value=("MSTR, COIN, SNAP, U, CRM, INTC, TSLA, AMD, UNH, SMCI, BABA, XPEV, NIO")
 )
