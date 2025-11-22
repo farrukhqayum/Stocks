@@ -356,8 +356,8 @@ combined_long_df = combined_df.melt(
     value_name='Value'
 )
 
-correlation_window = 20
-combined_df['Correlation'] = combined_df['Global Money Flow'].rolling(correlation_window).corr(combined_df['Stock Price'])
+cw_ = 90
+combined_df['Correlation'] = combined_df['Global Money Flow'].rolling(cw_).corr(combined_df['Stock Price'])
 latest_corr = combined_df['Correlation'].iloc[-1]
 
 correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
@@ -366,9 +366,9 @@ correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
     fontSize=16,
     color='gray'
 ).encode(
-    x=alt.value(400),  # Adjust pixel horiz center for your chart width
+    x=alt.value(400), 
     y=alt.value(10),
-    text=alt.value(f'Latest Correlation: {latest_corr:.3f}')
+    text=alt.value(f'{cw_}D Correlation: {latest_corr:.3f}')
 )
 
 base = alt.Chart(combined_long_df).encode(x='Date:T')
