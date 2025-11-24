@@ -786,7 +786,7 @@ if st.button("Run ML Strategy Backtest"):
     sl_label_shown = True
     other_label_shown = True
     entry_annotated = True
-    for i in range(0, len(results), 2):
+    for i in range(0, len(results), 1):
         outcome = results['Outcome'].iloc[i]
         color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'black'
         # Plot entry (all blue, no label)
