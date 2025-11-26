@@ -224,19 +224,15 @@ with tab1:
                 df = df.sort_values("squeeze_score", ascending=False)
 
                 st.subheader("Ranked Short-Squeeze Candidates")
-                st.dataframe(
-                    df.style.format(
-                        {
-                            "short_float_pct": "{:.1f}",
-                            "days_to_cover": "{:.2f}",
-                            "borrow_fee_pct": "{:.2f}",
-                            "ret_10d": "{:.2%}",
-                            "rel_volume": "{:.2f}",
-                            "squeeze_score": "{:.2f}",
-                        }
-                    ),
-                    use_container_width=True,
-                )
+                st.table(df.style.format({
+                    "short_float_pct": "{:.1f}",
+                    "days_to_cover": "{:.2f}",
+                    "borrow_fee_pct": "{:.2f}",
+                    "ret_10d": "{:.2%}",
+                    "rel_volume": "{:.2f}",
+                    "squeeze_score": "{:.2f}",
+                }))
+
             else:
                 st.info("No data returned for the given tickers.")
 
