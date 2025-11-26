@@ -9,6 +9,7 @@ openpyxl
 tabulate
 pandas
 emoji
+requests
 
 
 
