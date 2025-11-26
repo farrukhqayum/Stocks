@@ -81,7 +81,17 @@ def get_short_interest_stub(ticker: str) -> dict:
         "borrow_fee_pct": None,
     }
 
-
+def safe_format_pct(x):
+    try:
+        # Convert single-value Series to scalar if needed
+        if isinstance(x, pd.Series) and len(x) == 1:
+            x = x.item()
+        if pd.isna(x):
+            return ""
+        return f"{x:.2%}"
+    except:
+        return ""
+        
 def compute_squeeze_score(row,
                           w_short=0.4,
                           w_dtc=0.3,
@@ -229,7 +239,7 @@ with tab1:
                 df["short_float_pct"] = df["short_float_pct"].map(lambda x: f"{x:.1f}" if pd.notna(x) else "")
                 df["days_to_cover"] = df["days_to_cover"].map(lambda x: f"{x:.2f}" if pd.notna(x) else "")
                 df["borrow_fee_pct"] = df["borrow_fee_pct"].map(lambda x: f"{x:.2f}" if pd.notna(x) else "")
-                df["ret_10d"] = df["ret_10d"].map(lambda x: f"{x:.2%}" if pd.notna(x) else "")
+                df["ret_10d"] = df["ret_10d"].map(safe_format_pct)
                 df["rel_volume"] = df["rel_volume"].map(lambda x: f"{x:.2f}" if pd.notna(x) else "")
                 df["squeeze_score"] = df["squeeze_score"].map(lambda x: f"{x:.2f}" if pd.notna(x) else "")
                 
