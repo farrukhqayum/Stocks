@@ -81,24 +81,44 @@ def get_short_interest_stub(ticker: str) -> dict:
         "borrow_fee_pct": None,
     }
 
+def compute_squeeze_score(row,
+                          w_short=0.4,
+                          w_dtc=0.3,
+                          w_mom=0.2,
+                          w_vol=0.1) -> float:
+    """
+    Composite short squeeze score 0-100 with safe scalar extraction
+    """
 
-def compute_squeeze_score(row: pd.Series,
-                          w_short: float = 0.4,
-                          w_dtc: float = 0.3,
-                          w_mom: float = 0.2,
-                          w_vol: float = 0.1) -> float:
-    """
-    Simple composite score from 0–100. Assumes inputs are roughly scaled.
-    """
+    def safe_scalar(val):
+        # Convert single-element Series to scalar or return val unchanged
+        if isinstance(val, pd.Series):
+            if len(val) == 1:
+                return val.item()
+            else:
+                # Multiple elements - not expected, fallback to NaN
+                return float("nan")
+        return val
+
+    short_float_pct = safe_scalar(row.get("short_float_pct"))
+    days_to_cover = safe_scalar(row.get("days_to_cover"))
+    ret_10d = safe_scalar(row.get("ret_10d"))
+    rel_volume = safe_scalar(row.get("rel_volume"))
+
     score = 0.0
-    if pd.notna(row["short_float_pct"]):
-        score += w_short * min(row["short_float_pct"], 100)
-    if pd.notna(row["days_to_cover"]):
-        score += w_dtc * min(row["days_to_cover"] * 5, 100)  # crude scaling
-    if pd.notna(row["ret_10d"]):
-        score += w_mom * max(row["ret_10d"] * 100, -100)  # 10% move -> 10 pts
-    if pd.notna(row["rel_volume"]):
-        score += w_vol * min(row["rel_volume"] * 20, 100)  # 2x vol -> 40 pts
+
+    if pd.notna(short_float_pct):
+        score += w_short * min(short_float_pct, 100)
+
+    if pd.notna(days_to_cover):
+        score += w_dtc * min(days_to_cover * 5, 100)  # scaling as before
+
+    if pd.notna(ret_10d):
+        score += w_mom * max(ret_10d * 100, -100)  # convert fraction to percentage points
+
+    if pd.notna(rel_volume):
+        score += w_vol * min(rel_volume * 20, 100)  # 2x volume boosts score
+
     return round(score, 2)
 
 
