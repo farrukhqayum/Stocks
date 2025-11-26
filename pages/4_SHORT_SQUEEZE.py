@@ -225,14 +225,16 @@ with tab1:
                 df = df.sort_values("squeeze_score", ascending=False)
 
                 st.subheader("Ranked Short-Squeeze Candidates")
-                st.table(df.style.format({
-                    "short_float_pct": "{:.1f}",
-                    "days_to_cover": "{:.2f}",
-                    "borrow_fee_pct": "{:.2f}",
-                    "ret_10d": "{:.2%}",
-                    "rel_volume": "{:.2f}",
-                    "squeeze_score": "{:.2f}",
-                }))
+
+                df["short_float_pct"] = df["short_float_pct"].map(lambda x: f"{x:.1f}" if pd.notna(x) else "")
+                df["days_to_cover"] = df["days_to_cover"].map(lambda x: f"{x:.2f}" if pd.notna(x) else "")
+                df["borrow_fee_pct"] = df["borrow_fee_pct"].map(lambda x: f"{x:.2f}" if pd.notna(x) else "")
+                df["ret_10d"] = df["ret_10d"].map(lambda x: f"{x:.2%}" if pd.notna(x) else "")
+                df["rel_volume"] = df["rel_volume"].map(lambda x: f"{x:.2f}" if pd.notna(x) else "")
+                df["squeeze_score"] = df["squeeze_score"].map(lambda x: f"{x:.2f}" if pd.notna(x) else "")
+                
+                st.dataframe(df, use_container_width=True)
+
 
             else:
                 st.info("No data returned for the given tickers.")
