@@ -81,6 +81,7 @@ def get_short_interest_stub(ticker: str) -> dict:
         "borrow_fee_pct": None,
     }
 
+
 def compute_squeeze_score(row,
                           w_short=0.4,
                           w_dtc=0.3,
@@ -140,7 +141,7 @@ with tab1:
         "Paste a list of stock tickers (e.g., `GME, AMC, TSLA`) and rank them by short-squeeze potential. "
         "Short-interest fields are wired to a stub for now – plug in your provider where indicated in the code."
     )
-    
+
     tickers_input = st.text_input(
         "Tickers (comma separated, no quotes):",
         value="GME, AMC, TSLA",
@@ -162,7 +163,7 @@ with tab1:
         w_short, w_dtc, w_mom, w_vol = [w / total_w for w in (w_short, w_dtc, w_mom, w_vol)]
 
     if st.button("Run Scan"):
-        raw_tickers = [t.strip().upper() for t in tickers_input.replace(",", " ").split()]
+        raw_tickers = [t.strip().upper() for t in tickers_input.split(",")]
         tickers = [t for t in raw_tickers if t]
 
         if not tickers:
@@ -194,7 +195,7 @@ with tab1:
                 vol_20d = price["volume"].tail(21)[:-1].mean()
                 if isinstance(vol_20d, pd.Series):
                     vol_20d = vol_20d.item()  # convert 1-element series to scalar
-                
+
                 if vol_20d is None or vol_20d == 0:
                     rel_vol = None
                 else:
@@ -283,6 +284,7 @@ with tab2:
         else:
             # Momentum windows
             last_price = bench_df["close"].iloc[-1]
+
             def pct_ret(days: int) -> float | None:
                 if len(bench_df) > days:
                     return last_price / bench_df["close"].iloc[-days - 1] - 1
