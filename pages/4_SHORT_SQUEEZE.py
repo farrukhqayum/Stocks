@@ -120,11 +120,10 @@ with tab1:
         "Paste a list of stock tickers (e.g., `GME, AMC, TSLA`) and rank them by short-squeeze potential. "
         "Short-interest fields are wired to a stub for now – plug in your provider where indicated in the code."
     )
-
-    tickers_input = st.text_area(
-        "Tickers (comma, space, or newline separated):",
-        value="GME\nAMC\nTSLA",
-        height=120,
+    
+    tickers_input = st.text_input(
+        "Tickers (comma separated, no quotes):",
+        value="GME, AMC, TSLA",
     )
 
     col_w1, col_w2, col_w3, col_w4 = st.columns(4)
