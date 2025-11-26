@@ -171,11 +171,11 @@ with tab1:
                     ret_10d = None
 
                 # Relative volume (last day vs 20D avg)
-                vol_20d = price["volume"].tail(21)[:-1].mean()
-                if vol_20d is None or vol_20d == 0:
-                    rel_vol = None
-                else:
+               vol_20d = price["volume"].tail(21)[:-1].mean()
+                if vol_20d and vol_20d != 0:
                     rel_vol = float(price["volume"].iloc[-1] / vol_20d)
+                else:
+                    rel_vol = None
 
 
                 si = get_short_interest_stub(t)
