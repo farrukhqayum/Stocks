@@ -172,6 +172,9 @@ with tab1:
 
                 # Relative volume (last day vs 20D avg)
                 vol_20d = price["volume"].tail(21)[:-1].mean()
+                if isinstance(vol_20d, pd.Series):
+                    vol_20d = vol_20d.item()  # convert 1-element series to scalar
+                
                 if vol_20d is None or vol_20d == 0:
                     rel_vol = None
                 else:
