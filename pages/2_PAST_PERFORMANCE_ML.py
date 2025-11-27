@@ -480,7 +480,16 @@ def get_ml_prediction(df, models):
     latest_scaled_cls = scaler_cls.transform(latest)
     class_probs = model_class.predict_proba(latest_scaled_cls)[0]
     predicted_class = model_class.predict(latest_scaled_cls)[0]
+
+    p_none   = class_probs[0]
+    p_sl     = class_probs[1]
+    p_tp     = class_probs[2]
+    p_hold   = class_probs[3]
+    p_short  = class_probs[4]
     
+    bullish_prob = p_tp + p_hold+p_none
+    bearish_prob = p_sl + p_short+p_none
+
     # Map class to label
     label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
     will_hit = label_map.get(predicted_class, 'None')
@@ -493,7 +502,27 @@ def get_ml_prediction(df, models):
     current_price = df['Close'].iloc[-1]
     predicted_return = model_return.predict(latest_scaled_return)[0]
     predicted_loss = model_loss.predict(latest_scaled_loss)[0]
-   
+
+    # Avoid division by zero
+    if predicted_loss != 0:
+        rr_ratio = predicted_return / abs(predicted_loss)
+    else:
+        rr_ratio = 0
+
+    max_ratio = 10  # cap at 10:1
+    log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
+    max_log_ratio = np.log1p(max_ratio)
+    normalized_rr = log_ratio / max_log_ratio  # scale 0–1
+
+    total_prob = bullish_prob + bearish_prob
+    if total_prob > 0:
+        prob_confidence = bullish_prob / total_prob  # 0–1
+    else:
+        prob_confidence = 0.5  # neutral baseline
+
+    confidence_score = prob_confidence * normalized_rr * 100
+
+   '''
     # Confidence calculation
     max_ratio = 10
     if predicted_loss != 0 and will_hit != 'None':
@@ -504,6 +533,8 @@ def get_ml_prediction(df, models):
         confidence_score = max(min(normalized_confidence, 1), 0) * 100
     else:
         confidence_score = 0.0
+
+    '''
 
     return {
         'will_hit': will_hit,
