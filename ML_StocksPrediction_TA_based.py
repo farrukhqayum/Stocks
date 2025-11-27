@@ -833,15 +833,33 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
 
             # Confidence calculation
-            max_ratio = 10
-            if predicted_loss != 0 and will_hit != 'None':
-                ratio = predicted_return / abs(predicted_loss)
-                log_ratio = np.log1p(ratio)
-                max_log_ratio = np.log1p(max_ratio)
-                normalized_confidence = log_ratio / max_log_ratio
-                confidence_score = max(min(normalized_confidence, 1), 0) * 100
+            p_none  = latest_prob_features.get('Prob_Class_0', 0)
+            p_sl    = latest_prob_features.get('Prob_Class_1', 0)
+            p_tp    = latest_prob_features.get('Prob_Class_2', 0)
+            p_hold  = latest_prob_features.get('Prob_Class_3', 0)
+            p_short = latest_prob_features.get('Prob_Class_4', 0)
+    
+            bullish_prob = p_tp + p_hold
+            bearish_prob = p_sl + p_short
+        	
+            if predicted_loss != 0:
+                rr_ratio = predicted_return / abs(predicted_loss)
             else:
-                confidence_score = 0.0
+                rr_ratio = 0
+    
+        
+            max_ratio = 10  # cap at 10:1
+            log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
+            max_log_ratio = np.log1p(max_ratio)
+            normalized_rr = log_ratio / max_log_ratio
+        
+            total_prob = bullish_prob + bearish_prob
+            if total_prob > 0:
+                prob_confidence = bullish_prob / total_prob 
+            else:
+                prob_confidence = 0.5
+        
+            confidence_score = (0.5 * prob_confidence + 0.5 * normalized_rr) * 100
 
             rsi = latest['RSI'].values[-1]
             signal = "TI: ⚪ Neut"
@@ -1226,6 +1244,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
