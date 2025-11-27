@@ -740,10 +740,11 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         bullish_prob = p_tp + p_hold
         bearish_prob = p_sl + p_short
     	
-    	if predicted_loss != 0:
-            rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
+        if predicted_loss != 0:
+            rr_ratio = predicted_return / abs(predicted_loss)
         else:
             rr_ratio = 0
+
     
         max_ratio = 10  # cap at 10:1
         log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
