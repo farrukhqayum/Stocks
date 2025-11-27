@@ -480,7 +480,6 @@ def get_ml_prediction(df, models):
     latest_scaled_cls = scaler_cls.transform(latest)
     class_probs = model_class.predict_proba(latest_scaled_cls)[0]
     predicted_class = model_class.predict(latest_scaled_cls)[0]
-
     p_none   = class_probs[0]
     p_sl     = class_probs[1]
     p_tp     = class_probs[2]
@@ -490,7 +489,6 @@ def get_ml_prediction(df, models):
     bullish_prob = p_tp + p_hold
     bearish_prob = p_sl + p_short
 
-    # Map class to label
     label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
     will_hit = label_map.get(predicted_class, 'None')
     hit_prob = class_probs[predicted_class]
@@ -503,7 +501,6 @@ def get_ml_prediction(df, models):
     predicted_return = model_return.predict(latest_scaled_return)[0]
     predicted_loss = model_loss.predict(latest_scaled_loss)[0]
 
-    # Avoid division by zero
     if predicted_loss != 0:
         rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
     else:
@@ -520,21 +517,7 @@ def get_ml_prediction(df, models):
     else:
         prob_confidence = 0.5
 
-    confidence_score = prob_confidence * normalized_rr * 100
-
-   '''
-    # Confidence calculation
-    max_ratio = 10
-    if predicted_loss != 0 and will_hit != 'None':
-        ratio = predicted_return / abs(predicted_loss)
-        log_ratio = np.log1p(ratio)
-        max_log_ratio = np.log1p(max_ratio)
-        normalized_confidence = log_ratio / max_log_ratio
-        confidence_score = max(min(normalized_confidence, 1), 0) * 100
-    else:
-        confidence_score = 0.0
-
-    '''
+    confidence_score = (0.5 * prob_confidence + 0.5 * normalized_rr) * 100
 
     return {
         'will_hit': will_hit,
