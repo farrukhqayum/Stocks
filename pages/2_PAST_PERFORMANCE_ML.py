@@ -504,7 +504,7 @@ def get_ml_prediction(df, models):
     predicted_loss = model_loss.predict(latest_scaled_loss)[0]
 
     if predicted_loss != 0:
-        rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
+        rr_ratio = predicted_return / abs(predicted_loss)
     else:
         rr_ratio = 0
 
