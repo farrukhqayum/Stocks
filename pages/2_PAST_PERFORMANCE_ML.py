@@ -889,7 +889,7 @@ if st.button("Run ML Strategy Backtest"):
             
             ml_prediction = get_ml_prediction(current_data, models)
             if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
-            continue
+                continue
             
             current_ml_signal = ml_prediction['will_hit']
             current_ml_confidence = ml_prediction['confidence_score']
