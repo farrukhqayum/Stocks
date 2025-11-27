@@ -731,12 +731,12 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         sl_percentage = ((predicted_sl - current_price) / current_price) * 100
 
         # Confidence calculation
-        p_none  = latest_prob_df[0] if len(latest_prob_df) > 0 else 0
-        p_sl    = latest_prob_df[1] if len(latest_prob_df) > 1 else 0
-        p_tp    = latest_prob_df[2] if len(latest_prob_df) > 2 else 0
-        p_hold  = latest_prob_df[3] if len(latest_prob_df) > 3 else 0
-        p_short = latest_prob_df[4] if len(latest_prob_df) > 4 else 0
-    
+        p_none  = latest_prob_features.get('Prob_Class_0', 0)
+        p_sl    = latest_prob_features.get('Prob_Class_1', 0)
+        p_tp    = latest_prob_features.get('Prob_Class_2', 0)
+        p_hold  = latest_prob_features.get('Prob_Class_3', 0)
+        p_short = latest_prob_features.get('Prob_Class_4', 0)
+
         bullish_prob = p_tp + p_hold
         bearish_prob = p_sl + p_short
     	
