@@ -847,7 +847,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             else:
                 rr_ratio = 0
     
-        
             max_ratio = 10  # cap at 10:1
             log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
             max_log_ratio = np.log1p(max_ratio)
@@ -1029,9 +1028,9 @@ def PlotPredictions(df_results):
             else 'white'
         )
         
-        if "Bull" in row.Signal and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
+        if "Bull" in row.Signal and row.Confidence > 70 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
             ProbColor = 'green'
-        elif "Hold" in row.Signal and row.Confidence > 30 and str(row.Will_Hit).split()[0] in ['Hold']:
+        elif "Hold" in row.Signal and row.Confidence > 70 and str(row.Will_Hit).split()[0] in ['Hold']:
             ProbColor = 'orange'
         elif "Bear" in row.Signal and row.Confidence < 40 and str(row.Will_Hit).split()[0] == 'SL':
             ProbColor = 'red'
@@ -1244,6 +1243,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
