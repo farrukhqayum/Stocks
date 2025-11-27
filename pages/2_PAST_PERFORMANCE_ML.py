@@ -487,8 +487,8 @@ def get_ml_prediction(df, models):
     p_hold   = class_probs[3]
     p_short  = class_probs[4]
     
-    bullish_prob = p_tp + p_hold+p_none
-    bearish_prob = p_sl + p_short+p_none
+    bullish_prob = p_tp + p_hold
+    bearish_prob = p_sl + p_short
 
     # Map class to label
     label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
@@ -505,20 +505,20 @@ def get_ml_prediction(df, models):
 
     # Avoid division by zero
     if predicted_loss != 0:
-        rr_ratio = predicted_return / abs(predicted_loss)
+        rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
     else:
         rr_ratio = 0
 
     max_ratio = 10  # cap at 10:1
     log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
     max_log_ratio = np.log1p(max_ratio)
-    normalized_rr = log_ratio / max_log_ratio  # scale 0–1
+    normalized_rr = log_ratio / max_log_ratio
 
     total_prob = bullish_prob + bearish_prob
     if total_prob > 0:
-        prob_confidence = bullish_prob / total_prob  # 0–1
+        prob_confidence = bullish_prob / total_prob 
     else:
-        prob_confidence = 0.5  # neutral baseline
+        prob_confidence = 0.5
 
     confidence_score = prob_confidence * normalized_rr * 100
 
