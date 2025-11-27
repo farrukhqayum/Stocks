@@ -729,18 +729,35 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         # Calculate percentage gain/loss from current price
         tp_percentage = ((predicted_tp - current_price) / current_price) * 100
         sl_percentage = ((predicted_sl - current_price) / current_price) * 100
-        
+
         # Confidence calculation
-        max_ratio = 10
-        if predicted_loss != 0 and will_hit != 'None':
-            ratio = predicted_return / abs(predicted_loss)
-            log_ratio = np.log1p(ratio)
-            max_log_ratio = np.log1p(max_ratio)
-            normalized_confidence = log_ratio / max_log_ratio
-            confidence_score = max(min(normalized_confidence, 1), 0) * 100
+        p_none  = class_probs[0] if len(class_probs) > 0 else 0
+        p_sl    = class_probs[1] if len(class_probs) > 1 else 0
+        p_tp    = class_probs[2] if len(class_probs) > 2 else 0
+        p_hold  = class_probs[3] if len(class_probs) > 3 else 0
+        p_short = class_probs[4] if len(class_probs) > 4 else 0
+    
+        bullish_prob = p_tp + p_hold
+        bearish_prob = p_sl + p_short
+    	
+    	if predicted_loss != 0:
+            rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
         else:
-            confidence_score = 0.0
-        
+            rr_ratio = 0
+    
+        max_ratio = 10  # cap at 10:1
+        log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
+        max_log_ratio = np.log1p(max_ratio)
+        normalized_rr = log_ratio / max_log_ratio
+    
+        total_prob = bullish_prob + bearish_prob
+        if total_prob > 0:
+            prob_confidence = bullish_prob / total_prob 
+        else:
+            prob_confidence = 0.5
+    
+        confidence_score = (0.5 * prob_confidence + 0.5 * normalized_rr) * 100
+                
         return {
             'will_hit': will_hit,
             'hit_prob': hit_prob,
