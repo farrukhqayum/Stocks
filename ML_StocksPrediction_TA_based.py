@@ -1148,9 +1148,9 @@ def tabular_display(df_results):
         'TP': custom_price_format,
         'SL': custom_price_format,
         'Dip%' : '{:.1f}',
-        'Max (%)': '{:.1f}',
-        'Loss (%)': '{:.1f}',
-        'Confidence': '{:.1f}',
+        'Max (%)': '{:.0f}',
+        'Loss (%)': '{:.0f}',
+        'Confidence': '{:.0f}',
         'Hit_Prob': '{:.0f}',
         'Confidence': '{:.0f}'
     })
@@ -1243,6 +1243,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
