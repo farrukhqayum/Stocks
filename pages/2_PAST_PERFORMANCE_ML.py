@@ -480,11 +480,13 @@ def get_ml_prediction(df, models):
     latest_scaled_cls = scaler_cls.transform(latest)
     class_probs = model_class.predict_proba(latest_scaled_cls)[0]
     predicted_class = model_class.predict(latest_scaled_cls)[0]
-    p_none   = class_probs[0]
-    p_sl     = class_probs[1]
-    p_tp     = class_probs[2]
-    p_hold   = class_probs[3]
-    p_short  = class_probs[4]
+
+    p_none  = class_probs[0] if len(class_probs) > 0 else 0
+    p_sl    = class_probs[1] if len(class_probs) > 1 else 0
+    p_tp    = class_probs[2] if len(class_probs) > 2 else 0
+    p_hold  = class_probs[3] if len(class_probs) > 3 else 0
+    p_short = class_probs[4] if len(class_probs) > 4 else 0
+
     
     bullish_prob = p_tp + p_hold
     bearish_prob = p_sl + p_short
