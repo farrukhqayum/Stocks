@@ -4,7 +4,7 @@ import altair as alt
 import yfinance as yf
 
 tickers = ['^TNX', '^GSPC']
-data = yf.download(tickers, period='2y')
+data = yf.download(tickers, period='10y')
 
 def get_adj_close(df, ticker):
     # Case 1: MultiIndex (standard stocks)
