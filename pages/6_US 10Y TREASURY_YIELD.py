@@ -9,6 +9,7 @@ tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
 
 # Rename columns for clarity
+adj_close = data['Adj Close']
 data.columns = ['US 10Y Treasury Yield', 'S&P 500']
 
 # Calculate 100-period moving averages
