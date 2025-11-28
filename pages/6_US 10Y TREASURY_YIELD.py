@@ -6,44 +6,62 @@ import yfinance as yf
 tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
 
-# Flatten columns if MultiIndex
+# --- FIX 1: Correct MultiIndex flattening ---
 if isinstance(data.columns, pd.MultiIndex):
-    data.columns = [f"{col[1]} {col[0]}" for col in data.columns]
+    data.columns = [f"{lvl0} {lvl1}" for lvl0, lvl1 in data.columns]
 
-# Access Adj Close columns after flattening
+# --- FIX 2: Correct column names for adjusted close ---
 adj_close = pd.DataFrame({
-    'US 10Y Treasury Yield': data['^TNX Adj Close'],
-    'S&P 500': data['^GSPC Adj Close']
+    'US 10Y Treasury Yield': data['Adj Close ^TNX'],
+    'S&P 500': data['Adj Close ^GSPC']
 })
 
 # Calculate 100-period moving averages
-adj_close['US 10Y MA100'] = adj_close['US 10Y Treasury Yield'].rolling(window=100).mean()
-adj_close['S&P 500 MA100'] = adj_close['S&P 500'].rolling(window=100).mean()
+adj_close['US 10Y MA100'] = adj_close['US 10Y Treasury Yield'].rolling(100).mean()
+adj_close['S&P 500 MA100'] = adj_close['S&P 500'].rolling(100).mean()
 
 # Reset index for Altair plotting
 df = adj_close.reset_index()
 
 # Melt dataframe for Altair multi-line plotting
-df_melted = df.melt(id_vars=['Date'],
-                    value_vars=['US 10Y Treasury Yield', 'US 10Y MA100', 'S&P 500', 'S&P 500 MA100'],
-                    var_name='Series', value_name='Value')
+df_melted = df.melt(
+    id_vars=['Date'],
+    value_vars=[
+        'US 10Y Treasury Yield', 'US 10Y MA100',
+        'S&P 500', 'S&P 500 MA100'
+    ],
+    var_name='Series',
+    value_name='Value'
+)
 
-# Chart height setup
+# Chart height
 chart_height = 300
 
-# Create charts for yield and S&P 500 moving averages
-base = alt.Chart(df_melted).encode(x='Date:T', y='Value:Q', color='Series:N')
+# Shared chart base
+base = alt.Chart(df_melted).encode(
+    x='Date:T',
+    y='Value:Q',
+    color='Series:N'
+)
 
+# Yield chart
 yield_chart = base.transform_filter(
-    alt.FieldOneOfPredicate(field='Series', oneOf=['US 10Y Treasury Yield', 'US 10Y MA100'])
+    alt.FieldOneOfPredicate(
+        field='Series',
+        oneOf=['US 10Y Treasury Yield', 'US 10Y MA100']
+    )
 ).mark_line().properties(height=chart_height, title='US 10Y Treasury Yield and 100-period MA')
 
+# S&P 500 chart
 sp500_chart = base.transform_filter(
-    alt.FieldOneOfPredicate(field='Series', oneOf=['S&P 500', 'S&P 500 MA100'])
+    alt.FieldOneOfPredicate(
+        field='Series',
+        oneOf=['S&P 500', 'S&P 500 MA100']
+    )
 ).mark_line().properties(height=chart_height, title='S&P 500 and 100-period MA')
 
-# Combine charts vertically with shared time axis
+# Combine vertically
 final_chart = alt.vconcat(yield_chart, sp500_chart).resolve_scale(x='shared')
 
-st.title("US 10Y Treasury Yield and S&P 500 [finance:S&P 500] with 100-period Moving Average")
+st.title("US 10Y Treasury Yield and S&P 500 with 100-period Moving Average")
 st.altair_chart(final_chart, use_container_width=True)
