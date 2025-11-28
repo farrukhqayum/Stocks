@@ -5,8 +5,10 @@ import yfinance as yf
 
 tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
-st.write(type(data.columns))
-st.write(data.columns)
+# Inspect the structure
+st.write("Column type:", type(data.columns))
+st.write("Columns:", data.columns)
+st.write("Sample data:", data.head())
 
 # Access Adj Close correctly from MultiIndex
 adj_close = pd.DataFrame({
