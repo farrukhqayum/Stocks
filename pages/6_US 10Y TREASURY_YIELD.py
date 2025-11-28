@@ -6,10 +6,26 @@ import yfinance as yf
 tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
 
-# Always extract cleanly from MultiIndex
+def get_adj_close(df, ticker):
+    # Case 1: MultiIndex (standard stocks)
+    try:
+        return df['Adj Close'][ticker]
+    except:
+        pass
+
+    # Case 2: Single-level index (common for ^TNX, ^VIX, etc.)
+    for col in df.columns:
+        if ticker in col and 'Adj Close' in col:
+            return df[col]
+        if ticker in col and 'Close' in col:   # fallback
+            return df[col]
+
+    # If still not found
+    raise KeyError(f"Adj Close column not found for {ticker}. Columns: {df.columns}")
+
 adj_close = pd.DataFrame({
-    'US 10Y Treasury Yield': data.loc[:, ('Adj Close', '^TNX')],
-    'S&P 500': data.loc[:, ('Adj Close', '^GSPC')]
+    'US 10Y Treasury Yield': get_adj_close(data, '^TNX'),
+    'S&P 500': get_adj_close(data, '^GSPC')
 })
 
 
