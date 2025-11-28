@@ -10,13 +10,6 @@ data = yf.download(tickers, period='2y')
 if isinstance(data.columns, pd.MultiIndex):
     data.columns = [f"{col[1]} {col[0]}" for col in data.columns]
 
-# Now you can safely do:
-adj_close = pd.DataFrame({
-    'US 10Y Treasury Yield': data['^TNX Adj Close'],
-    'S&P 500': data['^GSPC Adj Close']
-})
-
-
 # Access Adj Close correctly from MultiIndex
 adj_close = pd.DataFrame({
     'US 10Y Treasury Yield': data['Adj Close']['^TNX'],
