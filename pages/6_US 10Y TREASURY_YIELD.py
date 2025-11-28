@@ -83,32 +83,33 @@ st.markdown("""
 ### ✅ US 10-Year Treasury Yield — Simple Explanation
 
 What is the US 10-Year Treasury Yield?
-The US 10-Year Treasury Yield (^TNX) represents the interest rate the US government pays to borrow money for 10 years. It is one of the most important financial indicators in the world.
+- The US 10-Year Treasury Yield (^TNX) represents the interest rate the US government pays to borrow money for 10 years. It is one of the most important financial indicators in the world.
 
 ### ✅ Why the 10-Year Yield Matters
-***1. Reflects Inflation & Economic Expectations
 
-Rising yields → traders expect higher inflation or stronger economic growth.
+***1. Reflects Inflation & Economic Expectations***
 
-Falling yields → markets expect slower growth or lower inflation.
+-- Rising yields → traders expect higher inflation or stronger economic growth.
 
-***2. Drives Mortgage Rates & Loans
+-- Falling yields → markets expect slower growth or lower inflation.
 
-The 10Y yield is used as a benchmark:
+***2. Drives Mortgage Rates & Loans***
 
-****Mortgage rates
+***The 10Y yield is used as a benchmark:***
 
-****Auto loans
+- Mortgage rates
 
-****Business lending
+- Auto loans
 
-When the yield rises, borrowing becomes more expensive.
+- Business lending
 
-***3. Strong Impact on Stock Market Valuation
+***When the yield rises, borrowing becomes more expensive.***
+
+3. Strong Impact on Stock Market Valuation
 
 The 10-year yield acts like a "discount rate":
 
-***Higher yields → lower stock valuations
+- Higher yields → lower stock valuations
 (especially tech and growth stocks)
 
 ***Lower yields → higher stock prices
@@ -117,11 +118,11 @@ This is why the S&P 500 and the 10Y yield often move in opposite directions.
 
 ### ✅ Relationship to S&P 500
 
-***When yields rise quickly → stocks often drop (higher borrowing cost & lower valuations).
+- When yields rise quickly → stocks often drop (higher borrowing cost & lower valuations).
 
-***When yields fall → stocks often rally (cheap borrowing & higher valuations).
+- When yields fall → stocks often rally (cheap borrowing & higher valuations).
 
-***Slow, steady moves usually have a mild effect; big spikes create sharp volatility.
+- Slow, steady moves usually have a mild effect; big spikes create sharp volatility.
 
 """)
 
