@@ -5,10 +5,17 @@ import yfinance as yf
 
 tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
-# Inspect the structure
-st.write("Column type:", type(data.columns))
-st.write("Columns:", data.columns)
-st.write("Sample data:", data.head())
+
+# Flatten columns if MultiIndex
+if isinstance(data.columns, pd.MultiIndex):
+    data.columns = [f"{col[1]} {col[0]}" for col in data.columns]
+
+# Now you can safely do:
+adj_close = pd.DataFrame({
+    'US 10Y Treasury Yield': data['^TNX Adj Close'],
+    'S&P 500': data['^GSPC Adj Close']
+})
+
 
 # Access Adj Close correctly from MultiIndex
 adj_close = pd.DataFrame({
