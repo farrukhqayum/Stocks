@@ -4,6 +4,7 @@ import numpy as np
 import altair as alt
 import yfinance as yf
 
+tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y', group_by='ticker')
 
 # Now access Adj Close per ticker:
