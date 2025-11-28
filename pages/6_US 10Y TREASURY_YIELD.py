@@ -6,15 +6,17 @@ import yfinance as yf
 tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
 
+
 # --- FIX 1: Correct MultiIndex flattening ---
 if isinstance(data.columns, pd.MultiIndex):
     data.columns = [f"{lvl0} {lvl1}" for lvl0, lvl1 in data.columns]
 
 # --- FIX 2: Correct column names for adjusted close ---
 adj_close = pd.DataFrame({
-    'US 10Y Treasury Yield': data['Adj Close ^TNX'],
-    'S&P 500': data['Adj Close ^GSPC']
+    'US 10Y Treasury Yield': data['^TNX Adj Close'],
+    'S&P 500': data['^GSPC Adj Close']
 })
+
 
 # Calculate 100-period moving averages
 adj_close['US 10Y MA100'] = adj_close['US 10Y Treasury Yield'].rolling(100).mean()
