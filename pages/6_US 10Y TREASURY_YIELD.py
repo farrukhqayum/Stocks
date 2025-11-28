@@ -78,3 +78,21 @@ final_chart = alt.vconcat(yield_chart, sp500_chart).resolve_scale(x='shared')
 
 st.title("US 10Y Treasury Yield and S&P 500")
 st.altair_chart(final_chart, use_container_width=True)
+
+st.markdown("""
+### Understanding the US 10-Year Treasury Yield
+
+The **US 10-Year Treasury Yield (`^TNX`)** represents the interest rate the US government pays to borrow money for 10 years.  
+It is one of the most important indicators in global finance.
+
+#### Why it matters:
+- **Economic expectations:** Rising yield = higher inflation/stronger economy.  
+- **Borrowing costs:** Drives mortgage rates, car loans, and business financing.  
+- **Stock market impact:** Higher yields often pressure the S&P 500, especially tech stocks.  
+- **Risk sentiment:** Falling yields usually signal risk-off environments or recession concerns.
+
+The chart below shows the yield alongside the S&P 500 and their 100-day moving averages.
+""")
+
+
+
