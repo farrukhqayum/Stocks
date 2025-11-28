@@ -92,10 +92,10 @@ st.markdown("---")
 
 st.markdown("""
 # 📊 **Pyramid Visualization**
-            🏆 EXPERT (Few)
-       🛡️ SURVIVOR
-  😰 STRUGGLER  
-  📚 LEARNER
+                        🏆 EXPERT (Few)
+                   🛡️ SURVIVOR
+              😰 STRUGGLER  
+            📚 LEARNER
 🆕 NOVICE (Many)
 
 
