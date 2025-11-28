@@ -1,42 +1,106 @@
 import streamlit as st
-import pandas as pd
-import altair as alt
 
-st.title("Traders' Psychology Pyramid")
-st.markdown("""
-Traders' psychology can be understood as a pyramid, with many beginners at the base and few experts at the peak. Each ascending stage represents a higher level of emotional control, discipline, and trading skill. This model helps visualize the typical progression through the psychological states experienced during the development of a trader.""")
-
-# Define pyramid stages and brief descriptions
-stages = [
-    {"Stage": "Novice", "Description": "Optimism, excitement, and blaming others, often lacking deep knowledge."},
-    {"Stage": "Learner", "Description": "Thrill and over-confidence as early wins occur; Consider it easier & calculate unrealistic future goals."},
-    {"Stage": "Struggler", "Description": "Facing anxiety, denial, and fear as losses emerge. Totally, confused. Many quit at this stage."},
-    {"Stage": "Survivor", "Description": "Gaining risk-awareness and emotional control, learning from mistakes."},
-    {"Stage": "Expert", "Description": "Consistent profitability, discipline, and sustainable growth; the few who reach the top."}
-]
-
-df = pd.DataFrame(stages)
-
-# Display pyramid data in table
-st.subheader("Trading Psychology Pyramid Stages")
-st.dataframe(df)
-
-# Prepare data for pyramid visualization (inverted bar chart)
-df_viz = pd.DataFrame({
-    "Stage": [s["Stage"] for s in stages],
-    "Level": [5, 4, 3, 2, 1]  # For pyramid visualization: base = 5, top = 1
-})
-
-chart = alt.Chart(df_viz).mark_bar().encode(
-    x=alt.X('Stage', sort=None),
-    y=alt.Y('Level'),
-    color=alt.Color('Stage', legend=None)
-).properties(
-    title="Traders' Psychology Pyramid (Levels)"
-)
-
-st.altair_chart(chart, use_container_width=True)
+st.title("🧠 Traders' Psychology Pyramid")
 
 st.markdown("""
-The pyramid starts with optimism and excitement and ascends through stages of challenge, learning, and mastery. This structure illustrates how emotional control and expertise are refined as traders move up.
+The Trader's Psychology Pyramid illustrates the evolution of mindset, discipline, and competence 
+as one matures from a market newcomer to a consistently skilled practitioner. Each ascending 
+level narrows in population but deepens in insight and emotional control.
 """)
+
+st.markdown("---")
+
+# Novice Section
+st.markdown("## 🆕 **Novice: The Gambler's Beginning**")
+st.markdown("""
+The base of the pyramid is wide and crowded, representing the large influx of new traders. 
+Most begin at this "Gambler's" stage driven by **optimism, excitement, and a desire for quick wins**.
+
+**Key Characteristics:**
+- *Emotional state*: High on hope, often unaware of risks
+- *Habits*: No clear trading plan, relying on luck rather than systematic strategy  
+- *Goal*: To "win" trades, often without understanding probability or market structure
+
+> This foundation is where most market participants enter—and unfortunately, where many also exit.
+""")
+
+st.markdown("---")
+
+# Learner Section  
+st.markdown("## 📚 **Learner: Early Confidence Meets Reality**")
+st.markdown("""
+Having likely suffered first setbacks, Learners become eager students of the markets. 
+Buoyed by early wins, **overconfidence sometimes leads to inflated expectations**.
+
+**Key Characteristics:**
+- *Emotional state*: Thrilled by learning, swinging between excitement and disappointment
+- *Habits*: Consuming books, tutorials, forums (risk of information overload)
+- *Goal*: Understand the rules of the game, build skills (confidence may outpace competence)
+
+> This stage develops curiosity and resilience—few progress without unlearning bad habits.
+""")
+
+st.markdown("---")
+
+# Struggler Section
+st.markdown("## 😰 **Struggler: The Crucible of Discomfort**")
+st.markdown("""
+Strugglers face unavoidable trials of downturns, drawdowns, and emotional volatility. 
+Marked by **confusion, self-doubt, and loss** as trades don't go as planned.
+
+**Key Characteristics:**
+- *Emotional state*: Anxiety, denial, fear, sometimes panic
+- *Habits*: System-hopping or paralysis, considering quitting
+- *Goal*: Survive psychologically/financially, accept responsibility for outcomes
+
+> **Most attrition happens here.** Advancement requires resisting abandoning disciplined practices.
+""")
+
+st.markdown("---")
+
+# Survivor Section
+st.markdown("## 🛡️ **Survivor: Adaptive Risk Awareness**")
+st.markdown("""
+Survivors acquire **emotional regulation and practical risk management**. They implement 
+and stick with defined strategies, no longer chasing every new tactic.
+
+**Key Characteristics:**
+- *Emotional state*: More balanced, analytical rather than reactive
+- *Habits*: Using stop-losses, journaling trades, adapting based on evidence
+- *Goal*: Become consistent—resilient enough to remain in the game
+
+> Survivors value **process over outcome**, understanding long-term success = disciplined decisions.
+""")
+
+st.markdown("---")
+
+# Expert Section
+st.markdown("## 🏆 **Expert: Mastery and Sustainable Growth**")
+st.markdown("""
+At the pinnacle, Experts achieve **sustainable profitability and composed mindset**. 
+Decision-making is routine, deliberate, and data-driven.
+
+**Key Characteristics:**
+- *Emotional state*: Calm, disciplined, confident but humble
+- *Habits*: Consistent review/improvement, responsible position scaling, mentoring
+- *Goal*: Continue growing/adapting, aware markets (and self) always evolve
+
+> **Fear and greed tamed**—replaced by measured growth and longevity.
+""")
+
+st.markdown("---")
+
+st.markdown("""
+# 📊 **Pyramid Visualization**
+            🏆 EXPERT (Few)
+       🛡️ SURVIVOR
+  😰 STRUGGLER  
+  📚 LEARNER
+🆕 NOVICE (Many)
+
+
+**The journey**: Initial excitement/noise → focus → resilience → clear, actionable wisdom.
+""")
+
+st.success("💡 **Key Insight**: Mastery reached not by avoiding setbacks, but using them as fuel for evolution.")
+
