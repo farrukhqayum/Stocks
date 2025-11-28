@@ -5,12 +5,16 @@ import altair as alt
 import yfinance as yf
 
 tickers = ['^TNX', '^GSPC']
-data = yf.download(tickers, period='2y', group_by='ticker')
+data = yf.download(tickers, period='2y')
 
-# Extract Adj Close
+# Flatten multi-index columns if present
+if isinstance(data.columns, pd.MultiIndex):
+    data.columns = [' '.join(col).strip() for col in data.columns.values]
+
+# Now you should have columns like: "Adj Close ^TNX", "Adj Close ^GSPC"
 adj_close = pd.DataFrame({
-    'US 10Y Treasury Yield': data['^TNX']['Adj Close'],
-    'S&P 500': data['^GSPC']['Adj Close']
+    'US 10Y Treasury Yield': data['Adj Close ^TNX'],
+    'S&P 500': data['Adj Close ^GSPC']
 })
 
 # Calculate 100-period moving averages
@@ -28,7 +32,7 @@ df_melted = df.melt(id_vars=['Date'],
 # Chart height setup
 chart_height = 300
 
-# Create separate charts for Treasury Yield and S&P 500 with their MAs, stacked vertically
+# Create separate charts
 base = alt.Chart(df_melted).encode(x='Date:T', y='Value:Q', color='Series:N')
 
 yield_chart = base.transform_filter(
@@ -39,9 +43,7 @@ sp500_chart = base.transform_filter(
     alt.FieldOneOfPredicate(field='Series', oneOf=['S&P 500', 'S&P 500 MA100'])
 ).mark_line().properties(height=chart_height, title='S&P 500 and 100-period MA')
 
-# Combine the two charts vertically
 final_chart = alt.vconcat(yield_chart, sp500_chart).resolve_scale(x='shared')
 
-# Display with Streamlit
 st.title("US 10Y Treasury Yield and S&P 500 with 100-period Moving Average")
 st.altair_chart(final_chart, use_container_width=True)
