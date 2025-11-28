@@ -3,18 +3,12 @@ import pandas as pd
 import altair as alt
 import yfinance as yf
 
-tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
 
-
-# --- FIX 1: Correct MultiIndex flattening ---
-if isinstance(data.columns, pd.MultiIndex):
-    data.columns = [f"{lvl0} {lvl1}" for lvl0, lvl1 in data.columns]
-
-# --- FIX 2: Correct column names for adjusted close ---
+# Always extract cleanly from MultiIndex
 adj_close = pd.DataFrame({
-    'US 10Y Treasury Yield': data['^TNX Adj Close'],
-    'S&P 500': data['^GSPC Adj Close']
+    'US 10Y Treasury Yield': data.loc[:, ('Adj Close', '^TNX')],
+    'S&P 500': data.loc[:, ('Adj Close', '^GSPC')]
 })
 
 
