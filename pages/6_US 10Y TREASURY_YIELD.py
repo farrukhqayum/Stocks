@@ -4,13 +4,13 @@ import numpy as np
 import altair as alt
 import yfinance as yf
 
-# Load data for US 10Y Treasury Yield (^TNX) and S&P 500 (^GSPC) from Yahoo Finance
-tickers = ['^TNX', '^GSPC']
-data = yf.download(tickers, period='2y')
+data = yf.download(tickers, period='2y', group_by='ticker')
 
-# Rename columns for clarity
-adj_close = data['Adj Close']
-data.columns = ['US 10Y Treasury Yield', 'S&P 500']
+# Now access Adj Close per ticker:
+adj_close = pd.DataFrame({
+    'US 10Y Treasury Yield': data['^TNX']['Adj Close'],
+    'S&P 500': data['^GSPC']['Adj Close']
+})
 
 # Calculate 100-period moving averages
 data['US 10Y MA100'] = data['US 10Y Treasury Yield'].rolling(window=100).mean()
