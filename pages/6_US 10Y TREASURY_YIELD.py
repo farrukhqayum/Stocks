@@ -30,8 +30,8 @@ adj_close = pd.DataFrame({
 
 
 # Calculate 100-period moving averages
-adj_close['US 10Y MA100'] = adj_close['US 10Y Treasury Yield'].rolling(100).mean()
-adj_close['S&P 500 MA100'] = adj_close['S&P 500'].rolling(100).mean()
+adj_close['US 10Y MA200'] = adj_close['US 10Y Treasury Yield'].rolling(200).mean()
+adj_close['S&P 500 MA200'] = adj_close['S&P 500'].rolling(200).mean()
 
 # Reset index for Altair plotting
 df = adj_close.reset_index()
@@ -40,8 +40,8 @@ df = adj_close.reset_index()
 df_melted = df.melt(
     id_vars=['Date'],
     value_vars=[
-        'US 10Y Treasury Yield', 'US 10Y MA100',
-        'S&P 500', 'S&P 500 MA100'
+        'US 10Y Treasury Yield', 'US 10Y MA200',
+        'S&P 500', 'S&P 500 MA200'
     ],
     var_name='Series',
     value_name='Value'
@@ -61,17 +61,17 @@ base = alt.Chart(df_melted).encode(
 yield_chart = base.transform_filter(
     alt.FieldOneOfPredicate(
         field='Series',
-        oneOf=['US 10Y Treasury Yield', 'US 10Y MA100']
+        oneOf=['US 10Y Treasury Yield', 'US 10Y MA200']
     )
-).mark_line().properties(height=chart_height, title='US 10Y Treasury Yield and 100-period MA')
+).mark_line().properties(height=chart_height, title='US 10Y Treasury Yield and 200-period MA')
 
 # S&P 500 chart
 sp500_chart = base.transform_filter(
     alt.FieldOneOfPredicate(
         field='Series',
-        oneOf=['S&P 500', 'S&P 500 MA100']
+        oneOf=['S&P 500', 'S&P 500 MA200']
     )
-).mark_line().properties(height=chart_height, title='S&P 500 and 100-period MA')
+).mark_line().properties(height=chart_height, title='S&P 500 and 200-period MA')
 
 # Combine vertically
 final_chart = alt.vconcat(yield_chart, sp500_chart).resolve_scale(x='shared')
