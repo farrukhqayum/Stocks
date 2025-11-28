@@ -6,7 +6,7 @@ import yfinance as yf
 
 # Load data for US 10Y Treasury Yield (^TNX) and S&P 500 (^GSPC) from Yahoo Finance
 tickers = ['^TNX', '^GSPC']
-data = yf.download(tickers, period='2y')['Adj Close']
+data = yf.download(tickers, period='2y')
 
 # Rename columns for clarity
 data.columns = ['US 10Y Treasury Yield', 'S&P 500']
