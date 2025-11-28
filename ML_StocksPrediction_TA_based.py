@@ -1129,8 +1129,8 @@ def tabular_display(df_results):
     _df['who'] = _df['Will_Hit'].map(lambda x: ord_map.get(x, len(custom_order)))
 
     _df_sorted = _df.sort_values(
-        by=['who', 'Confidence', '_Extremes', 'Signal'],
-        ascending=[True, True, False, False]
+        by=['Confidence', 'who', '_Extremes', 'Signal'],
+        ascending=[False, True, False, False]
     ).reset_index(drop=True)
     _df_sorted = _df_sorted.drop(columns=['Index', 'who'], errors='ignore')
 
@@ -1244,6 +1244,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
