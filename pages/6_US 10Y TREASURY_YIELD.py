@@ -80,18 +80,48 @@ st.title("US 10Y Treasury Yield and S&P 500")
 st.altair_chart(final_chart, use_container_width=True)
 
 st.markdown("""
-### Understanding the US 10-Year Treasury Yield
+✅ US 10-Year Treasury Yield — Simple Explanation
 
-The **US 10-Year Treasury Yield (`^TNX`)** represents the interest rate the US government pays to borrow money for 10 years.  
-It is one of the most important indicators in global finance.
+What is the US 10-Year Treasury Yield?
+The US 10-Year Treasury Yield (^TNX) represents the interest rate the US government pays to borrow money for 10 years. It is one of the most important financial indicators in the world.
 
-#### Why it matters:
-- **Economic expectations:** Rising yield = higher inflation/stronger economy.  
-- **Borrowing costs:** Drives mortgage rates, car loans, and business financing.  
-- **Stock market impact:** Higher yields often pressure the S&P 500, especially tech stocks.  
-- **Risk sentiment:** Falling yields usually signal risk-off environments or recession concerns.
+✅ Why the 10-Year Yield Matters
+1. Reflects Inflation & Economic Expectations
 
-The chart below shows the yield alongside the S&P 500 and their 100-day moving averages.
+Rising yields → traders expect higher inflation or stronger economic growth.
+
+Falling yields → markets expect slower growth or lower inflation.
+
+2. Drives Mortgage Rates & Loans
+
+The 10Y yield is used as a benchmark:
+
+Mortgage rates
+
+Auto loans
+
+Business lending
+When the yield rises, borrowing becomes more expensive.
+
+3. Strong Impact on Stock Market Valuation
+
+The 10-year yield acts like a "discount rate":
+
+Higher yields → lower stock valuations
+(especially tech and growth stocks)
+
+Lower yields → higher stock prices
+
+This is why the S&P 500 and the 10Y yield often move in opposite directions.
+
+✅ Relationship to S&P 500
+
+When yields rise quickly → stocks often drop (higher borrowing cost & lower valuations).
+
+When yields fall → stocks often rally (cheap borrowing & higher valuations).
+
+Slow, steady moves usually have a mild effect; big spikes create sharp volatility.
+
 """)
 
 
