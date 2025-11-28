@@ -3,6 +3,7 @@ import pandas as pd
 import altair as alt
 import yfinance as yf
 
+tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
 
 # Always extract cleanly from MultiIndex
