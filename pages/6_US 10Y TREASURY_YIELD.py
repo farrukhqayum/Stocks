@@ -1,22 +1,15 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import altair as alt
 import yfinance as yf
 
 tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
-print(data.columns)
 
-
-# Flatten multi-index columns if present
-if isinstance(data.columns, pd.MultiIndex):
-    data.columns = [' '.join(col).strip() for col in data.columns.values]
-
-# Now you should have columns like: "Adj Close ^TNX", "Adj Close ^GSPC"
+# Access Adj Close correctly from MultiIndex
 adj_close = pd.DataFrame({
-    'US 10Y Treasury Yield': data['Adj Close ^TNX'],
-    'S&P 500': data['Adj Close ^GSPC']
+    'US 10Y Treasury Yield': data['Adj Close']['^TNX'],
+    'S&P 500': data['Adj Close']['^GSPC']
 })
 
 # Calculate 100-period moving averages
@@ -34,7 +27,7 @@ df_melted = df.melt(id_vars=['Date'],
 # Chart height setup
 chart_height = 300
 
-# Create separate charts
+# Create charts
 base = alt.Chart(df_melted).encode(x='Date:T', y='Value:Q', color='Series:N')
 
 yield_chart = base.transform_filter(
