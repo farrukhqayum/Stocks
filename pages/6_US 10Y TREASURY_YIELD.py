@@ -76,5 +76,5 @@ sp500_chart = base.transform_filter(
 # Combine vertically
 final_chart = alt.vconcat(yield_chart, sp500_chart).resolve_scale(x='shared')
 
-st.title("US 10Y Treasury Yield and S&P 500 with 100-period Moving Average")
+st.title("US 10Y Treasury Yield and S&P 500")
 st.altair_chart(final_chart, use_container_width=True)
