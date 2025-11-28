@@ -3,15 +3,27 @@ import pandas as pd
 import numpy as np
 import altair as alt
 import yfinance as yf
-
 tickers = ['^TNX', '^GSPC']
+
+# Download data without group_by to inspect structure
 data = yf.download(tickers, period='2y', group_by='ticker')
 
-# Now access Adj Close per ticker:
-adj_close = pd.DataFrame({
-    'US 10Y Treasury Yield': data['^TNX']['Adj Close'],
-    'S&P 500': data['^GSPC']['Adj Close']
-})
+# If group_by='ticker' does not yield expected level names, try without grouping
+# data = yf.download(tickers, period='2y')
+
+# Inspect columns to understand exact labels
+print(data.columns)
+
+# If columns are MultiIndex with first level as ticker and second as attribute:
+if isinstance(data.columns, pd.MultiIndex):
+    # Extract 'Adj Close' for each ticker safely
+    adj_close = pd.DataFrame({ticker: data[ticker]['Adj Close'] for ticker in tickers})
+else:
+    # If no multiindex columns, just select 'Adj Close'
+    adj_close = data['Adj Close']
+
+# Rename columns for clarity
+adj_close.columns = ['US 10Y Treasury Yield', 'S&P 500']
 
 # Calculate 100-period moving averages
 data['US 10Y MA100'] = data['US 10Y Treasury Yield'].rolling(window=100).mean()
