@@ -6,6 +6,8 @@ import yfinance as yf
 
 tickers = ['^TNX', '^GSPC']
 data = yf.download(tickers, period='2y')
+print(data.columns)
+
 
 # Flatten multi-index columns if present
 if isinstance(data.columns, pd.MultiIndex):
