@@ -14,6 +14,8 @@ import matplotlib.dates as mdates
 import math
 import emoji
 
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
 st.cache_data.clear()
@@ -972,7 +974,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
 # ✅ PLOT PREDICTIONS
 def PlotPredictions(df_results):
     
-    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     tickers = df_results['Ticker']
     tickers_list = tickers.tolist()
     
@@ -1028,9 +1029,9 @@ def PlotPredictions(df_results):
             else 'white'
         )
         
-        if "Bull" in row.Signal and row.Confidence > 70 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
+        if row.Confidence > 70 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
             ProbColor = 'green'
-        elif "Hold" in row.Signal and row.Confidence > 70 and str(row.Will_Hit).split()[0] in ['Hold']:
+        elif row.Confidence > 70 and str(row.Will_Hit).split()[0] in ['Hold']:
             ProbColor = 'orange'
         elif "Bear" in row.Signal and row.Confidence < 40 and str(row.Will_Hit).split()[0] == 'SL':
             ProbColor = 'red'
@@ -1243,6 +1244,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
