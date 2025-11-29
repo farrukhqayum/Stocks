@@ -65,6 +65,17 @@ HowTo = """
     - PE shouldn't be too high e.g. 50, 100 to be avoided or less traded.
 """  
 
+mistakes = """
+- Check the Pyschology Tab to understand common mistakes.
+- I got money, doesn't mean I am smart or I can beat the market.
+- I will like to win 5-days a week, but end up in zero-sum game.
+- Use Monthly Goal to establish a reasonable goal.
+- Learn how to stay on sidelines, when holding losses.
+- Learn how to stay in cash, it's hard to have cash in a brokerage account and don't trade. It's an art to have.
+- Learn splitting positions. First entry is alway wrong thus go 10-20%. Second entry is less wrong, thus go 30% of the remaining, and third a bit wrong where you can go another 30%. It's always wrong. But solid stocks do reverse a period to make money.
+- If ML says something else while the next day/week stock moves against, and you start thinking why ML is wrong, please stop using this app. Blaming for your own mistakes or not controlling emotions is the first thing to have.
+"""
+
 disclaimer = """
 ---
 - Trading involves substantial risk and may result in significant financial loss.
@@ -1182,7 +1193,9 @@ def run_app():
     
     with st.expander("Signals & Stocks Selection"):
         st.write(HowTo)
-        
+
+    with st.expander("Common Mistakes"):
+        st.write(mistakes)
     with st.expander("Disclaimer"):
         st.write(disclaimer)
 
@@ -1264,4 +1277,5 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
