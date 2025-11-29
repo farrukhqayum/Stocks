@@ -3,7 +3,7 @@ import pandas as pd
 import altair as alt
 import yfinance as yf
 
-tickers = ['^TNX', '^GSPC']
+tickers = ['^TNX', '^GSPC', ^VIX]
 data = yf.download(tickers, period='10y')
 
 def get_adj_close(df, ticker):
@@ -25,13 +25,15 @@ def get_adj_close(df, ticker):
 
 adj_close = pd.DataFrame({
     'US 10Y Treasury Yield': get_adj_close(data, '^TNX'),
-    'S&P 500': get_adj_close(data, '^GSPC')
+    'S&P 500': get_adj_close(data, '^GSPC'),
+    'VIX': get_adj_close(data, '^VIX')
 })
 
 
-# Calculate 100-period moving averages
+# Calculate moving averages
 adj_close['US 10Y MA200'] = adj_close['US 10Y Treasury Yield'].rolling(200).mean()
 adj_close['S&P 500 MA200'] = adj_close['S&P 500'].rolling(200).mean()
+adj_close['VIX MA200'] = adj_close['VIX'].rolling(200).mean() 
 
 # Reset index for Altair plotting
 df = adj_close.reset_index()
@@ -41,7 +43,8 @@ df_melted = df.melt(
     id_vars=['Date'],
     value_vars=[
         'US 10Y Treasury Yield', 'US 10Y MA200',
-        'S&P 500', 'S&P 500 MA200'
+        'S&P 500', 'S&P 500 MA200',
+        'VIX', 'VIX MA200'  # Added VIX series
     ],
     var_name='Series',
     value_name='Value'
@@ -76,9 +79,16 @@ sp500_chart = base.transform_filter(
     )
 ).mark_line().properties(height=chart_height, title='S&P 500 and 200-period MA')
 
-# Combine vertically
-final_chart = alt.vconcat(yield_chart, sp500_chart).resolve_scale(x='shared')
+# VIX chart
+vix_chart = base.transform_filter(
+    alt.FieldOneOfPredicate(
+        field='Series',
+        oneOf=['VIX', 'VIX MA200']
+    )
+).mark_line().properties(height=chart_height, title='VIX and 200-period MA')
 
+# Combine vertically
+final_chart = alt.vconcat(yield_chart, sp500_chart, vix_chart).resolve_scale(x='shared')
 st.title("US 10Y Treasury Yield and S&P 500")
 st.altair_chart(final_chart, use_container_width=True)
 
