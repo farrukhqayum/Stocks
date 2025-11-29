@@ -55,8 +55,8 @@ base = alt.Chart(df_melted).encode(
     x='Date:T',
     y='Value:Q',
     color=alt.Color(
-            "series:N",
-            legend=alt.Legend(orient="top-left")  # puts legend inside, top-left
+        "Series:N",
+        legend=alt.Legend(orient="top-left")  # puts legend inside, top-left
     )
 )
 
