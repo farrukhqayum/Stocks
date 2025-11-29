@@ -137,6 +137,10 @@ for asset, w in weights.items():
 money_flow_s = money_flow.rolling(3).mean()
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
+# GLOBAL ROLLING CORRELATION SETTINGS
+cw_ = 21  # 21-day rolling correlation window
+money_flow_s = money_flow_s.squeeze()  # Ensure Series for ALL uses
+
 # --- MOMENTUM (RATE OF CHANGE %) ---
 money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
 money_flow_momentum = money_flow_momentum.fillna(0)
@@ -209,7 +213,6 @@ st.altair_chart(curve_chart+smooth_chart, use_container_width=True)
 st.altair_chart(final_chart, use_container_width=True)
 
 # --- MOMENTUM CHART ---
-
 momentum_chart = (
     alt.Chart(df_plot)
     .mark_bar()
@@ -271,7 +274,7 @@ with st.expander(" 🧠 Correlation Matrix"):
     """)
     
     corr_matrix = data.corr()
-    corr_matrix.index.name = 'Asset1'    # Set a proper name for the index
+    corr_matrix.index.name = 'Asset1'    
     corr_melt = corr_matrix.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
     corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
     
@@ -288,7 +291,6 @@ with st.expander(" 🧠 Correlation Matrix"):
         .properties(title="🔥 Pairwise Asset Correlation Heatmap")
     )
     
-    # Annotations (black, 2 decimals, smaller font to avoid overlap)
     text = (
         alt.Chart(corr_melt)
         .mark_text(baseline='middle', align='center', fontSize=10, color='black')
@@ -315,6 +317,7 @@ st.markdown("""
 - Use the left panel to choose and press ENTER.
 """)
 user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
+
 raw = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
 
 # Extract 'Adj Close' or 'Close' safely
@@ -335,19 +338,23 @@ else:
 
 user_stock_data = user_stock_data.fillna(method='ffill')
 smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
-smoothed.iloc[-1] = user_stock_data.iloc[-1]
+smoothed.iloc[-1] = user_stock_data.iloc[-1]  # Override last value
 
 if normalize_start:
     smoothed = smoothed / smoothed.iloc[0] * 100
 
-money_flow_s = money_flow_s.squeeze()
-user_stock_series = smoothed.squeeze()
-money_flow_aligned, user_stock_aligned = money_flow_s.align(user_stock_series, join='inner')
+gf_single, stk_single = money_flow_s.align(smoothed.squeeze(), join='inner')
+if len(gf_single) >= cw_:
+    rolling_corr_single = gf_single.rolling(cw_, min_periods=cw_//2).corr(stk_single)
+    latest_corr = round(rolling_corr_single.iloc[-1] * 100, 1)
+else:
+    latest_corr = float('nan')
 
+# Create plotting data
 combined_df = pd.DataFrame({
-    "Date": money_flow_aligned.index,
-    "Global Money Flow": money_flow_aligned,
-    "Stock Price": user_stock_aligned
+    "Date": gf_single.index,
+    "Global Money Flow": gf_single,
+    "Stock Price": stk_single
 })
 
 combined_long_df = combined_df.melt(
@@ -357,10 +364,6 @@ combined_long_df = combined_df.melt(
     value_name='Value'
 )
 
-cw_ = 21
-combined_df['Correlation'] = combined_df['Global Money Flow'].rolling(cw_).corr(combined_df['Stock Price'])
-latest_corr = combined_df['Correlation'].iloc[-1]*100
-
 correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
     align='center',
     baseline='top',
@@ -369,7 +372,7 @@ correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
 ).encode(
     x=alt.value(400), 
     y=alt.value(10),
-    text=alt.value(f'{cw_}D Correlation: {latest_corr:.3f}')
+    text=alt.value(f'{cw_}D Correlation: {latest_corr:.1f}')
 )
 
 base = alt.Chart(combined_long_df).encode(x='Date:T')
@@ -407,8 +410,6 @@ combined_chart = alt.layer(
 final_chart = combined_chart + correlation_text
 st.altair_chart(final_chart, use_container_width=True)
 
-# MULTIPLE TICKERS CORRELATION WITH GLOBAL MARKET
-
 tickers_input = st.text_input("Enter tickers separated by commas (min 5 required):", value="COIN,MSTR,TSLA,GOOG,NVDA,META,NFLX")
 
 ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
@@ -417,9 +418,9 @@ if len(ticker_list) < 5:
     st.error("Please enter at least 5 tickers.")
     st.stop()
 
-all_tickers_dict = {t: t for t in ticker_list}  # use ticker string as key and value
+all_tickers_dict = {t: t for t in ticker_list}
 try:
-    all_data = load_data(all_tickers_dict, start=start_date, end=end_date)
+    all_data = load_data(all_tickers_dict, start_date, end_date)
 except Exception as e:
     st.error(f"Failed to load data for tickers: {e}")
     st.stop()
@@ -433,12 +434,13 @@ for ticker in ticker_list:
             continue
 
         series = all_data[ticker].fillna(method='ffill')
-        series.iloc[-1] = all_data[ticker].iloc[-1]
+        smoothed_multi = series.rolling(window=5, min_periods=1).mean()
+        smoothed_multi.iloc[-1] = series.iloc[-1]  # Override last value
         
-        if normalize_start and not series.isnull().all():
-            series = series / series.iloc[0] * 100
+        if normalize_start and not smoothed_multi.isnull().all():
+            smoothed_multi = smoothed_multi / smoothed_multi.iloc[0] * 100
             
-        gf, stk = money_flow_s.align(series.squeeze(), join='inner')
+        gf, stk = money_flow_s.align(smoothed_multi.squeeze(), join='inner')
         if len(gf) >= cw_ and gf.count() > 0 and stk.count() > 0:
             rolling_corr = gf.rolling(cw_, min_periods=cw_//2).corr(stk)
             latest_corr = round(rolling_corr.iloc[-1] * 100, 1)
@@ -453,5 +455,5 @@ for ticker in ticker_list:
 corr_df = pd.DataFrame(corr_results).dropna()
 corr_df = corr_df.sort_values('Correlation %')
 
-st.markdown("### Correlation with Global Money Flow")
+st.markdown(f"### {cw_}-Day Rolling Correlation with Global Money Flow (Latest)")
 st.dataframe(corr_df, use_container_width=False, height=600, width=700)
