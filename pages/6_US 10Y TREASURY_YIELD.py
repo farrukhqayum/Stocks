@@ -54,7 +54,10 @@ chart_height = 300
 base = alt.Chart(df_melted).encode(
     x='Date:T',
     y='Value:Q',
-    color='Series:N'
+    color=alt.Color(
+            "series:N",
+            legend=alt.Legend(orient="top-left")  # puts legend inside, top-left
+    )
 )
 
 # Yield chart
