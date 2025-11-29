@@ -72,7 +72,7 @@ mistakes = """
 - Use Monthly Goal to establish a reasonable goal.
 - Learn how to stay on sidelines, when holding losses.
 - Learn how to stay in cash, it's hard to have cash in a brokerage account and don't trade. It's an art to have.
-- Learn splitting positions. First entry is alway wrong thus go 10-20%. Second entry is less wrong, thus go 30% of the remaining, and third a bit wrong where you can go another 30%. It's always wrong. But solid stocks do reverse a period to make money.
+- Learn splitting positions. First entry is alway wrong thus go 10-20%. Second entry is less wrong, thus go 30% of the remaining, and third a bit wrong where you can go another 30%. It's always wrong. But solid stocks do reverse - a period to make money in a reverse order.
 - If ML says something else while the next day/week stock moves against, and you start thinking why ML is wrong, please stop using this app. Blaming for your own mistakes or not controlling emotions is the first thing to have.
 """
 
@@ -1277,5 +1277,6 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
