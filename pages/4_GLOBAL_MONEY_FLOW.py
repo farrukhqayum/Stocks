@@ -310,7 +310,7 @@ with st.expander(" 🧠 Correlation Matrix"):
         """)
 
 st.markdown("""
-###  💹 📈  STUDY A STOCK WITH MONEY FLOW
+###  💹 📈  STUDY STOCKS WITH MONEY FLOW
 - Provide the ticker and study its normalized graph in relation to global money flow.
 - Use the left panel to choose and press ENTER.
 """)
@@ -451,5 +451,5 @@ for ticker in ticker_list:
 corr_df = pd.DataFrame(corr_results).dropna()
 corr_df = corr_df.sort_values('Correlation %')
 
-st.markdown("### Given List's Correlation with Global Money Flow")
+st.markdown("### Correlation with Global Money Flow")
 st.dataframe(corr_df, use_container_width=False, height=600, width=700)
