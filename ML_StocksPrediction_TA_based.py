@@ -27,64 +27,69 @@ bold = '\033[1m'
 end = '\033[0m'
 
 desc = """  
-- Machine learning/training of technical indicators
-- Trade signals include (Signals, hit-probability, and hit direction)
-- Use tables to find the strong stocks, and use the chart to stay in bullish trend. 
-    - SEE THE CHART FOR THE TICKER YOU ARE INTERESTED IN:
-        - BUY-TIMES: Colored green to BTD-BUY THE DIP
-        - SELL-TIMES: Colored red to SELL-THE-RISE
-        - NEUTRAL: Hold if in the buy times, else stay side-lines, avoid revenge trading/FOMO.
-        - STRONG BUYS: Dominate when RSI recovers from bearish zone and is above its SMA (RSI) in yellow and price is above averages.
-        - STRONG SELLS: Dominate when RSI is below 42 and falls below. When RSI below 30 it doesnt mean it will rebound but it may stay there for a while.
-        - BUY LATE THAN EARLY if chasing 3-10% gains in a swing trade.
-- AVOID CHASING
-    - Opportunities are daily, weekly or monthly, don't grab them all.
-    - Chase double bottoms, candles on monthly, or weekly, avoid daily. Decide trend reversals and enter strategically.
-    - Your gut is always wrong, but sometimes you do need a gut-feeling.
-    - Risk 5% not more than that as post-covids, there are more day-traders.
-    - Split a decision into three or two buys, and two or three sells.
-    - Better trades are on weekly time-frame, entries could be 4H or 1H decision.
-- USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
-"""
+- Machine learning models train technical indicators
+- Trade signals include signal type, hit probability, and direction
+- Use tables to identify strong stocks and charts to confirm bullish trends
+    - **SEE THE CHART FOR YOUR TICKER OF INTEREST**:
+        - **BUY TIMES**: Green areas signal "Buy the Dip" (BTD) opportunities
+        - **SELL TIMES**: Red areas signal "Sell the Rally" opportunities
+        - **NEUTRAL**: Hold during buy zones; stay in cash otherwise (avoid FOMO/revenge trading)
+        - **STRONG BUYS**: Occur when RSI recovers from oversold (<30), crosses above its SMA (yellow line), and price > moving averages
+        - **STRONG SELLS**: Occur when RSI <42 and declining (RSI <30 doesn't guarantee rebound)
+        - **Buy late rather than early** when chasing 3-10% swing trade gains
+- **AVOID CHASING**:
+    - Opportunities occur daily/weekly/monthly—don't take every one
+    - Focus on double bottoms, weekly/monthly candles; avoid daily noise
+    - Trust the system over gut feelings (though intuition has occasional value)
+    - Risk ≤5% per trade (increased retail participation post-COVID)
+    - Split entries: 2-3 buys, 2-3 sells per position
+    - Best trades form on weekly timeframes; enter on 4H/1H confirmation
+- **USE DIVERGENCE**: Identifies market swing highs/lows for 4-6 month holds
+""" 
 
 HowTo = """ 
-- WAIT for Days/Weeks, until ML gives a signal for "TP, Hold, or None" with confidence.
-- Higher the confidence the better the chance.
-- 'SL' is far, TP is small and logical, e.g. 3-7%. 
+- **WAIT** for days/weeks until ML signals "TP", "Hold", or "None" with high confidence
+- Higher confidence = higher probability of success
+- **SL** (stop-loss) should be distant; **TP** (take-profit) small/logical (3-7%)
 
-- Entry criteria, test in the past-performance tab. Understand your stock.
-    - Use logics like, max holding days, SL when the stock falls below averages.
-    - Wait for future signal.
-    - Avoid trading as a 'BULL' in a 'BEAR MARKET'.
-    
-- Preference should be given to the stocks having:
-    - Good Market Cap (e.g. 10B, 50B, 100B or higher).
-    - Stock price is higher where there are less retailers e.g. penny stocks to be avoided. Preference should be given to stocks of value $100, $500.
-    - Less correlation with Global Money Flow.
-    - Beta defines volatility, 2-3 for solid stocks is decent.
-    - PE shouldn't be too high e.g. 50, 100 to be avoided or less traded.
+- **Entry criteria** (test in Past Performance tab):
+    - Define max holding period, SL below key averages
+    - Wait for next signal confirmation
+    - **Never trade bullishly in bear markets**
+
+- **Prefer stocks with**:
+    - Strong market cap (≥$10B)
+    - Higher price levels (avoid penny stocks; prefer $100+ shares)
+    - Low correlation to global money flows
+    - Beta 2-3 (solid volatility)
+    - Reasonable P/E (avoid 50+ or illiquid names)
 """  
 
 mistakes = """
-- Check the Pyschology Tab to understand common mistakes.
-- I got money, doesn't mean I am smart or I can beat the market.
-- I will like to win 5-days a week, but end up in zero-sum game.
-- Use Monthly Goal to establish a reasonable goal.
-- Learn how to stay on sidelines, when holding losses.
-- Learn how to stay in cash, it's hard to have cash in a brokerage account and don't trade. It's an art to have.
-- Learn splitting positions. First entry is alway wrong thus go 10-20%. Second entry is less wrong, thus go 30% of the remaining, and third a bit wrong where you can go another 30%. It's always wrong. But solid stocks do reverse - a period to make money in a reverse order.
-- If ML says something else while the next day/week stock moves against, and you start thinking why ML is wrong, please stop using this app. Blaming for your own mistakes or not controlling emotions is the first thing to have.
+- Review **Psychology Tab** for common pitfalls
+- Having money ≠ being smart or beating the market
+- Wanting 5 wins/week leads to zero-sum losses
+- Set realistic **Monthly Goals**
+- Master staying sidelined with losing positions
+- **Cash is king**: Discipline to hold cash without trading is an art
+- **Split positions systematically**:
+    - Entry 1: 10-20% (always wrong initially)
+    - Entry 2: 30% of remainder  
+    - Entry 3: Final 30% (solid stocks reverse)
+- **If ML signal fails but stock moves against you**: Stop using this app
+  Blaming the system or poor emotion control = biggest mistake
 """
 
 disclaimer = """
 ---
-- Trading involves substantial risk and may result in significant financial loss.
-- Past performance is not indicative of future results.
-- Always do your own research before making any investment or trading decisions.
-- The information provided is for educational and informational purposes only.
-- Trade at your own risk.
+- Trading involves substantial risk of financial loss  
+- Past performance does not predict future results  
+- Always conduct your own research  
+- Information is educational only—not financial advice  
+- **Trade at your own risk**  
 ---
 """
+
 
 today = datetime.now().strftime('%Y-%m-%d')
 
@@ -1277,6 +1282,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
