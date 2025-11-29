@@ -433,10 +433,11 @@ for ticker in ticker_list:
             continue
 
         series = all_data[ticker].fillna(method='ffill')
-
+        series.iloc[-1] = all_data[ticker].iloc[-1]
+        
         if normalize_start and not series.isnull().all():
             series = series / series.iloc[0] * 100
-
+            
         gf, stk = money_flow_s.align(series.squeeze(), join='inner')
         if len(gf) >= cw_ and gf.count() > 0 and stk.count() > 0:
             rolling_corr = gf.rolling(cw_, min_periods=cw_//2).corr(stk)
