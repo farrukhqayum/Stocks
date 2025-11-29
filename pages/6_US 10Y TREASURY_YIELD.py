@@ -139,5 +139,27 @@ This is why the S&P 500 and the 10Y yield often move in opposite directions.
 
 """)
 
+st.markdown("""
+### ✅ VIX — Simple Explanation
+
+**What is the VIX?**
+- The VIX (CBOE Volatility Index) measures expected S&P 500 volatility over the next 30 days
+- Known as the "fear index" — spikes during market crashes, drops during calm periods [web:11]
+
+### ✅ Why VIX Matters for Trading
+
+**1. Inverse Relationship with S&P 500**
+- VIX rises → S&P 500 typically falls (fear drives selling)
+- VIX falls → S&P 500 typically rises (confidence returns)
+
+**2. Key Trading Signals**
+- VIX > 30: Extreme fear (potential buying opportunity)
+- VIX < 15: Complacency (potential risk of correction)
+- VIX spikes often precede S&P 500 bottoms
+
+**3. Perfect Companion to Your Current Charts**
+- Shows when S&P 500 moves are "panicky" vs "orderly"
+- VIX + Yield + S&P 500 = complete market regime picture [web:12]
+""")
 
 
