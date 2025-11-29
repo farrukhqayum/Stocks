@@ -20,7 +20,7 @@ st.title("🤖 TEST ML Strategy Using Daily Data")
 with st.expander("Strategy Overview"):
     st.markdown("""
 - **Daily Trend Filter:** 1D Time-frame data only to learn if the given stock is profitable.
-- **ML Entry Signals:** Entries occur at daily close when the ML model predicts a bullish move ("TP", "Hold", or "None") with confidence above the threshold (Try 20%).
+- **ML Entry Signals:** Entries occur at daily close when the ML model predicts a bullish move ("TP", "Hold", or "None") with confidence above the threshold (Try 60%).
 - **Trade Entry:** Opens a single position if not already holding a trade and entry signal conditions are met.
 - **Trade Exit:** Closes a position when price reaches (TP) or (SL), or after maximum allowed holding days.
 - **Sequential Trading:** The strategy waits for the current trade to close before opening a new one—no overlapping trades.
@@ -65,7 +65,7 @@ with st.expander("Try ETH-USD or XRP-USD"):
     st.markdown("""
 - 7% TP target
 - Put SL far away like 50%
-- Put ML Confidence to 20%
+- Put ML Confidence to 60-70%
     """)
 
 # -------------------------
