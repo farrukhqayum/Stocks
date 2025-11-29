@@ -138,7 +138,7 @@ money_flow_s = money_flow.rolling(3).mean()
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
 # GLOBAL ROLLING CORRELATION SETTINGS
-cw_ = 21  # 21-day rolling correlation window
+cw_ = 21 
 money_flow_s = money_flow_s.squeeze()  # Ensure Series for ALL uses
 
 # --- MOMENTUM (RATE OF CHANGE %) ---
@@ -455,5 +455,5 @@ for ticker in ticker_list:
 corr_df = pd.DataFrame(corr_results).dropna()
 corr_df = corr_df.sort_values('Correlation %')
 
-st.markdown(f"### {cw_}-Day Rolling Correlation with Global Money Flow (Latest)")
+st.markdown(f"### {cw_}D - Correlation with Global Money Flow")
 st.dataframe(corr_df, use_container_width=False, height=600, width=700)
