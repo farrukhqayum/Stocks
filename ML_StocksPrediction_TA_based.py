@@ -47,6 +47,21 @@ desc = """
 - USE DIVERGENCE: For market swings (lows, tops) if you plan to trade for 4-6 months hold
 """
 
+HowTo = """ 
+- WAIT for Days/Weeks, until ML gives a signal for "TP, Hold, or None" with confidence.
+- Higher the confidence the better the chance.
+- 'SL' is far, TP is small and logical, e.g. 3-7%. 
+- Entry criteria, test in the past-performance tab. Understand your stock.
+    - Use logics like, max holding days, SL when the stock falls below averages.
+    - Wait for future signal.
+    - Avoid trading as a 'BULL' in a 'BEAR MARKET'.
+- Preference is on the stocks:
+    - Decent Market Cap (e.g. 10B, 50B, 100B or higher).
+    - Stock price is higher where there are less retailers e.g. penny stocks to be avoided. Preference should be given to stocks of value $100, $500.
+    - Less correlation with Global Money Flow
+    - Beta defines volatility, 2-3 for solid stocks is decent.
+    - PE shouldn't be too high e.g. 50, 100 to be avoided or less traded.
+"""  
 
 disclaimer = """
 ---
@@ -1162,10 +1177,13 @@ def run_app():
 
     with st.expander("Positional/Swing Trading Guidance"):
         st.write(desc)  
+    
+    with st.expander("Signals & Stocks Selection"):
+        st.write(HowTo)
         
     with st.expander("Disclaimer"):
         st.write(disclaimer)
-        
+
     #st.header("Machine Learning Signals (Technical Analysis)")  
     st.title("📈 Machine Learning Signals (TA)")
 
@@ -1244,35 +1262,3 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
