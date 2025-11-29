@@ -3,8 +3,17 @@ import pandas as pd
 import altair as alt
 import yfinance as yf
 
+years = st.number_input(
+    "Enter number of years of data to fetch:",
+    min_value=1,
+    max_value=50,
+    value=10,  # default
+    step=1
+)
+p = f"{years}y"
+
 tickers = ['^TNX', '^GSPC', '^VIX']
-data = yf.download(tickers, period='10y')
+data = yf.download(tickers, period=p)
 
 def get_adj_close(df, ticker):
     # Case 1: MultiIndex (standard stocks)
@@ -144,7 +153,7 @@ st.markdown("""
 
 **What is the VIX?**
 - The VIX (CBOE Volatility Index) measures expected S&P 500 volatility over the next 30 days
-- Known as the "fear index" — spikes during market crashes, drops during calm periods [web:11]
+- Known as the "fear index" — spikes during market crashes, drops during calm periods
 
 ### ✅ Why VIX Matters for Trading
 
@@ -159,7 +168,7 @@ st.markdown("""
 
 **3. Perfect Companion to Your Current Charts**
 - Shows when S&P 500 moves are "panicky" vs "orderly"
-- VIX + Yield + S&P 500 = complete market regime picture [web:12]
+- VIX + Yield + S&P 500 = complete market regime picture
 """)
 
 
