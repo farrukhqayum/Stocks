@@ -3,7 +3,7 @@ import pandas as pd
 import altair as alt
 import yfinance as yf
 
-tickers = ['^TNX', '^GSPC', ^VIX]
+tickers = ['^TNX', '^GSPC', '^VIX']
 data = yf.download(tickers, period='10y')
 
 def get_adj_close(df, ticker):
