@@ -438,9 +438,10 @@ for ticker in ticker_list:
             series = series / series.iloc[0] * 100
 
         gf, stk = money_flow_s.align(series.squeeze(), join='inner')
-        if gf.count() > 0 and stk.count() > 0:
-            corr_coef = round(gf.corr(stk)*100)
-            corr_results.append({'Ticker': ticker, 'Correlation %': corr_coef})
+        if len(gf) >= cw_ and gf.count() > 0 and stk.count() > 0:
+            rolling_corr = gf.rolling(cw_, min_periods=cw_//2).corr(stk)
+            latest_corr = round(rolling_corr.iloc[-1] * 100, 1)
+            corr_results.append({'Ticker': ticker, 'Correlation %': latest_corr})
         else:
             corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
