@@ -158,7 +158,7 @@ elif -10 <= latest_momentum < -1:
     sentiment_color = "#dc2626"
 elif latest_momentum < -10:
     sentiment = "🟠 **Risk-on Bottoming**"
-    sentiment_color = "#ff6600"
+    sentiment_color = "#ff8533"
 else:
     sentiment = "⚪ **Neutral**"
     sentiment_color = "#a3a3a3"
