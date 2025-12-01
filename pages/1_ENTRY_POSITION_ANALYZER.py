@@ -865,12 +865,13 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         
         ax1.add_artist(hint)
         ax1.add_artist(entry_desc)
-        textbox.set_clip_on(True)
-        textbox.set_in_layout(True)
-        textbox.set_zorder(100)
-        textbox.patch.set_facecolor('honeydew')
-        textbox.patch.set_edgecolor('darkgreen')
-        textbox.patch.set_alpha(0.8)
+        hint.set_clip_on(True)
+        hint.set_in_layout(True)
+        hint.set_zorder(100)
+        hint.patch.set_facecolor('honeydew')
+        hint.patch.set_edgecolor('darkgreen')
+        hint.patch.set_alpha(0.8)
+        entry_desc.patch.set_alpha(0.8)
         
         # Assessment annotation
         color_map = {'Valid': 'green', 'Risky': 'orange', 'Wait and See': 'red'}
