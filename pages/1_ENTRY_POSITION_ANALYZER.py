@@ -840,6 +840,30 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         borderpad=1.5,
         prop=dict(size=10, color='gray', weight='bold')
         )
+
+        latest = df.iloc[-1]
+
+        entry_text = "Entry is during "
+        cl = "gray"
+        
+        if latest["Bull"] and entry_price > latest["EMA2"]:
+            entry_text += "Bull Times."
+            cl = "green"
+        elif latest["Bear"] and entry_price > latest["EMA2"]:
+            entry_text += "Bear Times."
+            cl = "red"
+        else:
+            entry_text += "Neutral times."
+        
+        textbox = AnchoredText(
+            entry_text,
+            loc="lower right",
+            frameon=True,
+            borderpad=1.5,
+            prop=dict(size=10, weight="bold"),
+        )
+
+        
         ax1.add_artist(textbox)
         textbox.set_clip_on(True)
         textbox.set_in_layout(True)
