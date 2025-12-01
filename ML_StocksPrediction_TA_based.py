@@ -680,26 +680,28 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ]
 
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
-    hit_interp = {
-        'TP': "bullish — consider buying or holding",
-        'SL': "bearish — exercise caution or consider selling",
-        'Hold': "hold current position — no immediate action",
-        'Short': "bearish short position — be cautious",
-        'None': "neutral — monitor market for clearer signals",
-    }
     
-    hit_interp = {
-        'TP': "bullish — consider buying or holding",
-        'SL': "bearish — exercise caution or consider selling",
-        'Hold': "hold current position — no immediate action",
-        'Short': "bearish short position — be cautious",
-        'None': "neutral — monitor market for clearer signals",
+    bull_case = {
+        'TP': "bullish — consider buying or holding.",
+        'Hold': "hold current position — no immediate action.",
+        'None': "Check other indicators & confidence."
     }
 
-    if clean_label in hit_interp and conf >= prob_threshold:
+    bear_case = {
+        'Short': "bearish short position — be cautious.",
+        'SL': "bearish — exercise caution or consider selling."
+    }
+    
+    if clean_label in bull_case and conf > 50:
         action = (
-            f"{ticker} is {hit_interp[clean_label]}, "
-            f"Hits: {will_hit_str} with confidence {conf:.0f}%."
+            f"ML signal of {ticker} is {hit_interp[clean_label]}, "
+            f"Hits: {will_hit_str} & ML confidence is {conf:.0f}%."
+        )
+    
+    elif clean_label in bear_case and conf < 40:
+        action = (
+            f"ML signal of {ticker} is {hit_interp[clean_label]}, "
+            f"Hits: {will_hit_str} & ML confidence is {conf:.0f}%."
         )
     else:
         action = f"{ticker} is neutral; monitor for clearer signals."
@@ -1289,6 +1291,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
