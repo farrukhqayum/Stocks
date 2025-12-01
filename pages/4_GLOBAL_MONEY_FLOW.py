@@ -456,4 +456,4 @@ corr_df = pd.DataFrame(corr_results).dropna()
 corr_df = corr_df.sort_values('Correlation %')
 
 st.markdown(f"### {cw_}D - Correlation with Global Money Flow")
-st.dataframe(corr_df, use_container_width=False, height=600, width=700)
+st.dataframe(corr_df, use_container_width=False, height=500, width=300)
