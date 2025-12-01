@@ -833,7 +833,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.legend(loc='upper left', fontsize='x-small')
         ax1.grid(True, alpha=0.5)
 
-        textbox = AnchoredText(
+        hint = AnchoredText(
         "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
         loc='lower left',
         frameon=True,
@@ -855,16 +855,16 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         else:
             entry_text += "Neutral times."
         
-        textbox = AnchoredText(
+        entry_desc = AnchoredText(
             entry_text,
             loc="lower right",
             frameon=True,
             borderpad=1.5,
             prop=dict(size=10, weight="bold"),
         )
-
         
-        ax1.add_artist(textbox)
+        ax1.add_artist(hint)
+        ax1.add_artist(entry_desc)
         textbox.set_clip_on(True)
         textbox.set_in_layout(True)
         textbox.set_zorder(100)
