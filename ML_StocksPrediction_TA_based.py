@@ -621,7 +621,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         'yellow' if 'Hold' in predictions['Signal'] else
         'gray'
     )
-    _sigConf = f'{predictions.Signal}, {predictions.Risk}, Will Hit: {predictions.Will_Hit} [{int(predictions.Hit_Prob)}%]'
+    _sigConf = f'{predictions.Signal}, {predictions.Risk}, Will Hit: {predictions.Will_Hit} [Prob: {int(predictions.Hit_Prob)}%]'
     ax1.annotate(_sigConf, xy=(0.7, 0.95), xycoords='axes fraction', ha='right', va='top', fontsize=12, weight='bold', fontname='Segoe UI Emoji', bbox=dict(boxstyle='round', facecolor=signal_color, alpha=0.2, edgecolor=signal_color))
     ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, fontsize=50, color='grey', alpha=0.2, horizontalalignment='center', verticalalignment='center', rotation=0, weight='bold', style='italic')
     ax1.yaxis.tick_right()
@@ -1298,6 +1298,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
