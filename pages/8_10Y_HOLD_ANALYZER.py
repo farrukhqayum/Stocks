@@ -1,45 +1,4 @@
 import streamlit as st
-from financials import get_company_data
-from scoring import calculate_hold_score
-
-st.set_page_config(page_title="10-Year Hold Analyzer", layout="wide")
-
-st.title("📊 10-Year Stock Hold Analyzer")
-
-ticker = st.text_input("Enter stock ticker (ex: AAPL, COIN, TSLA)").upper()
-
-tailwind = st.selectbox("Is industry in a long-term tailwind?",
-                        ["Yes", "No", "Uncertain"])
-
-leader = st.selectbox("Is the company an industry leader?",
-                       ["Yes", "No", "Uncertain"])
-
-if st.button("Analyze stock"):
-
-    if ticker == "":
-        st.warning("Enter a stock symbol")
-    else:
-        data = get_company_data(ticker)
-
-        if data is None:
-            st.error("No data found")
-        else:
-            score, breakdown = calculate_hold_score(data, tailwind, leader)
-
-            st.subheader(f"✅ Final Hold Score: {score} / 10")
-
-            if score >= 8:
-                st.success("STRONG LONG-TERM HOLD")
-            elif score >= 5:
-                st.warning("CONDITIONAL HOLD - MONITOR ANNUALLY")
-            else:
-                st.error("NOT SUITABLE FOR LONG-TERM HOLD")
-
-            st.subheader("📌 Details")
-            for k, v in breakdown.items():
-                st.write(f"**{k}:** {v}")
-
-
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -149,3 +108,42 @@ def calculate_hold_score(data, tailwind, leader):
         breakdown["Market leader"] = "❌ No"
 
     return score, breakdown
+
+
+
+st.set_page_config(page_title="10-Year Hold Analyzer", layout="wide")
+
+st.title("📊 10-Year Stock Hold Analyzer")
+
+ticker = st.text_input("Enter stock ticker (ex: AAPL, COIN, TSLA)").upper()
+
+tailwind = st.selectbox("Is industry in a long-term tailwind?",
+                        ["Yes", "No", "Uncertain"])
+
+leader = st.selectbox("Is the company an industry leader?",
+                       ["Yes", "No", "Uncertain"])
+
+if st.button("Analyze stock"):
+
+    if ticker == "":
+        st.warning("Enter a stock symbol")
+    else:
+        data = get_company_data(ticker)
+
+        if data is None:
+            st.error("No data found")
+        else:
+            score, breakdown = calculate_hold_score(data, tailwind, leader)
+
+            st.subheader(f"✅ Final Hold Score: {score} / 10")
+
+            if score >= 8:
+                st.success("STRONG LONG-TERM HOLD")
+            elif score >= 5:
+                st.warning("CONDITIONAL HOLD - MONITOR ANNUALLY")
+            else:
+                st.error("NOT SUITABLE FOR LONG-TERM HOLD")
+
+            st.subheader("📌 Details")
+            for k, v in breakdown.items():
+                st.write(f"**{k}:** {v}")
