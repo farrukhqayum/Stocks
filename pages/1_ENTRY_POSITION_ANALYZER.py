@@ -871,7 +871,8 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         hint.patch.set_facecolor('honeydew')
         hint.patch.set_edgecolor('darkgreen')
         hint.patch.set_alpha(0.8)
-        entry_desc.patch.set_alpha(0.8)
+        entry_desc.patch.set_alpha(0.5)
+        entry_desc.txt._text.set_color(cl)
         
         # Assessment annotation
         color_map = {'Valid': 'green', 'Risky': 'orange', 'Wait and See': 'red'}
