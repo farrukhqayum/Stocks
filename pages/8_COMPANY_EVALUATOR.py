@@ -3,6 +3,21 @@ import yfinance as yf
 import numpy as np
 import pandas as pd
 
+# ----------------------------
+# PAGE CONFIG
+# ----------------------------
+st.set_page_config(
+    page_title="Company Evaluator",
+    page_icon="🔎",
+    layout="wide"
+)
+
+st.title("🔎 Company Strength & 10-Year Hold Score")
+
+
+# ----------------------------
+# DATA FETCH
+# ----------------------------
 def get_company_data(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -12,48 +27,59 @@ def get_company_data(ticker):
         info = stock.info
         sp500 = yf.Ticker("^GSPC")
 
-        # Revenue CAGR (last 5 yrs)
-        rev = income["Total Revenue"].dropna()
-        if len(rev) >= 2:
-            cagr = (rev[-1] / rev[0]) ** (1/len(rev)) - 1
+        # ✅ Revenue CAGR
+        if "Total Revenue" in income:
+            rev = income["Total Revenue"].dropna()
+            if len(rev) >= 2:
+                cagr = (rev.iloc[0] / rev.iloc[-1]) ** (1/len(rev)) - 1
+            else:
+                cagr = 0
         else:
             cagr = 0
 
-        # Gross margin
+        # ✅ Gross margin
         if "Gross Profit" in income and "Total Revenue" in income:
             margin = (income["Gross Profit"] / income["Total Revenue"]).mean()
         else:
             margin = 0
 
-        # Free Cash Flow
+        # ✅ Free Cash Flow
         if "Free Cash Flow" in cashflow:
             fcf = cashflow["Free Cash Flow"].mean()
         else:
             fcf = 0
 
-        # 3-year return
+        # ✅ 3-Year Performance
         stock_hist = stock.history(period="3y")
         sp_hist = sp500.history(period="3y")
 
-        stock_return = (stock_hist["Close"][-1] / stock_hist["Close"][0]) - 1
-        sp_return = (sp_hist["Close"][-1] / sp_hist["Close"][0]) - 1
+        if len(stock_hist) > 0 and len(sp_hist) > 0:
+            stock_return = (stock_hist["Close"][-1] / stock_hist["Close"][0]) - 1
+            sp_return = (sp_hist["Close"][-1] / sp_hist["Close"][0]) - 1
+        else:
+            stock_return = 0
+            sp_return = 0
 
-        # ✅ Get beta
+        # ✅ Beta
         beta = info.get("beta", None)
 
         return {
             "ticker": ticker,
-            "cagr": round(cagr * 100,2),
-            "margin": round(margin * 100,2),
-            "fcf": round(fcf,2),
-            "stock_3yr": round(stock_return * 100,2),
-            "sp_3yr": round(sp_return * 100,2),
+            "cagr": round(cagr * 100, 2),
+            "margin": round(margin * 100, 2),
+            "fcf": round(fcf, 2),
+            "stock_3yr": round(stock_return * 100, 2),
+            "sp_3yr": round(sp_return * 100, 2),
             "beta": beta
         }
 
-    except:
+    except Exception as e:
         return None
 
+
+# ----------------------------
+# VOLATILITY CLASSIFICATION
+# ----------------------------
 def classify_volatility(beta):
 
     if beta is None:
@@ -68,6 +94,10 @@ def classify_volatility(beta):
     else:
         return "Very Volatile", "🔴"
 
+
+# ----------------------------
+# SCORING SYSTEM
+# ----------------------------
 def calculate_hold_score(data, tailwind, leader):
 
     score = 0
@@ -110,43 +140,47 @@ def calculate_hold_score(data, tailwind, leader):
     # 5. Tailwind
     if tailwind == "Yes":
         score += 1
-        breakdown["Sector tailwind"] = "✅ Yes"
+        breakdown["Sector Tailwind"] = "✅ Yes"
     elif tailwind == "Uncertain":
-        summary = "⚠️ Uncertain"
-        breakdown["Sector tailwind"] = summary
+        breakdown["Sector Tailwind"] = "⚠️ Uncertain"
     else:
-        breakdown["Sector tailwind"] = "❌ No"
+        breakdown["Sector Tailwind"] = "❌ No"
 
     # 6. Leader
     if leader == "Yes":
         score += 1
-        breakdown["Market leader"] = "✅ Yes"
+        breakdown["Market Leader"] = "✅ Yes"
     elif leader == "Uncertain":
-        breakdown["Market leader"] = "⚠️ Uncertain"
+        breakdown["Market Leader"] = "⚠️ Uncertain"
     else:
-        breakdown["Market leader"] = "❌ No"
+        breakdown["Market Leader"] = "❌ No"
 
-    from scoring import classify_volatility
-
+    # 7. Beta (Volatility)
     vol_label, icon = classify_volatility(data["beta"])
-    breakdown["Beta / Volatility"] = f"{data['beta']}  →  {vol_label} {icon}"
-    vol = breakdown.get("Beta / Volatility")
+    breakdown["Beta / Volatility"] = f"{data['beta']} → {vol_label} {icon}"
 
-    st.subheader("⚡ Volatility Level")
-    st.info(vol)
+    # Optional penalty for extreme volatility
+    if data["beta"] and data["beta"] > 1.6:
+        score -= 1
+
     return score, breakdown
 
 
-st.set_page_config(page_title="10-Year Hold Analyzer", layout="wide")
-st.title("🤖 Company Quality & Hold Analyzer")
+# ==================================================
+# ================= STREAMLIT UI ===================
+# ==================================================
 
 ticker = st.text_input("Enter stock ticker (ex: AAPL, COIN, TSLA)").upper()
 
-tailwind = st.selectbox("Is industry in a long-term tailwind?",
-                        ["Yes", "No", "Uncertain"])
+tailwind = st.selectbox(
+    "Is industry in a long-term tailwind?",
+    ["Yes", "No", "Uncertain"]
+)
 
-leader = st.selectbox("Is the company an industry leader?",
-                       ["Yes", "No", "Uncertain"])
+leader = st.selectbox(
+    "Is the company an industry leader?",
+    ["Yes", "No", "Uncertain"]
+)
 
 if st.button("Analyze stock"):
 
@@ -156,11 +190,12 @@ if st.button("Analyze stock"):
         data = get_company_data(ticker)
 
         if data is None:
-            st.error("No data found")
+            st.error("No data found for this ticker")
         else:
+
             score, breakdown = calculate_hold_score(data, tailwind, leader)
 
-            st.subheader(f"✅ Final Hold Score: {score} / 10")
+            st.subheader(f"📊 Final Hold Score: {score} / 10")
 
             if score >= 8:
                 st.success("STRONG LONG-TERM HOLD")
@@ -169,6 +204,12 @@ if st.button("Analyze stock"):
             else:
                 st.error("NOT SUITABLE FOR LONG-TERM HOLD")
 
-            st.subheader("📌 Details")
-            for k, v in breakdown.items():
-                st.write(f"**{k}:** {v}")
+            # Volatility Highlight
+            vol = breakdown.get("Beta / Volatility")
+            st.subheader("⚡ Volatility Level")
+            st.info(vol)
+
+            # Details section
+            st.subheader("📌 Breakdown")
+            df = pd.DataFrame(breakdown.items(), columns=["Metric", "Status"])
+            st.table(df)
