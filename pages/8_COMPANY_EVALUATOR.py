@@ -89,10 +89,12 @@ def classify_volatility(beta):
         return "Stable", "✅"
     elif beta <= 1.2:
         return "Normal", "⚪"
-    elif beta <= 1.6:
-        return "Risky", "⚠️"
+    elif beta <= 1.8:
+        return "Volatile", "⚠️"
+    elif beta <=2.1:
+        return "Highly Volatile", "🔴"
     else:
-        return "Very Volatile", "🔴"
+        return "Emotionally Destructive", "🔴"
 
 
 # ----------------------------
