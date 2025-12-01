@@ -541,7 +541,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     hit_prob = predictions.Hit_Prob
     conf = predictions.Confidence
     will_hit_str = df_results.loc[df_results['Ticker'] == ticker, 'Will_Hit'].values[0]
-    prob_threshold = 40
+    prob_threshold = 70
     clean_label = re.sub(r'\(.*?\)|[\d\.]+', '', will_hit_str).strip()
     last_date = df.index[-1]
     future_date = last_date + pd.Timedelta(days=_window)
@@ -680,7 +680,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ]
 
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
-
+    
     hit_interp = {
         'TP': "bullish — consider buying or holding",
         'SL': "bearish — exercise caution or consider selling",
@@ -688,8 +688,17 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         'Short': "bearish short position — be cautious",
         'None': "neutral — monitor market for clearer signals",
     }
-
-    if clean_label in hit_interp and conf >= prob_threshold:
+    
+    # Fix 1: Use proper membership test
+    bullish_signals = ['TP', 'Hold']
+    bearish_signals = ['SL', 'Short']
+    
+    if clean_label in bullish_signals and conf >= prob_threshold:
+        action = (
+            f"{ticker} is {hit_interp[clean_label]}, "
+            f"Hits: {will_hit_str} with confidence {conf:.0f}%."
+        )
+    elif clean_label in bearish_signals and conf >= prob_threshold:  # Fix 2: >= not <=
         action = (
             f"{ticker} is {hit_interp[clean_label]}, "
             f"Hits: {will_hit_str} with confidence {conf:.0f}%."
@@ -1282,6 +1291,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
