@@ -90,7 +90,6 @@ disclaimer = """
 ---
 """
 
-
 today = datetime.now().strftime('%Y-%m-%d')
 
 _Nr = 50
@@ -694,7 +693,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     signal_text = bull_case.get(clean_label, 
                    bear_case.get(clean_label, "neutral — monitor for clearer signals."))
     
-    if clean_label in bull_case and conf >= 65
+    if clean_label in bull_case and conf >= 65:
         action = (
             f"ML signal of {ticker} is {signal_text} "
             f"Hits: {will_hit_str} & ML confidence is {conf:.0f}%."
@@ -1292,6 +1291,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
