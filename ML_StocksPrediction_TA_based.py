@@ -680,7 +680,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ]
 
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
-    
     hit_interp = {
         'TP': "bullish — consider buying or holding",
         'SL': "bearish — exercise caution or consider selling",
@@ -689,24 +688,20 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         'None': "neutral — monitor market for clearer signals",
     }
     
-    # Fix 1: Use proper membership test
+    # Safe lookup with fallback
+    interp_text = hit_interp.get(clean_label, "unknown signal")
     bullish_signals = ['TP', 'Hold']
     bearish_signals = ['SL', 'Short']
     
     if clean_label in bullish_signals and conf >= prob_threshold:
-        action = (
-            f"{ticker} is {hit_interp[clean_label]}, "
-            f"Hits: {will_hit_str} with confidence {conf:.0f}%."
-        )
-    elif clean_label in bearish_signals and conf >= prob_threshold:  # Fix 2: >= not <=
-        action = (
-            f"{ticker} is {hit_interp[clean_label]}, "
-            f"Hits: {will_hit_str} with confidence {conf:.0f}%."
-        )
+        action = f"{ticker} is {interp_text}, Hits: {will_hit_str} with confidence {conf:.0f}%."
+    elif clean_label in bearish_signals and conf >= prob_threshold:
+        action = f"{ticker} is {interp_text}, Hits: {will_hit_str} with confidence {conf:.0f}%.", 
     else:
         action = f"{ticker} is neutral; monitor for clearer signals."
     
     summary_lines.append(action)
+
 
     textbox = AnchoredText(
        action,
@@ -1291,6 +1286,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
