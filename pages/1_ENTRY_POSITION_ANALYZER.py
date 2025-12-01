@@ -846,14 +846,14 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         entry_text = "Entry is during "
         cl = "gray"
         
-        if latest["Bull"] and entry_price > latest["EMA2"]:
+        if latest["Bull"] and latest["EMA1"] > latest["EMA2"]:
             entry_text += "Bull Times."
             cl = "green"
-        elif latest["Bear"] and entry_price > latest["EMA2"]:
+        elif latest["Bear"] and latest["EMA1"] < latest["EMA2"]:
             entry_text += "Bear Times."
             cl = "red"
         else:
-            entry_text += "Neutral times."
+            entry_text += "Neutral Times."
         
         entry_desc = AnchoredText(
             entry_text,
