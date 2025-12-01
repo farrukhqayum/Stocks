@@ -681,9 +681,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
     
-   bull_case = {
-    'TP': "bullish — consider buying or holding.",
-    'Hold': "hold current position — no immediate action."
+    bull_case = {
+        'TP': "bullish — consider buying or holding.",
+        'Hold': "hold current position — no immediate action."
     }
     
     bear_case = {
@@ -691,6 +691,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         'SL': "bearish — exercise caution or consider selling."
     }
     
+    # Safe lookup with fallback
     signal_text = bull_case.get(clean_label, 
                    bear_case.get(clean_label, "neutral — monitor for clearer signals."))
     
@@ -1292,6 +1293,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
