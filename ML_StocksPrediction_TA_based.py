@@ -681,17 +681,17 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
     
     bull_case = {
-        'TP': "bullish — consider buying dips or holding.",
-        'Hold': "hold current position — no immediate action."
+        'TP': "BULLISH — consider buying dips or holding.",
+        'Hold': "HOLD current position — no immediate action."
     }
     
     bear_case = {
-        'Short': "bearish short position — be cautious.",
-        'SL': "bearish — exercise caution or consider selling."
+        'Short': "BEARISH: short position — be cautious.",
+        'SL': "BEARISH — exercise caution or consider selling."
     }
 
     signal_text = bull_case.get(clean_label, 
-                   bear_case.get(clean_label, "neutral — monitor for clearer signals."))
+                   bear_case.get(clean_label, "NEUTRAL — monitor for clearer signals."))
     
     if clean_label in bull_case and conf >= 65:
         action = (
@@ -711,7 +711,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
              f"ML Hits: {will_hit_str} & with confidence of {conf:.0f}%."
         )
     else:
-        action = f"{ticker} is neutral with confidence of ({conf:.0f}%); monitor for clearer signals."
+        action = f"{ticker} is NEUTRAL with confidence of ({conf:.0f}%); monitor for clearer signals."
         
     summary_lines.append(action)
 
@@ -1298,6 +1298,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
