@@ -9,6 +9,7 @@ def get_company_data(ticker):
 
         income = stock.financials.T
         cashflow = stock.cashflow.T
+        info = stock.info
         sp500 = yf.Ticker("^GSPC")
 
         # Revenue CAGR (last 5 yrs)
@@ -37,17 +38,35 @@ def get_company_data(ticker):
         stock_return = (stock_hist["Close"][-1] / stock_hist["Close"][0]) - 1
         sp_return = (sp_hist["Close"][-1] / sp_hist["Close"][0]) - 1
 
+        # ✅ Get beta
+        beta = info.get("beta", None)
+
         return {
             "ticker": ticker,
             "cagr": round(cagr * 100,2),
             "margin": round(margin * 100,2),
             "fcf": round(fcf,2),
             "stock_3yr": round(stock_return * 100,2),
-            "sp_3yr": round(sp_return * 100,2)
+            "sp_3yr": round(sp_return * 100,2),
+            "beta": beta
         }
 
     except:
         return None
+
+def classify_volatility(beta):
+
+    if beta is None:
+        return "Unknown", "⚠️"
+
+    if beta < 0.8:
+        return "Stable", "✅"
+    elif beta <= 1.2:
+        return "Normal", "⚪"
+    elif beta <= 1.6:
+        return "Risky", "⚠️"
+    else:
+        return "Very Volatile", "🔴"
 
 def calculate_hold_score(data, tailwind, leader):
 
@@ -107,8 +126,15 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Market leader"] = "❌ No"
 
-    return score, breakdown
+    from scoring import classify_volatility
 
+    vol_label, icon = classify_volatility(data["beta"])
+    breakdown["Beta / Volatility"] = f"{data['beta']}  →  {vol_label} {icon}"
+    vol = breakdown.get("Beta / Volatility")
+
+    st.subheader("⚡ Volatility Level")
+    st.info(vol)
+    return score, breakdown
 
 
 st.set_page_config(page_title="10-Year Hold Analyzer", layout="wide")
