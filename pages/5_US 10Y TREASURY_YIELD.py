@@ -7,7 +7,7 @@ years = st.number_input(
     "Enter number of years of data to fetch:",
     min_value=1,
     max_value=50,
-    value=10,  # default
+    value=5,
     step=1
 )
 p = f"{years}y"
