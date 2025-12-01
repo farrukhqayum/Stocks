@@ -699,7 +699,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             f"ML Hits: {will_hit_str} & with confidence of ({conf:.0f}%)."
         )
 
-    if clean_label in bull_case and conf.isbetween( 40.1, 64.9):
+    if clean_label in bull_case and 40.1 <= conf <= 64.9:
         action = (
             f"{ticker} is {signal_text} "
             f"with lower confidence ({conf:.0f}%)"
@@ -1298,6 +1298,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
