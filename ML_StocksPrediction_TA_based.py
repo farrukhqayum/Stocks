@@ -690,17 +690,16 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         'Short': "bearish short position — be cautious.",
         'SL': "bearish — exercise caution or consider selling."
     }
-    
-    # Safe lookup with fallback
+
     signal_text = bull_case.get(clean_label, 
                    bear_case.get(clean_label, "neutral — monitor for clearer signals."))
     
-    if clean_label in bull_case and conf >= 50:  # High conf for bulls
+    if clean_label in bull_case and conf >= 65
         action = (
             f"ML signal of {ticker} is {signal_text} "
             f"Hits: {will_hit_str} & ML confidence is {conf:.0f}%."
         )
-    elif clean_label in bear_case and conf >= 60:  # HIGHER threshold for bears (asymmetric risk)
+    elif clean_label in bear_case and conf <= 40:
         action = (
             f"ML signal of {ticker} is {signal_text} "
             f"Hits: {will_hit_str} & ML confidence is {conf:.0f}%."
@@ -1293,6 +1292,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
