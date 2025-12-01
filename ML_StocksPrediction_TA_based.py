@@ -681,31 +681,32 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
     
-    bull_case = {
-        'TP': "bullish — consider buying or holding.",
-        'Hold': "hold current position — no immediate action.",
-        'None': "Check other indicators & confidence."
+   bull_case = {
+    'TP': "bullish — consider buying or holding.",
+    'Hold': "hold current position — no immediate action."
     }
-
+    
     bear_case = {
         'Short': "bearish short position — be cautious.",
         'SL': "bearish — exercise caution or consider selling."
     }
     
-    if clean_label in bull_case and conf > 50:
+    signal_text = bull_case.get(clean_label, 
+                   bear_case.get(clean_label, "neutral — monitor for clearer signals."))
+    
+    if clean_label in bull_case and conf >= 50:  # High conf for bulls
         action = (
-            f"ML signal of {ticker} is {hit_interp[clean_label]}, "
+            f"ML signal of {ticker} is {signal_text} "
             f"Hits: {will_hit_str} & ML confidence is {conf:.0f}%."
         )
-    
-    elif clean_label in bear_case and conf < 40:
+    elif clean_label in bear_case and conf >= 60:  # HIGHER threshold for bears (asymmetric risk)
         action = (
-            f"ML signal of {ticker} is {hit_interp[clean_label]}, "
+            f"ML signal of {ticker} is {signal_text} "
             f"Hits: {will_hit_str} & ML confidence is {conf:.0f}%."
         )
     else:
         action = f"{ticker} is neutral; monitor for clearer signals."
-    
+        
     summary_lines.append(action)
 
     textbox = AnchoredText(
@@ -1291,6 +1292,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
