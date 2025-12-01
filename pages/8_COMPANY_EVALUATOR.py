@@ -112,8 +112,7 @@ def calculate_hold_score(data, tailwind, leader):
 
 
 st.set_page_config(page_title="10-Year Hold Analyzer", layout="wide")
-
-st.title("📊 10-Year Stock Hold Analyzer")
+st.title("🤖 Company Quality & Hold Analyzer")
 
 ticker = st.text_input("Enter stock ticker (ex: AAPL, COIN, TSLA)").upper()
 
