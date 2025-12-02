@@ -807,11 +807,12 @@ if st.button("Run ML Strategy Backtest"):
     sl_label_shown = True
     other_label_shown = True
     entry_annotated = True
-    for i in range(0, len(results), 1):
+    
+    for i in range(0, len(results), 2):
         outcome = results['Outcome'].iloc[i]
         color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'black'
         # Plot entry (all blue, no label)
-        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=7, zorder=5, alpha=0.5)
+        ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=5, zorder=5, alpha=0.5)
         # Plot exit by outcome
         label = None
         if outcome == 'TP' and 'TP' not in ax.get_legend_handles_labels()[1]:
