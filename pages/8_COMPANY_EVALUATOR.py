@@ -27,7 +27,7 @@ def get_company_data(ticker):
         info = stock.info
         sp500 = yf.Ticker("^GSPC")
 
-        # ✅ Revenue CAGR
+        # Revenue CAGR
         if "Total Revenue" in income:
             rev = income["Total Revenue"].dropna()
             if len(rev) >= 2:
@@ -37,19 +37,19 @@ def get_company_data(ticker):
         else:
             cagr = 0
 
-        # ✅ Gross margin
+        # Gross margin
         if "Gross Profit" in income and "Total Revenue" in income:
             margin = (income["Gross Profit"] / income["Total Revenue"]).mean()
         else:
             margin = 0
 
-        # ✅ Free Cash Flow
+        # Free Cash Flow
         if "Free Cash Flow" in cashflow:
             fcf = cashflow["Free Cash Flow"].mean()
         else:
             fcf = 0
 
-        # ✅ 3-Year Performance
+        # 3-Year Performance
         stock_hist = stock.history(period="3y")
         sp_hist = sp500.history(period="3y")
 
@@ -60,8 +60,25 @@ def get_company_data(ticker):
             stock_return = 0
             sp_return = 0
 
-        # ✅ Beta
+        # Beta
         beta = info.get("beta", None)
+
+        # P/E ratios
+        trailing_pe = info.get("trailingPE", None)
+        forward_pe = info.get("forwardPE", None)
+
+        # Debt metrics (simple proxies)
+        total_debt = info.get("totalDebt", None)            # latest total debt
+        total_assets = info.get("totalAssets", None)        # sometimes available
+        debt_to_equity = info.get("debtToEquity", None)     # Yahoo’s D/E if present
+
+        # Prefer Yahoo’s D/E; else compute debt/assets if both present
+        if debt_to_equity is not None:
+            debt_ratio = debt_to_equity
+        elif total_debt is not None and total_assets:
+            debt_ratio = total_debt / total_assets if total_assets != 0 else None
+        else:
+            debt_ratio = None
 
         return {
             "ticker": ticker,
@@ -70,11 +87,15 @@ def get_company_data(ticker):
             "fcf": round(fcf, 2),
             "stock_3yr": round(stock_return * 100, 2),
             "sp_3yr": round(sp_return * 100, 2),
-            "beta": beta
+            "beta": beta,
+            "trailing_pe": trailing_pe,
+            "forward_pe": forward_pe,
+            "debt_ratio": debt_ratio,
         }
 
-    except Exception as e:
+    except Exception:
         return None
+
 
 
 # ----------------------------
@@ -160,13 +181,38 @@ def calculate_hold_score(data, tailwind, leader):
     # 7. Beta (Volatility)
     vol_label, icon = classify_volatility(data["beta"])
     breakdown["Beta / Volatility"] = f"{data['beta']} → {vol_label} {icon}"
-
-    # Optional penalty for extreme volatility
     if data["beta"] and data["beta"] > 1.6:
         score -= 1
 
-    return score, breakdown
+    # 8. Valuation (P/E)
+    pe = data.get("trailing_pe")
+    if pe is not None:
+        if pe < 25:
+            score += 1
+            breakdown["P/E (Trailing)"] = f"{pe:.1f} ✅"
+        elif pe <= 40:
+            breakdown["P/E (Trailing)"] = f"{pe:.1f} ⚠️"
+        else:
+            score -= 1
+            breakdown["P/E (Trailing)"] = f"{pe:.1f} ❌"
+    else:
+        breakdown["P/E (Trailing)"] = "N/A ⚠️"
 
+    # 9. Leverage (Debt ratio)
+    dr = data.get("debt_ratio")
+    if dr is not None:
+        if dr < 0.5:
+            score += 1
+            breakdown["Debt Ratio (D/E or Debt/Assets)"] = f"{dr:.2f} ✅"
+        elif dr <= 1.5:
+            breakdown["Debt Ratio (D/E or Debt/Assets)"] = f"{dr:.2f} ⚠️"
+        else:
+            score -= 1
+            breakdown["Debt Ratio (D/E or Debt/Assets)"] = f"{dr:.2f} ❌"
+    else:
+        breakdown["Debt Ratio (D/E or Debt/Assets)"] = "N/A ⚠️"
+
+    return score, breakdown
 
 # ==================================================
 # ================= STREAMLIT UI ===================
