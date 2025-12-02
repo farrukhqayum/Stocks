@@ -724,14 +724,24 @@ if st.button("Run ML Strategy Backtest"):
 
     avg_holding_days = results['HoldingDays'].mean()
     
+    # Calculate no-trades days
+    if len(results) > 1:
+        results_sorted = results.sort_values('EntryDate').reset_index(drop=True)
+        results_sorted['NextEntryDate'] = results_sorted['EntryDate'].shift(-1)
+        results_sorted['NoTradeDays'] = (results_sorted['NextEntryDate'] - results_sorted['ExitDate']).dt.days
+        avg_no_trade_days = results_sorted['NoTradeDays'].dropna().mean()
+    else:
+        avg_no_trade_days = 0
+        
     # Display results
     st.subheader(f"📊 ML Strategy Summary ({ticker})")
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
-    col3.metric("Avg Return per Trade", f"{avg_return:.2f}%")
-    col4.metric("Avg Holding Days", f"{avg_holding_days:.2f}")
-    col5.metric("Net Return", f"{net_return_pct:.2f}%")
+    col3.metric("Avg Return per Trade", f"{avg_return:.1f}%")
+    col4.metric("Avg Holding Days", f"{avg_holding_days:.0f}")
+    col5.metric("Avg No-Trade Days", f"{avg_no_trade_days:.0f}")
+    col6.metric("Net Return", f"{net_return_pct:.1f}%")
 
     # Trade outcomes breakdown
     st.subheader("Trade Outcomes")
