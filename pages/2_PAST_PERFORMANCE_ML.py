@@ -796,7 +796,7 @@ if st.button("Run ML Strategy Backtest"):
     max_cum = results['Cumulative'].max()
     mean_cum = results['Cumulative'].mean()
     tick_values = [0, mean_cum, max_cum]
-    bx.set_ylim(0, max_cumulative *1.06)
+    bx.set_ylim(0, mean_cum *1.05)
     bx.set_yticks(tick_values)
 
     bx.axhline(1.0, color='red', linestyle='--', alpha=0.5)
