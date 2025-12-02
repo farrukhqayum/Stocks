@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🔎 Company Strength & 10-Year Hold Score")
+st.title("🔎 Company Evaluator & Hold Score")
 
 
 # ----------------------------
