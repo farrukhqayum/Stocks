@@ -745,7 +745,6 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         else:
             rr_ratio = 0
 
-    
         max_ratio = 10  # cap at 10:1
         log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
         max_log_ratio = np.log1p(max_ratio)
@@ -977,9 +976,9 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
         reasons.append(f"Signal: {will_hit} (Prob: {hit_prob:.1f}%)")
     
     # Confidence check
-    if confidence > 50:
+    if confidence > 70:
         reasons.append("High confidence")
-    elif confidence > 30:
+    elif confidence > 60:
         reasons.append("Moderate confidence")
     else:
         reasons.append("Low confidence")
@@ -988,7 +987,7 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     user_rr = user_gain / abs(user_loss) if user_loss != 0 else 0
     pred_rr = pred_return / abs(pred_loss) if pred_loss != 0 else 0
     
-    if (pred_rr > user_rr and pred_rr >= 1.5):
+    if (pred_rr > user_rr and pred_rr >= 1.25):
         reasons.append("Good risk-reward ratio")
     elif (pred_rr > user_rr and pred_rr >= 1):
         reasons.append("Moderate risk-reward ratio")
@@ -996,16 +995,16 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
         reasons.append("Poor risk-reward ratio")
     
     # Price proximity
-    if price_diff_pct > 5:
+    if price_diff_pct > 7:
         reasons.append("Entry price far from current price")
-    elif price_diff_pct > 2:
+    elif price_diff_pct > 4:
         reasons.append("Entry price moderately different")
     else:
         reasons.append("Entry price close to current")
     
     # Overall assessment
-    bullish_conditions = (will_hit in ['TP', 'Hold'] and hit_prob > 40 and confidence > 30 and pred_rr > 1.5)
-    risky_conditions = (will_hit in ['TP', 'Hold', 'None'] and pred_rr > 1.2)
+    bullish_conditions = (will_hit in ['TP', 'Hold'] and hit_prob > 40 and confidence > 60 and pred_rr > 1.4)
+    risky_conditions = (will_hit in ['TP', 'Hold', 'None'] and confidence > 50 and pred_rr > 1.2)
     
     if bullish_conditions and price_diff_pct <= 10:
         assessment = "Valid"
