@@ -260,4 +260,4 @@ if st.button("Analyze stock"):
             # Details section
             st.subheader("📌 Breakdown")
             df = pd.DataFrame(breakdown.items(), columns=["Metric", "Status"])
-            st.dataframe(df, height = 400, width = 300)
+            st.dataframe(df, height = 300, width = 400)
