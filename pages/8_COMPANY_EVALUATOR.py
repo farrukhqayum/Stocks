@@ -20,7 +20,7 @@ st.title("🔎 Company Evaluator & Hold Score")
 # ----------------------------
 def get_company_data(ticker):
     try:
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker).history(period="1d")
 
         income = stock.financials.T
         cashflow = stock.cashflow.T
