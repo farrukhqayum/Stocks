@@ -86,19 +86,17 @@ if ticker:
         pnl_pct = ((current_price - avg_cost) / avg_cost * 100) if avg_cost > 0 else 0
         st.metric("PnL %", f"{pnl_pct:.2f}%")
 
-        # Position breakdown chart
-        col1, col2 = st.columns([1, 2]) 
+        col1, col2 = st.columns([1, 2])
         with col1:
-            fig2, ax2 = plt.subplots(figsize=(7, 4))  # Reduced from (10,6) to (4,4)
-            weights = [30]
-            colors = ['#ff9999']
-            ax2.pie(weights, radius=0.8,  # Smaller radius
-                   colors=colors, 
-                   startangle=90,
-                   wedgeprops=dict(width=0.6, edgecolor='white'))  # Donut style, thinner
-            ax2.text(0, 0, f"${total_invested:.0f}\nTotal\nInvested", 
-                    ha='center', va='center', fontsize=12, fontweight='bold')
-            ax2.set_title("Position\nSummary", fontsize=12, fontweight='bold', pad=20)
+            fig2, ax2 = plt.subplots(figsize=(7, 4))
+            weights = entries_df['shares'].tolist()  # Each entry's shares as slice size
+            labels = [f"Entry {i+1}\n${(s * p):.0f}" for i, (s, p) in enumerate(zip(entries_df['shares'], entries_df['price']))]
+            colors = plt.cm.Set3(np.linspace(0, 1, len(weights)))  # Distinct colors for wedges
+        
+            ax2.pie(weights, labels=labels, colors=colors,
+                    autopct='%1.1f%%', startangle=90,
+                    wedgeprops=dict(width=0.6, edgecolor='white'))
+            ax2.set_title("Position Breakdown by Entry", fontsize=14, fontweight='bold')
             st.pyplot(fig2)
             plt.close(fig2)
 
