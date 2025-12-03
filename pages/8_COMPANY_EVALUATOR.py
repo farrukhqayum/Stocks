@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🔎 Company Strength & 10-Year Hold Score")
+st.title("🔎 Company Strength & Hold Score")
 
 def calculate_beta(stock_ticker, benchmark_ticker="^GSPC", period="5y"):
     try:
@@ -116,7 +116,7 @@ def get_company_data(ticker):
         fcf = 0
 
     # ----------------------------
-    # 3-Year Performance vs S&P 500
+    # 5-Year Performance vs S&P 500
     # ----------------------------
     try:
         hist = stock.history(period="3y")
