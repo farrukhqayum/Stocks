@@ -5,6 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import matplotlib.dates as mdates
+import warnings
+
+# Suppress matplotlib deprecation warnings [web:21][web:22]
+warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
 
 # Page config
 st.set_page_config(page_title="Stock Position Assessor", layout="wide")
