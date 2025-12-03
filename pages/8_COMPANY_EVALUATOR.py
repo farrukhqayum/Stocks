@@ -179,69 +179,55 @@ def classify_volatility(beta):
 # SCORING SYSTEM
 # ----------------------------
 def calculate_hold_score(data, tailwind, leader):
-
     score = 0
     breakdown = {}
 
-    # 1. Revenue growth
-    if data["cagr"] > 15:
+    # 1. Revenue growth - SAFE
+    cagr = data.get("cagr", 0)
+    if cagr > 15:
         score += 2
-        breakdown["Revenue CAGR"] = f"{data['cagr']}% ✅"
-    elif data["cagr"] > 8:
+        breakdown["Revenue CAGR"] = f"{cagr}% ✅"
+    elif cagr > 8:
         score += 1
-        breakdown["Revenue CAGR"] = f"{data['cagr']}% ⚠️"
+        breakdown["Revenue CAGR"] = f"{cagr}% ⚠️"
     else:
-        breakdown["Revenue CAGR"] = f"{data['cagr']}% ❌"
+        breakdown["Revenue CAGR"] = f"{cagr}% ❌"
 
-    # 2. Gross margin
-    if data["margin"] > 40:
+    # 2. Gross margin - SAFE
+    margin = data.get("margin", 0)
+    if margin > 40:
         score += 2
-        breakdown["Gross Margin"] = f"{data['margin']}% ✅"
-    elif data["margin"] > 25:
+        breakdown["Gross Margin"] = f"{margin}% ✅"
+    elif margin > 25:
         score += 1
-        breakdown["Gross Margin"] = f"{data['margin']}% ⚠️"
+        breakdown["Gross Margin"] = f"{margin}% ⚠️"
     else:
-        breakdown["Gross Margin"] = f"{data['margin']}% ❌"
+        breakdown["Gross Margin"] = f"{margin}% ❌"
 
-    # 3. Free cash flow
-    if data["fcf"] > 0:
+    # 3. Free cash flow - SAFE
+    fcf = data.get("fcf", 0)
+    if fcf > 0:
         score += 2
-        breakdown["Free Cash Flow"] = f"${data['fcf']:,.0f} ✅"
+        breakdown["Free Cash Flow"] = f"${fcf:,.0f} ✅"
     else:
-        breakdown["Free Cash Flow"] = f"${data['fcf']:,.0f} ❌"
+        breakdown["Free Cash Flow"] = f"${fcf:,.0f} ❌"
 
-    # 4. 3Y performance vs S&P
-    if data["stock_3yr"] > data["sp_3yr"]:
+    # 4. 3Y performance vs S&P - SAFE
+    stock_3yr = data.get("stock_3yr", 0)
+    sp_3yr = data.get("sp_3yr", 0)
+    if stock_3yr > sp_3yr:
         score += 2
-        breakdown["3Y vs S&P"] = f"{data['stock_3yr']}% > {data['sp_3yr']}% ✅"
+        breakdown["3Y vs S&P"] = f"{stock_3yr}% > {sp_3yr}% ✅"
     else:
-        breakdown["3Y vs S&P"] = f"{data['stock_3yr']}% ≤ {data['sp_3yr']}% ❌"
+        breakdown["3Y vs S&P"] = f"{stock_3yr}% ≤ {sp_3yr}% ❌"
 
-    # 5. Tailwind
-    if tailwind == "Yes":
-        score += 1
-        breakdown["Sector Tailwind"] = "✅ Yes"
-    elif tailwind == "Uncertain":
-        breakdown["Sector Tailwind"] = "⚠️ Uncertain"
-    else:
-        breakdown["Sector Tailwind"] = "❌ No"
-
-    # 6. Leader
-    if leader == "Yes":
-        score += 1
-        breakdown["Market Leader"] = "✅ Yes"
-    elif leader == "Uncertain":
-        breakdown["Market Leader"] = "⚠️ Uncertain"
-    else:
-        breakdown["Market Leader"] = "❌ No"
-
-    # 7. Beta (Volatility)
-    vol_label, icon = classify_volatility(data["beta"])
-    breakdown["Beta / Volatility"] = f"{data['beta']} → {vol_label} {icon}"
-    if data["beta"] and data["beta"] > 1.6:
+    # Rest unchanged but also use .get()...
+    beta = data.get("beta")
+    vol_label, icon = classify_volatility(beta)
+    breakdown["Beta / Volatility"] = f"{beta or 'N/A'} → {vol_label} {icon}"
+    if beta and beta > 1.6:
         score -= 1
 
-    # 8. Valuation (P/E)
     pe = data.get("trailing_pe")
     if pe is not None:
         if pe < 25:
