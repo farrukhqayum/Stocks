@@ -1078,14 +1078,30 @@ def check_ticker_valid(ticker):
     try:
         ticker_obj = yf.Ticker(ticker)
         info = ticker_obj.info
-
-        price = info.get("regularMarketPrice") or info.get("previousClose")
-        if info is None or price is None:
+        
+        # Check if ANY name field exists (most reliable)
+        name_fields = ['shortName', 'longName', 'longBusinessSummary']
+        has_name = any(info.get(field) for field in name_fields)
+        
+        if not info or not has_name:
             return False, None
+            
         return True, info
+        
     except Exception as e:
         print(f"Error for {ticker}: {e}")
         return False, None
+
+# Usage
+if ticker:
+    is_valid, info = check_ticker_valid(ticker)
+    if not is_valid:
+        st.error("Please enter a valid ticker name, or check Yahoo Finance for the ticker name.")
+        st.stop()
+    else:
+        company_name = info.get('shortName') or info.get('longName') or 'Company'
+        st.success(f"✅ {ticker}: {company_name}")
+
 
 
 def clear_page_session_state():
