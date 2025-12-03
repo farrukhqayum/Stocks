@@ -1092,7 +1092,6 @@ def check_ticker_valid(ticker):
         print(f"Error for {ticker}: {e}")
         return False, None
 
-# Usage
 if ticker:
     is_valid, info = check_ticker_valid(ticker)
     if not is_valid:
