@@ -15,10 +15,7 @@ st.set_page_config(
 
 st.title("🔎 Company Evaluator & Hold Score")
 
-import time
-from yfinance.exceptions import YFRateLimitError
-
-@st.cache_data(ttl=3600, show_spinner=False)  # Hide spinner during retries
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_financials(ticker):
     for attempt in range(3):
         try:
@@ -26,7 +23,7 @@ def get_financials(ticker):
             return getattr(t, 'financials', pd.DataFrame()).T
         except YFRateLimitError:
             if attempt < 2:
-                time.sleep(2 ** attempt * 2)  # 2s, 4s, 8s
+                time.sleep(2 ** attempt * 2)
             else:
                 return pd.DataFrame()
 
@@ -77,25 +74,23 @@ def get_sp500_history(period="3y"):
             else:
                 return pd.DataFrame()
 
-
-@st.cache_data(ttl=3600)  # LONGER TTL since it uses cached components
+@st.cache_data(ttl=3600)
 def get_company_data(ticker):
     try:
-        # Use cached functions ONLY (no new requests)
         income = get_financials(ticker)
         cashflow = get_cashflow(ticker)
         info = get_info(ticker)
-        stock_hist = get_history(ticker)  # ALREADY CACHED
-        sp_hist = get_sp500_history()     # ALREADY CACHED
+        stock_hist = get_history(ticker)
+        sp_hist = get_sp500_history()
 
-        # Revenue CAGR - SAFE (unchanged)
+        # Revenue CAGR
         cagr = 0
         if not income.empty and "Total Revenue" in income.columns:
             rev = income["Total Revenue"].dropna()
             if len(rev) >= 2:
                 cagr = (rev.iloc[0] / rev.iloc[-1]) ** (1/len(rev)) - 1
 
-        # Gross margin - SAFE (unchanged)
+        # Gross margin
         margin = 0
         if (not income.empty and 
             "Gross Profit" in income.columns and 
@@ -105,45 +100,54 @@ def get_company_data(ticker):
             if len(gp) > 0 and len(rev) > 0:
                 margin = (gp / rev).mean()
 
-        # Free Cash Flow - SAFE (unchanged)
+        # Free Cash Flow
         fcf = 0
         if not cashflow.empty and "Free Cash Flow" in cashflow.columns:
             fcf_values = cashflow["Free Cash Flow"].dropna()
             if len(fcf_values) > 0:
                 fcf = fcf_values.mean()
 
-        # 3-Year Performance - FIXED: Use cached histories
-        stock_return = 0
-        if len(stock_hist) > 1:
-            stock_return = (stock_hist["Close"].iloc[-1] / stock_hist["Close"].iloc[0]) - 1
-            
-        sp_return = 0
-        if len(sp_hist) > 1:
-            sp_return = (sp_hist["Close"].iloc[-1] / sp_hist["Close"].iloc[0]) - 1
+        # 3-Year Performance - Extract SCALAR values
+        stock_return = 0.0
+        if isinstance(stock_hist, pd.DataFrame) and len(stock_hist) > 1:
+            try:
+                start_price = float(stock_hist["Close"].iloc[0])
+                end_price = float(stock_hist["Close"].iloc[-1])
+                stock_return = (end_price / start_price - 1) if start_price > 0 else 0
+            except:
+                stock_return = 0.0
 
-        # Safe info extraction (unchanged)
-        beta = info.get("beta")
-        trailing_pe = info.get("trailingPE")
-        forward_pe = info.get("forwardPE")
-        total_debt = info.get("totalDebt")
-        total_assets = info.get("totalAssets")
-        debt_to_equity = info.get("debtToEquity")
+        sp_return = 0.0
+        if isinstance(sp_hist, pd.DataFrame) and len(sp_hist) > 1:
+            try:
+                sp_start = float(sp_hist["Close"].iloc[0])
+                sp_end = float(sp_hist["Close"].iloc[-1])
+                sp_return = (sp_end / sp_start - 1) if sp_start > 0 else 0
+            except:
+                sp_return = 0.0
 
-        # Debt ratio - SAFE (unchanged)
-        if debt_to_equity is not None and pd.notna(debt_to_equity):
-            debt_ratio = float(debt_to_equity)
+        # Safe info extraction - convert to float where possible
+        beta = float(info.get("beta", 0)) if info.get("beta") else None
+        trailing_pe = float(info.get("trailingPE", 0)) if info.get("trailingPE") else None
+        forward_pe = float(info.get("forwardPE", 0)) if info.get("forwardPE") else None
+        total_debt = float(info.get("totalDebt", 0)) if info.get("totalDebt") else None
+        total_assets = float(info.get("totalAssets", 0)) if info.get("totalAssets") else None
+        debt_to_equity = float(info.get("debtToEquity", 0)) if info.get("debtToEquity") else None
+
+        # Debt ratio
+        debt_ratio = None
+        if debt_to_equity is not None and not pd.isna(debt_to_equity):
+            debt_ratio = debt_to_equity
         elif total_debt is not None and total_assets is not None and total_assets != 0:
-            debt_ratio = float(total_debt) / float(total_assets)
-        else:
-            debt_ratio = None
+            debt_ratio = total_debt / total_assets
 
         return {
             "ticker": ticker,
-            "cagr": round(cagr * 100, 2),
-            "margin": round(margin * 100, 2),
-            "fcf": round(fcf, 2),
-            "stock_3yr": round(stock_return * 100, 2),
-            "sp_3yr": round(sp_return * 100, 2),
+            "cagr": round(float(cagr) * 100, 2),
+            "margin": round(float(margin) * 100, 2),
+            "fcf": round(float(fcf), 2),
+            "stock_3yr": round(float(stock_return) * 100, 2),
+            "sp_3yr": round(float(sp_return) * 100, 2),
             "beta": beta,
             "trailing_pe": trailing_pe,
             "forward_pe": forward_pe,
@@ -154,41 +158,37 @@ def get_company_data(ticker):
         st.error(f"Failed to process data for {ticker}: {str(e)}")
         return None
 
-
-# ----------------------------
-# VOLATILITY CLASSIFICATION
-# ----------------------------
+# Volatility classification
 def classify_volatility(beta):
-
-    if beta is None:
+    if beta is None or pd.isna(beta):
         return "Unknown", "⚠️"
-
+    
+    beta = float(beta)
     if beta < 0.8:
         return "Stable", "✅"
     elif beta <= 1.2:
         return "Normal", "⚪"
     elif beta <= 1.8:
         return "Volatile", "⚠️"
-    elif beta <=2.1:
+    elif beta <= 2.1:
         return "Highly Volatile", "🔴"
     else:
         return "Emotionally Destructive", "🔴"
 
-
-# ----------------------------
-# SCORING SYSTEM
-# ----------------------------
+# FIXED Scoring system - ALL values are scalars
 def calculate_hold_score(data, tailwind, leader):
-
     score = 0
     breakdown = {}
 
-    # Convert values safely to numeric with fallback 0
-    cagr = pd.to_numeric(data.get("cagr", 0), errors='coerce') or 0
-    margin = pd.to_numeric(data.get("margin", 0), errors='coerce') or 0
-    fcf = pd.to_numeric(data.get("fcf", 0), errors='coerce') or 0
-    stock_3yr = pd.to_numeric(data.get("stock_3yr", 0), errors='coerce') or 0
-    sp_3yr = pd.to_numeric(data.get("sp_3yr", 0), errors='coerce') or 0
+    # Safe numeric extraction
+    cagr = float(data.get("cagr", 0))
+    margin = float(data.get("margin", 0))
+    fcf = float(data.get("fcf", 0))
+    stock_3yr = float(data.get("stock_3yr", 0))
+    sp_3yr = float(data.get("sp_3yr", 0))
+    beta = float(data.get("beta", 0)) if data.get("beta") is not None else None
+    trailing_pe = float(data.get("trailing_pe", 0)) if data.get("trailing_pe") is not None else None
+    debt_ratio = float(data.get("debt_ratio", 0)) if data.get("debt_ratio") is not None else None
 
     # 1. Revenue growth
     if cagr > 15:
@@ -217,7 +217,7 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Free Cash Flow"] = f"${fcf:,.0f} ❌"
 
-    # 4. 3Y performance vs S&P - safe numeric comparison
+    # 4. 3Y vs S&P - NOW SAFE SCALAR COMPARISON
     if stock_3yr > sp_3yr:
         score += 2
         breakdown["3Y vs S&P"] = f"{stock_3yr}% > {sp_3yr}% ✅"
@@ -242,40 +242,37 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Market Leader"] = "❌ No"
 
-    # 7. Beta (Volatility)
-    beta = pd.to_numeric(data.get("beta"), errors='coerce')
+    # 7. Beta
     vol_label, icon = classify_volatility(beta)
-    breakdown["Beta / Volatility"] = f"{beta if beta is not None else 'N/A'} → {vol_label} {icon}"
+    breakdown["Beta / Volatility"] = f"{beta or 'N/A'} → {vol_label} {icon}"
     if beta and beta > 1.6:
         score -= 1
 
-    # 8. Valuation (P/E)
-    pe = pd.to_numeric(data.get("trailing_pe"), errors='coerce')
-    if pe is not None and not pd.isna(pe):
-        if pe < 25:
+    # 8. P/E
+    if trailing_pe is not None and trailing_pe >= 0:
+        if trailing_pe < 25:
             score += 1
-            breakdown["P/E (Trailing)"] = f"{pe:.1f} ✅"
-        elif pe <= 40:
-            breakdown["P/E (Trailing)"] = f"{pe:.1f} ⚠️"
+            breakdown["P/E (Trailing)"] = f"{trailing_pe:.1f} ✅"
+        elif trailing_pe <= 40:
+            breakdown["P/E (Trailing)"] = f"{trailing_pe:.1f} ⚠️"
         else:
             score -= 1
-            breakdown["P/E (Trailing)"] = f"{pe:.1f} ❌"
+            breakdown["P/E (Trailing)"] = f"{trailing_pe:.1f} ❌"
     else:
         breakdown["P/E (Trailing)"] = "N/A ⚠️"
 
-    # 9. Leverage (Debt ratio)
-    dr = pd.to_numeric(data.get("debt_ratio"), errors='coerce')
-    if dr is not None and not pd.isna(dr):
-        if dr < 0.5:
+    # 9. Debt ratio
+    if debt_ratio is not None and debt_ratio >= 0:
+        if debt_ratio < 0.5:
             score += 1
-            breakdown["Debt Ratio (D/E or Debt/Assets)"] = f"{dr:.2f} ✅"
-        elif dr <= 1.5:
-            breakdown["Debt Ratio (D/E or Debt/Assets)"] = f"{dr:.2f} ⚠️"
+            breakdown["Debt Ratio"] = f"{debt_ratio:.2f} ✅"
+        elif debt_ratio <= 1.5:
+            breakdown["Debt Ratio"] = f"{debt_ratio:.2f} ⚠️"
         else:
             score -= 1
-            breakdown["Debt Ratio (D/E or Debt/Assets)"] = f"{dr:.2f} ❌"
+            breakdown["Debt Ratio"] = f"{debt_ratio:.2f} ❌"
     else:
-        breakdown["Debt Ratio (D/E or Debt/Assets)"] = "N/A ⚠️"
+        breakdown["Debt Ratio"] = "N/A ⚠️"
 
     return score, breakdown
 
