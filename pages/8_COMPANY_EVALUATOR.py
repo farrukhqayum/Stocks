@@ -1,6 +1,5 @@
 import streamlit as st
 import yfinance as yf
-import numpy as np
 import pandas as pd
 
 # ----------------------------
@@ -16,70 +15,111 @@ st.title("🔎 Company Strength & 10-Year Hold Score")
 
 
 # ----------------------------
-# DATA FETCH
+# SAFE DATA FETCHING FUNCTION
 # ----------------------------
+
 def get_company_data(ticker):
+    stock = yf.Ticker(ticker)
+
+    # Validate ticker
     try:
-        stock = yf.Ticker(ticker)
+        test = stock.history(period="1d")
+        if test.empty:
+            return None
+    except:
+        return None
 
+    # Try loading financial statements
+    try:
         income = stock.financials.T
-        cashflow = stock.cashflow.T
-        info = stock.info
-        sp500 = yf.Ticker("^GSPC")
+    except:
+        income = pd.DataFrame()
 
-        # ✅ Revenue CAGR
-        if "Total Revenue" in income:
-            rev = income["Total Revenue"].dropna()
-            if len(rev) >= 2:
-                cagr = (rev.iloc[0] / rev.iloc[-1]) ** (1/len(rev)) - 1
+    try:
+        cashflow = stock.cashflow.T
+    except:
+        cashflow = pd.DataFrame()
+
+    # Load company info safely
+    try:
+        info = stock.get_info()
+    except:
+        info = {}
+
+    # ----------------------------
+    # Revenue CAGR
+    # ----------------------------
+    try:
+        rev = income.get("Total Revenue", pd.Series()).dropna()
+
+        if len(rev) >= 2:
+            first = rev.iloc[-1]
+            last = rev.iloc[0]
+            years = len(rev) - 1
+            if first > 0 and last > 0:
+                cagr = (last / first) ** (1 / years) - 1
             else:
                 cagr = 0
         else:
             cagr = 0
+    except:
+        cagr = 0
 
-        # ✅ Gross margin
-        if "Gross Profit" in income and "Total Revenue" in income:
-            margin = (income["Gross Profit"] / income["Total Revenue"]).mean()
-        else:
-            margin = 0
+    # ----------------------------
+    # Gross Margin
+    # ----------------------------
+    try:
+        gp = income["Gross Profit"]
+        tr = income["Total Revenue"]
+        margin = (gp / tr).mean()
+    except:
+        margin = 0
 
-        # ✅ Free Cash Flow
-        if "Free Cash Flow" in cashflow:
-            fcf = cashflow["Free Cash Flow"].mean()
-        else:
-            fcf = 0
+    # ----------------------------
+    # Free Cash Flow
+    # ----------------------------
+    try:
+        fcf = cashflow["Free Cash Flow"].mean()
+    except:
+        fcf = 0
 
-        # ✅ 3-Year Performance
-        stock_hist = stock.history(period="3y")
-        sp_hist = sp500.history(period="3y")
+    # ----------------------------
+    # 3-Year Performance vs S&P 500
+    # ----------------------------
+    try:
+        hist = stock.history(period="3y")
+        sp = yf.Ticker("^GSPC").history(period="3y")
 
-        if len(stock_hist) > 0 and len(sp_hist) > 0:
-            stock_return = (stock_hist["Close"][-1] / stock_hist["Close"][0]) - 1
-            sp_return = (sp_hist["Close"][-1] / sp_hist["Close"][0]) - 1
+        if not hist.empty and not sp.empty:
+            stock_return = (hist["Close"][-1] / hist["Close"][0]) - 1
+            sp_return = (sp["Close"][-1] / sp["Close"][0]) - 1
         else:
             stock_return = 0
             sp_return = 0
+    except:
+        stock_return = 0
+        sp_return = 0
 
-        # ✅ Beta
-        beta = info.get("beta", None)
+    # ----------------------------
+    # Beta (from info)
+    # ----------------------------
+    beta = info.get("beta", None)
 
-        return {
-            "ticker": ticker,
-            "cagr": round(cagr * 100, 2),
-            "margin": round(margin * 100, 2),
-            "fcf": round(fcf, 2),
-            "stock_3yr": round(stock_return * 100, 2),
-            "sp_3yr": round(sp_return * 100, 2),
-            "beta": beta
-        }
-
-    except Exception as e:
-        return None
+    return {
+        "ticker": ticker,
+        "cagr": round(cagr * 100, 2),
+        "margin": round(margin * 100, 2),
+        "fcf": round(fcf, 2),
+        "stock_3yr": round(stock_return * 100, 2),
+        "sp_3yr": round(sp_return * 100, 2),
+        "beta": beta
+    }
 
 
 # ----------------------------
 # VOLATILITY CLASSIFICATION
 # ----------------------------
+
 def classify_volatility(beta):
 
     if beta is None:
@@ -91,7 +131,7 @@ def classify_volatility(beta):
         return "Normal", "⚪"
     elif beta <= 1.8:
         return "Volatile", "⚠️"
-    elif beta <=2.1:
+    elif beta <= 2.1:
         return "Highly Volatile", "🔴"
     else:
         return "Emotionally Destructive", "🔴"
@@ -100,6 +140,7 @@ def classify_volatility(beta):
 # ----------------------------
 # SCORING SYSTEM
 # ----------------------------
+
 def calculate_hold_score(data, tailwind, leader):
 
     score = 0
@@ -142,26 +183,26 @@ def calculate_hold_score(data, tailwind, leader):
     # 5. Tailwind
     if tailwind == "Yes":
         score += 1
-        breakdown["Sector Tailwind"] = "✅ Yes"
+        breakdown["Sector Tailwind"] = "Yes ✅"
     elif tailwind == "Uncertain":
-        breakdown["Sector Tailwind"] = "⚠️ Uncertain"
+        breakdown["Sector Tailwind"] = "Uncertain ⚠️"
     else:
-        breakdown["Sector Tailwind"] = "❌ No"
+        breakdown["Sector Tailwind"] = "No ❌"
 
     # 6. Leader
     if leader == "Yes":
         score += 1
-        breakdown["Market Leader"] = "✅ Yes"
+        breakdown["Market Leader"] = "Yes ✅"
     elif leader == "Uncertain":
-        breakdown["Market Leader"] = "⚠️ Uncertain"
+        breakdown["Market Leader"] = "Uncertain ⚠️"
     else:
-        breakdown["Market Leader"] = "❌ No"
+        breakdown["Market Leader"] = "No ❌"
 
     # 7. Beta (Volatility)
     vol_label, icon = classify_volatility(data["beta"])
     breakdown["Beta / Volatility"] = f"{data['beta']} → {vol_label} {icon}"
 
-    # Optional penalty for extreme volatility
+    # Optional penalty
     if data["beta"] and data["beta"] > 1.6:
         score -= 1
 
@@ -192,9 +233,8 @@ if st.button("Analyze stock"):
         data = get_company_data(ticker)
 
         if data is None:
-            st.error("No data found for this ticker")
+            st.error("❌ No data found or invalid ticker")
         else:
-
             score, breakdown = calculate_hold_score(data, tailwind, leader)
 
             st.subheader(f"📊 Final Hold Score: {score} / 10")
@@ -202,16 +242,15 @@ if st.button("Analyze stock"):
             if score >= 8:
                 st.success("STRONG LONG-TERM HOLD")
             elif score >= 5:
-                st.warning("CONDITIONAL HOLD - MONITOR ANNUALLY")
+                st.warning("CONDITIONAL HOLD — Monitor Annually")
             else:
                 st.error("NOT SUITABLE FOR LONG-TERM HOLD")
 
             # Volatility Highlight
-            vol = breakdown.get("Beta / Volatility")
             st.subheader("⚡ Volatility Level")
-            st.info(vol)
+            st.info(breakdown["Beta / Volatility"])
 
-            # Details section
+            # Breakdown Table
             st.subheader("📌 Breakdown")
             df = pd.DataFrame(breakdown.items(), columns=["Metric", "Status"])
             st.table(df)
