@@ -3,7 +3,7 @@ import yfinance as yf
 from yfinance.exceptions import YFRateLimitError
 import numpy as np
 import pandas as pd
-
+import time
 # ----------------------------
 # PAGE CONFIG
 # ----------------------------
