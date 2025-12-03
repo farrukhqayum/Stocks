@@ -13,7 +13,7 @@ st.set_page_config(
 
 st.title("🔎 Company Strength & 10-Year Hold Score")
 
-def calculate_beta(stock_ticker, benchmark_ticker="^GSPC", period="3y"):
+def calculate_beta(stock_ticker, benchmark_ticker="^GSPC", period="5y"):
     try:
         stock = yf.Ticker(stock_ticker)
         index = yf.Ticker(benchmark_ticker)
