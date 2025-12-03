@@ -34,30 +34,28 @@ def get_history(ticker, period="3y"):
     t = yf.Ticker(ticker)
     return t.history(period=period)
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600)  # Cache S&P separately
 def get_sp500_history(period="3y"):
-    sp500 = yf.Ticker("^GSPC")
-    return sp500.history(period=period)
+    return yf.download("^GSPC", period=period, progress=False)
 
-
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=3600)  # LONGER TTL since it uses cached components
 def get_company_data(ticker):
     try:
+        # Use cached functions ONLY (no new requests)
         income = get_financials(ticker)
         cashflow = get_cashflow(ticker)
         info = get_info(ticker)
-        stock_hist = get_history(ticker)
-        sp_hist = get_sp500_history()
-        sp500 = yf.Ticker("^GSPC")
+        stock_hist = get_history(ticker)  # ALREADY CACHED
+        sp_hist = get_sp500_history()     # ALREADY CACHED
 
-        # Revenue CAGR - SAFE
+        # Revenue CAGR - SAFE (unchanged)
         cagr = 0
         if not income.empty and "Total Revenue" in income.columns:
             rev = income["Total Revenue"].dropna()
             if len(rev) >= 2:
                 cagr = (rev.iloc[0] / rev.iloc[-1]) ** (1/len(rev)) - 1
 
-        # Gross margin - SAFE  
+        # Gross margin - SAFE (unchanged)
         margin = 0
         if (not income.empty and 
             "Gross Profit" in income.columns and 
@@ -67,30 +65,23 @@ def get_company_data(ticker):
             if len(gp) > 0 and len(rev) > 0:
                 margin = (gp / rev).mean()
 
-        # Free Cash Flow - SAFE
+        # Free Cash Flow - SAFE (unchanged)
         fcf = 0
         if not cashflow.empty and "Free Cash Flow" in cashflow.columns:
             fcf_values = cashflow["Free Cash Flow"].dropna()
             if len(fcf_values) > 0:
                 fcf = fcf_values.mean()
 
-        # 3-Year Performance - SAFE
-        try:
-            stock_hist = stock.history(period="3y")
-            sp_hist = sp500.history(period="3y")
+        # 3-Year Performance - FIXED: Use cached histories
+        stock_return = 0
+        if len(stock_hist) > 1:
+            stock_return = (stock_hist["Close"].iloc[-1] / stock_hist["Close"].iloc[0]) - 1
             
-            stock_return = 0
-            if len(stock_hist) > 1:
-                stock_return = (stock_hist["Close"].iloc[-1] / stock_hist["Close"].iloc[0]) - 1
-                
-            sp_return = 0
-            if len(sp_hist) > 1:
-                sp_return = (sp_hist["Close"].iloc[-1] / sp_hist["Close"].iloc[0]) - 1
-        except:
-            stock_return = 0
-            sp_return = 0
+        sp_return = 0
+        if len(sp_hist) > 1:
+            sp_return = (sp_hist["Close"].iloc[-1] / sp_hist["Close"].iloc[0]) - 1
 
-        # Safe info extraction
+        # Safe info extraction (unchanged)
         beta = info.get("beta")
         trailing_pe = info.get("trailingPE")
         forward_pe = info.get("forwardPE")
@@ -98,7 +89,7 @@ def get_company_data(ticker):
         total_assets = info.get("totalAssets")
         debt_to_equity = info.get("debtToEquity")
 
-        # Debt ratio - SAFE
+        # Debt ratio - SAFE (unchanged)
         if debt_to_equity is not None and pd.notna(debt_to_equity):
             debt_ratio = float(debt_to_equity)
         elif total_debt is not None and total_assets is not None and total_assets != 0:
@@ -120,7 +111,7 @@ def get_company_data(ticker):
         }
 
     except Exception as e:
-        st.error(f"Failed to fetch data for {ticker}: {str(e)}")
+        st.error(f"Failed to process data for {ticker}: {str(e)}")
         return None
 
 
