@@ -844,17 +844,17 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
 
         latest = df.iloc[-1]
 
-        entry_text = "Entry is during "
+        entry_text = "Recent outlook is "
         cl = "gray"
         
         if latest["Bull"] == 1:
-            entry_text += "Bull Times."
+            entry_text += "Bullishness."
             cl = "green"
         elif latest["Bear"] == 1:
-            entry_text += "Bear Times."
+            entry_text += "Bearishness."
             cl = "red"
         else:
-            entry_text += "Neutral Times."
+            entry_text += "Neutral."
         
         entry_desc = AnchoredText(
             entry_text,
