@@ -3,8 +3,8 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
 import matplotlib.dates as mdates
+from datetime import datetime, timedelta
 import warnings
 
 # Suppress matplotlib deprecation warnings [web:21][web:22]
@@ -12,7 +12,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
 
 # Page config
 st.set_page_config(page_title="Stock Position Assessor", layout="wide")
-st.set_option('deprecation.showPyplotGlobalUse', False)  # Suppress matplotlib warning [web:18]
 
 st.title("Stock Position Assessment Tool")
 
@@ -23,7 +22,7 @@ end_date = st.sidebar.date_input("End Date", value=datetime.now())
 
 @st.cache_data
 def load_stock_data(ticker, start, end):
-    data = yf.download(ticker, start=start, end=end)
+    data = yfinance.download(ticker, start=start, end=end)
     return data
 
 if ticker:
@@ -40,9 +39,9 @@ if ticker:
     ax.set_ylabel("Price ($)")
     ax.legend()
     ax.grid(True, alpha=0.3)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    ax.xaxis.set_major_locator(mdates.WeekdayLocator(interval=1))
-    plt.xticks(rotation=45)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    ax.xaxis.set_major_locator(mdates.MonthLocator())
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
     plt.tight_layout()
     st.pyplot(fig)
     plt.close(fig)
@@ -57,9 +56,9 @@ if ticker:
         with col1:
             date = st.date_input(f"Entry {i+1} Date", value=datetime.now() - timedelta(days=30*(i+1)))
         with col2:
-            shares = st.number_input(f"Entry {i+1} Shares", min_value=1.0, value=100.0)
+            shares = st.number_input(f"Entry {i+1} Shares", min_value=1.0, value=100.0, key=f"shares_{i}")
         with col3:
-            price = st.number_input(f"Entry {i+1} Price", min_value=0.1, value=float(current_price))
+            price = st.number_input(f"Entry {i+1} Price", min_value=0.1, value=float(current_price), key=f"price_{i}")
         entries.append({'date': date, 'shares': shares, 'price': price})
     
     entries_df = pd.DataFrame(entries)
@@ -76,14 +75,15 @@ if ticker:
     st.metric("PnL %", f"{pnl_pct:.2f}%")
 
     # Position breakdown chart
-    fig2, ax2 = plt.subplots(figsize=(10, 6))
-    weights = entries_df['shares'] / total_shares * 100
-    colors = plt.cm.Set3(np.linspace(0, 1, len(entries_df)))
-    ax2.pie(weights, labels=[f"Entry {i+1}\n${(s*p):.0f}" for i, (s, p) in enumerate(zip(entries_df['shares'], entries_df['price']))], 
-            colors=colors, autopct='%1.1f%%')
-    ax2.set_title("Position Breakdown by Entry", fontsize=14, fontweight='bold')
-    st.pyplot(fig2)
-    plt.close(fig2)
+    if len(entries_df) > 0:
+        fig2, ax2 = plt.subplots(figsize=(10, 6))
+        weights = entries_df['shares'] / total_shares * 100
+        colors = plt.cm.Set3(np.linspace(0, 1, len(entries_df)))
+        ax2.pie(weights, labels=[f"Entry {i+1}\n${(s*p):.0f}" for i, (s, p) in enumerate(zip(entries_df['shares'], entries_df['price']))], 
+                colors=colors, autopct='%1.1f%%')
+        ax2.set_title("Position Breakdown by Entry", fontsize=14, fontweight='bold')
+        st.pyplot(fig2)
+        plt.close(fig2)
 
     # c) Position assessment and Monte Carlo
     st.header("Position Assessment & Monte Carlo Simulation")
@@ -118,10 +118,11 @@ if ticker:
     # Monte Carlo plot [web:12]
     fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 10), height_ratios=[3, 1])
     
-    # Price paths
-    for i in range(min(50, num_sims)):  # Show 50 sample paths
+    # Price paths (sample 50)
+    sample_paths = min(50, num_sims)
+    for i in range(sample_paths):
         ax3.plot(range(days+1), paths[:, i], color='gray', alpha=0.3, linewidth=0.5)
-    ax3.plot(range(days+1), paths[:, -1], color='blue', linewidth=2, label='Last Path')
+    ax3.plot(range(days+1), paths[:, -1], color='blue', linewidth=2, label='Sample Path')
     
     # Percentiles
     percentiles = np.percentile(paths[-1], [5, 25, 50, 75, 95])
@@ -136,9 +137,9 @@ if ticker:
     ax3.grid(True, alpha=0.3)
     
     # Final distribution histogram
-    ax4.hist(paths[-1], bins=50, alpha=0.7, color='skyblue', edgecolor='black')
+    ax4.hist(paths[-1], bins=50, alpha=0.7, color='skyblue', edgecolor='black', density=True)
     ax4.axvline(percentiles[2], color='red', linestyle='--', linewidth=2, label=f'Median: ${percentiles[2]:.2f}')
-    ax4.set_title("Final Price Distribution")
+    ax4.set_title("Final Price Distribution (Density)")
     ax4.set_xlabel("Price ($)")
     ax4.legend()
     
@@ -154,7 +155,7 @@ if ticker:
     if pnl_pct > 20:
         st.success(f"**HOLD or TRIM**: +{pnl_pct:.1f}% gain. Median forecast ${target_price:.2f}.")
     elif pnl_pct > 0:
-        st.info(f"**HOLD**: +{pnl_pct:.1f}% gain. Forecast shows {((target_price-current_price)/current_price*100):.1f}% potential.")
+        st.info(f"**HOLD**: +{pnl_pct:.1f}% gain. Forecast upside: {((target_price-current_price)/current_price*100):+.1f}%.")
     elif pnl_pct > -10:
         st.warning(f"**HOLD or AVERAGE DOWN**: -{abs(pnl_pct):.1f}% loss. Needs {recovery_needed:.1f}% recovery.")
     else:
@@ -166,4 +167,4 @@ if ticker:
     allocation_pct = (position_value / portfolio_size) * 100
     st.metric("Portfolio Allocation", f"{allocation_pct:.1f}% of $20K")
 
-    st.caption("Monte Carlo uses Geometric Brownian Motion: $$S(t+Δt) = S(t) × exp[(μ - ½σ²)Δt + σ√Δt × Z]$$ where Z ~ N(0,1) [web:1][web:3]")
+    st.caption("Monte Carlo: $$S(t+Δt) = S(t) × exp[(μ - ½σ²)Δt + σ√Δt × Z]$$ where Z ~ N(0,1) [web:1][web:3]")
