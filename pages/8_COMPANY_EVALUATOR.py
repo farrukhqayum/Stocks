@@ -74,6 +74,32 @@ def get_sp500_history(period="3y"):
             else:
                 return pd.DataFrame()
 
+def calculate_beta(stock_hist, sp_hist):
+    """Calculate beta from price returns (reliable fallback)"""
+    try:
+        if len(stock_hist) < 30 or len(sp_hist) < 30:
+            return None
+        
+        # Daily returns
+        stock_returns = stock_hist['Close'].pct_change().dropna()
+        sp_returns = sp_hist['Close'].pct_change().dropna()
+        
+        # Align dates
+        common_dates = stock_returns.index.intersection(sp_returns.index)
+        if len(common_dates) < 20:
+            return None
+        
+        stock_ret = stock_returns.loc[common_dates].values
+        sp_ret = sp_returns.loc[common_dates].values
+        
+        # Beta = Cov(stock, market) / Var(market)
+        cov_matrix = np.cov(stock_ret, sp_ret)
+        beta = cov_matrix[0, 1] / cov_matrix[1, 1]
+        
+        return round(float(beta), 2)
+    except:
+        return None
+
 @st.cache_data(ttl=3600)
 def get_company_data(ticker):
     try:
@@ -127,12 +153,17 @@ def get_company_data(ticker):
                 sp_return = 0.0
 
         # Safe info extraction - convert to float where possible
-        beta = float(info.get("beta", 0)) if info.get("beta") else None
         trailing_pe = float(info.get("trailingPE", 0)) if info.get("trailingPE") else None
         forward_pe = float(info.get("forwardPE", 0)) if info.get("forwardPE") else None
         total_debt = float(info.get("totalDebt", 0)) if info.get("totalDebt") else None
         total_assets = float(info.get("totalAssets", 0)) if info.get("totalAssets") else None
         debt_to_equity = float(info.get("debtToEquity", 0)) if info.get("debtToEquity") else None
+
+        beta_from_info = info.get("beta")
+        if beta_from_info and pd.notna(beta_from_info):
+            beta = float(beta_from_info)
+        else:
+            beta = calculate_beta(stock_hist, sp_hist)
 
         # Debt ratio
         debt_ratio = None
