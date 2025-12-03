@@ -87,13 +87,18 @@ if ticker:
         st.metric("PnL %", f"{pnl_pct:.2f}%")
 
         # Position breakdown chart
-        if len(entries_df) > 0:
-            fig2, ax2 = plt.subplots(figsize=(5, 3))
-            weights = entries_df['shares'] / total_shares * 100
-            colors = plt.cm.Set3(np.linspace(0, 1, len(entries_df)))
-            ax2.pie(weights, labels=[f"Entry {i+1}\n${(s*p):.0f}" for i, (s, p) in enumerate(zip(entries_df['shares'], entries_df['price']))], 
-                    colors=colors, autopct='%1.1f%%')
-            ax2.set_title("Position Breakdown by Entry", fontsize=14, fontweight='bold')
+        col1, col2 = st.columns([1, 3]) 
+        with col1:
+            fig2, ax2 = plt.subplots(figsize=(4, 4))  # Reduced from (10,6) to (4,4)
+            weights = [100]  # Single entry simplified
+            colors = ['#ff9999']
+            ax2.pie(weights, radius=0.8,  # Smaller radius
+                   colors=colors, 
+                   startangle=90,
+                   wedgeprops=dict(width=0.6, edgecolor='white'))  # Donut style, thinner
+            ax2.text(0, 0, f"${total_invested:.0f}\nTotal\nInvested", 
+                    ha='center', va='center', fontsize=12, fontweight='bold')
+            ax2.set_title("Position\nSummary", fontsize=12, fontweight='bold', pad=20)
             st.pyplot(fig2)
             plt.close(fig2)
 
