@@ -14,15 +14,40 @@ st.set_page_config(
 
 st.title("🔎 Company Evaluator & Hold Score")
 
+@st.cache_data(ttl=3600)
+def get_financials(ticker):
+    t = yf.Ticker(ticker)
+    return getattr(t, 'financials', pd.DataFrame()).T
+
+@st.cache_data(ttl=3600)
+def get_cashflow(ticker):
+    t = yf.Ticker(ticker)
+    return getattr(t, 'cashflow', pd.DataFrame()).T
+
+@st.cache_data(ttl=3600)
+def get_info(ticker):
+    t = yf.Ticker(ticker)
+    return getattr(t, 'info', {})
+
+@st.cache_data(ttl=3600)
+def get_history(ticker, period="3y"):
+    t = yf.Ticker(ticker)
+    return t.history(period=period)
+
+@st.cache_data(ttl=3600)
+def get_sp500_history(period="3y"):
+    sp500 = yf.Ticker("^GSPC")
+    return sp500.history(period=period)
+
+
 @st.cache_data(ttl=300)
 def get_company_data(ticker):
     try:
-        stock = yf.Ticker(ticker)
-        
-        # SAFE: Check if attributes exist before accessing
-        income = getattr(stock, 'financials', pd.DataFrame()).T if hasattr(stock, 'financials') else pd.DataFrame()
-        cashflow = getattr(stock, 'cashflow', pd.DataFrame()).T if hasattr(stock, 'cashflow') else pd.DataFrame()
-        info = getattr(stock, 'info', {})
+        income = get_financials(ticker)
+        cashflow = get_cashflow(ticker)
+        info = get_info(ticker)
+        stock_hist = get_history(ticker)
+        sp_hist = get_sp500_history()
         sp500 = yf.Ticker("^GSPC")
 
         # Revenue CAGR - SAFE
@@ -97,7 +122,6 @@ def get_company_data(ticker):
     except Exception as e:
         st.error(f"Failed to fetch data for {ticker}: {str(e)}")
         return None
-
 
 
 # ----------------------------
