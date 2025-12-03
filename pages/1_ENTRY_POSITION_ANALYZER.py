@@ -17,6 +17,8 @@ warnings.filterwarnings('ignore')
 
 
 # Configuration
+st.cache_data.clear()
+st.cache_resource.clear()
 st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
@@ -98,7 +100,7 @@ desc = """
     - The system continuously evaluates trade signals, adjusting entries and exits based on market dynamics and model confidence
     - Risk-reward ratio and confidence scores help assess and validate each trade decision
     """
-
+@st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
     try:
