@@ -181,6 +181,14 @@ def classify_volatility(beta):
 def calculate_hold_score(data, tailwind, leader):
     score = 0
     breakdown = {}
+    cagr = pd.to_numeric(data.get("cagr", 0), errors='coerce') or 0
+    margin = pd.to_numeric(data.get("margin", 0), errors='coerce') or 0
+    fcf = pd.to_numeric(data.get("fcf", 0), errors='coerce') or 0
+    stock_3yr = pd.to_numeric(data.get("stock_3yr", 0), errors='coerce') or 0
+    sp_3yr = pd.to_numeric(data.get("sp_3yr", 0), errors='coerce') or 0
+    beta = pd.to_numeric(data.get("beta"), errors='coerce')
+    trailing_pe = pd.to_numeric(data.get("trailing_pe"), errors='coerce')
+    debt_ratio = pd.to_numeric(data.get("debt_ratio"), errors='coerce')
 
     # 1. Revenue growth - SAFE
     cagr = data.get("cagr", 0)
