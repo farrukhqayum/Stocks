@@ -108,7 +108,7 @@ col5, col6 = st.columns(2)
 with col5:
     ml_confidence_threshold = st.number_input("ML Confidence Threshold", min_value=0, max_value=100,  value=70, step=5, help = "30% Strongly Bearish, 70% Strongly Bullish")
 with col6:
-    max_holding_days = st.number_input("Max Holding Days", min_value=3, max_value=60, value=7, step=5, help = "This is like a forced stop-loss, make it 15-21 days.")
+    max_holding_days = st.number_input("Max Holding Days", min_value=3, max_value=60, value=14, step=2, help = "This is like a forced stop-loss, make it 15-21 days.")
 
 # -------------------------
 # Technical Analysis Functions (Simplified)
