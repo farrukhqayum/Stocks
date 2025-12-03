@@ -1092,17 +1092,6 @@ def check_ticker_valid(ticker):
         print(f"Error for {ticker}: {e}")
         return False, None
 
-if ticker:
-    is_valid, info = check_ticker_valid(ticker)
-    if not is_valid:
-        st.error("Please enter a valid ticker name, or check Yahoo Finance for the ticker name.")
-        st.stop()
-    else:
-        company_name = info.get('shortName') or info.get('longName') or 'Company'
-        st.success(f"✅ {ticker}: {company_name}")
-
-
-
 def clear_page_session_state():
     """Clear only this page's session state on load"""
     keys_to_remove = []
