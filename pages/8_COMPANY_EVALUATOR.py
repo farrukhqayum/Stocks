@@ -1,9 +1,8 @@
 import streamlit as st
 import yfinance as yf
-from yfinance.exceptions import YFRateLimitError
 import numpy as np
 import pandas as pd
-import time
+
 # ----------------------------
 # PAGE CONFIG
 # ----------------------------
@@ -13,247 +12,132 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🔎 Company Evaluator & Hold Score")
+st.title("🔎 Company Strength & 10-Year Hold Score")
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_financials(ticker):
-    for attempt in range(3):
-        try:
-            t = yf.Ticker(ticker)
-            return getattr(t, 'financials', pd.DataFrame()).T
-        except YFRateLimitError:
-            if attempt < 2:
-                time.sleep(2 ** attempt * 2)
-            else:
-                return pd.DataFrame()
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_cashflow(ticker):
-    for attempt in range(3):
-        try:
-            t = yf.Ticker(ticker)
-            return getattr(t, 'cashflow', pd.DataFrame()).T
-        except YFRateLimitError:
-            if attempt < 2:
-                time.sleep(2 ** attempt * 2)
-            else:
-                return pd.DataFrame()
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_info(ticker):
-    for attempt in range(3):
-        try:
-            t = yf.Ticker(ticker)
-            return getattr(t, 'info', {})
-        except YFRateLimitError:
-            if attempt < 2:
-                time.sleep(2 ** attempt * 2)
-            else:
-                return {}
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_history(ticker, period="3y"):
-    for attempt in range(3):
-        try:
-            t = yf.Ticker(ticker)
-            return t.history(period=period)
-        except YFRateLimitError:
-            if attempt < 2:
-                time.sleep(2 ** attempt * 2)
-            else:
-                return pd.DataFrame()
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_sp500_history(period="3y"):
-    for attempt in range(3):
-        try:
-            return yf.download("^GSPC", period=period, progress=False)
-        except YFRateLimitError:
-            if attempt < 2:
-                time.sleep(2 ** attempt * 2)
-            else:
-                return pd.DataFrame()
-
-def calculate_beta(stock_hist, sp_hist):
-    """Calculate beta from price returns (reliable fallback)"""
-    try:
-        if len(stock_hist) < 30 or len(sp_hist) < 30:
-            return None
-        
-        # Daily returns
-        stock_returns = stock_hist['Close'].pct_change().dropna()
-        sp_returns = sp_hist['Close'].pct_change().dropna()
-        
-        # Align dates
-        common_dates = stock_returns.index.intersection(sp_returns.index)
-        if len(common_dates) < 20:
-            return None
-        
-        stock_ret = stock_returns.loc[common_dates].values
-        sp_ret = sp_returns.loc[common_dates].values
-        
-        # Beta = Cov(stock, market) / Var(market)
-        cov_matrix = np.cov(stock_ret, sp_ret)
-        beta = cov_matrix[0, 1] / cov_matrix[1, 1]
-        
-        return round(float(beta), 2)
-    except:
-        return None
-
-@st.cache_data(ttl=3600)
+# ----------------------------
+# DATA FETCH
+# ----------------------------
 def get_company_data(ticker):
     try:
-        income = get_financials(ticker)
-        cashflow = get_cashflow(ticker)
-        info = get_info(ticker)
-        stock_hist = get_history(ticker)
-        sp_hist = get_sp500_history()
+        stock = yf.Ticker(ticker)
 
-        # Revenue CAGR
-        cagr = 0
-        if not income.empty and "Total Revenue" in income.columns:
+        income = stock.financials.T
+        cashflow = stock.cashflow.T
+        info = stock.info
+        sp500 = yf.Ticker("^GSPC")
+
+        # ✅ Revenue CAGR
+        if "Total Revenue" in income:
             rev = income["Total Revenue"].dropna()
             if len(rev) >= 2:
                 cagr = (rev.iloc[0] / rev.iloc[-1]) ** (1/len(rev)) - 1
-
-        # Gross margin
-        margin = 0
-        if (not income.empty and 
-            "Gross Profit" in income.columns and 
-            "Total Revenue" in income.columns):
-            gp = income["Gross Profit"].dropna()
-            rev = income["Total Revenue"].dropna()
-            if len(gp) > 0 and len(rev) > 0:
-                margin = (gp / rev).mean()
-
-        # Free Cash Flow
-        fcf = 0
-        if not cashflow.empty and "Free Cash Flow" in cashflow.columns:
-            fcf_values = cashflow["Free Cash Flow"].dropna()
-            if len(fcf_values) > 0:
-                fcf = fcf_values.mean()
-
-        # 3-Year Performance - Extract SCALAR values
-        stock_return = 0.0
-        if isinstance(stock_hist, pd.DataFrame) and len(stock_hist) > 1:
-            try:
-                start_price = float(stock_hist["Close"].iloc[0])
-                end_price = float(stock_hist["Close"].iloc[-1])
-                stock_return = (end_price / start_price - 1) if start_price > 0 else 0
-            except:
-                stock_return = 0.0
-
-        sp_return = 0.0
-        if isinstance(sp_hist, pd.DataFrame) and len(sp_hist) > 1:
-            try:
-                sp_start = float(sp_hist["Close"].iloc[0])
-                sp_end = float(sp_hist["Close"].iloc[-1])
-                sp_return = (sp_end / sp_start - 1) if sp_start > 0 else 0
-            except:
-                sp_return = 0.0
-
-        # Safe info extraction - convert to float where possible
-        trailing_pe = float(info.get("trailingPE", 0)) if info.get("trailingPE") else None
-        forward_pe = float(info.get("forwardPE", 0)) if info.get("forwardPE") else None
-        total_debt = float(info.get("totalDebt", 0)) if info.get("totalDebt") else None
-        total_assets = float(info.get("totalAssets", 0)) if info.get("totalAssets") else None
-        debt_to_equity = float(info.get("debtToEquity", 0)) if info.get("debtToEquity") else None
-
-        beta_from_info = info.get("beta")
-        if beta_from_info and pd.notna(beta_from_info):
-            beta = float(beta_from_info)
+            else:
+                cagr = 0
         else:
-            beta = calculate_beta(stock_hist, sp_hist)
+            cagr = 0
 
-        # Debt ratio
-        debt_ratio = None
-        if debt_to_equity is not None and not pd.isna(debt_to_equity):
-            debt_ratio = debt_to_equity
-        elif total_debt is not None and total_assets is not None and total_assets != 0:
-            debt_ratio = total_debt / total_assets
+        # ✅ Gross margin
+        if "Gross Profit" in income and "Total Revenue" in income:
+            margin = (income["Gross Profit"] / income["Total Revenue"]).mean()
+        else:
+            margin = 0
+
+        # ✅ Free Cash Flow
+        if "Free Cash Flow" in cashflow:
+            fcf = cashflow["Free Cash Flow"].mean()
+        else:
+            fcf = 0
+
+        # ✅ 3-Year Performance
+        stock_hist = stock.history(period="3y")
+        sp_hist = sp500.history(period="3y")
+
+        if len(stock_hist) > 0 and len(sp_hist) > 0:
+            stock_return = (stock_hist["Close"][-1] / stock_hist["Close"][0]) - 1
+            sp_return = (sp_hist["Close"][-1] / sp_hist["Close"][0]) - 1
+        else:
+            stock_return = 0
+            sp_return = 0
+
+        # ✅ Beta
+        beta = info.get("beta", None)
 
         return {
             "ticker": ticker,
-            "cagr": round(float(cagr) * 100, 2),
-            "margin": round(float(margin) * 100, 2),
-            "fcf": round(float(fcf), 2),
-            "stock_3yr": round(float(stock_return) * 100, 2),
-            "sp_3yr": round(float(sp_return) * 100, 2),
-            "beta": beta,
-            "trailing_pe": trailing_pe,
-            "forward_pe": forward_pe,
-            "debt_ratio": debt_ratio,
+            "cagr": round(cagr * 100, 2),
+            "margin": round(margin * 100, 2),
+            "fcf": round(fcf, 2),
+            "stock_3yr": round(stock_return * 100, 2),
+            "sp_3yr": round(sp_return * 100, 2),
+            "beta": beta
         }
 
     except Exception as e:
-        st.error(f"Failed to process data for {ticker}: {str(e)}")
         return None
 
-# Volatility classification
+
+# ----------------------------
+# VOLATILITY CLASSIFICATION
+# ----------------------------
 def classify_volatility(beta):
-    if beta is None or pd.isna(beta):
+
+    if beta is None:
         return "Unknown", "⚠️"
-    
-    beta = float(beta)
+
     if beta < 0.8:
         return "Stable", "✅"
     elif beta <= 1.2:
         return "Normal", "⚪"
     elif beta <= 1.8:
         return "Volatile", "⚠️"
-    elif beta <= 2.1:
+    elif beta <=2.1:
         return "Highly Volatile", "🔴"
     else:
         return "Emotionally Destructive", "🔴"
 
-# FIXED Scoring system - ALL values are scalars
+
+# ----------------------------
+# SCORING SYSTEM
+# ----------------------------
 def calculate_hold_score(data, tailwind, leader):
+
     score = 0
     breakdown = {}
 
-    # Safe numeric extraction
-    cagr = float(data.get("cagr", 0))
-    margin = float(data.get("margin", 0))
-    fcf = float(data.get("fcf", 0))
-    stock_3yr = float(data.get("stock_3yr", 0))
-    sp_3yr = float(data.get("sp_3yr", 0))
-    beta = float(data.get("beta", 0)) if data.get("beta") is not None else None
-    trailing_pe = float(data.get("trailing_pe", 0)) if data.get("trailing_pe") is not None else None
-    debt_ratio = float(data.get("debt_ratio", 0)) if data.get("debt_ratio") is not None else None
-
     # 1. Revenue growth
-    if cagr > 15:
+    if data["cagr"] > 15:
         score += 2
-        breakdown["Revenue CAGR"] = f"{cagr}% ✅"
-    elif cagr > 8:
+        breakdown["Revenue CAGR"] = f"{data['cagr']}% ✅"
+    elif data["cagr"] > 8:
         score += 1
-        breakdown["Revenue CAGR"] = f"{cagr}% ⚠️"
+        breakdown["Revenue CAGR"] = f"{data['cagr']}% ⚠️"
     else:
-        breakdown["Revenue CAGR"] = f"{cagr}% ❌"
+        breakdown["Revenue CAGR"] = f"{data['cagr']}% ❌"
 
     # 2. Gross margin
-    if margin > 40:
+    if data["margin"] > 40:
         score += 2
-        breakdown["Gross Margin"] = f"{margin}% ✅"
-    elif margin > 25:
+        breakdown["Gross Margin"] = f"{data['margin']}% ✅"
+    elif data["margin"] > 25:
         score += 1
-        breakdown["Gross Margin"] = f"{margin}% ⚠️"
+        breakdown["Gross Margin"] = f"{data['margin']}% ⚠️"
     else:
-        breakdown["Gross Margin"] = f"{margin}% ❌"
+        breakdown["Gross Margin"] = f"{data['margin']}% ❌"
 
     # 3. Free cash flow
-    if fcf > 0:
+    if data["fcf"] > 0:
         score += 2
-        breakdown["Free Cash Flow"] = f"${fcf:,.0f} ✅"
+        breakdown["Free Cash Flow"] = f"${data['fcf']:,.0f} ✅"
     else:
-        breakdown["Free Cash Flow"] = f"${fcf:,.0f} ❌"
+        breakdown["Free Cash Flow"] = f"${data['fcf']:,.0f} ❌"
 
-    # 4. 3Y vs S&P - NOW SAFE SCALAR COMPARISON
-    if stock_3yr > sp_3yr:
+    # 4. 3Y performance vs S&P
+    if data["stock_3yr"] > data["sp_3yr"]:
         score += 2
-        breakdown["3Y vs S&P"] = f"{stock_3yr}% > {sp_3yr}% ✅"
+        breakdown["3Y vs S&P"] = f"{data['stock_3yr']}% > {data['sp_3yr']}% ✅"
     else:
-        breakdown["3Y vs S&P"] = f"{stock_3yr}% ≤ {sp_3yr}% ❌"
+        breakdown["3Y vs S&P"] = f"{data['stock_3yr']}% ≤ {data['sp_3yr']}% ❌"
 
     # 5. Tailwind
     if tailwind == "Yes":
@@ -273,37 +157,13 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Market Leader"] = "❌ No"
 
-    # 7. Beta
-    vol_label, icon = classify_volatility(beta)
-    breakdown["Beta / Volatility"] = f"{beta or 'N/A'} → {vol_label} {icon}"
-    if beta and beta > 1.6:
+    # 7. Beta (Volatility)
+    vol_label, icon = classify_volatility(data["beta"])
+    breakdown["Beta / Volatility"] = f"{data['beta']} → {vol_label} {icon}"
+
+    # Optional penalty for extreme volatility
+    if data["beta"] and data["beta"] > 1.6:
         score -= 1
-
-    # 8. P/E
-    if trailing_pe is not None and trailing_pe >= 0:
-        if trailing_pe < 25:
-            score += 1
-            breakdown["P/E (Trailing)"] = f"{trailing_pe:.1f} ✅"
-        elif trailing_pe <= 40:
-            breakdown["P/E (Trailing)"] = f"{trailing_pe:.1f} ⚠️"
-        else:
-            score -= 1
-            breakdown["P/E (Trailing)"] = f"{trailing_pe:.1f} ❌"
-    else:
-        breakdown["P/E (Trailing)"] = "N/A ⚠️"
-
-    # 9. Debt ratio
-    if debt_ratio is not None and debt_ratio >= 0:
-        if debt_ratio < 0.5:
-            score += 1
-            breakdown["Debt Ratio"] = f"{debt_ratio:.2f} ✅"
-        elif debt_ratio <= 1.5:
-            breakdown["Debt Ratio"] = f"{debt_ratio:.2f} ⚠️"
-        else:
-            score -= 1
-            breakdown["Debt Ratio"] = f"{debt_ratio:.2f} ❌"
-    else:
-        breakdown["Debt Ratio"] = "N/A ⚠️"
 
     return score, breakdown
 
@@ -354,4 +214,4 @@ if st.button("Analyze stock"):
             # Details section
             st.subheader("📌 Breakdown")
             df = pd.DataFrame(breakdown.items(), columns=["Metric", "Status"])
-            st.dataframe(df, height = 400, width = 500)
+            st.table(df)
