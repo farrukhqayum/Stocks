@@ -101,7 +101,7 @@ with col2:
 with col3:
     TP_pct = st.number_input("TP (%)", value=7.0, step=0.5, help="3-10% are logical to add more training data. 15% are less likely and not repeatable.")
 with col4:
-    SL_pct = st.number_input("SL (%)", value=7.0, step=0.5, help="To hit less 'SL', try to use 2x TP e.g. 14% as a number")
+    SL_pct = st.number_input("SL (%)", value=14.0, step=0.5, help="To hit less 'SL', try to use 2x TP e.g. 14% as a number")
 
 # ML prediction settings
 col5, col6 = st.columns(2)
