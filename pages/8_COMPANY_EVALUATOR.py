@@ -13,6 +13,38 @@ st.set_page_config(
 
 st.title("🔎 Company Strength & 10-Year Hold Score")
 
+def calculate_beta(stock_ticker, benchmark_ticker="^GSPC", period="3y"):
+    try:
+        stock = yf.Ticker(stock_ticker)
+        index = yf.Ticker(benchmark_ticker)
+
+        stock_hist = stock.history(period=period)[["Close"]]
+        index_hist = index.history(period=period)[["Close"]]
+
+        if stock_hist.empty or index_hist.empty:
+            return None
+        
+        # Align dates
+        df = stock_hist.join(index_hist, lsuffix="_stock", rsuffix="_index", how="inner")
+
+        # Daily returns
+        df["stock_ret"] = df["Close_stock"].pct_change()
+        df["index_ret"] = df["Close_index"].pct_change()
+
+        df = df.dropna()
+
+        # Compute beta
+        cov = df["stock_ret"].cov(df["index_ret"])
+        var = df["index_ret"].var()
+
+        if var == 0:
+            return None
+
+        beta = cov / var
+        return round(beta, 2)
+
+    except Exception:
+        return None
 
 # ----------------------------
 # SAFE DATA FETCHING FUNCTION
@@ -103,7 +135,7 @@ def get_company_data(ticker):
     # ----------------------------
     # Beta (from info)
     # ----------------------------
-    beta = info.get("beta", None)
+    beta = calculate_beta(ticker)
 
     return {
         "ticker": ticker,
