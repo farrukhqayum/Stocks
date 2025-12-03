@@ -179,19 +179,18 @@ def classify_volatility(beta):
 # SCORING SYSTEM
 # ----------------------------
 def calculate_hold_score(data, tailwind, leader):
+
     score = 0
     breakdown = {}
+
+    # Convert values safely to numeric with fallback 0
     cagr = pd.to_numeric(data.get("cagr", 0), errors='coerce') or 0
     margin = pd.to_numeric(data.get("margin", 0), errors='coerce') or 0
     fcf = pd.to_numeric(data.get("fcf", 0), errors='coerce') or 0
     stock_3yr = pd.to_numeric(data.get("stock_3yr", 0), errors='coerce') or 0
     sp_3yr = pd.to_numeric(data.get("sp_3yr", 0), errors='coerce') or 0
-    beta = pd.to_numeric(data.get("beta"), errors='coerce')
-    trailing_pe = pd.to_numeric(data.get("trailing_pe"), errors='coerce')
-    debt_ratio = pd.to_numeric(data.get("debt_ratio"), errors='coerce')
 
-    # 1. Revenue growth - SAFE
-    cagr = data.get("cagr", 0)
+    # 1. Revenue growth
     if cagr > 15:
         score += 2
         breakdown["Revenue CAGR"] = f"{cagr}% ✅"
@@ -201,8 +200,7 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Revenue CAGR"] = f"{cagr}% ❌"
 
-    # 2. Gross margin - SAFE
-    margin = data.get("margin", 0)
+    # 2. Gross margin
     if margin > 40:
         score += 2
         breakdown["Gross Margin"] = f"{margin}% ✅"
@@ -212,32 +210,48 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Gross Margin"] = f"{margin}% ❌"
 
-    # 3. Free cash flow - SAFE
-    fcf = data.get("fcf", 0)
+    # 3. Free cash flow
     if fcf > 0:
         score += 2
         breakdown["Free Cash Flow"] = f"${fcf:,.0f} ✅"
     else:
         breakdown["Free Cash Flow"] = f"${fcf:,.0f} ❌"
 
-    # 4. 3Y performance vs S&P - SAFE
-    stock_3yr = data.get("stock_3yr", 0)
-    sp_3yr = data.get("sp_3yr", 0)
+    # 4. 3Y performance vs S&P - safe numeric comparison
     if stock_3yr > sp_3yr:
         score += 2
         breakdown["3Y vs S&P"] = f"{stock_3yr}% > {sp_3yr}% ✅"
     else:
         breakdown["3Y vs S&P"] = f"{stock_3yr}% ≤ {sp_3yr}% ❌"
 
-    # Rest unchanged but also use .get()...
-    beta = data.get("beta")
+    # 5. Tailwind
+    if tailwind == "Yes":
+        score += 1
+        breakdown["Sector Tailwind"] = "✅ Yes"
+    elif tailwind == "Uncertain":
+        breakdown["Sector Tailwind"] = "⚠️ Uncertain"
+    else:
+        breakdown["Sector Tailwind"] = "❌ No"
+
+    # 6. Leader
+    if leader == "Yes":
+        score += 1
+        breakdown["Market Leader"] = "✅ Yes"
+    elif leader == "Uncertain":
+        breakdown["Market Leader"] = "⚠️ Uncertain"
+    else:
+        breakdown["Market Leader"] = "❌ No"
+
+    # 7. Beta (Volatility)
+    beta = pd.to_numeric(data.get("beta"), errors='coerce')
     vol_label, icon = classify_volatility(beta)
-    breakdown["Beta / Volatility"] = f"{beta or 'N/A'} → {vol_label} {icon}"
+    breakdown["Beta / Volatility"] = f"{beta if beta is not None else 'N/A'} → {vol_label} {icon}"
     if beta and beta > 1.6:
         score -= 1
 
-    pe = data.get("trailing_pe")
-    if pe is not None:
+    # 8. Valuation (P/E)
+    pe = pd.to_numeric(data.get("trailing_pe"), errors='coerce')
+    if pe is not None and not pd.isna(pe):
         if pe < 25:
             score += 1
             breakdown["P/E (Trailing)"] = f"{pe:.1f} ✅"
@@ -250,8 +264,8 @@ def calculate_hold_score(data, tailwind, leader):
         breakdown["P/E (Trailing)"] = "N/A ⚠️"
 
     # 9. Leverage (Debt ratio)
-    dr = data.get("debt_ratio")
-    if dr is not None:
+    dr = pd.to_numeric(data.get("debt_ratio"), errors='coerce')
+    if dr is not None and not pd.isna(dr):
         if dr < 0.5:
             score += 1
             breakdown["Debt Ratio (D/E or Debt/Assets)"] = f"{dr:.2f} ✅"
@@ -264,6 +278,7 @@ def calculate_hold_score(data, tailwind, leader):
         breakdown["Debt Ratio (D/E or Debt/Assets)"] = "N/A ⚠️"
 
     return score, breakdown
+
 
 # ==================================================
 # ================= STREAMLIT UI ===================
