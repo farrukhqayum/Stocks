@@ -1018,7 +1018,15 @@ if st.button("Run ML Strategy Backtest"):
         })
     
     perf_table = pd.DataFrame(perf_rows)
-    st.subheader(f'{ticker} Performance by TP/SL Percent (ML Confidence >= {ml_confidence_threshold}%)')
+    st.subheader(f'{ticker} Performance by Symmetric TP/SL Percent (ML Confidence >= {ml_confidence_threshold}%)')
+    with st.expander("Symmetric Tests"):
+    st.markdown("""
+    - **1-3%:** Notice if this is profitable.
+    - **3-7%:** This needs patience and you will notice returns.
+    - Symetric R/R is a perfect example of gambling, over time, results in losses.
+    - Best approach is to follow high-confidence to buy-and-hold for 7-21 days and then decide if that is a winning on lossing trade.
+    - Beat the trend by consistently booking profits.
+    """)
     st.dataframe(perf_table)
 
 
