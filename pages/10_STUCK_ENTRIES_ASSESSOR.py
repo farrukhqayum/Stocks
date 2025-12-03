@@ -21,17 +21,20 @@ start_date = st.sidebar.date_input("Start Date", value=datetime.now() - timedelt
 end_date = st.sidebar.date_input("End Date", value=datetime.now())
 
 @st.cache_data
-def load_stock_data(ticker, start, end):
-    """Load stock data with error handling"""
-    try:
-        data = yf.download(ticker, start=start, end=end, progress=False)
-        if data.empty:
-            st.error(f"No data found for ticker {ticker}")
-            return None
-        return data
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+def load_stock_data(ticker, start_date, end_date):
+    """Get stock data from Yahoo Finance"""
+    df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1), 
+                     progress=False)
+    if df.empty:
         return None
+    
+    # Clean column names
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+    
+    df.index = pd.to_datetime(df.index)
+    df = df.dropna()
+    return df
 
 if ticker:
     data = load_stock_data(ticker, start_date, end_date)
