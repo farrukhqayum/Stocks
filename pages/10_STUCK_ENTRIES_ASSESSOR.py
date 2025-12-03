@@ -88,7 +88,7 @@ if ticker:
 
         # Position breakdown chart
         if len(entries_df) > 0:
-            fig2, ax2 = plt.subplots(figsize=(10, 6))
+            fig2, ax2 = plt.subplots(figsize=(5, 3))
             weights = entries_df['shares'] / total_shares * 100
             colors = plt.cm.Set3(np.linspace(0, 1, len(entries_df)))
             ax2.pie(weights, labels=[f"Entry {i+1}\n${(s*p):.0f}" for i, (s, p) in enumerate(zip(entries_df['shares'], entries_df['price']))], 
