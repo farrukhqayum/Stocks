@@ -1076,8 +1076,9 @@ def update_price_and_reset_entry():
 
 def check_ticker_valid(ticker):
     try:
-        stock = yf.Ticker(ticker).history(period="1d")
-        info = stock.info
+        ticker_obj = yf.Ticker(ticker)
+        info = ticker_obj.info
+
         price = info.get("regularMarketPrice") or info.get("previousClose")
         if info is None or price is None:
             return False, None
@@ -1085,6 +1086,7 @@ def check_ticker_valid(ticker):
     except Exception as e:
         print(f"Error for {ticker}: {e}")
         return False, None
+
 
 def clear_page_session_state():
     """Clear only this page's session state on load"""
