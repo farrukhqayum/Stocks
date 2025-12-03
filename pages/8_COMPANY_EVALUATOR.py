@@ -14,7 +14,7 @@ st.set_page_config(
 
 st.title("🔎 Company Evaluator & Hold Score")
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def get_company_data(ticker):
     try:
         stock = yf.Ticker(ticker)
