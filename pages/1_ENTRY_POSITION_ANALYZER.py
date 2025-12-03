@@ -1155,14 +1155,6 @@ def main():
             if key not in st.session_state:
                 st.session_state[key] = 0 if "price" in key else ""
                 
-        # Validate ticker after input
-        if ticker:
-            is_valid, info = check_ticker_valid(ticker)
-            if not is_valid:
-                st.error("Please enter a valid ticker name, or check Yahoo Finance for the ticker name.")
-                st.stop()
-            else:
-                st.success(f"Ticker {ticker} is valid: {info.get('shortName', 'No name found')}")
 
     with col2:
         # Set initial prices only once when ticker is valid
