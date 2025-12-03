@@ -22,7 +22,7 @@ end_date = st.sidebar.date_input("End Date", value=datetime.now())
 
 @st.cache_data
 def load_stock_data(ticker, start, end):
-    data = yfinance.download(ticker, start=start, end=end)
+    data = yf.download(ticker, start=start, end=end)
     return data
 
 if ticker:
