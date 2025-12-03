@@ -1,5 +1,6 @@
 import streamlit as st
 import yfinance as yf
+from yfinance.exceptions import YFRateLimitError
 import numpy as np
 import pandas as pd
 
@@ -14,29 +15,68 @@ st.set_page_config(
 
 st.title("🔎 Company Evaluator & Hold Score")
 
-@st.cache_data(ttl=3600)
+import time
+from yfinance.exceptions import YFRateLimitError
+
+@st.cache_data(ttl=3600, show_spinner=False)  # Hide spinner during retries
 def get_financials(ticker):
-    t = yf.Ticker(ticker)
-    return getattr(t, 'financials', pd.DataFrame()).T
+    for attempt in range(3):
+        try:
+            t = yf.Ticker(ticker)
+            return getattr(t, 'financials', pd.DataFrame()).T
+        except YFRateLimitError:
+            if attempt < 2:
+                time.sleep(2 ** attempt * 2)  # 2s, 4s, 8s
+            else:
+                return pd.DataFrame()
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_cashflow(ticker):
-    t = yf.Ticker(ticker)
-    return getattr(t, 'cashflow', pd.DataFrame()).T
+    for attempt in range(3):
+        try:
+            t = yf.Ticker(ticker)
+            return getattr(t, 'cashflow', pd.DataFrame()).T
+        except YFRateLimitError:
+            if attempt < 2:
+                time.sleep(2 ** attempt * 2)
+            else:
+                return pd.DataFrame()
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_info(ticker):
-    t = yf.Ticker(ticker)
-    return getattr(t, 'info', {})
+    for attempt in range(3):
+        try:
+            t = yf.Ticker(ticker)
+            return getattr(t, 'info', {})
+        except YFRateLimitError:
+            if attempt < 2:
+                time.sleep(2 ** attempt * 2)
+            else:
+                return {}
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_history(ticker, period="3y"):
-    t = yf.Ticker(ticker)
-    return t.history(period=period)
+    for attempt in range(3):
+        try:
+            t = yf.Ticker(ticker)
+            return t.history(period=period)
+        except YFRateLimitError:
+            if attempt < 2:
+                time.sleep(2 ** attempt * 2)
+            else:
+                return pd.DataFrame()
 
-@st.cache_data(ttl=3600)  # Cache S&P separately
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_sp500_history(period="3y"):
-    return yf.download("^GSPC", period=period, progress=False)
+    for attempt in range(3):
+        try:
+            return yf.download("^GSPC", period=period, progress=False)
+        except YFRateLimitError:
+            if attempt < 2:
+                time.sleep(2 ** attempt * 2)
+            else:
+                return pd.DataFrame()
+
 
 @st.cache_data(ttl=3600)  # LONGER TTL since it uses cached components
 def get_company_data(ticker):
