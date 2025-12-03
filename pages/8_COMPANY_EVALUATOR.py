@@ -15,68 +15,69 @@ st.set_page_config(
 st.title("🔎 Company Evaluator & Hold Score")
 
 
-# ----------------------------
-# DATA FETCH
-# ----------------------------
 def get_company_data(ticker):
     try:
         stock = yf.Ticker(ticker)
-
-        income = stock.financials.T
-        cashflow = stock.cashflow.T
-        info = stock.info
+        
+        # SAFE: Check if attributes exist before accessing
+        income = getattr(stock, 'financials', pd.DataFrame()).T if hasattr(stock, 'financials') else pd.DataFrame()
+        cashflow = getattr(stock, 'cashflow', pd.DataFrame()).T if hasattr(stock, 'cashflow') else pd.DataFrame()
+        info = getattr(stock, 'info', {})
         sp500 = yf.Ticker("^GSPC")
 
-        # Revenue CAGR
-        if "Total Revenue" in income:
+        # Revenue CAGR - SAFE
+        cagr = 0
+        if not income.empty and "Total Revenue" in income.columns:
             rev = income["Total Revenue"].dropna()
             if len(rev) >= 2:
                 cagr = (rev.iloc[0] / rev.iloc[-1]) ** (1/len(rev)) - 1
-            else:
-                cagr = 0
-        else:
-            cagr = 0
 
-        # Gross margin
-        if "Gross Profit" in income and "Total Revenue" in income:
-            margin = (income["Gross Profit"] / income["Total Revenue"]).mean()
-        else:
-            margin = 0
+        # Gross margin - SAFE  
+        margin = 0
+        if (not income.empty and 
+            "Gross Profit" in income.columns and 
+            "Total Revenue" in income.columns):
+            gp = income["Gross Profit"].dropna()
+            rev = income["Total Revenue"].dropna()
+            if len(gp) > 0 and len(rev) > 0:
+                margin = (gp / rev).mean()
 
-        # Free Cash Flow
-        if "Free Cash Flow" in cashflow:
-            fcf = cashflow["Free Cash Flow"].mean()
-        else:
-            fcf = 0
+        # Free Cash Flow - SAFE
+        fcf = 0
+        if not cashflow.empty and "Free Cash Flow" in cashflow.columns:
+            fcf_values = cashflow["Free Cash Flow"].dropna()
+            if len(fcf_values) > 0:
+                fcf = fcf_values.mean()
 
-        # 3-Year Performance
-        stock_hist = stock.history(period="3y")
-        sp_hist = sp500.history(period="3y")
-
-        if len(stock_hist) > 0 and len(sp_hist) > 0:
-            stock_return = (stock_hist["Close"][-1] / stock_hist["Close"][0]) - 1
-            sp_return = (sp_hist["Close"][-1] / sp_hist["Close"][0]) - 1
-        else:
+        # 3-Year Performance - SAFE
+        try:
+            stock_hist = stock.history(period="3y")
+            sp_hist = sp500.history(period="3y")
+            
+            stock_return = 0
+            if len(stock_hist) > 1:
+                stock_return = (stock_hist["Close"].iloc[-1] / stock_hist["Close"].iloc[0]) - 1
+                
+            sp_return = 0
+            if len(sp_hist) > 1:
+                sp_return = (sp_hist["Close"].iloc[-1] / sp_hist["Close"].iloc[0]) - 1
+        except:
             stock_return = 0
             sp_return = 0
 
-        # Beta
-        beta = info.get("beta", None)
+        # Safe info extraction
+        beta = info.get("beta")
+        trailing_pe = info.get("trailingPE")
+        forward_pe = info.get("forwardPE")
+        total_debt = info.get("totalDebt")
+        total_assets = info.get("totalAssets")
+        debt_to_equity = info.get("debtToEquity")
 
-        # P/E ratios
-        trailing_pe = info.get("trailingPE", None)
-        forward_pe = info.get("forwardPE", None)
-
-        # Debt metrics (simple proxies)
-        total_debt = info.get("totalDebt", None)            # latest total debt
-        total_assets = info.get("totalAssets", None)        # sometimes available
-        debt_to_equity = info.get("debtToEquity", None)     # Yahoo’s D/E if present
-
-        # Prefer Yahoo’s D/E; else compute debt/assets if both present
-        if debt_to_equity is not None:
-            debt_ratio = debt_to_equity
-        elif total_debt is not None and total_assets:
-            debt_ratio = total_debt / total_assets if total_assets != 0 else None
+        # Debt ratio - SAFE
+        if debt_to_equity is not None and pd.notna(debt_to_equity):
+            debt_ratio = float(debt_to_equity)
+        elif total_debt is not None and total_assets is not None and total_assets != 0:
+            debt_ratio = float(total_debt) / float(total_assets)
         else:
             debt_ratio = None
 
@@ -93,7 +94,8 @@ def get_company_data(ticker):
             "debt_ratio": debt_ratio,
         }
 
-    except Exception:
+    except Exception as e:
+        st.error(f"Failed to fetch data for {ticker}: {str(e)}")
         return None
 
 
