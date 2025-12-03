@@ -200,7 +200,8 @@ def calculate_hold_score(data, tailwind, leader):
 
     # 7. Beta (Volatility)
     vol_label, icon = classify_volatility(data["beta"])
-    breakdown["Beta / Volatility"] = f"{data['beta']} → {vol_label} {icon}"
+    beta_display = data['beta'] if data['beta'] is not None else "Unknown"
+    breakdown["Beta / Volatility"] = f"{beta_display} → {vol_label} {icon}"
 
     # Optional penalty
     if data["beta"] and data["beta"] > 1.6:
