@@ -16,7 +16,7 @@ st.set_page_config(page_title="Stock Position Assessor", layout="wide")
 st.title("Stock Position Assessment Tool")
 
 # a) Ticker input and data loading
-ticker = st.sidebar.text_input("Enter Stock Ticker", value="AAPL")
+ticker = st.sidebar.text_input("Enter Stock Ticker", value="COIN")
 start_date = st.sidebar.date_input("Start Date", value=datetime.now() - timedelta(days=365))
 end_date = st.sidebar.date_input("End Date", value=datetime.now())
 
