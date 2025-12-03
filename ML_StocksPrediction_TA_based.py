@@ -1266,7 +1266,7 @@ def run_app():
 
         with st.expander("Tabular Results"):
             st.write("""
-            The results are tabulated that can be manually sorted or downloaded. Look for high probability, TP/Bullishness and double check the graph and 'is High'.
+            The results are tabulated that can be manually sorted or downloaded. Look for the stocks with higher confidence >65%, TP/Bullishness and double check the graph and 'is High'.
     
             Avoid buying near tops, or near highs, or ATHs. The first rule is to buy low and the second rule is to buy closer to SL or buy 3-red days or 3-red weeks.
     
@@ -1298,6 +1298,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
