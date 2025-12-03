@@ -1074,7 +1074,7 @@ def update_price_and_reset_entry():
 
 def check_ticker_valid(ticker):
     try:
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker).history(period="1d")
         info = stock.info
         price = info.get("regularMarketPrice") or info.get("previousClose")
         if info is None or price is None:
