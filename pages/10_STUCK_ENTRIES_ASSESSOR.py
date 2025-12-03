@@ -7,7 +7,7 @@ import matplotlib.dates as mdates
 from datetime import datetime, timedelta
 import warnings
 
-# Suppress matplotlib deprecation warnings [web:21][web:22]
+# Suppress matplotlib deprecation warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
 
 # Page config
@@ -40,9 +40,9 @@ if ticker:
     data = load_stock_data(ticker, start_date, end_date)
     if data is not None and not data.empty:
         current_price = data['Close'].iloc[-1]
-        st.metric("Current Price", f"${current_price:.2f}")  # Fixed: data loaded successfully [web:41]
+        st.metric("Current Price", f"${current_price:.2f}")  # Fixed: data loaded successfully
 
-        # Price chart with matplotlib [web:12]
+        # Price chart with matplotlib
         fig, ax = plt.subplots(figsize=(12, 6))
         ax.plot(data.index, data['Close'], linewidth=2, color='blue', label='Close Price')
         ax.fill_between(data.index, data['Low'], data['High'], alpha=0.3, color='gray', label='High-Low')
@@ -103,7 +103,7 @@ if ticker:
         # c) Position assessment and Monte Carlo
         st.header("Position Assessment & Monte Carlo Simulation")
         
-        # Historical returns for simulation params [web:1]
+        # Historical returns for simulation params
         returns = data['Close'].pct_change().dropna()
         mu = returns.mean() * 252  # Annualized drift
         sigma = returns.std() * np.sqrt(252)  # Annualized volatility
@@ -112,7 +112,7 @@ if ticker:
         col1.metric("Annualized Return", f"{mu*100:.1f}%")
         col2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
         
-        st.info(f"Historical stats used for Monte Carlo simulation [web:1][web:3]")
+        st.info(f"Historical stats used for Monte Carlo simulation")
         
         # Monte Carlo parameters
         days = st.slider("Forecast Days", 30, 365, 90)
@@ -130,7 +130,7 @@ if ticker:
         
         paths = monte_carlo_forecast(current_price, mu, sigma, days, num_sims)
         
-        # Monte Carlo plot [web:12]
+        # Monte Carlo plot
         fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 10), height_ratios=[3, 1])
         
         # Price paths (sample 50)
@@ -182,6 +182,6 @@ if ticker:
         allocation_pct = (position_value / portfolio_size) * 100
         st.metric("Portfolio Allocation", f"{allocation_pct:.1f}% of $20K")
 
-        st.caption("Monte Carlo: $$S(t+Δt) = S(t) × exp[(μ - ½σ²)Δt + σ√Δt × Z]$$ where Z ~ N(0,1) [web:1][web:3]")
+        st.caption("Monte Carlo: $$S(t+Δt) = S(t) × exp[(μ - ½σ²)Δt + σ√Δt × Z]$$ where Z ~ N(0,1)")
     else:
         st.warning("No data loaded. Please check ticker symbol and date range.")
