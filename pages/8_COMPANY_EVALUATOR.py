@@ -28,8 +28,8 @@ def calculate_beta(stock_ticker, benchmark_ticker="^GSPC", period="5y"):
         df = stock_hist.join(index_hist, lsuffix="_stock", rsuffix="_index", how="inner")
 
         # Daily returns
-        df["stock_ret"] = df["Close_stock"].pct_change().rolling(window=30).mean()
-        df["index_ret"] = df["Close_index"].pct_change().rolling(window=30).mean()
+        df["stock_ret"] = df["Close_stock"].pct_change().rolling(window=21).mean()
+        df["index_ret"] = df["Close_index"].pct_change().rolling(window=21).mean()
 
         df = df.dropna()
 
