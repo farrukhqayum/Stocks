@@ -87,9 +87,9 @@ if ticker:
         st.metric("PnL %", f"{pnl_pct:.2f}%")
 
         # Position breakdown chart
-        col1, col2 = st.columns([1, 3]) 
+        col1, col2 = st.columns([1, 2]) 
         with col1:
-            fig2, ax2 = plt.subplots(figsize=(4, 4))  # Reduced from (10,6) to (4,4)
+            fig2, ax2 = plt.subplots(figsize=(7, 4))  # Reduced from (10,6) to (4,4)
             weights = [100]  # Single entry simplified
             colors = ['#ff9999']
             ax2.pie(weights, radius=0.8,  # Smaller radius
