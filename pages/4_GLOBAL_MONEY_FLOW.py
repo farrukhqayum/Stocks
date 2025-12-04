@@ -184,17 +184,16 @@ mean_smooth = money_flow_smooth.mean()
 base = alt.Chart(df_plot).encode(x='Date:T')
 df_plot['Above'] = df_plot['Money Flow Curve'] > df_plot['Smoothed Curve']
 
-# Line for raw curve
+base = alt.Chart(df_plot).encode(x='Date:T')
+
 curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
     y='Money Flow Curve:Q'
 )
 
-# Line for smoothed curve
 smooth_chart = base.mark_line(color='#d62728', size=2).encode(
     y='Smoothed Curve:Q'
 )
 
-# Area fill between the two
 fill_area = base.mark_area(opacity=0.3).encode(
     y='Money Flow Curve:Q',
     y2='Smoothed Curve:Q',
