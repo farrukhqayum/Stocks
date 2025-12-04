@@ -539,15 +539,15 @@ if st.button("Run ML Strategy Backtest"):
     end_date = datetime.now()
     #start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)  # Full years as days lookback
     if period == "1y":
-        start_date = end_date - timedelta(days=365)
-    elif period == "2y":
         start_date = end_date - timedelta(days=365 * 2)
-    elif period == "3y":
+    elif period == "2y":
         start_date = end_date - timedelta(days=365 * 3)
+    elif period == "3y":
+        start_date = end_date - timedelta(days=365 * 4)
     elif period == "5y":
-        start_date = end_date - timedelta(days=365 * 5)
+        start_date = end_date - timedelta(days=365 * 6)
     elif period == "7y":
-        start_date = end_date - timedelta(days=365 * 7)
+        start_date = end_date - timedelta(days=365 * 8)
 
     with st.spinner('Downloading daily market data...'):
         df_daily = get_stock_data(ticker, start_date, end_date)
