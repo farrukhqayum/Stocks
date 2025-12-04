@@ -539,15 +539,15 @@ if st.button("Run ML Strategy Backtest"):
     end_date = datetime.now()
     #start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)  # Full years as days lookback
     if period == "1y":
-        start_date = end_date - timedelta(days=365 * 2)
+        start_date = end_date - timedelta(days=365)
     elif period == "2y":
-        start_date = end_date - timedelta(days=365 * 3)
+        start_date = end_date - timedelta(days=365 * 2)
     elif period == "3y":
-        start_date = end_date - timedelta(days=365 * 4)
+        start_date = end_date - timedelta(days=365 * 3)
     elif period == "5y":
-        start_date = end_date - timedelta(days=365 * 6)
+        start_date = end_date - timedelta(days=365 * 5)
     elif period == "7y":
-        start_date = end_date - timedelta(days=365 * 8)
+        start_date = end_date - timedelta(days=365 * 7)
 
     with st.spinner('Downloading daily market data...'):
         df_daily = get_stock_data(ticker, start_date, end_date)
@@ -560,78 +560,78 @@ if st.button("Run ML Strategy Backtest"):
         df_daily = add_technical_indicators(df_daily)
         df_daily = add_pivots(df_daily, windows)
         df_daily = average_pivots(df_daily, windows)
+        df_daily = compute_expected_return(df_daily)
+        df_daily = compute_expected_loss(df_daily)
+        df_daily = label_hit_prob_past(df_daily, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+
 
     st.write("Running backtest...")
     trades = []
     in_trade = False
     current_trade = {}
-    
+
     daily_dates = df_daily.index
+
     progress_bar = st.progress(0)
-    
+
     for i, current_date in enumerate(daily_dates):
-        # Update progress bar every 100 steps
         if i % 100 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
-    
-        # Slice data up to current_date
+        
+        # Use daily data only
         current_data = df_daily.loc[:current_date]
         if len(current_data) < 100:
             continue
-    
-        # ENTRY LOGIC
-        if not in_trade:
-            ml_prediction = get_ml_prediction(current_data, models)
-            if ml_prediction is None:
-                continue
-    
-            if (ml_prediction['will_hit'] in ['TP','Hold','None'] and 
-                ml_prediction['confidence_score']*100 >= ml_confidence_threshold):
-    
-                entry_price = current_data['Close'].iloc[-1]
-                TP_price = entry_price * (1 + TP_pct/100.0)
-                SL_price = entry_price * (1 - SL_pct/100.0)
-    
-                current_trade = {
-                    'entry_date': current_date,
-                    'entry_price': entry_price,
-                    'tp_price': TP_price,
-                    'sl_price': SL_price,
-                    'ml_confidence': ml_prediction['confidence_score']*100,
-                    'ml_signal': ml_prediction['will_hit']
-                }
-                in_trade = True
-    
-        # EXIT LOGIC
-        else:
-            current_close = current_data['Close'].iloc[-1]
-    
-            if current_close >= current_trade['tp_price']:
-                exit_reason = 'TP'
-                exit_price = current_trade['tp_price']
-            elif current_close <= current_trade['sl_price']:
-                exit_reason = 'SL'
-                exit_price = current_trade['sl_price']
-            elif (current_date - current_trade['entry_date']).days >= max_holding_days:
-                exit_reason = 'Max_Hold'
-                exit_price = current_close
-            else:
-                continue
-    
-            trades.append({
-                'EntryDate': current_trade['entry_date'],
-                'ExitDate': current_date,
-                'EntryPrice': current_trade['entry_price'],
-                'ExitPrice': exit_price,
-                'Outcome': exit_reason,
-                'Return_%': (exit_price/current_trade['entry_price'] - 1)*100,
-                'HoldingDays': (current_date - current_trade['entry_date']).days,
-                'ML_Confidence': current_trade['ml_confidence'],
-                'ML_Signal': current_trade['ml_signal']
-            })
-            in_trade = False
-            current_trade = {}
 
+        with st.spinner('Training ML models...'):
+            models = train_ml_models(current_data)
+        
+        if models[0] is None:
+            st.error("Insufficient data for ML model training.")
+            st.stop()
+    
+        ml_prediction = get_ml_prediction(current_data, models)
+        if ml_prediction is None:
+            continue
+    
+        current_ml_signal = ml_prediction['will_hit']
+        current_ml_confidence = ml_prediction['confidence_score']
+        confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
+            
+        # ENTRY LOGIC 
+        if (not in_trade and
+            current_ml_signal in ['TP', 'Hold', 'None'] and  
+            current_ml_confidence >= ml_confidence_threshold):
+
+            entry_price = float(df_daily.loc[current_date, 'Close'])
+
+            tp_given = TP_pct / 100.0
+            sl_given = -SL_pct / 100.0
+            
+            predicted_return = ml_prediction['predicted_return']
+            predicted_loss = ml_prediction['predicted_loss']
+            
+            entry_price = float(df_daily.loc[current_date, 'Close'])
+            
+            if tp_given < predicted_return:
+                TP_price = entry_price * (1 + predicted_return)
+            else:
+                TP_price = entry_price * (1 + tp_given)
+            
+            if np.abs(sl_given) > np.abs(predicted_loss):
+                SL_price = entry_price * (1 + sl_given)
+            else:
+                SL_price = entry_price * (1 + predicted_loss)
+
+            current_trade = {
+                'entry_date': current_date,
+                'entry_price': entry_price,
+                'tp_price': TP_price,
+                'sl_price': SL_price,
+                'ml_confidence': current_ml_confidence,
+                'ml_signal': current_ml_signal
+            }
+            in_trade = True
 
         # EXIT LOGIC
         elif in_trade:
