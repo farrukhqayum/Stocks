@@ -556,6 +556,11 @@ if st.button("Run ML Strategy Backtest"):
         st.error("No daily data returned from Yahoo Finance.")
         st.stop()
 
+    with st.spinner('Calculating technical indicators...'):
+        df_daily = add_technical_indicators(df_daily)
+        df_daily = add_pivots(df_daily, windows)
+        df_daily = average_pivots(df_daily, windows)
+
     st.write("Running backtest...")
     trades = []
     in_trade = False
@@ -574,12 +579,11 @@ if st.button("Run ML Strategy Backtest"):
         if len(current_data) < 100:
             continue
 
-        current_data = add_pivots(current_data, windows)
-        current_data = average_pivots(current_data, windows)
-        current_data = compute_expected_return(current_data)
-        current_data = compute_expected_loss(current_data)
-        current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
-        models = train_ml_models(current_data)
+        with st.spinner('Computing & Training ML models...'):
+            current_data = compute_expected_return(current_data)
+            current_data = compute_expected_loss(current_data)
+            current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+            models = train_ml_models(current_data)
         
         if models[0] is None:
             st.error("Insufficient data for ML model training.")
