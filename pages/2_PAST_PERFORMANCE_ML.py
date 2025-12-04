@@ -539,15 +539,15 @@ if st.button("Run ML Strategy Backtest"):
     end_date = datetime.now()
     #start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)  # Full years as days lookback
     if period == "1y":
-        start_date = end_date - timedelta(days=365)
+        start_date = end_date - timedelta(days=365*2)
     elif period == "2y":
-        start_date = end_date - timedelta(days=365 * 2)
-    elif period == "3y":
         start_date = end_date - timedelta(days=365 * 3)
+    elif period == "3y":
+        start_date = end_date - timedelta(days=365 * 4)
     elif period == "5y":
-        start_date = end_date - timedelta(days=365 * 5)
+        start_date = end_date - timedelta(days=365 * 6)
     elif period == "7y":
-        start_date = end_date - timedelta(days=365 * 7)
+        start_date = end_date - timedelta(days=365 * 8)
 
     with st.spinner('Downloading daily market data...'):
         df_daily = get_stock_data(ticker, start_date, end_date)
@@ -560,18 +560,13 @@ if st.button("Run ML Strategy Backtest"):
         df_daily = add_technical_indicators(df_daily)
         df_daily = add_pivots(df_daily, windows)
         df_daily = average_pivots(df_daily, windows)
-        df_daily = compute_expected_return(df_daily)
-        df_daily = compute_expected_loss(df_daily)
-        df_daily = label_hit_prob_past(df_daily, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
 
 
     st.write("Running backtest...")
     trades = []
     in_trade = False
     current_trade = {}
-
     daily_dates = df_daily.index
-
     progress_bar = st.progress(0)
 
     for i, current_date in enumerate(daily_dates):
@@ -582,17 +577,19 @@ if st.button("Run ML Strategy Backtest"):
         current_data = df_daily.loc[:current_date]
         if len(current_data) < 100:
             continue
-
-        with st.spinner('Training ML models...'):
+        if (not in trade):
+            current_data = compute_expected_return(current_data)
+            current_data = compute_expected_loss(current_data)
+            current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
             models = train_ml_models(current_data)
         
-        if models[0] is None:
-            st.error("Insufficient data for ML model training.")
-            st.stop()
+            if models[0] is None:
+                st.error("Insufficient data for ML model training.")
+                st.stop()
     
-        ml_prediction = get_ml_prediction(current_data, models)
-        if ml_prediction is None:
-            continue
+            ml_prediction = get_ml_prediction(current_data, models)
+            if ml_prediction is None:
+                continue
     
         current_ml_signal = ml_prediction['will_hit']
         current_ml_confidence = ml_prediction['confidence_score']
