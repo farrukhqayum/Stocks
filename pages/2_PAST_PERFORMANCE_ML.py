@@ -612,7 +612,7 @@ if st.button("Run ML Strategy Backtest"):
             
             entry_price = float(df_daily.loc[current_date, 'Close'])
             
-            if tp_given < predicted_return:
+            if tp_given > predicted_return:
                 TP_price = entry_price * (1 + predicted_return)
             else:
                 TP_price = entry_price * (1 + tp_given)
