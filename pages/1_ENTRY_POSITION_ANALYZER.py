@@ -87,7 +87,7 @@ desc = """
     - Be patient, entry should be when price recovers above moving averages.
     - Split into two or three buys as no one can predict with precision if the entries are right.
     - Daily RSI is above its smoothed average (RSI_SMA), indicating a bullish momentum
-    - The machine learning model predicts a strong bullish movement ('TP' or 'Hold', or 'None - directionless') but the confidence is 30-50% with a decent risk/reward ratio predicted by ML.
+    - The machine learning model predicts a strong bullish movement ('TP' or 'Hold', or 'None - directionless') but the confidence is above 60% with a decent risk/reward ratio predicted by ML.
     - Take Profit (TP) price should be dynamic to the greater of your target or ML predicted return. Accept 3-7% gains all the times.
     - Stop Loss (SL) price should be far away from entries such that you h it less SL. To circumvent stop-loss you need to preserve capital to buy more if it dips 10-15%.
 
