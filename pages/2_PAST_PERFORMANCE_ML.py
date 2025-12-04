@@ -1,47 +1,59 @@
 #!/usr/bin/env python
-import streamlit as st
 import numpy as np
 import pandas as pd
 import yfinance as yf
+import streamlit as st
 import matplotlib.pyplot as plt
 
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 
-# -----------------------------
-# SETTINGS
-# -----------------------------
+st.set_page_config(layout="wide")
+st.title("📈 Machine Learning Backtest (NO LEAKAGE)")
 
-TICKER = "COIN"
-START = "2020-01-01"
-INTERVAL = "1d"
+# ---------------------------
+# SIDEBAR
+# ---------------------------
 
-TP_PCT = 0.06
-SL_PCT = 0.03
-MAX_HOLD = 15
+ticker = st.sidebar.text_input("Ticker", "COIN")
+start = st.sidebar.text_input("Start Date", "2020-01-01")
+interval = st.sidebar.selectbox("Interval", ["1d", "1h"], index=0)
 
-CONF_THRESHOLD = 0.65
-SPLIT_RATIO = 0.6
+tp_pct = st.sidebar.slider("Take Profit %", 1, 15, 6) / 100
+sl_pct = st.sidebar.slider("Stop Loss %", 1, 10, 3) / 100
+max_hold = st.sidebar.slider("Max Holding Days", 5, 40, 15)
 
-CAPITAL = 10000
-RISK_PER_TRADE = 0.15
+conf_threshold = st.sidebar.slider("Confidence Threshold", 50, 90, 65) / 100
+split_ratio = st.sidebar.slider("Train Split %", 50, 90, 60) / 100
 
+capital = st.sidebar.number_input("Starting Capital", value=10000)
+risk_per_trade = st.sidebar.slider("Risk Per Trade %", 5, 50, 15) / 100
 
-# -----------------------------
-# DATA
-# -----------------------------
+run = st.sidebar.button("▶ Run Backtest")
 
-df = yf.download(TICKER, start=START, interval=INTERVAL, group_by="column", auto_adjust=True)
-df.columns = df.columns.get_level_values(0)
-df.dropna(inplace=True)
+# ---------------------------
+# DATA LOAD
+# ---------------------------
 
+@st.cache_data
+def load_data(ticker, start, interval):
+    df = yf.download(ticker, start=start, interval=interval, group_by="column", auto_adjust=True)
 
-# -----------------------------
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+
+    df = df[['Open','High','Low','Close','Volume']]
+    df.dropna(inplace=True)
+    return df
+
+# ---------------------------
 # INDICATORS
-# -----------------------------
+# ---------------------------
 
 def add_features(df):
+    df = df.copy()
+
     df['Return'] = df['Close'].pct_change()
 
     df['SMA_20'] = df['Close'].rolling(20).mean()
@@ -53,14 +65,17 @@ def add_features(df):
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
 
-    ema_fast = df['Close'].ewm(span=12).mean()
-    ema_slow = df['Close'].ewm(span=26).mean()
+    ema_fast = df['Close'].ewm(span=12, adjust=False).mean()
+    ema_slow = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = ema_fast - ema_slow
-    df['Signal'] = df['MACD'].ewm(span=9).mean()
+    df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
 
-    df['BB_MID'] = df['Close'].rolling(20).mean()
-    df['BB_UP'] = df['BB_MID'] + 2 * df['Close'].rolling(20).std()
-    df['BB_LOW'] = df['BB_MID'] - 2 * df['Close'].rolling(20).std()
+    mid = df['Close'].rolling(20).mean()
+    std = df['Close'].rolling(20).std()
+
+    df['BB_MID'] = mid
+    df['BB_UP'] = mid + 2*std
+    df['BB_LOW'] = mid - 2*std
 
     tr = pd.concat([
         df['High'] - df['Low'],
@@ -72,32 +87,28 @@ def add_features(df):
 
     return df
 
-df = add_features(df)
-df.dropna(inplace=True)
 
-FEATURES = ['RSI','SMA_20','SMA_50','MACD','Signal','ATR']
+# ---------------------------
+# LABELS
+# ---------------------------
 
-# -----------------------------
-# LABELING (TP BEFORE SL)
-# -----------------------------
-
-def create_labels(df, tp_pct, sl_pct, max_hold):
+def create_labels(df, tp, sl, max_hold):
     labels = []
 
     for i in range(len(df) - max_hold):
         entry = df['Close'].iloc[i]
         future = df.iloc[i+1:i+1+max_hold]
 
-        tp = entry * (1 + tp_pct)
-        sl = entry * (1 - sl_pct)
+        tp_price = entry * (1 + tp)
+        sl_price = entry * (1 - sl)
 
         outcome = 0
 
         for j in range(len(future)):
-            if future['High'].iloc[j] >= tp:
+            if future['High'].iloc[j] >= tp_price:
                 outcome = 1
                 break
-            if future['Low'].iloc[j] <= sl:
+            if future['Low'].iloc[j] <= sl_price:
                 outcome = 0
                 break
 
@@ -105,130 +116,141 @@ def create_labels(df, tp_pct, sl_pct, max_hold):
 
     return np.array(labels)
 
-labels = create_labels(df, TP_PCT, SL_PCT, MAX_HOLD)
-df = df.iloc[:len(labels)]
-df['Label'] = labels
 
-# -----------------------------
-# WALK FORWARD BACKTEST
-# -----------------------------
+# ---------------------------
+# BACKTEST
+# ---------------------------
 
-split = int(len(df) * SPLIT_RATIO)
+if run:
 
-equity = CAPITAL
-equity_curve = []
-positions = []
-trades = []
+    df = load_data(ticker, start, interval)
+    df = add_features(df)
+    df.dropna(inplace=True)
 
-for i in range(split, len(df) - MAX_HOLD):
+    FEATURES = ['RSI','SMA_20','SMA_50','MACD','Signal','ATR']
 
-    train = df.iloc[:i]
-    test = df.iloc[i:i+1]
+    labels = create_labels(df, tp_pct, sl_pct, max_hold)
+    df = df.iloc[:len(labels)]
+    df['Label'] = labels
 
-    X_train = train[FEATURES]
-    y_train = train['Label']
+    split = int(len(df) * split_ratio)
 
-    X_test = test[FEATURES]
+    equity = capital
+    equity_curve = []
+    trades = []
+    positions = []
 
-    clf = Pipeline([
-        ("scaler", StandardScaler()),
-        ("model", RandomForestClassifier(n_estimators=200, max_depth=6))
-    ])
+    st.write("✅ Data points:", len(df))
 
-    reg = Pipeline([
-        ("scaler", StandardScaler()),
-        ("model", RandomForestRegressor(n_estimators=150, max_depth=6))
-    ])
+    progress = st.progress(0)
 
-    y_return = train['Return']
+    for i in range(split, len(df)-max_hold):
 
-    clf.fit(X_train, y_train)
-    reg.fit(X_train, y_return)
+        progress.progress((i-split) / (len(df)-max_hold-split))
 
-    prob = clf.predict_proba(X_test)[0][1]
-    expected_return = reg.predict(X_test)[0]
+        train = df.iloc[:i]
+        test = df.iloc[i:i+1]
 
-    entry_price = df['Close'].iloc[i]
+        X_train = train[FEATURES]
+        y_train = train['Label']
+        y_return = train['Return']
 
-    if prob > CONF_THRESHOLD and expected_return > 0:
+        X_test = test[FEATURES]
 
-        capital_used = equity * RISK_PER_TRADE
-        shares = capital_used / entry_price
+        clf = Pipeline([
+            ("scaler", StandardScaler()),
+            ("model", RandomForestClassifier(n_estimators=150, max_depth=6))
+        ])
 
-        future = df.iloc[i+1:i+1+MAX_HOLD]
+        reg = Pipeline([
+            ("scaler", StandardScaler()),
+            ("model", RandomForestRegressor(n_estimators=120, max_depth=6))
+        ])
 
-        tp = entry_price * (1 + TP_PCT)
-        sl = entry_price * (1 - SL_PCT)
+        clf.fit(X_train, y_train)
+        reg.fit(X_train, y_return)
 
-        exit_price = None
-        result = 0
+        prob = clf.predict_proba(X_test)[0][1]
+        exp_return = reg.predict(X_test)[0]
 
-        for j in range(len(future)):
+        entry = df['Close'].iloc[i]
 
-            if future['Low'].iloc[j] <= sl:
-                exit_price = sl
-                result = -1
-                break
+        if prob > conf_threshold and exp_return > 0:
 
-            if future['High'].iloc[j] >= tp:
-                exit_price = tp
-                result = 1
-                break
+            risk_amt = equity * risk_per_trade
+            shares = risk_amt / entry
 
-        if exit_price is None:
-            exit_price = future['Close'].iloc[-1]
-            result = 1 if exit_price > entry_price else -1
+            future = df.iloc[i+1:i+1+max_hold]
 
-        profit = (exit_price - entry_price) * shares
-        equity += profit
+            tp_price = entry * (1 + tp_pct)
+            sl_price = entry * (1 - sl_pct)
 
-        trades.append(profit)
-        positions.append((df.index[i], entry_price, exit_price, profit))
+            exit_price = None
+            result = 0
 
-    equity_curve.append(equity)
+            for j in range(len(future)):
 
-# -----------------------------
-# STATS
-# -----------------------------
+                if future['Low'].iloc[j] <= sl_price:
+                    exit_price = sl_price
+                    result = -1
+                    break
 
-trades = np.array(trades)
+                if future['High'].iloc[j] >= tp_price:
+                    exit_price = tp_price
+                    result = 1
+                    break
 
-total_return = ((equity - CAPITAL) / CAPITAL) * 100
-winrate = (trades > 0).sum() / len(trades) * 100 if len(trades) else 0
-profit_factor = trades[trades > 0].sum() / abs(trades[trades < 0].sum()) if any(trades < 0) else 0
-max_dd = max(np.maximum.accumulate(equity_curve) - equity_curve)
+            if exit_price is None:
+                exit_price = future['Close'].iloc[-1]
+                result = 1 if exit_price > entry else -1
 
-print("\n========== RESULTS ==========")
-print(f"Trades            : {len(trades)}")
-print(f"Win Rate          : {round(winrate,2)} %")
-print(f"Profit Factor     : {round(profit_factor,2)}")
-print(f"Max Drawdown      : {round(max_dd,2)}")
-print(f"Total Return      : {round(total_return,2)} %")
-print(f"Final Capital     : {round(equity,2)}")
-print("=============================\n")
+            profit = (exit_price - entry) * shares
+            equity += profit
 
-# -----------------------------
-# PLOTS
-# -----------------------------
+            trades.append(profit)
+            positions.append((df.index[i], entry, profit))
 
-plt.figure(figsize=(14,7))
-plt.plot(equity_curve, label="Equity Curve")
-plt.title(f"Equity Curve - {TICKER}")
-plt.legend()
-plt.grid()
-plt.show()
+        equity_curve.append(equity)
 
 
-plt.figure(figsize=(14,7))
-plt.plot(df['Close'], label="Price")
+    trades = np.array(trades)
 
-for d, entry, exitp, profit in positions:
-    if profit > 0:
-        plt.scatter(d, entry, color='green', s=30)
-    else:
-        plt.scatter(d, entry, color='red', s=30)
+    total_return = ((equity - capital) / capital) * 100
+    winrate = (trades > 0).sum() / len(trades) * 100 if len(trades) else 0
+    profit_factor = trades[trades > 0].sum() / abs(trades[trades < 0].sum()) if any(trades < 0) else 0
+    max_dd = max(np.maximum.accumulate(equity_curve) - equity_curve)
 
-plt.title(f"Trades - {TICKER}")
-plt.legend()
-plt.grid()
-plt.show()
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Trades", len(trades))
+    col2.metric("Win Rate", f"{round(winrate,2)} %")
+    col3.metric("Profit Factor", round(profit_factor,2))
+    col4.metric("Total Return", f"{round(total_return,2)} %")
+
+    st.metric("Max Drawdown", round(max_dd,2))
+    st.metric("Final Capital", round(equity,2))
+
+    # ---------------------------
+    # PLOTS
+    # ---------------------------
+
+    equity_fig, ax = plt.subplots(figsize=(14,6))
+    ax.plot(equity_curve)
+    ax.set_title(f"Equity Curve - {ticker}")
+    ax.grid()
+    st.pyplot(equity_fig)
+
+    price_fig, ax = plt.subplots(figsize=(14,6))
+    ax.plot(df['Close'], label="Price")
+
+    for date, entry, profit in positions:
+        if profit > 0:
+            ax.scatter(date, entry, color="green", s=20)
+        else:
+            ax.scatter(date, entry, color="red", s=20)
+
+    ax.legend()
+    ax.grid()
+    st.pyplot(price_fig)
+
+    st.success("Backtest complete ✅")
