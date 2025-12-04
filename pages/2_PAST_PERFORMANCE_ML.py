@@ -556,21 +556,6 @@ if st.button("Run ML Strategy Backtest"):
         st.error("No daily data returned from Yahoo Finance.")
         st.stop()
 
-    with st.spinner('Calculating technical indicators...'):
-        df_daily = add_technical_indicators(df_daily)
-        df_daily = add_pivots(df_daily, windows)
-        df_daily = average_pivots(df_daily, windows)
-        df_daily = compute_expected_return(df_daily)
-        df_daily = compute_expected_loss(df_daily)
-        df_daily = label_hit_prob_past(df_daily, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
-
-    with st.spinner('Training ML models...'):
-        models = train_ml_models(df_daily)
-    
-    if models[0] is None:
-        st.error("Insufficient data for ML model training.")
-        st.stop()
-    
     st.write("Running backtest...")
     trades = []
     in_trade = False
@@ -588,7 +573,18 @@ if st.button("Run ML Strategy Backtest"):
         current_data = df_daily.loc[:current_date]
         if len(current_data) < 100:
             continue
+
+        current_data = add_pivots(current_data, windows)
+        current_data = average_pivots(current_data, windows)
+        current_data = compute_expected_return(current_data)
+        current_data = compute_expected_loss(current_data)
+        current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+        models = train_ml_models(current_data)
         
+        if models[0] is None:
+            st.error("Insufficient data for ML model training.")
+            st.stop()
+    
         ml_prediction = get_ml_prediction(current_data, models)
         if ml_prediction is None:
             continue
@@ -1034,4 +1030,3 @@ if st.button("Run ML Strategy Backtest"):
         - Beat the trend by consistently booking profits.
         """)
     st.dataframe(perf_table)
-
