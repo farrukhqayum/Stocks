@@ -198,10 +198,9 @@ smooth_chart = base.mark_line(color='#d62728', size=2).encode(
 fill_area = base.mark_area(opacity=0.3).encode(
     y='Money Flow Curve:Q',
     y2='Smoothed Curve:Q',
-    color=alt.condition(
-        alt.datum.Above,
-        alt.value('green'),
-        alt.value('red')
+    color=alt.Color('Above:N',
+        scale=alt.Scale(domain=[True, False], range=['green', 'red']),
+        legend=alt.Legend(title="Curve vs Smooth")
     )
 )
 
