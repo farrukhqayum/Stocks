@@ -181,21 +181,17 @@ df_plot = pd.DataFrame({
 # --- MONEY FLOW CURVE CHART ---
 df_plot['Global Money Flow'] = money_flow_smooth
 mean_smooth = money_flow_smooth.mean()
-
 base = alt.Chart(df_plot).encode(x='Date:T')
 
-curve_chart = (
-    base.mark_line(color='#1f77b4', opacity=0.6)
-    .encode(y=alt.Y('Money Flow Curve:Q', title='Money Flow Index'))
-    .properties(title="💰 Global Money Flow Curve")
+# Line for raw curve
+curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
+    y='Money Flow Curve:Q'
 )
 
-smooth_chart = (
-    base.mark_line(color='#d62728', size=2)
-    .encode(y='Smoothed Curve:Q')
+# Line for smoothed curve
+smooth_chart = base.mark_line(color='#d62728', size=2).encode(
+    y='Smoothed Curve:Q'
 )
-
-base = alt.Chart(df_plot).encode(x='Date:T')
 
 # Area fill between the two
 fill_area = base.mark_area(opacity=0.2, color='lightgray').encode(
@@ -205,7 +201,6 @@ fill_area = base.mark_area(opacity=0.2, color='lightgray').encode(
 
 final_chart = fill_area + curve_chart + smooth_chart
 st.altair_chart(final_chart, use_container_width=True)
-
 
 # --- MOMENTUM CHART ---
 momentum_chart = (
