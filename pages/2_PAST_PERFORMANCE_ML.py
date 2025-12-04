@@ -589,8 +589,9 @@ if st.button("Run ML Strategy Backtest"):
                 st.stop()
     
             ml_prediction = get_ml_prediction(current_data, models)
-            if ml_prediction is None:
-                continue
+            
+        if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
+            continue
     
         current_ml_signal = ml_prediction['will_hit']
         current_ml_confidence = ml_prediction['confidence_score']
@@ -907,8 +908,15 @@ if st.button("Run ML Strategy Backtest"):
             current_data = df_daily.loc[:current_date]
             if len(current_data) < 100:
                 continue
-            
-            ml_prediction = get_ml_prediction(current_data, models)
+
+            if (not in_trade):
+                current_data = compute_expected_return(current_data)
+                current_data = compute_expected_loss(current_data)
+                current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+                models = train_ml_models(current_data)
+                
+                ml_prediction = get_ml_prediction(current_data, models)
+                
             if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
                 continue
             
