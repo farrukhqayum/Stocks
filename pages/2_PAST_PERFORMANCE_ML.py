@@ -570,14 +570,15 @@ if st.button("Run ML Strategy Backtest"):
     progress_bar = st.progress(0)
 
     for i, current_date in enumerate(daily_dates):
-        if i % 100 == 0:
+        if i % 50 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
         
         # Use daily data only
         current_data = df_daily.loc[:current_date]
         if len(current_data) < 100:
             continue
-        if (not in trade):
+            
+        if (not in_trade):
             current_data = compute_expected_return(current_data)
             current_data = compute_expected_loss(current_data)
             current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
