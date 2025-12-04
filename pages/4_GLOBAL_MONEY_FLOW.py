@@ -195,20 +195,17 @@ smooth_chart = (
     .encode(y='Smoothed Curve:Q')
 )
 
-# Conditional transparent fill (area) under smoothed curve
-fill_area = base.mark_area(opacity=0.15).encode(
-    y='Smoothed Curve:Q',
-    y2=alt.value(mean_smooth),
-    color=alt.condition(
-        alt.datum['Smoothed Curve'] > mean_smooth,
-        alt.value('green'),
-        alt.value('red')
-    )
+base = alt.Chart(df_plot).encode(x='Date:T')
+
+# Area fill between the two
+fill_area = base.mark_area(opacity=0.2, color='lightgray').encode(
+    y='Money Flow Curve:Q',
+    y2='Smoothed Curve:Q'
 )
 
-final_chart = fill_area + smooth_chart
-st.altair_chart(curve_chart+smooth_chart, use_container_width=True)
+final_chart = fill_area + curve_chart + smooth_chart
 st.altair_chart(final_chart, use_container_width=True)
+
 
 # --- MOMENTUM CHART ---
 momentum_chart = (
