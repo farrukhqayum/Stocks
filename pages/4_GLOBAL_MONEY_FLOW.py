@@ -197,10 +197,13 @@ smooth_chart = base.mark_line(color='#d62728', size=2).encode(
 fill_area = base.mark_area(opacity=0.3).encode(
     y='Money Flow Curve:Q',
     y2='Smoothed Curve:Q',
-    color=alt.Color('Above:N',
-        scale=alt.Scale(domain=[True, False], range=['green', 'red'])
+    color=alt.Color(
+        'Above:N',
+        scale=alt.Scale(domain=[True, False], range=['green', 'red']),
+        legend=None   # 🚫 removes the legend
     )
 )
+
 
 final_chart = fill_area + curve_chart + smooth_chart
 st.altair_chart(final_chart, use_container_width=True)
