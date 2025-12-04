@@ -197,7 +197,7 @@ smooth_chart = (
 
 # Conditional transparent fill (area) under smoothed curve
 fill_area = base.mark_area(
-    opacity=0.15
+    opacity=0.5
 ).encode(
     y='Smoothed Curve:Q',
     y2=alt.value(0),
