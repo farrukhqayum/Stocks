@@ -199,7 +199,7 @@ smooth_chart = (
 fill_area = base.mark_area(
     opacity=0.15
 ).encode(
-    y='Money Flow Smooth:Q',
+    y='Smoothed Curve:Q',
     y2=alt.value(0),
     color=alt.condition(
         alt.datum['Global Money Flow'] > mean_smooth,
