@@ -579,11 +579,11 @@ if st.button("Run ML Strategy Backtest"):
         if len(current_data) < 100:
             continue
 
-        with st.spinner('Computing & Training ML models...'):
-            current_data = compute_expected_return(current_data)
-            current_data = compute_expected_loss(current_data)
-            current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
-            models = train_ml_models(current_data)
+        #with st.spinner('Computing & Training ML models...'):
+        current_data = compute_expected_return(current_data)
+        current_data = compute_expected_loss(current_data)
+        current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+        models = train_ml_models(current_data)
         
         if models[0] is None:
             st.error("Insufficient data for ML model training.")
