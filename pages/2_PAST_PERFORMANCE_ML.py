@@ -617,7 +617,7 @@ if st.button("Run ML Strategy Backtest"):
             else:
                 TP_price = entry_price * (1 + tp_given)
             
-            if np.abs(sl_given) > np.abs(predicted_loss):
+            if np.abs(sl_given) < np.abs(predicted_loss):
                 SL_price = entry_price * (1 + sl_given)
             else:
                 SL_price = entry_price * (1 + predicted_loss)
