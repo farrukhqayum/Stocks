@@ -183,6 +183,7 @@ df_plot['Global Money Flow'] = money_flow_smooth
 mean_smooth = money_flow_smooth.mean()
 base = alt.Chart(df_plot).encode(x='Date:T')
 df_plot['Above'] = df_plot['Money Flow Curve'] > df_plot['Smoothed Curve']
+str.write(df_plot['Above'].value_counts())
 
 base = alt.Chart(df_plot).encode(x='Date:T')
 
