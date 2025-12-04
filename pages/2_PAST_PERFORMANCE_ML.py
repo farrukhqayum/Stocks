@@ -64,7 +64,7 @@ This prevents unrealistic trade closing at end-of-day prices only.
 with st.expander("Try ETH-USD or XRP-USD"):
     st.markdown("""
 - 7% TP target
-- Put SL far away like 50%
+- Put SL far away like 20%
 - Put ML Confidence to 60-70%
     """)
 
@@ -617,7 +617,7 @@ if st.button("Run ML Strategy Backtest"):
             else:
                 TP_price = entry_price * (1 + tp_given)
             
-            if np.abs(sl_given) < np.abs(predicted_loss):
+            if np.abs(sl_given) > np.abs(predicted_loss):
                 SL_price = entry_price * (1 + sl_given)
             else:
                 SL_price = entry_price * (1 + predicted_loss)
