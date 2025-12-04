@@ -31,8 +31,10 @@ RISK_PER_TRADE = 0.15
 # DATA
 # -----------------------------
 
-df = yf.download(TICKER, start=START, interval=INTERVAL)
+df = yf.download(TICKER, start=START, interval=INTERVAL, group_by="column", auto_adjust=True)
+df.columns = df.columns.get_level_values(0)
 df.dropna(inplace=True)
+
 
 # -----------------------------
 # INDICATORS
