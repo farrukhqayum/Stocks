@@ -560,7 +560,9 @@ if st.button("Run ML Strategy Backtest"):
         df_daily = add_technical_indicators(df_daily)
         df_daily = add_pivots(df_daily, windows)
         df_daily = average_pivots(df_daily, windows)
-
+        df_daily = compute_expected_return(df_daily)
+        df_daily = compute_expected_loss(df_daily)
+        df_daily = label_hit_prob_past(df_daily, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
 
     st.write("Running backtest...")
     trades = []
@@ -568,6 +570,7 @@ if st.button("Run ML Strategy Backtest"):
     current_trade = {}
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
+    retain_int = 60
 
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
@@ -577,11 +580,8 @@ if st.button("Run ML Strategy Backtest"):
         current_data = df_daily.loc[:current_date]
         if len(current_data) < 100:
             continue
-            
+
         if (not in_trade):
-            current_data = compute_expected_return(current_data)
-            current_data = compute_expected_loss(current_data)
-            current_data = label_hit_prob_past(current_data, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
             models = train_ml_models(current_data)
         
             if models[0] is None:
