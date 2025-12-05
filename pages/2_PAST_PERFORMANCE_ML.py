@@ -61,6 +61,18 @@ with st.expander("Intraday SL/TP Trigger Logic"):
 This prevents unrealistic trade closing at end-of-day prices only.
     """)
 
+with st.expander("What are the biggest enemies?"):
+    st.markdown("""
+    - Avoiding garbage companies
+    - Filtering with ML e.g. confidence and signals.
+    - Stop-loss & Panic selling (Holding for 30-60 days)
+    - Beating these enemies is more like:
+        - 8–15 strong positions per year
+        - 20–60% winners
+        - Held for 1–3 months
+        - Compounded
+    """)
+
 with st.expander("How often does the model retrain?"):
     st.markdown("""
     A common concern is whether the model skips data or uses less information when retraining less frequently.  
