@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 # Set page config first
 st.set_page_config(page_title="ML - Stock Past Performance", layout="wide")
 
-st.title("🤖 TEST ML Strategy Using Daily Data")
+st.title("🤖 Backtest TP-SL Combinations & Study Prior to Real-world Trading")
 with st.expander("Strategy Overview"):
     st.markdown("""
 - **Daily Trend Filter:** 1D Time-frame data only to learn if the given stock is profitable.
