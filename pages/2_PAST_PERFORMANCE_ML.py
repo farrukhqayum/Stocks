@@ -570,7 +570,7 @@ if st.button("Run ML Strategy Backtest"):
     current_trade = {}
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
-    retain_int = 60
+    RETRAIN_EVERY = 20 
 
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
@@ -580,10 +580,11 @@ if st.button("Run ML Strategy Backtest"):
         current_data = df_daily.loc[:current_date]
         if len(current_data) < 100:
             continue
-
-        if (not in_trade):
-            models = train_ml_models(current_data)
         
+        if (not in_trade):
+            if i % RETRAIN_EVERY == 0 or i < 120:
+                models = train_ml_models(current_data)
+
             if models[0] is None:
                 st.error("Insufficient data for ML model training.")
                 st.stop()
@@ -910,10 +911,11 @@ if st.button("Run ML Strategy Backtest"):
                 continue
 
             if (not in_trade):
-                models = train_ml_models(current_data)
-                ml_prediction = get_ml_prediction(current_data, models)
-                if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
-                    continue
+                if i % RETRAIN_EVERY == 0 or i < 120:
+                    models = train_ml_models(current_data)
+                    ml_prediction = get_ml_prediction(current_data, models)
+                    if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
+                        continue
 
             current_ml_signal = ml_prediction['will_hit']
             current_ml_confidence = ml_prediction['confidence_score']
