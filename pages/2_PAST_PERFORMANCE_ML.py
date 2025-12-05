@@ -404,6 +404,16 @@ def label_hit_prob_past(
     df['Hit_Label'] = labels
     return df
 
+@st.cache_data
+def prepare_features(df):
+    df = add_technical_indicators(df)
+    df = add_pivots(df, windows)
+    df = average_pivots(df, windows)
+    df = compute_expected_return(df)
+    df = compute_expected_loss(df)
+    df = label_hit_prob_past(df, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+    return df
+
 # -------------------------
 # ML Model Functions
 # -------------------------
@@ -557,12 +567,7 @@ if st.button("Run ML Strategy Backtest"):
         st.stop()
 
     with st.spinner('Calculating technical indicators...'):
-        df_daily = add_technical_indicators(df_daily)
-        df_daily = add_pivots(df_daily, windows)
-        df_daily = average_pivots(df_daily, windows)
-        df_daily = compute_expected_return(df_daily)
-        df_daily = compute_expected_loss(df_daily)
-        df_daily = label_hit_prob_past(df_daily, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+        df_daily = prepare_features(df_daily)
 
     st.write("Running backtest...")
     trades = []
@@ -577,7 +582,8 @@ if st.button("Run ML Strategy Backtest"):
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
         
         # Use daily data only
-        current_data = df_daily.loc[:current_date]
+        current_data = df_daily.iloc[:i+1]
+
         if len(current_data) < 100:
             continue
         
@@ -906,7 +912,8 @@ if st.button("Run ML Strategy Backtest"):
         progress.progress((idx + 1) / len(TP_SL_list))
         
         for i, current_date in enumerate(daily_dates):
-            current_data = df_daily.loc[:current_date]
+            current_data = df_daily.iloc[:i+1]
+
             if len(current_data) < 100:
                 continue
 
