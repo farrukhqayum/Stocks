@@ -575,7 +575,7 @@ if st.button("Run ML Strategy Backtest"):
     current_trade = {}
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
-    RETRAIN_EVERY = 20 
+    RETRAIN_EVERY = 5
 
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
