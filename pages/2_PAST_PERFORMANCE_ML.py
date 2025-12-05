@@ -61,10 +61,52 @@ with st.expander("Intraday SL/TP Trigger Logic"):
 This prevents unrealistic trade closing at end-of-day prices only.
     """)
 
+with st.expander("How often does the model retrain?"):
+    st.markdown("""
+    A common concern is whether the model skips data or uses less information when retraining less frequently.  
+    **It does NOT.**
+    
+    Here's what actually happens:
+    
+    - The model is always trained using **all historical data available up to that date**
+    - No candles are skipped
+    - No rows are removed
+    - No future data is used
+    
+    The only thing that changes is **how often the model is retrained**, not **how much data it sees**.
+    
+    For example:
+    - Day 100 → model sees Days 1–100
+    - Day 120 → model sees Days 1–120
+    - Day 140 → model sees Days 1–140
+    
+    This mimics real trading behavior where strategies are updated periodically (weekly or monthly) instead of every single day, improving stability and performance while keeping full historical context.
+    """)
+
+with st.expander("What happens to the model after a trade is opened?"):
+    st.markdown("""
+    Once a trade is opened, the model becomes **locked (frozen)** until that trade is closed.
+    
+    - The model that generated the entry signal remains unchanged
+    - No retraining occurs during the open trade
+    - This prevents signal fluctuation and unrealistic hindsight bias
+    
+    Example:
+    - Entry at Day 100 → model version at that date is locked
+    - Trade remains open on Day 101, 102, 103…
+    - Exit at Day 104 → model is then allowed to train again for the next entry
+    
+    This simulates real trading discipline:
+    - One decision per trade
+    - No signal-switching mid-trade
+    - No emotional or hindsight adjustments
+    - Clean, realistic performance tracking
+    """)
+
 with st.expander("Try ETH-USD or XRP-USD"):
     st.markdown("""
 - 7% TP target
-- Put SL far away like 20%
+- Put SL far away like 99%, try your luck for free!
 - Put ML Confidence to 60-70%
     """)
 
