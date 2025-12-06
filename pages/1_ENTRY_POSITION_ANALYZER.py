@@ -981,9 +981,9 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
     if confidence >= 70:
         reasons.append(f"High confidence ({confidence:.0f}%)")
     elif confidence > 58 and confidence < 70:
-        reasons.append("Moderate confidence ({confidence:.0f}%)")
+        reasons.append(f"Moderate confidence ({confidence:.0f}%)")
     else:
-        reasons.append("Low confidence ({confidence:.0f}%)")
+        reasons.append(f"Low confidence ({confidence:.0f}%)")
     
     # Risk-Reward check
     user_rr = user_gain / abs(user_loss) if user_loss != 0 else 0
