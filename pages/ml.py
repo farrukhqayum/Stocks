@@ -9,7 +9,7 @@ import matplotlib.dates as mdates
 import os
 import warnings
 from joblib import dump, load
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ======================
 # STREAMLIT SETUP
@@ -235,7 +235,7 @@ def MakePredictions(TICKERS):
     total = len(TICKERS)
     done = 0
 
-    with ProcessPoolExecutor(max_workers=min(8,len(TICKERS))) as executor:
+    with ThreadPoolExecutor(max_workers=min(8,len(TICKERS))) as executor:
 
         futures = {executor.submit(process_ticker, t): t for t in TICKERS}
 
