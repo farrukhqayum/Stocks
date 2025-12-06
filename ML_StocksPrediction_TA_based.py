@@ -17,9 +17,6 @@ import emoji
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
-
-st.cache_data.clear()
-st.cache_resource.clear()
 warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="MAIN - Machine Learning of Stocks")
 
@@ -779,7 +776,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 X_scaled_cls, y_cls, test_size=0.2, random_state=42)
             
             model_class = RandomForestClassifier(
-                n_estimators=400, 
+                n_estimators=120, 
                 max_depth=12, 
                 min_samples_split=4,
                 min_samples_leaf=3,
@@ -811,7 +808,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 X_scaled_return, y_return, test_size=0.2, random_state=42)
 
             model_return = RandomForestRegressor(
-                n_estimators=400,
+                n_estimators=120,
                 max_depth=14,
                 min_samples_leaf=3,
                 max_features='sqrt',
@@ -828,7 +825,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             X_train_loss, X_val_loss, y_train_loss, y_val_loss = train_test_split(
                 X_scaled_loss, y_loss, test_size=0.2, random_state=42)
             model_loss = RandomForestRegressor(
-                n_estimators=400,
+                n_estimators=120,
                 max_depth=14,
                 min_samples_leaf=3,
                 max_features='sqrt',
@@ -1298,6 +1295,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
