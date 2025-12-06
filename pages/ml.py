@@ -99,7 +99,7 @@ def add_technical_indicators(df):
     df['RSI'] = ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
     df[['+DI','-DI','ADX']] = ta.calculate_dmi(df, n=14)
-    df['ATR'] = ta.calculate_atr(df)
+    df['ATR'] = ta.calculate_atr(df['High'], df['Low'], df['Close'], window=14)
     df['CCI'] = ta.calculate_cci(df)
 
     df['Volatility'] = df['Close'].rolling(14).std()
