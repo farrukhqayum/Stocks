@@ -1091,7 +1091,7 @@ if st.button("Run ML Strategy Backtest"):
         })
     
     perf_table = pd.DataFrame(perf_rows)
-    st.subheader(f'{ticker} Performance by Symmetric TP/SL Percent (ML Confidence >= {ml_confidence_threshold}%)')
+    st.subheader(f'{ticker}: Symmetric TP/SL % (ML Confidence >= {ml_confidence_threshold}%)')
     with st.expander("Symmetric Tests"):
         st.markdown("""
         - **1-3%:** Notice if this is profitable.
