@@ -43,13 +43,30 @@ FEATURES = [
 
 @st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
-    df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1),
-                     interval='1d', auto_adjust=False, progress=False)
+
+    df = yf.download(
+        ticker,
+        start=start_date,
+        end=end_date + timedelta(days=1),
+        interval="1d",
+        auto_adjust=False,
+        progress=False,
+        group_by="column"   # IMPORTANT
+    )
+
     if df.empty:
         return None
-    df = df.reset_index().set_index("Date")
-    return df.dropna()
 
+    # ✅ FIX MULTI-INDEX PROBLEM
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+
+    df = df.reset_index().set_index("Date")
+
+    # Make sure they are pure Series
+    df = df[['Open','High','Low','Close','Volume']]
+
+    return df.dropna()
 
 # ======================
 # VECTORIZED SPEED VERSIONS
