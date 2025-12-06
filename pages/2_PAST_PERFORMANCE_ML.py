@@ -943,11 +943,13 @@ if st.button("Run ML Strategy Backtest"):
     # ML Performance Analysis
     st.subheader("ML Signal Performance")
     if 'ML_Signal' in results.columns:
-        signal_performance = results.groupby('ML_Signal').agg({
-            'Return_%': ['count', 'mean', 'std'],
-            'ML_Confidence': 'mean'
+        signal_stats = results.groupby('ML_Signal').agg({
+            'Return_%': ['count', 'mean', 'std', 'sum'],
+            'ML_Confidence': 'mean',
+            'HoldingDays': 'mean'
         }).round(2)
-        st.dataframe(signal_performance)
+        signal_stats.columns = ['Trades', 'Avg Return %', 'Return Std %', 'Total Return %', 'Avg Conf', 'Avg Hold Days']
+        st.dataframe(signal_stats)
 
     st.success("Backtest complete!")
 
