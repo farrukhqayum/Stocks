@@ -43,7 +43,8 @@ adj_close = pd.DataFrame({
 adj_close['US 10Y MA200'] = adj_close['US 10Y Treasury Yield'].rolling(200).mean()
 adj_close['S&P 500 MA200'] = adj_close['S&P 500'].rolling(200).mean()
 adj_close['VIX MA200'] = adj_close['VIX'].rolling(200).mean()
-adj_close['VIX']= adj_close['VIX'].rolling(5).mean() 
+adj_close['VIX']= adj_close['VIX'].rolling(5).mean()
+adj_close['US 10Y Treasury Yield']= adj_close['US 10Y Treasury Yield'].rolling(5).mean() 
 df = adj_close.reset_index()
 
 # Melt dataframe for Altair multi-line plotting
