@@ -42,9 +42,8 @@ adj_close = pd.DataFrame({
 # Calculate moving averages
 adj_close['US 10Y MA200'] = adj_close['US 10Y Treasury Yield'].rolling(200).mean()
 adj_close['S&P 500 MA200'] = adj_close['S&P 500'].rolling(200).mean()
-adj_close['VIX MA200'] = adj_close['VIX'].rolling(200).mean() 
-
-# Reset index for Altair plotting
+adj_close['VIX MA200'] = adj_close['VIX'].rolling(200).mean()
+adj_close['VIX']= adj_close['VIX'].rolling(5).mean() 
 df = adj_close.reset_index()
 
 # Melt dataframe for Altair multi-line plotting
@@ -53,7 +52,7 @@ df_melted = df.melt(
     value_vars=[
         'US 10Y Treasury Yield', 'US 10Y MA200',
         'S&P 500', 'S&P 500 MA200',
-        'VIX', 'VIX MA200'  # Added VIX series
+        'VIX', 'VIX MA200'
     ],
     var_name='Series',
     value_name='Value'
