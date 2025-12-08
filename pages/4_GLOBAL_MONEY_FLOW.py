@@ -406,7 +406,7 @@ combined_chart = alt.layer(
 final_chart = combined_chart + correlation_text
 st.altair_chart(final_chart, use_container_width=True)
 
-tickers_input = st.text_input("Enter tickers separated by commas (min 5 required):", value="COIN,MSTR,TSLA,GOOG,NVDA,META,NFLX")
+tickers_input = st.text_input("Enter tickers separated by commas (min 5 required):", value="COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, BABA, XPEV, NIO, U, INTC, SNAP, UNH")
 
 ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
 
