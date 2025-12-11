@@ -453,3 +453,8 @@ corr_df = corr_df.sort_values('Correlation %')
 
 st.markdown(f"### {cw_}D - Correlation with Global Money Flow")
 st.dataframe(corr_df, use_container_width=False, height=500, width=300)
+st.markdown("""
+The stocks correlating higher e.g. 60% with the Global Money Flow, will follow the same direction. 
+The stocks with poor correlation aren't following the trend of global money flow.
+Whereas the stocks with negative correlation are in the opposite direction.
+""")
