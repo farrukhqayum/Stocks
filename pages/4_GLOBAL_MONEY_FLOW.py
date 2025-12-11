@@ -454,11 +454,14 @@ corr_df = corr_df.sort_values('Correlation %')
 st.markdown(f"### {cw_}D - Correlation with Global Money Flow")
 st.markdown("""
 
-- 60-100% correlation - Same direction.
+- 60-100% correlation - Same direction.   
+    - When everything is bullish, go with the strongs, follow the trend.
+
 - 10-50% correlation - Directionless but could be in sideways or consolidation phase.
--- Use them the global money is bearish. Easy to follow trends like rectangle, triangles, flags etc.
+    - Use them the global money is bearish. Easy to follow trends like rectangle, triangles, flags etc.
+    
 - Below 0 or negative correlation - Opposite direction to the global money flow.
--- Use them when the global marekt is down and these are gaining.
+    - Use them when the global marekt is down and these are gaining.
 
 """)
 st.dataframe(corr_df, use_container_width=False, height=500, width=300)
