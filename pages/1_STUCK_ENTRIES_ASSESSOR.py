@@ -325,7 +325,6 @@ with st.expander("Regime-conditioned bootstrap (bull/bear & vol regimes)"):
     reg_probs = regime_conditioned_bootstrap(
         data, horizon=horizon_days, gain_threshold=gain_threshold
     )
-    # show as a small table for clarity
     reg_df = pd.DataFrame(
         {
             "Regime": ["bull", "bear", "high_vol", "low_vol"],
@@ -350,6 +349,7 @@ with st.expander("Regime-conditioned bootstrap (bull/bear & vol regimes)"):
         }
     )
     st.dataframe(reg_df.style.format("{:.1f}"))
+
 
 # ------------------------
 # Monte Carlo: historical (GBM) and block bootstrap
