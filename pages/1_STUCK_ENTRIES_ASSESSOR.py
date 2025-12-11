@@ -20,7 +20,7 @@ ticker = st.sidebar.text_input("Enter Stock Ticker", value="COIN")
 start_date = st.sidebar.date_input("Start Date", value=datetime.now() - timedelta(days=365))
 end_date = st.sidebar.date_input("End Date", value=datetime.now())
 
-def historical_outcome_probabilities(data, entries_df, horizon=90, gain_threshold=0.05):
+def historical_outcome_probabilities(data, entries_df, horizon=700, gain_threshold=0.05):
     """
     data: price dataframe with 'Close'
     entries_df: dataframe with 'date', 'shares', 'price'
@@ -224,8 +224,8 @@ if ticker:
     else:
         st.warning("No data loaded. Please check ticker symbol and date range.")
 
-probs = historical_outcome_probabilities(data, entries_df)
-st.metric("Chance of Breakeven", f"{probs['Chance of Breakeven']:.1f}%")
-st.metric("Chance of Retaining Losses", f"{probs['Chance of Retaining Losses']:.1f}%")
-st.metric("Chance of Gaining a Bit", f"{probs['Chance of Gaining a Bit']:.1f}%")
+    probs = historical_outcome_probabilities(data, entries_df)
+    st.metric("Chance of Breakeven", f"{probs['Chance of Breakeven']:.1f}%")
+    st.metric("Chance of Retaining Losses", f"{probs['Chance of Retaining Losses']:.1f}%")
+    st.metric("Chance of Gaining a Bit", f"{probs['Chance of Gaining a Bit']:.1f}%")
 
