@@ -150,7 +150,7 @@ latest_momentum = money_flow_momentum.iloc[-1]
 if 0 <= latest_momentum <= 10:
     sentiment = "🟢 **Risk-On/Bullish**"
     sentiment_color = "#16a34a"
-elif latest_momentum => 10:
+elif latest_momentum >= 10:
     sentiment = "🟡 **Risk-off Peaking**"
     sentiment_color = "#ffcc00"
 elif -10 <= latest_momentum < 0:
