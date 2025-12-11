@@ -325,6 +325,7 @@ with st.expander("Regime-conditioned bootstrap (bull/bear & vol regimes)"):
     reg_probs = regime_conditioned_bootstrap(
         data, horizon=horizon_days, gain_threshold=gain_threshold
     )
+    
     reg_df = pd.DataFrame(
         {
             "Regime": ["bull", "bear", "high_vol", "low_vol"],
@@ -348,7 +349,13 @@ with st.expander("Regime-conditioned bootstrap (bull/bear & vol regimes)"):
             ],
         }
     )
-    st.dataframe(reg_df.style.format("{:.1f}"))
+    
+    # format numeric columns only; leave regime as string
+    for col in ["Breakeven %", "Retain Loss %", "Gain a Bit %"]:
+        reg_df[col] = reg_df[col].astype(float).round(1)
+    
+    st.dataframe(reg_df)
+
 
 
 # ------------------------
