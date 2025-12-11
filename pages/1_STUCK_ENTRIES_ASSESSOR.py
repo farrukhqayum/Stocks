@@ -20,6 +20,44 @@ ticker = st.sidebar.text_input("Enter Stock Ticker", value="COIN")
 start_date = st.sidebar.date_input("Start Date", value=datetime.now() - timedelta(days=365))
 end_date = st.sidebar.date_input("End Date", value=datetime.now())
 
+def historical_outcome_probabilities(data, entries_df, horizon=90, gain_threshold=0.05):
+    """
+    data: price dataframe with 'Close'
+    entries_df: dataframe with 'date', 'shares', 'price'
+    horizon: number of days to look forward
+    gain_threshold: % gain above avg cost to count as 'gain'
+    """
+    results = []
+    for _, entry in entries_df.iterrows():
+        entry_date = pd.to_datetime(entry['date'])
+        avg_cost = entry['price']
+        
+        # Slice horizon window
+        window = data.loc[entry_date: entry_date + pd.Timedelta(days=horizon)]
+        if window.empty: 
+            continue
+        
+        # Check outcomes
+        breakeven = (window['Close'] >= avg_cost).any()
+        gain = (window['Close'] >= avg_cost * (1 + gain_threshold)).any()
+        loss = not breakeven  # if never broke even
+        
+        results.append({
+            'entry_date': entry_date,
+            'breakeven': breakeven,
+            'gain': gain,
+            'loss': loss
+        })
+    
+    # Aggregate probabilities
+    df = pd.DataFrame(results)
+    probs = {
+        'Chance of Breakeven': df['breakeven'].mean() * 100,
+        'Chance of Retaining Losses': df['loss'].mean() * 100,
+        'Chance of Gaining a Bit': df['gain'].mean() * 100
+    }
+    return probs
+
 @st.cache_data
 def load_stock_data(ticker, start_date, end_date):
     """Get stock data from Yahoo Finance"""
@@ -185,3 +223,9 @@ if ticker:
         st.caption("Monte Carlo: $$S(t+Δt) = S(t) × exp[(μ - ½σ²)Δt + σ√Δt × Z]$$ where Z ~ N(0,1)")
     else:
         st.warning("No data loaded. Please check ticker symbol and date range.")
+
+probs = historical_outcome_probabilities(data, entries_df)
+st.metric("Chance of Breakeven", f"{probs['Chance of Breakeven']:.1f}%")
+st.metric("Chance of Retaining Losses", f"{probs['Chance of Retaining Losses']:.1f}%")
+st.metric("Chance of Gaining a Bit", f"{probs['Chance of Gaining a Bit']:.1f}%")
+
