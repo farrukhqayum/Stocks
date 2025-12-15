@@ -1068,22 +1068,25 @@ def avg_bull_bear_lengths(df):
 def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
       
-def get_current_price(ticker):
-    stock = yf.Ticker(ticker)
-    # Get historical data for 1 day (latest available)
-    data = stock.history(period='1d')
-    # Return the closing price of the last available trading session
-    return data['Close'][-1]
-    
-def update_price_and_reset_entry():
-    ticker = st.session_state.ticker_input
-    if ticker != st.session_state.previous_ticker:
-        current_price = get_current_price(ticker)
-        st.session_state.current_price = current_price
-        st.session_state.entry_price = current_price
-        st.session_state.entry_price_input = current_price
-        st.session_state.previous_ticker = ticker
-        st.session_state.initial_prices_set = True
+def get_current_price(ticker: str) -> float | None:
+    try:
+        data = yf.Ticker(ticker).history(period="1d")
+        if data.empty or "Close" not in data:
+            return None  # gracefully handle invalid ticker
+        return data["Close"].iloc[-1]  # safe last element
+    except Exception:
+        return None
+
+def update_price_and_reset_entry(session_state, ticker):
+    current_price = get_current_price(ticker)
+    if current_price is None:
+        st.error(f"Could not fetch price for {ticker}. Invalid or no data.")
+        return
+    session_state.current_price = current_price
+    session_state.entry_price = current_price
+    session_state.entry_price_input = current_price
+    session_state.previous_ticker = ticker
+    session_state.initial_prices_set = True
 
 def clear_page_session_state():
     """Clear only this page's session state on load"""
