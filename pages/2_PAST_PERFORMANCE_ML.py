@@ -154,18 +154,17 @@ def validate_ticker(ticker: str) -> dict:
     except Exception as e:
         return {"valid": False, "reason": str(e)}
 
-
 # -------------------------
 # User inputs
 # -------------------------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
-    res = validate_ticker (ticker)
+    res = validate_ticker(ticker)
     if res["valid"]:
-            st.success(f"{ticker} is valid ✅ ({result['reason']})")
+            st.success(f"{ticker} is valid ✅ ({res['reason']})")
         else:
-            st.error(f"{ticker} is invalid ❌ ({result['reason']})")
+            st.error(f"{ticker} is invalid ❌ ({res['reason']})")
             st.stop()
 with col2:
     period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=2)
