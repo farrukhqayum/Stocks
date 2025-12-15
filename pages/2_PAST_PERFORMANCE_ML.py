@@ -144,12 +144,29 @@ FEATURES = [
     'StrongBull', 'StrongBear', 'Exhaustion', 'PP_Avg', 'R1_Avg', 'S1_Avg', 'R2_Avg', 'S2_Avg'
 ]
 
+def validate_ticker(ticker: str) -> dict:
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="1d")
+        if hist.empty:
+            return {"valid": False, "reason": "No price history"}
+        return {"valid": True, "reason": "Ticker found"}
+    except Exception as e:
+        return {"valid": False, "reason": str(e)}
+
+
 # -------------------------
 # User inputs
 # -------------------------
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
+    res = validate_ticker (ticker)
+    if res["valid"]:
+            st.success(f"{ticker} is valid ✅ ({result['reason']})")
+        else:
+            st.error(f"{ticker} is invalid ❌ ({result['reason']})")
+            st.stop()
 with col2:
     period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=2)
 with col3:
