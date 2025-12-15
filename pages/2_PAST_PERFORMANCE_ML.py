@@ -943,7 +943,7 @@ if st.button("Run ML Strategy Backtest"):
     # ML Performance Analysis
     st.subheader("ML Signal Performance")
     if 'ML_Signal' in results.columns:
-        signal_stats = results.groupby('ML_Signal').agg({
+        signal_stats = results.groupby('Outcome').agg({
             'Return_%': ['count', 'mean', 'std', 'sum'],
             'ML_Confidence': 'mean',
             'HoldingDays': 'mean'
