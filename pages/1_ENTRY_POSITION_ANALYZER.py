@@ -1147,8 +1147,7 @@ def main():
         ticker = st.text_input(
             "Ticker Symbol",
             value="TSLA",
-            key="ticker",
-            on_change=update_price_and_reset_entry,
+            key="ticker"
         ).upper()
         
         for key in ["current_price", "entry_price", "entry_price_input", "previous_ticker"]:
