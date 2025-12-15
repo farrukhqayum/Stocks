@@ -1147,15 +1147,10 @@ def main():
         ticker = st.text_input(
             "Ticker Symbol",
             value="TSLA",
-            key="ticker_input",
+            key="ticker",
             on_change=update_price_and_reset_entry,
         ).upper()
         
-        st.text_input(
-            "Ticker",
-            key="ticker",
-            on_change=update_price_and_reset_entry
-        )
         for key in ["current_price", "entry_price", "entry_price_input", "previous_ticker"]:
             if key not in st.session_state:
                 st.session_state[key] = 0 if "price" in key else ""
