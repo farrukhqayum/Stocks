@@ -1156,7 +1156,7 @@ def main():
                 
     with col2:
         # Set initial prices only once when ticker is valid
-        if result["valide"] and not st.session_state.initial_prices_set:
+        if result["valid"] and not st.session_state.initial_prices_set:
             current_price = get_current_price(ticker)
             st.session_state.current_price = current_price
             st.session_state.entry_price = current_price
@@ -1164,7 +1164,7 @@ def main():
             st.session_state.previous_ticker = ticker
 
         # Reset prices only when ticker actually changes
-        if result["valide"] and st.session_state.previous_ticker != ticker:
+        if result["valid"] and st.session_state.previous_ticker != ticker:
             current_price = get_current_price(ticker)
             st.session_state.current_price = current_price
             st.session_state.entry_price = update_entry_price()
