@@ -1068,25 +1068,30 @@ def avg_bull_bear_lengths(df):
 def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
       
-def get_current_price(ticker: str) -> float | None:
+def get_current_price(ticker: str):
     try:
         data = yf.Ticker(ticker).history(period="1d")
         if data.empty or "Close" not in data:
-            return None  # gracefully handle invalid ticker
-        return data["Close"].iloc[-1]  # safe last element
+            return None
+        return data["Close"].iloc[-1]
     except Exception:
         return None
 
-def update_price_and_reset_entry(session_state, ticker):
+def update_price_and_reset_entry():
+    ticker = st.session_state.get("ticker", None)
+    if not ticker:
+        return
+
     current_price = get_current_price(ticker)
     if current_price is None:
         st.error(f"Could not fetch price for {ticker}. Invalid or no data.")
         return
-    session_state.current_price = current_price
-    session_state.entry_price = current_price
-    session_state.entry_price_input = current_price
-    session_state.previous_ticker = ticker
-    session_state.initial_prices_set = True
+    st.session_state.current_price = current_price
+    st.session_state.entry_price = current_price
+    st.session_state.entry_price_input = current_price
+    st.session_state.previous_ticker = ticker
+    st.session_state.initial_prices_set = True
+
 
 def clear_page_session_state():
     """Clear only this page's session state on load"""
@@ -1146,6 +1151,11 @@ def main():
             on_change=update_price_and_reset_entry,
         ).upper()
         
+        st.text_input(
+            "Ticker",
+            key="ticker",
+            on_change=update_price_and_reset_entry
+        )
         for key in ["current_price", "entry_price", "entry_price_input", "previous_ticker"]:
             if key not in st.session_state:
                 st.session_state[key] = 0 if "price" in key else ""
