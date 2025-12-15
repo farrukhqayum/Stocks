@@ -100,6 +100,17 @@ desc = """
     - The system continuously evaluates trade signals, adjusting entries and exits based on market dynamics and model confidence
     - Risk-reward ratio and confidence scores help assess and validate each trade decision
     """
+
+def validate_ticker(ticker: str) -> dict:
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="1d")
+        if hist.empty:
+            return {"valid": False, "reason": "No price history"}
+        return {"valid": True, "reason": "Ticker found"}
+    except Exception as e:
+        return {"valid": False, "reason": str(e)}
+        
 @st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
@@ -1074,24 +1085,6 @@ def update_price_and_reset_entry():
         st.session_state.previous_ticker = ticker
         st.session_state.initial_prices_set = True
 
-def check_ticker_valid(ticker):
-    try:
-        ticker_obj = yf.Ticker(ticker)
-        info = ticker_obj.info
-        
-        # Check if ANY name field exists (most reliable)
-        name_fields = ['shortName', 'longName', 'longBusinessSummary']
-        has_name = any(info.get(field) for field in name_fields)
-        
-        if not info or not has_name:
-            return False, None
-            
-        return True, info
-        
-    except Exception as e:
-        print(f"Error for {ticker}: {e}")
-        return False, None
-
 def clear_page_session_state():
     """Clear only this page's session state on load"""
     keys_to_remove = []
@@ -1150,12 +1143,17 @@ def main():
             on_change=update_price_and_reset_entry,
         ).upper()
         
-        # Initialize session state variables safely
         for key in ["current_price", "entry_price", "entry_price_input", "previous_ticker"]:
             if key not in st.session_state:
                 st.session_state[key] = 0 if "price" in key else ""
                 
-
+        result = validate_ticker(ticker)
+        if result["valid"]:
+            st.success(f"{ticker} is valid ✅ ({result['reason']})")
+        else:
+            st.error(f"{ticker} is invalid ❌ ({result['reason']})")
+            st.stop()
+                
     with col2:
         # Set initial prices only once when ticker is valid
         if ticker and not st.session_state.initial_prices_set:
