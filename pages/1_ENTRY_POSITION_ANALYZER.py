@@ -1065,9 +1065,7 @@ def avg_bull_bear_lengths(df):
     avg_bear = sum(bear_lengths) / len(bear_lengths) if bear_lengths else 0
     return avg_bull, avg_bear
 
-def update_entry_price():
-    st.session_state.entry_price = st.session_state.entry_price_input
-      
+
 def get_current_price(ticker: str):
     try:
         data = yf.Ticker(ticker).history(period="1d")
@@ -1174,7 +1172,7 @@ def main():
         if result["valid"] and st.session_state.previous_ticker != ticker:
             current_price = get_current_price(ticker)
             st.session_state.current_price = current_price
-            st.session_state.entry_price = update_entry_price()
+            st.session_state.entry_price = update_price_and_reset_entry()
             st.session_state.previous_ticker = ticker
 
         # Display current price
