@@ -1421,6 +1421,11 @@ def main():
                     # Monte Carlo: historical (GBM) and block bootstrap
                     # ------------------------
                     st.header("Monte Carlo Simulation of Entry & Breakeven Chance")
+
+                    # Initialize ALL session state variables
+                    for key in ["mc_days", "mc_sims", "mc_method"]:
+                        if key not in st.session_state:
+                            st.session_state[key] = 90 if key == "mc_days" else 5000 if key == "mc_sims" else 0 
                     
                     returns = daily_df["Close"].pct_change().dropna()
                     mu = returns.mean() * 252
@@ -1432,6 +1437,34 @@ def main():
                     
                     days = st.slider("Forecast Days", 30, 365, 90)
                     num_sims = st.slider("Monte Carlo Simulations", 1000, 20000, 5000)
+
+                    # ✅ SLIDERS with session state
+                    days = st.slider(
+                        "Forecast Days", 
+                        min_value=30, max_value=365, 
+                        value=st.session_state.mc_days,
+                        key="mc_days_slider"
+                    )
+                    
+                    num_sims = st.slider(
+                        "Monte Carlo Simulations", 
+                        min_value=1000, max_value=20000, 
+                        value=st.session_state.mc_sims,
+                        key="mc_sims_slider"
+                    )
+                    
+                    # ✅ RADIO with session state
+                    mc_method = st.radio(
+                        "Monte Carlo Method",
+                        ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"],
+                        index=st.session_state.mc_method,  # Use session state index
+                        key="mc_method_radio"
+                    )
+                    
+                    # ✅ UPDATE session state AFTER widgets (critical!)
+                    st.session_state.mc_days = days
+                    st.session_state.mc_sims = num_sims
+                    st.session_state.mc_method = ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"].index(mc_method)
                     
                     @st.cache_data
                     def mc_gbm_paths(current_price, mu, sigma, days, num_sims):
