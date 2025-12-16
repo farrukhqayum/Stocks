@@ -1152,34 +1152,34 @@ def main():
             st.error(f"{ticker} is invalid ❌ ({result['reason']})")
             st.stop()
             
-       with col2:
-        if result["valid"] and not st.session_state.initial_prices_set:
-            current_price = get_current_price(ticker)
-            if current_price is not None:
-                st.session_state.current_price = current_price
-                st.session_state.entry_price = current_price
-                st.session_state.entry_price_input = current_price
-                st.session_state.initial_prices_set = True
-                st.session_state.previous_ticker = ticker
-    
-        # Fallback for display, in case something is still None
-        current_display = st.session_state.current_price or 0.0
-        st.metric("Current Price", f"${current_display:.2f}")
-    
-        default_entry = (
-            st.session_state.entry_price_input
-            if st.session_state.entry_price_input is not None
-            else current_display
-        )
-    
-        entry_price = st.number_input(
-            "Entry Price (... $)",
-            min_value=0.0,
-            value=float(default_entry),
-            step=0.1,
-            key="entry_price_input",
-            on_change=update_entry_price,
-        )
+        with col2:
+            if result["valid"] and not st.session_state.initial_prices_set:
+                current_price = get_current_price(ticker)
+                if current_price is not None:
+                    st.session_state.current_price = current_price
+                    st.session_state.entry_price = current_price
+                    st.session_state.entry_price_input = current_price
+                    st.session_state.initial_prices_set = True
+                    st.session_state.previous_ticker = ticker
+        
+            # Fallback for display, in case something is still None
+            current_display = st.session_state.current_price or 0.0
+            st.metric("Current Price", f"${current_display:.2f}")
+        
+            default_entry = (
+                st.session_state.entry_price_input
+                if st.session_state.entry_price_input is not None
+                else current_display
+            )
+        
+            entry_price = st.number_input(
+                "Entry Price (... $)",
+                min_value=0.0,
+                value=float(default_entry),
+                step=0.1,
+                key="entry_price_input",
+                on_change=update_entry_price,
+            )
 
     with col3:
         user_gain = st.number_input(
