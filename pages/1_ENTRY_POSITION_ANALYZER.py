@@ -1244,6 +1244,12 @@ def main():
                         st.warning(f"Insufficient raw data for {timeframe}: {len(df)} rows (need {required_min_raw})")
                         continue
 
+                    if "1D" in results:
+                        daily_df = results["1D"]["df"]
+                    else:
+                        st.error("Daily timeframe (1D) data is required for Monte Carlo simulation.")
+                        st.stop()
+
                     st.write(f"Data points: {len(df)}")
 
                     # Calculate technical indicators
@@ -1427,7 +1433,7 @@ def main():
         # ------------------------
         st.header("Position Assessment & Monte Carlo Simulation")
         
-        returns = data["Close"].pct_change().dropna()
+        returns = daily_df["Close"].pct_change().dropna()
         mu = returns.mean() * 252
         sigma = returns.std() * np.sqrt(252)
         
@@ -1449,15 +1455,15 @@ def main():
             return paths
         
         @st.cache_data
-        def mc_block_bootstrap_paths(data, days, num_sims, block=5):
+        def mc_block_bootstrap_paths(daily_df, days, num_sims, block=5):
             """
             Block-bootstrap Monte Carlo using historical returns.
             Preserves short-term autocorrelation by resampling blocks of returns. [web:23]
             """
-            rets = data["Close"].pct_change().dropna().values
+            rets = daily_df["Close"].pct_change().dropna().values
             n = len(rets)
             paths = np.zeros((days + 1, num_sims))
-            paths[0] = data["Close"].iloc[-1]
+            paths[0] = daily_df["Close"].iloc[-1]
         
             for j in range(num_sims):
                 resampled = []
@@ -1478,7 +1484,7 @@ def main():
         if mc_method == "Geometric Brownian Motion (GBM)":
             paths = mc_gbm_paths(current_price, mu, sigma, days, num_sims)
         else:
-            paths = mc_block_bootstrap_paths(data, days, num_sims, block=5)
+            paths = mc_block_bootstrap_paths(daily_df, days, num_sims, block=5)
         
         # Plot paths and distribution
         fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[3, 1])
