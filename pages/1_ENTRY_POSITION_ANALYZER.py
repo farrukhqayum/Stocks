@@ -1618,7 +1618,7 @@ def main():
 
                     st.subheader("Final Price Probability vs. Entry Price")
                     
-                    col_p1, col_p2, col_p3 = st.columns(3)
+                    col_p1, col_p2 = st.columns(2)
                     
                     col_p1.metric(
                         "Chance to Make Money (Profit)", 
@@ -1629,11 +1629,6 @@ def main():
                         "Chance of Losses", 
                         f"{prob_loss:.1f}%",
                         delta_color="inverse"
-                    )
-                    col_p3.metric(
-                        "Near Breakeven / Highly Uncertain", 
-                        f"{prob_uncertain:.2f}%",
-                        delta_color="off"
                     )
 
                 else:
