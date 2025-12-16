@@ -764,7 +764,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             f"ML Hits: {will_hit_str} & with confidence of ({conf:.0f}%)."
         )
 
-    if clean_label in bull_case and 40.1 <= conf <= 64.9:
+    elif clean_label in bull_case and 40.1 <= conf <= 64.9:
         action = (
             f"{ticker} is {signal_text} "
             f"with lower confidence ({conf:.0f}%)"
@@ -774,6 +774,11 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         action = (
             f"ML signal of {ticker} is {signal_text} "
              f"ML Hits: {will_hit_str} & with confidence of {conf:.0f}%."
+        )
+
+    elif conf <= 20:
+        action = (
+            f"ML signal of {ticker} is poor or BEARISH as it hits {will_hit_str} with confidence of conf:.0f}%."
         )
     else:
         action = f"{ticker} is NEUTRAL with confidence of ({conf:.0f}%); monitor for clearer signals."
@@ -1365,6 +1370,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
