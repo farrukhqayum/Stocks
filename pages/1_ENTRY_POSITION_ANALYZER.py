@@ -1150,29 +1150,29 @@ def main():
         else:
             st.error(f"{ticker} is invalid ❌ ({result['reason']})")
             st.stop()
-                
+            
     with col2:
-        # Set initial prices only once when ticker is valid
+        # One-time initialization when the app first loads
         if result["valid"] and not st.session_state.initial_prices_set:
             current_price = get_current_price(ticker)
-            st.session_state.current_price = current_price
-            st.session_state.entry_price = current_price
-            st.session_state.initial_prices_set = True
-            st.session_state.previous_ticker = ticker
-
-        # Display current price
+            if current_price is not None:
+                st.session_state.current_price = current_price
+                st.session_state.entry_price = current_price
+                st.session_state.entry_price_input = current_price
+                st.session_state.initial_prices_set = True
+                st.session_state.previous_ticker = ticker
+    
         st.metric("Current Price", f"${st.session_state.current_price:.2f}")
-
-        # Entry price number input - this will maintain its value between reruns
+    
         entry_price = st.number_input(
-            "Entry Price ($)",
+            "Entry Price (... $)",
             min_value=0.0,
-            value=float(st.session_state.entry_price_input),  # ensure float type
+            value=float(st.session_state.entry_price_input),
             step=0.1,
             key="entry_price_input",
             on_change=update_entry_price,
         )
-
+     
     with col3:
         user_gain = st.number_input(
             "Expected Gain (%)",
