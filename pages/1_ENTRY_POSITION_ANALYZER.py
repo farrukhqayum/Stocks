@@ -1244,11 +1244,8 @@ def main():
                         st.warning(f"Insufficient raw data for {timeframe}: {len(df)} rows (need {required_min_raw})")
                         continue
 
-                    if "1D" in results:
-                        daily_df = results["1D"]["df"]
-                    else:
-                        st.error("Daily timeframe (1D) data is required for Monte Carlo simulation.")
-                        st.stop()
+                    if timeframe = "1D":
+                        daily_df = df
 
                     st.write(f"Data points: {len(df)}")
 
