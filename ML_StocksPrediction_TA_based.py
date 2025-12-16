@@ -563,7 +563,7 @@ def plot_confidence_heatmap(df_results):
         width=500
     ).interactive()
 
-    st.altair_chart(chart, use_container_width=False)import altair as alt
+    st.altair_chart(chart, use_container_width=False)
 
 def plot_confidence_heatmap(df_results):
     st.subheader("🔥 Top 16 ML Confidence Heatmap (4x4 Grid)")
@@ -1397,6 +1397,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
