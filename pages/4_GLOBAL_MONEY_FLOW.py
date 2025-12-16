@@ -443,28 +443,6 @@ smoothed.iloc[-1] = user_stock_data.iloc[-1]
 if normalize_start:
     smoothed = smoothed / smoothed.iloc[0] * 100
 
-gf_single, stk_single = money_flow_s.align(smoothed.squeeze(), join='inner')
-if len(gf_single) >= cw_:
-    rolling_corr_single = gf_single.rolling(cw_, min_periods=cw_//2).corr(stk_single)
-    latest_corr = round(rolling_corr_single.iloc[-1] * 100, 1)
-    
-    st.markdown(f"### {cw_}D Rolling Correlation: {user_ticker} vs. Money Flow")
-    
-    rolling_corr_df = pd.DataFrame({
-        "Date": rolling_corr_single.index,
-        "Correlation": rolling_corr_single * 100
-    }).dropna()
-    
-    corr_chart = alt.Chart(rolling_corr_df).mark_line().encode(
-        x='Date:T',
-        y=alt.Y('Correlation:Q', title='Rolling Correlation (%)', scale=alt.Scale(domain=[-100, 100])),
-        tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
-    ).properties(title=f"Correlation Trend for {user_ticker}")
-    st.altair_chart(corr_chart, use_container_width=True)
-    
-else:
-    latest_corr = float('nan')
-
 combined_df = pd.DataFrame({
     "Date": gf_single.index,
     "Global Money Flow": gf_single,
