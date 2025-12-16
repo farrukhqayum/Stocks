@@ -151,26 +151,61 @@ money_flow_momentum = money_flow_momentum.fillna(0)
 latest_momentum = money_flow_momentum.iloc[-1]
 latest_zscore = money_flow_zscore.iloc[-1]
 
-if latest_zscore >= 2.0:
-    sentiment = "🚨 **EXTREME RISK-ON (OVERBOUGHT)**"
+# Define thresholds for easier reading and maintenance
+Z_EXTREME = 1.8
+MOM_HIGH = 10.0
+MOM_LOW = -10.0
+Z_NEUTRAL_UPPER = 0.5  # Adding a neutral zone near zero for Z-Score to differentiate
+Z_NEUTRAL_LOWER = -0.5 # between slightly positive Z-Score and strongly positive
+
+# --- Sentiment Calculation ---
+
+# 1. EXTREME CLIMAX ZONES (Highest Priority)
+if latest_zscore >= Z_EXTREME:
+    sentiment = "🚨 **EXTREME OVERBOUGHT (Euphoria Climax)**"
     sentiment_color = "#ff8533" 
-elif latest_zscore <= -2.0:
-    sentiment = "📉 **PANIC/CAPITULATION (OVERSOLD)**"
-    sentiment_color = "#990000" 
-elif 0 <= latest_momentum <= 10:
-    sentiment = "🟢 **Risk-On/Bullish**"
-    sentiment_color = "#16a34a"
-elif latest_momentum > 10:
-    sentiment = "🟡 **Strong Risk-On Acceleration**"
-    sentiment_color = "#ffcc00"
-elif -10 <= latest_momentum < 0:
-    sentiment = "🔴 **Risk-Off/Defensive**"
-    sentiment_color = "#dc2626"
-elif latest_momentum < -10:
-    sentiment = "🟠 **Risk-Off Acceleration/Climax**"
-    sentiment_color = "#ff8533"
+
+elif latest_zscore <= -Z_EXTREME:
+    sentiment = "📉 **PANIC/CAPITULATION (Oversold Climax)**"
+    sentiment_color = "#990000"
+
+# 2. STRONG MOMENTUM ZONES (Second Priority)
+elif latest_momentum > MOM_HIGH:
+    if latest_zscore >= Z_NEUTRAL_UPPER:
+        sentiment = "🟡 **Strong Risk-On: ACCELERATION into STRETCHED ZONE**"
+        sentiment_color = "#ffcc00"
+    else:
+        sentiment = "🟢 **Strong Risk-On: ACCELERATION into NORMAL ZONE**"
+        sentiment_color = "#2ca02c"
+        
+elif latest_momentum < MOM_LOW:
+    if latest_zscore <= Z_NEUTRAL_LOWER:
+        sentiment = "🟠 **Strong Risk-Off: DEEPER PULLBACK/DECELERATION**"
+        sentiment_color = "#ff8533"
+    else:
+        sentiment = "🔴 **Strong Risk-Off: ACCELERATION out of NORMAL ZONE**"
+        sentiment_color = "#dc2626"
+
+# 3. CONSOLIDATION / NORMAL TRENDS (Third Priority)
+elif latest_momentum >= 0: # Momentum is neutral or positive (0 to 10)
+    if latest_zscore >= Z_NEUTRAL_UPPER:
+        sentiment = "🟢 **Risk-On/Bullish (STRETCHED but HOLDING)**"
+        sentiment_color = "#16a34a" # Slightly darker green
+    else:
+        sentiment = "🟢 **Risk-On/Bullish (NORMAL ZONE)**"
+        sentiment_color = "#4ade80" # Lighter green
+
+elif latest_momentum < 0: # Momentum is negative (-10 to 0)
+    if latest_zscore <= Z_NEUTRAL_LOWER:
+        sentiment = "🔴 **Risk-Off/Defensive (OVERSOLD but DECELERATING)**"
+        sentiment_color = "#dc2626" # Dark red
+    else:
+        sentiment = "🔴 **Risk-Off/Defensive (NORMAL ZONE pullback)**"
+        sentiment_color = "#f87171" # Lighter red
+
+# 4. TRUE NEUTRAL
 else:
-    sentiment = "⚪ **Neutral**"
+    sentiment = "⚪ **Neutral/Choppy Market**"
     sentiment_color = "#a3a3a3"
 
 st.markdown(f"""
