@@ -1219,9 +1219,6 @@ def main():
     if "mc_method" not in st.session_state:
         st.session_state.mc_method = 0
     
-    days = st.slider("Forecast Days", 30, 365, 90)
-    num_sims = st.slider("Monte Carlo Simulations", 1000, 20000, 5000)
-
     # ✅ SLIDERS with session state
     days = st.slider(
         "Forecast Days", 
