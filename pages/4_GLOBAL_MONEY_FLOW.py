@@ -492,7 +492,7 @@ if len(gf_single) >= cw_:
     rolling_corr_single = gf_single.rolling(cw_, min_periods=cw_//2).corr(stk_single)
     latest_corr = round(rolling_corr_single.iloc[-1] * 100, 1)
     
-    st.markdown(f"### {cw_}D Rolling Correlation: {user_ticker} vs. Money Flow")
+    st.markdown(f"### {cw_}D {user_ticker} vs. Money Flow")
     
     rolling_corr_df = pd.DataFrame({
         "Date": rolling_corr_single.index,
