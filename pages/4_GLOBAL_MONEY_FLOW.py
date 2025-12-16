@@ -101,13 +101,17 @@ def load_data(tickers, start, end):
 
 try:
     data = load_data(tickers, start_date, end_date)
-    spx_data = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
-    if isinstance(spx_data.columns, pd.MultiIndex) and 'Adj Close' in spx_data.columns.get_level_values(0):
-        spx_data = spx_data['Adj Close']
-    elif 'Adj Close' in spx_data.columns:
-        spx_data = spx_data['Adj Close']
+    spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
+    
+    # --- START of SPX Data Extraction Fix ---
+    if isinstance(spx_raw.columns, pd.MultiIndex) and 'Adj Close' in spx_raw.columns.get_level_values(0):
+        spx_data = spx_raw['Adj Close'].squeeze()
+    elif 'Adj Close' in spx_raw.columns:
+        spx_data = spx_raw['Adj Close'].squeeze()
     else:
-        spx_data = spx_data['Close']
+        spx_data = spx_raw['Close'].squeeze()
+    # --- END of SPX Data Extraction Fix ---
+        
     spx_data.name = "S&P 500 (SPX)"
 
 except Exception:
@@ -190,12 +194,12 @@ base = alt.Chart(df_plot).encode(x='Date:T')
 
 curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
     y=alt.Y('Money Flow Curve:Q', title='Money Flow Curve (Fast)'),
-    tooltip=['Date:T', 'Money Flow Curve:Q']
+    tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
 )
 
 smooth_chart = base.mark_line(color='#d62728', size=2).encode(
     y=alt.Y('Smoothed Curve:Q', title='Smoothed Curve (Slow)'),
-    tooltip=['Date:T', 'Smoothed Curve:Q']
+    tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
 )
 
 fill_area = base.mark_area(opacity=0.17).encode(
@@ -257,10 +261,15 @@ st.altair_chart(final_zscore_chart, use_container_width=True)
 
 with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
     
+    # --- START of Error Fix Application ---
+    # Ensure spx_data and money_flow_momentum are properly aligned Series before combining
+    spx_aligned, momentum_aligned = spx_data.align(money_flow_momentum, join='inner')
+    
     divergence_df = pd.DataFrame({
-        'SPX': spx_data,
-        'Money Flow Momentum': money_flow_momentum,
+        'SPX': spx_aligned, 
+        'Money Flow Momentum': momentum_aligned,
     }).dropna().sort_index()
+    # --- END of Error Fix Application ---
 
     lookback = 60
     if len(divergence_df) >= lookback:
@@ -278,12 +287,10 @@ with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
         mom_at_spx_min = recent_momentum[recent_spx.idxmin()]
         mom_recent_min = recent_momentum.min()
 
-        # Simplified Bearish Divergence Check: SPX is near max AND current momentum is significantly lower than recent peak momentum
         if (recent_spx.iloc[-1] >= (spx_recent_max * 0.99)) and (recent_momentum.iloc[-1] < (mom_recent_max * 0.5)) and (mom_recent_max > 5):
             divergence_signal = "🚨 **Potential BEARISH Divergence:** SPX near high, but Money Flow Momentum is weak. (Risk-Off Warning)"
             signal_color = "#d62728"
-        # Simplified Bullish Divergence Check: SPX is near min AND current momentum is higher than recent trough momentum
-        elif (recent_spx.iloc[-1] <= (spx_recent_min * 1.01)) and (recent_momentum.iloc[-1] > (mom_recent_min * 0.5)) and (mom_recent_min < -5):
+        elif (recent_spx.iloc[-1] <= (spx_recent_min * 1.01)) and (recent_momentum.iloc[-1] > (mom_recent_min * 1.5)) and (mom_recent_min < -5):
             divergence_signal = "🟢 **Potential BULLISH Divergence:** SPX near low, but Money Flow Momentum is building. (Risk-On Buy Signal)"
             signal_color = "#2ca02c"
         
@@ -301,9 +308,6 @@ with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
         value_name='Value'
     )
     
-    # Plotting Normalized SPX vs. Momentum (not on the same scale, but for visualization)
-    
-    # Normalize Momentum for Dual Axis Plotting (Visual Aid)
     momentum_normalized = (divergence_df['Money Flow Momentum'] - divergence_df['Money Flow Momentum'].min()) / (divergence_df['Money Flow Momentum'].max() - divergence_df['Money Flow Momentum'].min()) * (divergence_df['SPX'].max() - divergence_df['SPX'].min()) + divergence_df['SPX'].min()
     momentum_normalized.name = "Momentum (Rescaled)"
     
