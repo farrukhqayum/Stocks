@@ -1113,13 +1113,14 @@ def initialize_session_state():
     if "previous_ticker" not in st.session_state:
         st.session_state.previous_ticker = ""
     if "current_price" not in st.session_state:
-        st.session_state.current_price = 0.0
+        st.session_state.current_price = None
     if "entry_price" not in st.session_state:
-        st.session_state.entry_price = 0.0
+        st.session_state.entry_price = None
     if "entry_price_input" not in st.session_state:
-        st.session_state.entry_price_input = 0.0
+        st.session_state.entry_price_input = None
     if "initial_prices_set" not in st.session_state:
         st.session_state.initial_prices_set = False
+
             
 def main():
     st.title("📊 Entry Position Analyzer")
@@ -1151,8 +1152,7 @@ def main():
             st.error(f"{ticker} is invalid ❌ ({result['reason']})")
             st.stop()
             
-    with col2:
-        # One-time initialization when the app first loads
+       with col2:
         if result["valid"] and not st.session_state.initial_prices_set:
             current_price = get_current_price(ticker)
             if current_price is not None:
@@ -1162,17 +1162,25 @@ def main():
                 st.session_state.initial_prices_set = True
                 st.session_state.previous_ticker = ticker
     
-        st.metric("Current Price", f"${st.session_state.current_price:.2f}")
+        # Fallback for display, in case something is still None
+        current_display = st.session_state.current_price or 0.0
+        st.metric("Current Price", f"${current_display:.2f}")
+    
+        default_entry = (
+            st.session_state.entry_price_input
+            if st.session_state.entry_price_input is not None
+            else current_display
+        )
     
         entry_price = st.number_input(
             "Entry Price (... $)",
             min_value=0.0,
-            value=float(st.session_state.entry_price_input),
+            value=float(default_entry),
             step=0.1,
             key="entry_price_input",
             on_change=update_entry_price,
         )
-     
+
     with col3:
         user_gain = st.number_input(
             "Expected Gain (%)",
