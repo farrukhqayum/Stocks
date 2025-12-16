@@ -23,7 +23,7 @@ st.sidebar.header("⚙️ Settings")
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365*2))
 end_date = st.sidebar.date_input("End Date", datetime.now())
 smooth_window = st.sidebar.slider("Smoothing (days)", 5, 100, 40)
-z_score_window = st.sidebar.slider("Climax Z-Score Lookback (Days)", 60, 500, 252)
+z_score_window = st.sidebar.slider("Climax Z-Score Lookback (Days)", 20, 250, 90)
 normalize_start = st.sidebar.checkbox("Normalize to 100 at start", value=True)
 use_business_days = st.sidebar.checkbox("Remove weekend gaps (use business days only)", value=True)
 
