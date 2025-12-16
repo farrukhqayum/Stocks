@@ -443,12 +443,6 @@ smoothed.iloc[-1] = user_stock_data.iloc[-1]
 if normalize_start:
     smoothed = smoothed / smoothed.iloc[0] * 100
 
-combined_df = pd.DataFrame({
-    "Date": gf_single.index,
-    "Global Money Flow": gf_single,
-    "Stock Price": stk_single
-})
-
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 color_scale = alt.Scale(
