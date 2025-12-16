@@ -1457,7 +1457,7 @@ def main():
                                                
                     st.write(f"**Timeframe Summary ({ticker}):**")
                     st.dataframe(summary_df)
-
+                    
                     # ------------------------
                     # Monte Carlo: historical (GBM) and block bootstrap
                     # ------------------------
@@ -1477,7 +1477,7 @@ def main():
                     c1.metric("Annualized Return (GBM)", f"{mu*100:.1f}%")
                     c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
                     
-                    # ✅ Sliders bound directly to session state
+                    # ✅ Sliders bound directly to session state (only once!)
                     days = st.slider(
                         "Forecast Days",
                         min_value=30, max_value=365,
@@ -1512,7 +1512,7 @@ def main():
                             )
                         return paths
                     
-                    # Example usage of the simulation
+                    # Example usage
                     if mc_method == "Geometric Brownian Motion (GBM)":
                         paths = mc_gbm_paths(
                             current_price=daily_df["Close"].iloc[-1],
@@ -1521,6 +1521,7 @@ def main():
                             days=st.session_state.mc_days,
                             num_sims=st.session_state.mc_sims
                         )
+
                     
                     # Plot paths and distribution
                     fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[3, 1])
