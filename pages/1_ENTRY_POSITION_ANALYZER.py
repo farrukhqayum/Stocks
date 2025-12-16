@@ -1210,6 +1210,16 @@ def main():
         index=default_option_index
     )
 
+    
+    if "mc_days" not in st.session_state: 
+        st.session_state.mc_days = 90 
+        
+    if "mc_sims" not in st.session_state: 
+        st.session_state.mc_sims = 10000
+        
+    if "mc_method" not in st.session_state:
+        st.session_state.mc_method = 0
+    
     days = st.slider("Forecast Days", 30, 365, 90)
     num_sims = st.slider("Monte Carlo Simulations", 1000, 20000, 5000)
 
@@ -1465,6 +1475,8 @@ def main():
                     c1, c2 = st.columns(2)
                     c1.metric("Annualized Return (GBM)", f"{mu*100:.1f}%")
                     c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
+                    days=st.session_state.mc_days
+                    num_sims=st.session_state.mc_sims )
                                         
                     @st.cache_data
                     def mc_gbm_paths(current_price, mu, sigma, days, num_sims):
