@@ -547,11 +547,11 @@ money_flow_line = base.mark_line(color='#1f77b4', opacity=0.4).encode(
     alt.datum.Series == 'Global Money Flow'
 )
 
-stock_price_line = base.mark_line(opacity=0.4).encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
-    color=alt.Color('Series:N', scale=color_scale, legend=None)
+money_flow_line = base.mark_line(color='#1f77b4', opacity=0.4).encode(
+    y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
+    color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-right', title=None))
 ).transform_filter(
-    alt.datum.Series == 'Stock Price'
+    alt.datum.Series == 'Global Money Flow'
 )
 
 combined_chart = alt.layer(
