@@ -70,10 +70,12 @@ for asset in selected_assets:
         format="%.2f"
     )
 
+# --- WEIGHTS NORMALIZATION (SUM OF ABSOLUTE WEIGHTS = 1.0) ---
 abs_sum = sum(abs(w) for w in weights.values())
 if abs_sum != 0:
     weights = {k: (v / abs_sum) for k, v in weights.items()}
-    
+# -----------------------------------------------------------
+
 @st.cache_data
 def load_data(tickers, start, end):
     raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
@@ -103,14 +105,14 @@ try:
     data = load_data(tickers, start_date, end_date)
     spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
     
-    # --- START of SPX Data Extraction Fix ---
+    # --- SPX Data Extraction (Ensures it's a Series) ---
     if isinstance(spx_raw.columns, pd.MultiIndex) and 'Adj Close' in spx_raw.columns.get_level_values(0):
         spx_data = spx_raw['Adj Close'].squeeze()
     elif 'Adj Close' in spx_raw.columns:
         spx_data = spx_raw['Adj Close'].squeeze()
     else:
         spx_data = spx_raw['Close'].squeeze()
-    # --- END of SPX Data Extraction Fix ---
+    # ----------------------------------------------------
         
     spx_data.name = "S&P 500 (SPX)"
 
@@ -133,6 +135,11 @@ for asset, w in weights.items():
     if asset in data.columns:
         money_flow += data[asset] * w
 
+# --- FIX: Ensure Money Flow Curve never drops below zero ---
+# This is a key fix to ensure the chart is always positive
+money_flow = money_flow.clip(lower=0.01) 
+# -----------------------------------------------------------
+
 money_flow_s = money_flow.rolling(3).mean()
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
@@ -141,7 +148,6 @@ rolling_std = money_flow_smooth.rolling(window=z_score_window).std()
 money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std
 money_flow_zscore = money_flow_zscore.fillna(0)
 
-# Set the rolling window for correlation. You can adjust this value.
 cw_ = 60 # Using 60 days (approx. 3 months) for correlation lookback
 money_flow_s = money_flow_s.squeeze()
 
@@ -151,14 +157,13 @@ money_flow_momentum = money_flow_momentum.fillna(0)
 latest_momentum = money_flow_momentum.iloc[-1]
 latest_zscore = money_flow_zscore.iloc[-1]
 
-# Define thresholds for easier reading and maintenance
+# --- REVISED SENTIMENT LOGIC COMBINING Z-SCORE AND MOMENTUM ---
+
 Z_EXTREME = 1.8
 MOM_HIGH = 10.0
 MOM_LOW = -10.0
-Z_NEUTRAL_UPPER = 0.5  # Adding a neutral zone near zero for Z-Score to differentiate
-Z_NEUTRAL_LOWER = -0.5 # between slightly positive Z-Score and strongly positive
-
-# --- Sentiment Calculation ---
+Z_NEUTRAL_UPPER = 0.5
+Z_NEUTRAL_LOWER = -0.5
 
 # 1. EXTREME CLIMAX ZONES (Highest Priority)
 if latest_zscore >= Z_EXTREME:
@@ -190,23 +195,25 @@ elif latest_momentum < MOM_LOW:
 elif latest_momentum >= 0: # Momentum is neutral or positive (0 to 10)
     if latest_zscore >= Z_NEUTRAL_UPPER:
         sentiment = "🟢 **Risk-On/Bullish (STRETCHED but HOLDING)**"
-        sentiment_color = "#16a34a" # Slightly darker green
+        sentiment_color = "#16a34a" 
     else:
         sentiment = "🟢 **Risk-On/Bullish (NORMAL ZONE)**"
-        sentiment_color = "#4ade80" # Lighter green
+        sentiment_color = "#4ade80" 
 
 elif latest_momentum < 0: # Momentum is negative (-10 to 0)
     if latest_zscore <= Z_NEUTRAL_LOWER:
         sentiment = "🔴 **Risk-Off/Defensive (OVERSOLD but DECELERATING)**"
-        sentiment_color = "#dc2626" # Dark red
+        sentiment_color = "#dc2626" 
     else:
         sentiment = "🔴 **Risk-Off/Defensive (NORMAL ZONE pullback)**"
-        sentiment_color = "#f87171" # Lighter red
+        sentiment_color = "#f87171" 
 
 # 4. TRUE NEUTRAL
 else:
     sentiment = "⚪ **Neutral/Choppy Market**"
     sentiment_color = "#a3a3a3"
+
+# -----------------------------------------------------------------
 
 st.markdown(f"""
 <div style="padding:1.2em; border-radius:12px; text-align:center; background-color:{sentiment_color}; color:white; font-size:1.3em; font-weight:bold;">
@@ -297,7 +304,6 @@ st.altair_chart(final_zscore_chart, use_container_width=True)
 
 with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
     
-    # --- START of Error Fix Application ---
     # Ensure spx_data and money_flow_momentum are properly aligned Series before combining
     spx_aligned, momentum_aligned = spx_data.align(money_flow_momentum, join='inner')
     
@@ -305,7 +311,6 @@ with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
         'SPX': spx_aligned, 
         'Money Flow Momentum': momentum_aligned,
     }).dropna().sort_index()
-    # --- END of Error Fix Application ---
 
     lookback = 60
     if len(divergence_df) >= lookback:
@@ -479,8 +484,7 @@ smoothed.iloc[-1] = user_stock_data.iloc[-1]
 if normalize_start:
     smoothed = smoothed / smoothed.iloc[0] * 100
 
-# --- START OF RESTORED SINGLE STOCK CORRELATION LOGIC ---
-
+# --- RESTORED SINGLE STOCK CORRELATION LOGIC (Data Prep) ---
 gf_single, stk_single = money_flow_s.align(smoothed.squeeze(), join='inner')
 latest_corr = float('nan')
 
@@ -527,7 +531,7 @@ correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
     text=alt.value(f'{cw_}D Current Correlation: {latest_corr:.1f}%')
 )
 
-# --- END OF RESTORED SINGLE STOCK CORRELATION LOGIC ---
+# -----------------------------------------------------------------
 
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
