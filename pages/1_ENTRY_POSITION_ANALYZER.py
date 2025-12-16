@@ -1272,7 +1272,7 @@ def main():
     mc_method = st.radio(
         "Monte Carlo Method",
         ["Random Statistical Simulation", "Historical Paths Simulation"],
-        index=st.session_state.mc_method,  # Use session state index
+        index=st.session_state.mc_method,
         key="mc_method_radio"
     )
     
@@ -1495,7 +1495,7 @@ def main():
                     st.header("Monte Carlo Simulation of Entry & Breakeven Chance")
                     
                     # Initialize ALL session state variables once
-                    defaults = {"mc_days": 90, "mc_sims": 5000, "mc_method": 0}
+                    defaults = {"mc_days": 90, "mc_sims": 5000, "mc_method": 1}
                     for key, default in defaults.items():
                         if key not in st.session_state:
                             st.session_state[key] = default
