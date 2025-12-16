@@ -563,6 +563,62 @@ def plot_confidence_heatmap(df_results):
         width=500
     ).interactive()
 
+    st.altair_chart(chart, use_container_width=False)import altair as alt
+
+def plot_confidence_heatmap(df_results):
+    st.subheader("🔥 Top 16 ML Confidence Heatmap (4x4 Grid)")
+    
+    df_plot = df_results.sort_values(by='Confidence', ascending=False).head(16).copy()
+    
+    if len(df_plot) == 0:
+        st.warning("No data available to plot the heatmap.")
+        return
+
+    df_plot['Index'] = range(len(df_plot))
+    df_plot['Row'] = (df_plot['Index'] // 4).astype(str) 
+    df_plot['Col'] = (df_plot['Index'] % 4).astype(str)
+    
+    df_plot['Display_Text'] = df_plot.apply(
+        lambda row: f"{row['Ticker']}\n${row['Price']:.2f}\n{row['Confidence']:.0f}%", 
+        axis=1
+    )
+    
+    df_plot['Tooltip_Detail'] = df_plot.apply(
+        lambda row: f"{row['Ticker']} | Price: ${row['Price']:.2f} | Confidence: {row['Confidence']:.0f}%", axis=1
+    )
+
+    base = alt.Chart(df_plot).encode(
+        x=alt.X('Col:N', axis=None),
+        y=alt.Y('Row:N', axis=None),
+    )
+    
+    heatmap = base.mark_rect().encode(
+        color=alt.Color('Confidence:Q',
+                        scale=alt.Scale(range='redgreen', reverse=True, domain=[20, 95], clamp=True), 
+                        legend=alt.Legend(title="Confidence %"),
+                       ),
+        tooltip=['Tooltip_Detail:N'] 
+    )
+
+    text = base.mark_text(
+        align='center', 
+        baseline='middle',
+        lineBreak='\n' 
+    ).encode(
+        text=alt.Text('Display_Text:N'),
+        color=alt.condition(
+            alt.datum.Confidence > 65,
+            alt.value('white'), 
+            alt.value('black')
+        )
+    )
+
+    chart = (heatmap + text).properties(
+        title='Top ML Confidence: Green=High (Buy), Red=Low (Avoid)',
+        width=500,
+        height=500
+    ).interactive()
+
     st.altair_chart(chart, use_container_width=False)
     
 #  🟡 PLOT TA
@@ -1341,6 +1397,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
