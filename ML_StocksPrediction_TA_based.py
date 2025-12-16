@@ -551,8 +551,10 @@ def plot_confidence_heatmap(df_results):
     )
     
     heatmap = base.mark_rect().encode(
+        # *** FIX APPLIED HERE: Using explicit color range (list of colors) which is highly reliable ***
         color=alt.Color('Confidence:Q',
-                        scale=alt.Scale(scheme='RdYlGn', reverse=False, domain=[20, 95], clamp=True), 
+                        # Maps 20 to 'red' and 95 to 'green'. Interpolation happens automatically.
+                        scale=alt.Scale(range=['red', 'green'], domain=[20, 95], clamp=True), 
                         legend=alt.Legend(title="Confidence %"),
                        ),
         tooltip=['Tooltip_Detail:N'] 
@@ -1082,7 +1084,7 @@ def PlotPredictions(df_results):
     tickers_list = tickers.tolist()
     
     df_plot = df_results
-    #df_plot = df_plot.sort_values(by="Max (%)", ascending=False)
+    df_plot = df_plot.sort_values(by="Confidence", ascending=False)
     max_vals = df_plot["Max (%)"].to_numpy()
     norm = mcolors.Normalize(vmin=min(max_vals), vmax=max(max_vals))
     cmap = cm.jet #Inverse of spectral
@@ -1355,6 +1357,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
