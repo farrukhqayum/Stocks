@@ -1472,7 +1472,7 @@ def main():
                     c1, c2 = st.columns(2)
                     c1.metric("Annualized Return (GBM)", f"{mu*100:.1f}%")
                     c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
-                    
+                    paths = None
                     
                     @st.cache_data
                     def mc_gbm_paths(current_price, mu, sigma, days, num_sims):
