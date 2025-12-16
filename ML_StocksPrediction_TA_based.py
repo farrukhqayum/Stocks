@@ -414,7 +414,7 @@ def label_hit_prob_past(
         sl_prob = np.mean(history_sl) if len(history_sl) >= 3 else min(np.mean(history_sl) if history_sl else 0.5, sl_thresh)
         
         # Initial label assignment priority: TP > SL > Hold > Short > Neutral
-        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bNEUTRull[i] and tp_prob >= tp_thresh:
+        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bull[i] and tp_prob >= tp_thresh:
             labels.append(2)  # TP (bull)
         elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and bear[i] and sl_prob >= sl_thresh:
             labels.append(1)  # SL (bear)
@@ -1370,6 +1370,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
