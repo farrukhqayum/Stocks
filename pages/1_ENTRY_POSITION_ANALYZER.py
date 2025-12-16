@@ -1120,17 +1120,6 @@ def initialize_session_state():
         st.session_state.entry_price_input = 0.0
     if "initial_prices_set" not in st.session_state:
         st.session_state.initial_prices_set = False
-
-    # If ticker just initialized OR changed, fetch and set prices
-    ticker = st.session_state.ticker_input.upper()
-    if not st.session_state.initial_prices_set or ticker != st.session_state.previous_ticker:
-        current_price = get_current_price(ticker)
-        if current_price is not None:
-            st.session_state.current_price = current_price
-            st.session_state.entry_price = current_price
-            st.session_state.entry_price_input = current_price
-            st.session_state.initial_prices_set = True
-            st.session_state.previous_ticker = ticker
             
 def main():
     st.title("📊 Entry Position Analyzer")
@@ -1169,15 +1158,6 @@ def main():
             st.session_state.current_price = current_price
             st.session_state.entry_price = current_price
             st.session_state.initial_prices_set = True
-            st.session_state.previous_ticker = ticker
-
-        # Reset prices only when ticker actually changes
-        if result["valid"] and st.session_state.previous_ticker != ticker:
-            current_price = get_current_price(ticker)
-            if current_price is not None:
-                st.session_state.current_price = current_price
-                st.session_state.entry_price = current_price
-                st.session_state.entry_price_input = current_price
             st.session_state.previous_ticker = ticker
 
         # Display current price
