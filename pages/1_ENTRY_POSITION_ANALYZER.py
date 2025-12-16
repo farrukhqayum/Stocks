@@ -1421,6 +1421,93 @@ def main():
                 st.error(f"Error analyzing {ticker}: {str(e)}")
                 st.info("Try with a different ticker or check if market is open")
 
+            
+        # ------------------------
+        # Monte Carlo: historical (GBM) and block bootstrap
+        # ------------------------
+        st.header("Position Assessment & Monte Carlo Simulation")
+        
+        returns = data["Close"].pct_change().dropna()
+        mu = returns.mean() * 252
+        sigma = returns.std() * np.sqrt(252)
+        
+        c1, c2 = st.columns(2)
+        c1.metric("Annualized Return (GBM)", f"{mu*100:.1f}%")
+        c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
+        
+        days = st.slider("Forecast Days", 30, 365, 90)
+        num_sims = st.slider("Monte Carlo Simulations", 1000, 20000, 5000)
+        
+        @st.cache_data
+        def mc_gbm_paths(current_price, mu, sigma, days, num_sims):
+            dt = 1 / 252
+            paths = np.zeros((days + 1, num_sims))
+            paths[0] = current_price
+            for t in range(1, days + 1):
+                rand = np.random.standard_normal(num_sims)
+                paths[t] = paths[t - 1] * np.exp((mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * rand)
+            return paths
+        
+        @st.cache_data
+        def mc_block_bootstrap_paths(data, days, num_sims, block=5):
+            """
+            Block-bootstrap Monte Carlo using historical returns.
+            Preserves short-term autocorrelation by resampling blocks of returns. [web:23]
+            """
+            rets = data["Close"].pct_change().dropna().values
+            n = len(rets)
+            paths = np.zeros((days + 1, num_sims))
+            paths[0] = data["Close"].iloc[-1]
+        
+            for j in range(num_sims):
+                resampled = []
+                while len(resampled) < days:
+                    start = np.random.randint(0, max(1, n - block))
+                    resampled.extend(rets[start : start + block])
+                resampled = np.array(resampled[:days])
+                prices = paths[0, j] * np.cumprod(1 + resampled)
+                paths[1:, j] = prices
+        
+            return paths
+        
+        mc_method = st.radio(
+            "Monte Carlo Method",
+            ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"],
+        )
+        
+        if mc_method == "Geometric Brownian Motion (GBM)":
+            paths = mc_gbm_paths(current_price, mu, sigma, days, num_sims)
+        else:
+            paths = mc_block_bootstrap_paths(data, days, num_sims, block=5)
+        
+        # Plot paths and distribution
+        fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[3, 1])
+        
+        sample_paths = min(50, num_sims)
+        for i in range(sample_paths):
+            ax3.plot(range(days + 1), paths[:, i], color="gray", alpha=0.3, linewidth=0.5)
+        ax3.plot(range(days + 1), paths[:, -1], color="blue", linewidth=2, label="Sample Path")
+        
+        percentiles = np.percentile(paths[-1], [5, 25, 50, 75, 95])
+        ax3.axhline(percentiles[2], color="red", linestyle="--", linewidth=2, label=f"Median: ${percentiles[2]:.2f}")
+        ax3.set_title(f"Monte Carlo Price Simulation ({mc_method})", fontsize=14, fontweight="bold")
+        ax3.set_xlabel("Days")
+        ax3.set_ylabel("Price ($)")
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
+        
+        ax4.hist(paths[-1], bins=50, alpha=0.7, color="skyblue", edgecolor="black", density=True)
+        ax4.axvline(percentiles[2], color="red", linestyle="--", linewidth=2, label=f"Median: ${percentiles[2]:.2f}")
+        ax4.axvline(entry_price, color="green", linestyle="--", linewidth=2, label= "Entry Price")
+        
+        ax4.set_title("Final Price Distribution (Density)")
+        ax4.set_xlabel("Price ($)")
+        ax4.legend()
+        
+        plt.tight_layout()
+        st.pyplot(fig3)
+        plt.close(fig3)
+
     with st.expander("How to use this analyzer"):
         st.write(
             """
