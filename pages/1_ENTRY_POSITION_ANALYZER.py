@@ -1553,20 +1553,45 @@ def main():
                             num_sims=st.session_state.mc_sims
                         )
 
-
+                    # --- START OF NEW PATH CALCULATION ---
+                    final_prices = paths[-1]
+                    
+                    mask_profit = final_prices > entry_price
+                    if mask_profit.sum() > 0:
+                        mean_path_profit = paths[:, mask_profit].mean(axis=1)
+                    else:
+                        mean_path_profit = None
+                    
+                    mean_path_all = paths.mean(axis=1) 
+                    
+                    mask_loss = final_prices < entry_price
+                    if mask_loss.sum() > 0:
+                        mean_path_loss = paths[:, mask_loss].mean(axis=1)
+                    else:
+                        mean_path_loss = None
+                    
                     # Plot paths and distribution
                     fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[3, 1])
                     
                     sample_paths = min(50, num_sims)
                     for i in range(sample_paths):
                         ax3.plot(range(days + 1), paths[:, i], color="gray", alpha=0.3, linewidth=0.5)
-                    # Plot one path in color as a sample
-                    if paths.shape[1] > 0:
-                        ax3.plot(range(days + 1), paths[:, 0], color="blue", linewidth=1.5, alpha=0.7, label="Sample Path")
+    
+                    # --- NEW PLOTTING OF MEAN PATHS ---
+                    ax3.plot(range(days + 1), mean_path_all, color="red", linewidth=2, linestyle='--', label="Overall Mean Path (Expected Value)")
                     
+                    if mean_path_profit is not None:
+                        ax3.plot(range(days + 1), mean_path_profit, color="green", linewidth=2, label=f"Mean Profitable Path ({mask_profit.sum()} sims)")
+                        
+                    if mean_path_loss is not None:
+                        ax3.plot(range(days + 1), mean_path_loss, color="orangered", linewidth=2, label=f"Mean Loss Path ({mask_loss.sum()} sims)")
+                    # --- END NEW PLOTTING ---
+                        
                     percentiles = np.percentile(paths[-1], [5, 25, 50, 75, 95])
-                    ax3.axhline(percentiles[2], color="red", linestyle="--", linewidth=2, label=f"Median: ${percentiles[2]:.2f}")
-                    ax3.axhline(entry_price, color="green", linestyle="--", linewidth=2, label= "Entry Price")
+                    
+                    # The Median line now uses the overall median (50th percentile)
+                    ax3.axhline(percentiles[2], color="red", linestyle=":", linewidth=1, label=f"Final Median Price: ${percentiles[2]:.2f}")
+                    ax3.axhline(entry_price, color="black", linestyle="-.", linewidth=2, label= "Entry Price (Breakeven)")
                     ax3.set_title(f"Monte Carlo Price Simulation ({mc_method})", fontsize=14, fontweight="bold")
                     ax3.set_xlabel("Days")
                     ax3.set_ylabel("Price ($)")
@@ -1575,7 +1600,7 @@ def main():
                     
                     ax4.hist(paths[-1], bins=50, alpha=0.7, color="skyblue", edgecolor="black", density=True)
                     ax4.axvline(percentiles[2], color="red", linestyle="--", linewidth=2, label=f"Median: ${percentiles[2]:.2f}")
-                    ax4.axvline(entry_price, color="green", linestyle="--", linewidth=2, label= "Entry Price")
+                    ax4.axvline(entry_price, color="black", linestyle="-.", linewidth=2, label= "Entry Price")
                     
                     ax4.set_title("Final Price Distribution (Density)")
                     ax4.set_xlabel("Price ($)")
@@ -1584,12 +1609,13 @@ def main():
                     plt.tight_layout()
                     st.pyplot(fig3)
                     plt.close(fig3)
+                    
+                    #### --------------------------------####
                     final_prices = paths[-1]
                     prob_profit = np.mean(final_prices > entry_price) * 100
                     prob_loss = np.mean(final_prices < entry_price) * 100
                     prob_uncertain = 100 - prob_profit - prob_loss
 
-                    #### --------------------------------####
                     st.subheader("Final Price Probability vs. Entry Price")
                     
                     col_p1, col_p2, col_p3 = st.columns(3)
