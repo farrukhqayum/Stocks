@@ -1086,12 +1086,12 @@ def update_price_and_reset_entry():
     if current_price is None:
         st.error(f"Could not fetch price for {ticker}. Invalid or no data.")
         return
+        
     st.session_state.current_price = current_price
     st.session_state.entry_price = current_price
     st.session_state.entry_price_input = current_price
     st.session_state.previous_ticker = ticker
     st.session_state.initial_prices_set = True
-
 
 def clear_page_session_state():
     """Clear only this page's session state on load"""
@@ -1174,8 +1174,10 @@ def main():
         # Reset prices only when ticker actually changes
         if result["valid"] and st.session_state.previous_ticker != ticker:
             current_price = get_current_price(ticker)
-            st.session_state.current_price = current_price
-            st.session_state.entry_price = update_entry_price()
+            if current_price is not None:
+                st.session_state.current_price = current_price
+                st.session_state.entry_price = current_price
+                st.session_state.entry_price_input = current_price
             st.session_state.previous_ticker = ticker
 
         # Display current price
