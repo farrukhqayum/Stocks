@@ -1462,11 +1462,12 @@ def main():
                     # Monte Carlo: historical (GBM) and block bootstrap
                     # ------------------------
                     st.header("Monte Carlo Simulation of Entry & Breakeven Chance")
-
-                    # Initialize ALL session state variables
-                    for key in ["mc_days", "mc_sims", "mc_method"]:
+                    
+                    # Initialize ALL session state variables once
+                    defaults = {"mc_days": 90, "mc_sims": 5000, "mc_method": 0}
+                    for key, default in defaults.items():
                         if key not in st.session_state:
-                            st.session_state[key] = 90 if key == "mc_days" else 5000 if key == "mc_sims" else 0 
+                            st.session_state[key] = default
                     
                     returns = daily_df["Close"].pct_change().dropna()
                     mu = returns.mean() * 252
@@ -1475,9 +1476,30 @@ def main():
                     c1, c2 = st.columns(2)
                     c1.metric("Annualized Return (GBM)", f"{mu*100:.1f}%")
                     c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
-                    days=st.session_state.mc_days
-                    num_sims=st.session_state.mc_sims )
-                                        
+                    
+                    # ✅ Sliders bound directly to session state
+                    days = st.slider(
+                        "Forecast Days",
+                        min_value=30, max_value=365,
+                        value=st.session_state.mc_days,
+                        key="mc_days"
+                    )
+                    
+                    num_sims = st.slider(
+                        "Monte Carlo Simulations",
+                        min_value=1000, max_value=20000,
+                        value=st.session_state.mc_sims,
+                        key="mc_sims"
+                    )
+                    
+                    # ✅ Radio bound directly to session state
+                    mc_method = st.radio(
+                        "Monte Carlo Method",
+                        ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"],
+                        index=st.session_state.mc_method,
+                        key="mc_method"
+                    )
+                    
                     @st.cache_data
                     def mc_gbm_paths(current_price, mu, sigma, days, num_sims):
                         dt = 1 / 252
@@ -1485,40 +1507,20 @@ def main():
                         paths[0] = current_price
                         for t in range(1, days + 1):
                             rand = np.random.standard_normal(num_sims)
-                            paths[t] = paths[t - 1] * np.exp((mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * rand)
+                            paths[t] = paths[t - 1] * np.exp(
+                                (mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * rand
+                            )
                         return paths
                     
-                    @st.cache_data
-                    def mc_block_bootstrap_paths(daily_df, days, num_sims, block=5):
-                        """
-                        Block-bootstrap Monte Carlo using historical returns.
-                        Preserves short-term autocorrelation by resampling blocks of returns. [web:23]
-                        """
-                        rets = daily_df["Close"].pct_change().dropna().values
-                        n = len(rets)
-                        paths = np.zeros((days + 1, num_sims))
-                        paths[0] = daily_df["Close"].iloc[-1]
-                    
-                        for j in range(num_sims):
-                            resampled = []
-                            while len(resampled) < days:
-                                start = np.random.randint(0, max(1, n - block))
-                                resampled.extend(rets[start : start + block])
-                            resampled = np.array(resampled[:days])
-                            prices = paths[0, j] * np.cumprod(1 + resampled)
-                            paths[1:, j] = prices
-                    
-                        return paths
-                    
-                    mc_method = st.radio(
-                        "Monte Carlo Method",
-                        ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"],
-                    )
-                    
+                    # Example usage of the simulation
                     if mc_method == "Geometric Brownian Motion (GBM)":
-                        paths = mc_gbm_paths(current_price, mu, sigma, days, num_sims)
-                    else:
-                        paths = mc_block_bootstrap_paths(daily_df, days, num_sims, block=5)
+                        paths = mc_gbm_paths(
+                            current_price=daily_df["Close"].iloc[-1],
+                            mu=mu,
+                            sigma=sigma,
+                            days=st.session_state.mc_days,
+                            num_sims=st.session_state.mc_sims
+                        )
                     
                     # Plot paths and distribution
                     fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[3, 1])
