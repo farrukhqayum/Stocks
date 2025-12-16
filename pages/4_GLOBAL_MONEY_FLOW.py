@@ -449,24 +449,6 @@ combined_df = pd.DataFrame({
     "Stock Price": stk_single
 })
 
-combined_long_df = combined_df.melt(
-    id_vars='Date',
-    value_vars=['Global Money Flow', 'Stock Price'],
-    var_name='Series',
-    value_name='Value'
-)
-
-correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
-    align='center',
-    baseline='top',
-    fontSize=16,
-    color='gray'
-).encode(
-    x=alt.value(400),
-    y=alt.value(10),
-    text=alt.value(f'{cw_}D Current Correlation: {latest_corr:.1f}%')
-)
-
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
 color_scale = alt.Scale(
