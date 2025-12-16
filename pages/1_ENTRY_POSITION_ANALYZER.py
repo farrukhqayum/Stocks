@@ -17,13 +17,11 @@ import math
 warnings.filterwarnings('ignore')
 
 
-# Configuration
 st.cache_data.clear()
 st.cache_resource.clear()
 st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
-# Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
     '4H': 1,    
     '1D': 2,    
@@ -43,7 +41,6 @@ _DAYS = 21
 _Nr = 10
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
 
-# Simplified features for faster processing
 FEATURES = [
     'High', 'Low',
     'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 'KCu', 'KCl', 'Kasym', 'Kcount', 'STu', 'STl',
@@ -62,7 +59,7 @@ desc = """
     ### Mindset
     - Not everyone can succeed.
     - Given you think like, 'I told you so', 'Yes, I was right', you aren't yet fit for this.
-    - Warren Buffet, 'Learn how to hold -50% loss' and buy more. If not, then again you don't fit for stocks.
+    - Warren Buffet, 'Learn how to hold -50% loss' and buy more. If not, then again you need to reconsider your choices vs. mindset.
     - Manage positions, DCA 2 or three times.
     - Get stuck or you consumed all the capital, relax and stay away for months or years.
     - Return when time passes or you got more capital.
@@ -1015,7 +1012,6 @@ def initialize_session_state():
     if "initial_prices_set" not in st.session_state:
         st.session_state.initial_prices_set = False
     
-    # Initialize MC variables
     if "mc_days" not in st.session_state: 
         st.session_state.mc_days = 90 
         
@@ -1044,6 +1040,21 @@ def mc_gbm_paths(current_price, mu, sigma, days, num_sims):
         )
     return paths
 
+@st.cache_data
+def mc_block_bootstrap_paths(current_price, returns, days, num_sims):
+    historical_returns = returns.values
+    paths = np.zeros((days + 1, num_sims))
+    paths[0] = current_price
+    np.random.seed(42)
+
+    for i in range(num_sims):
+        resampled_returns = np.random.choice(historical_returns, size=days, replace=True)
+        path_returns = np.cumprod(1 + resampled_returns)
+        paths[1:, i] = current_price * path_returns
+
+    return paths
+
+
 def run_monte_carlo(daily_df, entry_price, days, num_sims, mc_method_index):
     if daily_df is None or daily_df.empty:
         st.error("Cannot run Monte Carlo simulation: 1D data is missing. Run 'Analyze Entry Position' first.")
@@ -1069,27 +1080,33 @@ def run_monte_carlo(daily_df, entry_price, days, num_sims, mc_method_index):
             days=days,
             num_sims=num_sims
         )
-    # The 'Block-Bootstrap' method is not fully implemented in the original code,
-    # so we'll skip it for minimal changes and just use GBM for now.
-    # The original code provided the option but lacked the full implementation.
+    elif method_name == "Block-Bootstrap (Historical Paths)":
+        paths = mc_block_bootstrap_paths(
+            current_price=current_price,
+            returns=returns,
+            days=days,
+            num_sims=num_sims
+        )
     
     if paths is None:
-        st.warning(f"Monte Carlo method '{method_name}' not yet supported or paths could not be generated.")
+        st.error(f"Monte Carlo paths could not be generated for method '{method_name}'.")
         return
 
     fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[3, 1])
     
-    sample_paths = min(50, num_sims)
-    for i in range(sample_paths):
-        ax3.plot(range(days + 1), paths[:, i], color="gray", alpha=0.3, linewidth=0.5)
+    median_path = np.percentile(paths, 50, axis=1)
+    p5 = np.percentile(paths, 5, axis=1)
+    p95 = np.percentile(paths, 95, axis=1)
+
+    ax3.plot(range(days + 1), median_path, color="blue", linewidth=1.5, label="Median Path")
+    ax3.fill_between(range(days + 1), p5, p95, color='blue', alpha=0.1, label='5th to 95th Percentile Band')
     
     percentiles = np.percentile(paths[-1], [5, 25, 50, 75, 95])
     
-    # Calculate breakeven probability (Price >= Entry Price at end of simulation)
     breakeven_count = np.sum(paths[-1] >= entry_price)
     breakeven_prob = (breakeven_count / num_sims) * 100
     
-    ax3.axhline(percentiles[2], color="red", linestyle="--", linewidth=2, label=f"Median: ${percentiles[2]:.2f}")
+    ax3.axhline(percentiles[2], color="red", linestyle="--", linewidth=2, label=f"Median End Price: ${percentiles[2]:.2f}")
     ax3.axhline(entry_price, color="green", linestyle="--", linewidth=2, label= "Entry Price")
     ax3.set_title(f"Monte Carlo Price Simulation ({method_name})", fontsize=14, fontweight="bold")
     ax3.set_xlabel("Days")
@@ -1410,7 +1427,6 @@ def main():
                 st.error(f"Error analyzing {ticker}: {str(e)}")
                 st.info("Try with a different ticker or check if market is open")
 
-    # Move MC widgets and simulation OUTSIDE the button block
     st.header("Monte Carlo Simulation of Entry & Breakeven Chance")
     
     col_mc_1, col_mc_2, col_mc_3 = st.columns(3)
@@ -1440,7 +1456,6 @@ def main():
         )
         mc_method = ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"].index(mc_method_name)
 
-    # Update session state *after* widgets
     st.session_state.mc_days = days
     st.session_state.mc_sims = num_sims
     st.session_state.mc_method_index = mc_method
