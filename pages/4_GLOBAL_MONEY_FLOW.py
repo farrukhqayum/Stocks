@@ -141,7 +141,8 @@ rolling_std = money_flow_smooth.rolling(window=z_score_window).std()
 money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std
 money_flow_zscore = money_flow_zscore.fillna(0)
 
-cw_ = 21 
+# Set the rolling window for correlation. You can adjust this value.
+cw_ = 60 # Using 60 days (approx. 3 months) for correlation lookback
 money_flow_s = money_flow_s.squeeze()
 
 money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
@@ -442,6 +443,56 @@ smoothed.iloc[-1] = user_stock_data.iloc[-1]
 
 if normalize_start:
     smoothed = smoothed / smoothed.iloc[0] * 100
+
+# --- START OF RESTORED SINGLE STOCK CORRELATION LOGIC ---
+
+gf_single, stk_single = money_flow_s.align(smoothed.squeeze(), join='inner')
+latest_corr = float('nan')
+
+if len(gf_single) >= cw_:
+    rolling_corr_single = gf_single.rolling(cw_, min_periods=cw_//2).corr(stk_single)
+    latest_corr = round(rolling_corr_single.iloc[-1] * 100, 1)
+    
+    st.markdown(f"### {cw_}D Rolling Correlation: {user_ticker} vs. Money Flow")
+    
+    rolling_corr_df = pd.DataFrame({
+        "Date": rolling_corr_single.index,
+        "Correlation": rolling_corr_single * 100
+    }).dropna()
+    
+    corr_chart = alt.Chart(rolling_corr_df).mark_line().encode(
+        x='Date:T',
+        y=alt.Y('Correlation:Q', title='Rolling Correlation (%)', scale=alt.Scale(domain=[-100, 100])),
+        tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
+    ).properties(title=f"Correlation Trend for {user_ticker}")
+    st.altair_chart(corr_chart, use_container_width=True)
+
+# Create DataFrames for the dual-axis chart 
+combined_df = pd.DataFrame({
+    "Date": gf_single.index,
+    "Global Money Flow": gf_single,
+    "Stock Price": stk_single
+})
+
+combined_long_df = combined_df.melt(
+    id_vars='Date',
+    value_vars=['Global Money Flow', 'Stock Price'],
+    var_name='Series',
+    value_name='Value'
+)
+
+correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
+    align='center',
+    baseline='top',
+    fontSize=16,
+    color='gray'
+).encode(
+    x=alt.value(400),
+    y=alt.value(10),
+    text=alt.value(f'{cw_}D Current Correlation: {latest_corr:.1f}%')
+)
+
+# --- END OF RESTORED SINGLE STOCK CORRELATION LOGIC ---
 
 base = alt.Chart(combined_long_df).encode(x='Date:T')
 
