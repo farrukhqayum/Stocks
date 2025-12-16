@@ -1584,6 +1584,31 @@ def main():
                     plt.tight_layout()
                     st.pyplot(fig3)
                     plt.close(fig3)
+                    final_prices = paths[-1]
+                    prob_profit = np.mean(final_prices > entry_price) * 100
+                    prob_loss = np.mean(final_prices < entry_price) * 100
+                    prob_uncertain = 100 - prob_profit - prob_loss
+
+                    #### --------------------------------####
+                    st.subheader("Final Price Probability vs. Entry Price")
+                    
+                    col_p1, col_p2, col_p3 = st.columns(3)
+                    
+                    col_p1.metric(
+                        "Chance to Make Money (Profit)", 
+                        f"{prob_profit:.1f}%",
+                        delta_color="normal"
+                    )
+                    col_p2.metric(
+                        "Chance of Losses", 
+                        f"{prob_loss:.1f}%",
+                        delta_color="inverse"
+                    )
+                    col_p3.metric(
+                        "Near Breakeven / Highly Uncertain", 
+                        f"{prob_uncertain:.2f}%",
+                        delta_color="off"
+                    )
 
                 else:
                     st.error("No successful analyses completed. Try with a different ticker or time period.")
