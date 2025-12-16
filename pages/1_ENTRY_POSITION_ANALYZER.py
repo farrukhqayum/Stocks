@@ -1493,6 +1493,7 @@ def main():
         
         percentiles = np.percentile(paths[-1], [5, 25, 50, 75, 95])
         ax3.axhline(percentiles[2], color="red", linestyle="--", linewidth=2, label=f"Median: ${percentiles[2]:.2f}")
+        ax3.axhline(entry_price, color="green", linestyle="--", linewidth=2, label= "Entry Price")
         ax3.set_title(f"Monte Carlo Price Simulation ({mc_method})", fontsize=14, fontweight="bold")
         ax3.set_xlabel("Days")
         ax3.set_ylabel("Price ($)")
