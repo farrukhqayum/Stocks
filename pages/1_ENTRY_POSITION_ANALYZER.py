@@ -1271,7 +1271,7 @@ def main():
     # ✅ RADIO with session state
     mc_method = st.radio(
         "Monte Carlo Method",
-        ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"],
+        ["Random Statistical Simulation", "Historical Paths Simulation"],
         index=st.session_state.mc_method,  # Use session state index
         key="mc_method_radio"
     )
