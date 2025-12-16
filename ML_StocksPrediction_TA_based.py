@@ -538,21 +538,21 @@ def plot_confidence_heatmap(df_results):
     
     df_plot['Display_Text'] = df_plot.apply(
         lambda row: (
-            f"{row['Ticker']}\n"  # Ticker (Big Text, first line)
-            f"${row['Price']:.2f}\n"  # Price
-            f"G: {row['Gain_Perc']:.1f}% / SL: {row['SL_Perc']:.1f}%\n"  # Gain % / SL %
-            f"Conf: {row['Confidence']:.0f}%"  # Confidence
+            f"{row['Ticker']}\n"
+            f"${row['Price']:.2f}\n"
+            f"G: {row['Max (%)']:.1f}% / SL: {row['Loss (%)']:.1f}%\n"
+            f"Conf: {row['Confidence']:.0f}%"
         ), 
         axis=1
     )
-
+    
     df_plot['Tooltip_Detail'] = df_plot.apply(
-    lambda row: (
-        f"{row['Ticker']} | Price: ${row['Price']:.2f} | "
-        f"Gain: {row['Gain_Perc']:.1f}% | SL: {row['SL_Perc']:.1f}% | "
-        f"Confidence: {row['Confidence']:.0f}%"
-    ), 
-    axis=1
+        lambda row: (
+            f"{row['Ticker']} | Price: ${row['Price']:.2f} | "
+            f"Gain: {row['Max (%)']:.1f}% | SL: {row['Loss (%)']:.1f}% | "
+            f"Conf: {row['Confidence']:.0f}%"
+        ), 
+        axis=1
     )
 
     base = alt.Chart(df_plot).encode(
