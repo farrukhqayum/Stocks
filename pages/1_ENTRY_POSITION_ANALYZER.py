@@ -1210,7 +1210,6 @@ def main():
         index=default_option_index
     )
 
-    
     if "mc_days" not in st.session_state: 
         st.session_state.mc_days = 90 
         
@@ -1477,28 +1476,6 @@ def main():
                     c1.metric("Annualized Return (GBM)", f"{mu*100:.1f}%")
                     c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
                     
-                    # ✅ Sliders bound directly to session state (only once!)
-                    days = st.slider(
-                        "Forecast Days",
-                        min_value=30, max_value=365,
-                        value=st.session_state.mc_days,
-                        key="mc_days"
-                    )
-                    
-                    num_sims = st.slider(
-                        "Monte Carlo Simulations",
-                        min_value=1000, max_value=20000,
-                        value=st.session_state.mc_sims,
-                        key="mc_sims"
-                    )
-                    
-                    # ✅ Radio bound directly to session state
-                    mc_method = st.radio(
-                        "Monte Carlo Method",
-                        ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"],
-                        index=st.session_state.mc_method,
-                        key="mc_method"
-                    )
                     
                     @st.cache_data
                     def mc_gbm_paths(current_price, mu, sigma, days, num_sims):
@@ -1522,7 +1499,6 @@ def main():
                             num_sims=st.session_state.mc_sims
                         )
 
-                    
                     # Plot paths and distribution
                     fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[3, 1])
                     
