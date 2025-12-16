@@ -528,7 +528,7 @@ correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
 ).encode(
     x=alt.value(400),
     y=alt.value(10),
-    text=alt.value(f'{cw_}D Current Correlation: {latest_corr:.1f}%')
+    text=alt.value(f'{cw_}D Corr: {latest_corr:.1f}%')
 )
 
 # -----------------------------------------------------------------
