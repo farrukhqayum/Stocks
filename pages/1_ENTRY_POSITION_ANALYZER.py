@@ -1131,36 +1131,7 @@ def initialize_session_state():
             st.session_state.entry_price_input = current_price
             st.session_state.initial_prices_set = True
             st.session_state.previous_ticker = ticker
-
-def initialize_session_state_base():
-    defaults = {
-        "ticker": DEFAULT_TICKER,
-        "previous_ticker": "",
-        "current_price": None,
-        "entry_price": None,
-        "entry_price_input": None,
-        "entry_price_manually_set": False,
-    }
-    for k, v in defaults.items():
-        st.session_state.setdefault(k, v)
-
-def on_ticker_change():
-    ticker = st.session_state.ticker.upper()
-
-    if ticker != st.session_state.previous_ticker:
-        price = get_current_price(ticker)
-
-        if price is not None:
-            st.session_state.current_price = price
-            st.session_state.entry_price = price
-            st.session_state.entry_price_input = price
-            st.session_state.entry_price_manually_set = False
-            st.session_state.previous_ticker = ticker
-
-def on_entry_price_change():
-    st.session_state.entry_price = st.session_state.entry_price_input
-    st.session_state.entry_price_manually_set = True
-          
+            
 def main():
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
@@ -1177,7 +1148,7 @@ def main():
             "Ticker Symbol",
             value="TSLA",
             key="ticker",
-            on_change=on_ticker_change,
+            on_change=update_price_and_reset_entry,
         ).upper()
         
         for key in ["current_price", "entry_price", "entry_price_input", "previous_ticker"]:
@@ -1192,21 +1163,32 @@ def main():
             st.stop()
                 
     with col2:
+        # Set initial prices only once when ticker is valid
+        if result["valid"] and not st.session_state.initial_prices_set:
+            current_price = get_current_price(ticker)
+            st.session_state.current_price = current_price
+            st.session_state.entry_price = current_price
+            st.session_state.initial_prices_set = True
+            st.session_state.previous_ticker = ticker
+
+        # Reset prices only when ticker actually changes
+        if result["valid"] and st.session_state.previous_ticker != ticker:
+            current_price = get_current_price(ticker)
+            st.session_state.current_price = current_price
+            st.session_state.entry_price = update_entry_price()
+            st.session_state.previous_ticker = ticker
+
         # Display current price
         st.metric("Current Price", f"${st.session_state.current_price:.2f}")
 
         # Entry price number input - this will maintain its value between reruns
         entry_price = st.number_input(
-        "Entry Price ($)",
-        min_value=0.0,
-        value=float(
-            st.session_state.entry_price
-            if st.session_state.entry_price is not None
-            else st.session_state.current_price
-        ),
-        step=0.1,
-        key="entry_price_input",
-        on_change=on_entry_price_change,
+            "Entry Price ($)",
+            min_value=0.0,
+            value=float(st.session_state.entry_price_input),  # ensure float type
+            step=0.1,
+            key="entry_price_input",
+            on_change=update_entry_price,
         )
 
     with col3:
