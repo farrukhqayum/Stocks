@@ -522,8 +522,8 @@ combined_long_df = combined_df.melt(
 
 correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
     align='center',
-    baseline='top',
-    fontSize=16,
+    baseline='bottom',
+    fontSize=12,
     color='gray'
 ).encode(
     x=alt.value(400),
