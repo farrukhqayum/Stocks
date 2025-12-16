@@ -537,12 +537,22 @@ def plot_confidence_heatmap(df_results):
     df_plot['Col'] = (df_plot['Index'] % 4).astype(str)
     
     df_plot['Display_Text'] = df_plot.apply(
-        lambda row: f"{row['Ticker']}\n${row['Price']:.2f}\n{row['Confidence']:.0f}%", 
+        lambda row: (
+            f"{row['Ticker']}\n"  # Ticker (Big Text, first line)
+            f"${row['Price']:.2f}\n"  # Price
+            f"G: {row['Gain_Perc']:.1f}% / SL: {row['SL_Perc']:.1f}%\n"  # Gain % / SL %
+            f"Conf: {row['Confidence']:.0f}%"  # Confidence
+        ), 
         axis=1
     )
-    
+
     df_plot['Tooltip_Detail'] = df_plot.apply(
-        lambda row: f"{row['Ticker']} | Price: ${row['Price']:.2f} | Confidence: {row['Confidence']:.0f}%", axis=1
+    lambda row: (
+        f"{row['Ticker']} | Price: ${row['Price']:.2f} | "
+        f"Gain: {row['Gain_Perc']:.1f}% | SL: {row['SL_Perc']:.1f}% | "
+        f"Confidence: {row['Confidence']:.0f}%"
+    ), 
+    axis=1
     )
 
     base = alt.Chart(df_plot).encode(
@@ -573,8 +583,8 @@ def plot_confidence_heatmap(df_results):
 
     chart = (heatmap + text).properties(
         title='Top ML Confidence: Green ~High Confidence/BULLISH, Red ~Low Confidence/BEARISH',
-        width=500,
-        height=500
+        width=700,
+        height=700
     ).interactive()
 
     st.altair_chart(chart, use_container_width=False)
@@ -1355,6 +1365,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
