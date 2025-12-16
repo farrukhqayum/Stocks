@@ -217,7 +217,7 @@ else:
 
 st.markdown(f"""
 <div style="padding:1.2em; border-radius:12px; text-align:center; background-color:{sentiment_color}; color:white; font-size:1.3em; font-weight:bold;">
-{sentiment} — Current Money-flow Sentiment
+{sentiment}
 </div>
 """, unsafe_allow_html=True)
 
