@@ -1210,6 +1210,37 @@ def main():
         index=default_option_index
     )
 
+    days = st.slider("Forecast Days", 30, 365, 90)
+    num_sims = st.slider("Monte Carlo Simulations", 1000, 20000, 5000)
+
+    # ✅ SLIDERS with session state
+    days = st.slider(
+        "Forecast Days", 
+        min_value=30, max_value=365, 
+        value=st.session_state.mc_days,
+        key="mc_days_slider"
+    )
+    
+    num_sims = st.slider(
+        "Monte Carlo Simulations", 
+        min_value=1000, max_value=20000, 
+        value=st.session_state.mc_sims,
+        key="mc_sims_slider"
+    )
+    
+    # ✅ RADIO with session state
+    mc_method = st.radio(
+        "Monte Carlo Method",
+        ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"],
+        index=st.session_state.mc_method,  # Use session state index
+        key="mc_method_radio"
+    )
+    
+    # ✅ UPDATE session state AFTER widgets (critical!)
+    st.session_state.mc_days = days
+    st.session_state.mc_sims = num_sims
+    st.session_state.mc_method = ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"].index(mc_method)
+
     if st.button("Analyze Entry Position"):
         with st.spinner("Training models and analyzing..."):
             try:
@@ -1434,38 +1465,7 @@ def main():
                     c1, c2 = st.columns(2)
                     c1.metric("Annualized Return (GBM)", f"{mu*100:.1f}%")
                     c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
-                    
-                    days = st.slider("Forecast Days", 30, 365, 90)
-                    num_sims = st.slider("Monte Carlo Simulations", 1000, 20000, 5000)
-
-                    # ✅ SLIDERS with session state
-                    days = st.slider(
-                        "Forecast Days", 
-                        min_value=30, max_value=365, 
-                        value=st.session_state.mc_days,
-                        key="mc_days_slider"
-                    )
-                    
-                    num_sims = st.slider(
-                        "Monte Carlo Simulations", 
-                        min_value=1000, max_value=20000, 
-                        value=st.session_state.mc_sims,
-                        key="mc_sims_slider"
-                    )
-                    
-                    # ✅ RADIO with session state
-                    mc_method = st.radio(
-                        "Monte Carlo Method",
-                        ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"],
-                        index=st.session_state.mc_method,  # Use session state index
-                        key="mc_method_radio"
-                    )
-                    
-                    # ✅ UPDATE session state AFTER widgets (critical!)
-                    st.session_state.mc_days = days
-                    st.session_state.mc_sims = num_sims
-                    st.session_state.mc_method = ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"].index(mc_method)
-                    
+                                        
                     @st.cache_data
                     def mc_gbm_paths(current_price, mu, sigma, days, num_sims):
                         dt = 1 / 252
