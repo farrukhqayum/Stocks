@@ -552,7 +552,7 @@ def plot_confidence_heatmap(df_results):
     
     heatmap = base.mark_rect().encode(
         color=alt.Color('Confidence:Q',
-                        scale=alt.Scale(range=['red', 'white', 'green'], domain=[10, 75], domainMid=50, clamp=True), 
+                        scale=alt.Scale(range=['red', 'white', 'green'], domain=[10, 85], domainMid=55, clamp=True), 
                         legend=alt.Legend(title="Confidence %"),
                        ),
         tooltip=['Tooltip_Detail:N'] 
@@ -572,7 +572,7 @@ def plot_confidence_heatmap(df_results):
     )
 
     chart = (heatmap + text).properties(
-        title='Top ML Confidence: Green=High (Buy), Red=Low (Avoid)',
+        title='Top ML Confidence: Green ~High Confidence/BULLISH, Red ~Low Confidence/BEARISH',
         width=500,
         height=500
     ).interactive()
@@ -1355,6 +1355,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
