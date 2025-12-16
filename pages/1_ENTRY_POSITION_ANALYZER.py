@@ -1244,8 +1244,8 @@ def main():
                         st.warning(f"Insufficient raw data for {timeframe}: {len(df)} rows (need {required_min_raw})")
                         continue
 
-                    if timeframe = "1D":
-                        daily_df = df
+                    if timeframe == "1D":
+                        daily_df = df.copy()
 
                     st.write(f"Data points: {len(df)}")
 
