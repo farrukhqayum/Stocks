@@ -1279,7 +1279,7 @@ def main():
     # ✅ UPDATE session state AFTER widgets (critical!)
     st.session_state.mc_days = days
     st.session_state.mc_sims = num_sims
-    st.session_state.mc_method = ["Geometric Brownian Motion (GBM)", "Block-Bootstrap (Historical Paths)"].index(mc_method)
+    st.session_state.mc_method = ["Random Statistical Simulation", "Historical Paths Simulation"].index(mc_method)
 
     if st.button("Analyze Entry Position"):
         with st.spinner("Training models and analyzing..."):
@@ -1505,7 +1505,7 @@ def main():
                     sigma = returns.std() * np.sqrt(252)
                     
                     c1, c2 = st.columns(2)
-                    c1.metric("Annualized Return (GBM)", f"{mu*100:.1f}%")
+                    c1.metric("Annualized Return (Statistical)", f"{mu*100:.1f}%")
                     c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
                     paths = None
                     
@@ -1537,7 +1537,7 @@ def main():
                     
                     current_day_price = daily_df["Close"].iloc[-1]
                     
-                    if mc_method == "Geometric Brownian Motion (GBM)":
+                    if mc_method == "Random Statistical Simulation":
                         paths = mc_gbm_paths(
                             current_price=current_day_price,
                             mu=mu,
@@ -1545,7 +1545,7 @@ def main():
                             days=st.session_state.mc_days,
                             num_sims=st.session_state.mc_sims
                         )
-                    elif mc_method == "Block-Bootstrap (Historical Paths)":
+                    elif mc_method == "Historical Paths Simulation":
                         paths = mc_bootstrap_paths(
                             current_price=current_day_price,
                             returns=returns,
