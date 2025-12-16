@@ -522,51 +522,9 @@ def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
     except (ValueError, TypeError):
         return na_str
 
-# 🟡 PLOT CONFIDENCE HEATMAP
+
 def plot_confidence_heatmap(df_results):
     st.subheader("🔥 ML Confidence Heatmap")
-    
-    df_plot = df_results.copy()
-    df_plot['Metric'] = 'ML Confidence'
-
-    df_plot = df_plot.sort_values(by='Confidence', ascending=False).reset_index(drop=True)
-    df_plot['Confidence_Str'] = df_plot['Confidence'].apply(lambda x: f'{x:.0f}%')
-    df_plot['Tooltip_Detail'] = df_plot.apply(
-        lambda row: f"{row['Ticker']} | Price: ${row['Price']:.2f} | Conf: {row['Confidence']:.0f}%", axis=1
-    )
-    base = alt.Chart(df_plot).encode(
-        y=alt.Y('Ticker:N', sort=df_plot['Ticker'].tolist(), title="Stock Ticker"),
-        x=alt.X('Metric:N', axis=alt.Axis(title="")),
-    )
-    
-    heatmap = base.mark_rect().encode(
-        color=alt.Color('Confidence:Q',
-                        scale=alt.Scale(range='heatmap', domain=[30, 90], clamp=True),
-                        legend=alt.Legend(title="Confidence %"),
-                        title="ML Confidence Score (%)"
-                       ),
-        tooltip=['Tooltip_Detail:N'] 
-    )
-    text = base.mark_text().encode(
-        text=alt.Text('Tooltip_Detail:N'),
-        color=alt.value('black'),
-        fill=alt.condition(
-            alt.datum.Confidence >= 70, 
-            alt.value('white'), 
-            alt.value('black')
-        )
-    ).properties(
-        title='ML Confidence Heatmap (Ticker, Price, Confidence)'
-    )
-
-    chart = (heatmap + text).properties(
-        width=500
-    ).interactive()
-
-    st.altair_chart(chart, use_container_width=False)
-
-def plot_confidence_heatmap(df_results):
-    st.subheader("🔥 Top 16 ML Confidence Heatmap (4x4 Grid)")
     
     df_plot = df_results.sort_values(by='Confidence', ascending=False).head(16).copy()
     
@@ -594,7 +552,7 @@ def plot_confidence_heatmap(df_results):
     
     heatmap = base.mark_rect().encode(
         color=alt.Color('Confidence:Q',
-                        scale=alt.Scale(scheme='RdYlGn', reverse=True, domain=[20, 95], clamp=True), 
+                        scale=alt.Scale(scheme='RdYlGn', reverse=False, domain=[20, 95], clamp=True), 
                         legend=alt.Legend(title="Confidence %"),
                        ),
         tooltip=['Tooltip_Detail:N'] 
@@ -1397,6 +1355,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
