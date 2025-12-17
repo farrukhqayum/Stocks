@@ -517,7 +517,7 @@ shared_x_scale = alt.Scale(domain=[gf_single.index.min(), gf_single.index.max()]
 # 3. Redefine Top Chart (Correlation)
 corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
     x=alt.X('Date:T', scale=shared_x_scale, title=None), # Hide title on top chart for cleaner look
-    y=alt.Y('Correlation:Q', title='Rolling Corr (%)', scale=alt.Scale(domain=[-100, 100])),
+    y=alt.Y('Correlation:Q', title=' {user_ticker} - Correlation (%)', scale=alt.Scale(domain=[-100, 100])),
     tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
 ).properties(height=150)
 
