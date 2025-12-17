@@ -241,22 +241,22 @@ main_color_scale = alt.Scale(
 
 curve_chart = base.mark_line(opacity=0.6).encode(
     y=alt.Y('Money Flow Curve:Q', title='Money Flow'),
-    color=alt.Color('Metric:N', scale=main_color_scale, 
+    color=alt.Color('Metric:N', 
+                    scale=main_color_scale, 
                     legend=alt.Legend(
-                        orient='top-left', 
-                        title=None, 
-                        fillColor='#ffffff',
-                        padding=10,
-                        strokeColor='#cccccc',
-                        cornerRadius=5,
-                        offset=10
+                        orient='top-left',
+                        title=None,      
+                        fillColor='white',
+                        padding=8,
+                        strokeColor='gray',
+                        cornerRadius=4
                     )),
     tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
 ).transform_calculate(Metric="'Money Flow (Fast)'")
 
-smooth_chart = base.mark_line(size=2, opacity=1.0).encode(
+smooth_chart = base.mark_line(size=2).encode(
     y=alt.Y('Smoothed Curve:Q'),
-    color=alt.Color('Metric:N', scale=main_color_scale, legend=None), 
+    color=alt.Color('Metric:N', scale=main_color_scale, legend=None),
     tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
 ).transform_calculate(Metric="'Smoothed (Slow)'")
 
@@ -270,10 +270,7 @@ fill_area = base.mark_area(opacity=0.17).encode(
     )
 )
 
-final_chart = (fill_area + curve_chart + smooth_chart).properties(
-    width='container',
-    height=400
-)
+st.altair_chart(fill_area + curve_chart + smooth_chart, use_container_width=True)
 
 st.markdown("### 🌊 GMF Curve with Average")
 st.altair_chart(final_chart, use_container_width=True)
