@@ -844,10 +844,10 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
        loc='lower right',
        frameon=True,
        borderpad=1.5,
-       prop=dict(size=7, color= 'blue', weight='bold')
+       prop=dict(size=7, color= 'blue', weight='normal')
     )
     
-    textbox.patch.set(facecolor= cl, edgecolor='gray', alpha=0.5, boxstyle='round')
+    textbox.patch.set(facecolor= cl, edgecolor='gray', alpha=0.4, boxstyle='round')
     ax1.add_artist(textbox)
   
     plt.tight_layout()
@@ -1426,6 +1426,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
