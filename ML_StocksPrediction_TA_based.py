@@ -562,9 +562,13 @@ def plot_confidence_heatmap(df_results):
     
     heatmap = base.mark_rect().encode(
         color=alt.Color('Confidence:Q',
-                        scale=alt.Scale(range=['red', 'white', 'green'], domain=[5, 95], domainMid=48, clamp=True), 
-                        legend=alt.Legend(title="Confidence %"),
-                       ),
+            scale=alt.Scale(
+                domain=[5, 48, 95],           # Map 5->red, 48->white, 95->green
+                range=['red', 'white', 'green'], 
+                clamp=True
+            ), 
+            legend=alt.Legend(title="Confidence %"),
+        ),
         tooltip=['Tooltip_Detail:N'] 
     )
 
@@ -1372,6 +1376,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
