@@ -491,24 +491,6 @@ latest_corr = float('nan')
 if len(gf_single) >= cw_:
     rolling_corr_single = gf_single.rolling(cw_, min_periods=cw_//2).corr(stk_single)
     latest_corr = round(rolling_corr_single.iloc[-1] * 100, 1)
-    
-    st.markdown(f"### {cw_}D {user_ticker} vs. Money Flow")
-    
-    rolling_corr_df = pd.DataFrame({
-        "Date": rolling_corr_single.index,
-        "Correlation": rolling_corr_single * 100
-    }).dropna()
-
-    corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.4).encode(
-        x=alt.X('Date:T', scale=alt.Scale(domain=[gf_single.index.min(), gf_single.index.max()])), # Added scale domain
-        y=alt.Y('Correlation:Q', title='Rolling Correlation (%)', scale=alt.Scale(domain=[-100, 100])),
-        tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
-    ).properties(
-        title=f"Correlation Trend for {user_ticker}",
-        width='container' # Ensure it stretches fully
-    )
-        
-    st.altair_chart(corr_chart, use_container_width=True)
 
 # 1. Create DataFrames for the dual-axis chart 
 combined_df = pd.DataFrame({
