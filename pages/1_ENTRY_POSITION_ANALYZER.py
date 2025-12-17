@@ -1251,7 +1251,7 @@ def main():
         st.session_state.mc_sims = 10000
         
     if "mc_method" not in st.session_state:
-        st.session_state.mc_method = 0
+        st.session_state.mc_method = 1
     
     # ✅ SLIDERS with session state
     days = st.slider(
