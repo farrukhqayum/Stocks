@@ -624,7 +624,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
     elif clean_label in bull_case and 60 <= conf < 80:
         action = (
             f"{ticker}: Prediction is {signal_text}, "
-            f"ML ({will_hit_str}) & bull confidence ({conf:.0f}%) suggests - BUY THE DIP"
+            f"ML {will_hit_str} & bull confidence ({conf:.0f}%) suggests - BUY THE DIP"
         )
 
     elif clean_label in neutral_case and conf > 60:
@@ -658,7 +658,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
         )
 
     elif clean_label in bear_case and conf <= 20:
-        confidence_text = f" ({conf:.0f}%) confidence SELLERS Market, long-term up-trend(?) BUY-THE-DIP."
+        confidence_text = f" ({conf:.0f}%) confidence indicates SELLERS Market / LONG-TERM up-trend(?) BUY-THE-DIP."
         action = (
             f"{ticker}: Prediction is {signal_text}, "
             f"{will_hit_str}, {confidence_text}"
@@ -1418,6 +1418,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
