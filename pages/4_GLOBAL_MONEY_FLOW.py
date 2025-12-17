@@ -245,32 +245,25 @@ curve_chart = base.mark_line(opacity=0.6).encode(
                     legend=alt.Legend(
                         orient='top-left', 
                         title=None, 
-                        fillColor='white', # Adds a white background so lines don't bleed through
-                        padding=5,
-                        strokeColor='gray',
-                        cornerRadius=5
+                        fillColor='#ffffff',
+                        padding=10,
+                        strokeColor='#cccccc',
+                        cornerRadius=5,
+                        offset=10
                     )),
     tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
 ).transform_calculate(Metric="'Money Flow (Fast)'")
 
-# 3. Update Slow Curve
-smooth_chart = base.mark_line(size=2).encode(
+smooth_chart = base.mark_line(size=2, opacity=1.0).encode(
     y=alt.Y('Smoothed Curve:Q'),
-    color=alt.Color('Metric:N', scale=main_color_scale, legend=None), # Legend already handled by layer above
+    color=alt.Color('Metric:N', scale=main_color_scale, legend=None), 
     tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
 ).transform_calculate(Metric="'Smoothed (Slow)'")
 
-fill_area = base.mark_area(opacity=0.17).encode(
-    y='Money Flow Curve:Q',
-    y2='Smoothed Curve:Q',
-    color=alt.Color(
-        'Above:N',
-        scale=alt.Scale(domain=[True, False], range=['green', 'red']),
-        legend=None
-    )
+final_chart = (fill_area + curve_chart + smooth_chart).properties(
+    width='container',
+    height=400
 )
-
-final_chart = fill_area + curve_chart + smooth_chart
 
 st.markdown("### 🌊 GMF Curve with Average")
 st.altair_chart(final_chart, use_container_width=True)
