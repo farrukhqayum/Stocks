@@ -540,7 +540,7 @@ def plot_confidence_heatmap(df_results):
         lambda row: (
             f"{row['Ticker']}\n"
             f"${row['Price']:.2f}\n"
-            f"G: {row['Max (%)']:.1f}% / SL: {row['Loss (%)']:.1f}%\n"
+            f"TP: {row['Max (%)']:.1f}% / SL: {row['Loss (%)']:.1f}%\n"
             f"Conf: {row['Confidence']:.0f}%"
         ), 
         axis=1
@@ -584,7 +584,7 @@ def plot_confidence_heatmap(df_results):
     chart = (heatmap + text).properties(
         title='Top ML Confidence: Green ~High Confidence/BULLISH, Red ~Low Confidence/BEARISH',
         width=700,
-        height=700
+        height=500
     ).interactive()
 
     st.altair_chart(chart, use_container_width=False)
@@ -1372,6 +1372,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
