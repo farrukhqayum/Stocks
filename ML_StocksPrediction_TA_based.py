@@ -789,7 +789,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ]
 
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
-    summary_lines.append(generate_action(ticker, clean_label, conf, will_hit_str))
+    action = generate_action(ticker, clean_label, conf, will_hit_str)
+    summary_lines.append(action)
 
     textbox = AnchoredText(
        action,
@@ -1378,6 +1379,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
