@@ -668,11 +668,9 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
         )
 
     else:
-        # Catch-all neutral case
         confidence_text = f"NEUTRAL ({conf:.0f}%)."
         action = (
-            f"{ticker} is NEUTRAL, with confidence: {confidence_text}. "
-            f"Monitor for clearer signals."
+            f"{ticker} is NEUTRAL - Check for Monthly Candle, patterns, divergences"
         )
 
     return action
@@ -1423,6 +1421,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
