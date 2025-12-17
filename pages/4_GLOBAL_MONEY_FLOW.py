@@ -491,6 +491,11 @@ latest_corr = float('nan')
 if len(gf_single) >= cw_:
     rolling_corr_single = gf_single.rolling(cw_, min_periods=cw_//2).corr(stk_single)
     latest_corr = round(rolling_corr_single.iloc[-1] * 100, 1)
+    
+    rolling_corr_df = pd.DataFrame({
+        "Date": rolling_corr_single.index,
+        "Correlation": rolling_corr_single * 100
+    }).dropna()
 
 # 1. Create DataFrames for the dual-axis chart 
 combined_df = pd.DataFrame({
@@ -538,14 +543,20 @@ correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
     align='right', baseline='top', fontSize=12, color='gray'
 ).encode(x=alt.value(750), y=alt.value(10), text=alt.value(f'{cw_}D Corr: {latest_corr:.1f}%'))
 
-combined_price_chart = (alt.layer(money_flow_line, stock_price_line) + correlation_text).properties(height=300)
+combined_price_chart = (alt.layer(
+    money_flow_line, 
+    stock_price_line
+).resolve_scale(
+    y='independent'
+) + correlation_text).properties(height=300)
 
 # 5. THE VCONCAT LINE: Combine them here
 final_stacked_chart = alt.vconcat(
     corr_chart,
     combined_price_chart
 ).resolve_scale(
-    x='shared'  # This ensures the X-axes move and align together
+    x='shared'
+    y='independent'
 ).properties(
     title=f"{user_ticker} Correlation & Price Analysis"
 )
