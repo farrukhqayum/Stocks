@@ -618,14 +618,14 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
     if clean_label in bull_case and conf >= 80:
         confidence_text = f"Extremely BULLISH ({conf:.0f}%)."
         action = (
-            f"{ticker}: TI is {signal_text}, "
+            f"{ticker}: Prediction is {signal_text}, "
             f"ML ({will_hit_str}) & bull confidence ({confidence_text}) - BUY THE DIP"
         )
 
     elif clean_label in bull_case and 60 <= conf < 80:
         confidence_text = f"BULLISH ({conf:.0f}%)."
         action = (
-            f"{ticker}: TI is {signal_text}, "
+            f"{ticker}: Prediction is {signal_text}, "
             f"ML ({will_hit_str}) & bull confidence ({confidence_text}) - BUY THE DIP"
         )
 
@@ -633,7 +633,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
         # Neutral label but high confidence → Buy-the-Dip
         confidence_text = f"Strongly NEUTRAL ({conf:.0f}%)."
         action = (
-            f"{ticker}: TI is {signal_text}, "
+            f"{ticker}: Prediction is {signal_text}, "
             f"Despite neutrality, the confidence *{confidence_text}* suggests a Buy-the-Dip opportunity "
         )
 
@@ -641,7 +641,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
         # Neutral label but extreme bearish confidence → Panic Selling
         confidence_text = f"Extremely BEARISH ({conf:.0f}%)."
         action = (
-            f"{ticker}: TI is {signal_text}, "
+            f"{ticker}: Prediction is {signal_text}, "
             f"If BULLISH, use tight SL."
             f"ML ({will_hit_str}) & bear confidence ({confidence_text}) - Look for candles/patterns trade."
         )
@@ -649,21 +649,21 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
     elif clean_label in neutral_case and 40 <= conf <= 60:
         confidence_text = f"Sideways ({conf:.0f}%)."
         action = (
-            f"{ticker}: TI is {signal_text}, "
+            f"{ticker}: Prediction is {signal_text}, "
             f"ML indicates {confidence_text}. Only pattern trades with SL."
         )
 
     elif clean_label in bear_case and 21 <= conf < 40:
         confidence_text = f"BEARISH ({conf:.0f}%)."
         action = (
-            f"{ticker}: TI is {signal_text}, "
+            f"{ticker}: Prediction is {signal_text}, "
             f"ML ({will_hit_str}) & confidence ({confidence_text}) suggest SHORT/Sideways if BULL."
         )
 
     elif clean_label in bear_case and conf <= 20:
         confidence_text = f"Extremely BEARISH ({conf:.0f}%)."
         action = (
-            f"{ticker}: TI is {signal_text}, "
+            f"{ticker}: Prediction is {signal_text}, "
             f"ML ({will_hit_str}) & confidence ({confidence_text}) suggest Short the rise."
         )
 
@@ -1421,6 +1421,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
