@@ -556,7 +556,6 @@ final_stacked_chart = alt.vconcat(
     combined_price_chart
 ).resolve_scale(
     x='shared'
-    y='independent'
 ).properties(
     title=f"{user_ticker} Correlation & Price Analysis"
 )
