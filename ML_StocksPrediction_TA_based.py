@@ -628,7 +628,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
 
     # Final action message
     action = (
-        f"ML signal for {ticker} is {signal_text} "
+        f"Indicators for '{ticker}' are {signal_text} "
         f"ML Hits: {will_hit_str}, with confidence: {confidence_text}"
     )
 
@@ -1379,6 +1379,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
