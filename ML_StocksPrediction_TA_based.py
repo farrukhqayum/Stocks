@@ -654,7 +654,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
     elif clean_label in bear_case and 21 <= conf < 40:
         action = (
             f"{ticker}: Prediction is {signal_text} - "
-            f"ML {will_hit_str} / {conf:.0f}% confidence suggest SHORT or stay on sidelines."
+            f"ML {will_hit_str} / {conf:.0f}% confidence suggest SHORT or HOLD POSITION/stay on sidelines."
         )
 
     elif clean_label in bear_case and conf <= 20:
@@ -1418,6 +1418,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
