@@ -631,10 +631,10 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
 
     elif clean_label in neutral_case and conf > 60:
         # Neutral label but high confidence → Buy-the-Dip
-        confidence_text = f"Strongly NEUTRAL ({conf:.0f}%)."
+        confidence_text = f"{conf:.0f}%."
         action = (
             f"{ticker}: Prediction is {signal_text}, "
-            f"Despite neutrality, the confidence *{confidence_text}* suggests a Buy-the-Dip opportunity "
+            f"Despite neutrality, the confidence *{confidence_text}* suggests Buy-the-Dip."
         )
 
     elif clean_label in neutral_case and conf <= 20:
@@ -1421,6 +1421,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
