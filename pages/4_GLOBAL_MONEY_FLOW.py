@@ -260,6 +260,16 @@ smooth_chart = base.mark_line(size=2, opacity=1.0).encode(
     tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
 ).transform_calculate(Metric="'Smoothed (Slow)'")
 
+fill_area = base.mark_area(opacity=0.17).encode(
+    y='Money Flow Curve:Q',
+    y2='Smoothed Curve:Q',
+    color=alt.Color(
+        'Above:N',
+        scale=alt.Scale(domain=[True, False], range=['green', 'red']),
+        legend=None
+    )
+)
+
 final_chart = (fill_area + curve_chart + smooth_chart).properties(
     width='container',
     height=400
