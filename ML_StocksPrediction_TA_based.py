@@ -594,17 +594,17 @@ def plot_confidence_heatmap(df_results):
 
 def generate_action(ticker, clean_label, conf, will_hit_str):
     bull_case = {
-        'TP': "BULLISH — consider buying dips or holding.",
-        'Hold': "HOLD current position — no immediate action."
+        'TP': "BULLISH",
+        'Hold': "HOLD"
     }
 
     bear_case = {
-        'Short': "BEARISH — consider a short position; exercise caution.",
-        'SL': "BEARISH — exercise caution or consider selling."
+        'Short': "BEARISH",
+        'SL': "BEARISH"
     }
 
     neutral_case = {
-        'None': "NEUTRAL — monitor for clearer signals."
+        'None': "NEUTRAL"
     }
 
     # Default signal text
@@ -618,55 +618,53 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
     if clean_label in bull_case and conf >= 80:
         confidence_text = f"Extremely BULLISH ({conf:.0f}%)."
         action = (
-            f"{ticker} is {signal_text} "
-            f"ML Hits: {will_hit_str}, with confidence: {confidence_text}"
+            f"{ticker}: TI is {signal_text}, "
+            f"ML ({will_hit_str}) & bull confidence ({confidence_text}) - BUY THE DIP"
         )
 
     elif clean_label in bull_case and 60 <= conf < 80:
         confidence_text = f"BULLISH ({conf:.0f}%)."
         action = (
-            f"{ticker} is {signal_text} "
-            f"ML Hits: {will_hit_str}, with confidence: {confidence_text}"
+            f"{ticker}: TI is {signal_text}, "
+            f"ML ({will_hit_str}) & bull confidence ({confidence_text}) - BUY THE DIP"
         )
 
     elif clean_label in neutral_case and conf > 60:
         # Neutral label but high confidence → Buy-the-Dip
         confidence_text = f"Strongly NEUTRAL ({conf:.0f}%)."
         action = (
-            f"{ticker} is {signal_text}. "
-            f"Despite neutrality, high confidence suggests a Buy-the-Dip opportunity "
-            f"with confidence: {confidence_text}"
+            f"{ticker}: TI is {signal_text}, "
+            f"Despite neutrality, the confidence *{confidence_text}* suggests a Buy-the-Dip opportunity "
         )
 
     elif clean_label in neutral_case and conf <= 20:
         # Neutral label but extreme bearish confidence → Panic Selling
         confidence_text = f"Extremely BEARISH ({conf:.0f}%)."
         action = (
-            f"{ticker} is {signal_text}. "
-            f"Confidence is extremely bearish, indicating Panic Selling. "
-            f"This is a high-risk, high-reward case — consider taking a position with a stoploss. "
-            f"ML Hits: {will_hit_str}, confidence: {confidence_text}"
+            f"{ticker}: TI is {signal_text}, "
+            f"If BULLISH, use tight SL."
+            f"ML ({will_hit_str}) & bear confidence ({confidence_text}) - Look for candles/patterns trade."
         )
 
     elif clean_label in neutral_case and 40 <= conf <= 60:
         confidence_text = f"Neutral/Sideways ({conf:.0f}%)."
         action = (
-            f"{ticker} is {signal_text}, "
+            f"{ticker}: TI is {signal_text}, "
             f"with confidence: {confidence_text}. Market likely sideways."
         )
 
     elif clean_label in bear_case and 21 <= conf < 40:
         confidence_text = f"BEARISH ({conf:.0f}%)."
         action = (
-            f"ML signal for {ticker} is {signal_text}. "
-            f"ML Hits: {will_hit_str}, with confidence: {confidence_text}"
+            f"{ticker}: TI is {signal_text}, "
+            f"ML ({will_hit_str}) & confidence ({confidence_text}) suggest SHORT/Sideways if BULL."
         )
 
     elif clean_label in bear_case and conf <= 20:
         confidence_text = f"Extremely BEARISH ({conf:.0f}%)."
         action = (
-            f"ML signal for {ticker} is {signal_text}. "
-            f"ML Hits: {will_hit_str}, with confidence: {confidence_text}"
+            f"{ticker}: TI is {signal_text}, "
+            f"ML ({will_hit_str}) & confidence ({confidence_text}) suggest Short the rise."
         )
 
     else:
@@ -1425,6 +1423,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
