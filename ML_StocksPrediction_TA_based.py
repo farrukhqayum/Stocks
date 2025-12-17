@@ -593,6 +593,7 @@ def plot_confidence_heatmap(df_results):
     st.altair_chart(chart, use_container_width=False)
 
 def generate_action(ticker, clean_label, conf, will_hit_str):
+    colour = 'blue'
     bull_case = {
         'TP': "BULLISH",
         'Hold': "HOLD"
@@ -620,12 +621,14 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
             f"{ticker}: Prediction is extremely {signal_text}, "
             f"with ML {will_hit_str} & bull confidence ({conf:.0f}%) - BUY THE DIP"
         )
+        colour = 'darkgreen'
 
     elif clean_label in bull_case and 60 <= conf < 80:
         action = (
             f"{ticker}: Prediction is {signal_text}, "
             f"ML {will_hit_str} & bull confidence ({conf:.0f}%) suggests - BUY THE DIP"
         )
+        colour = 'green'
 
     elif clean_label in neutral_case and conf > 60:
         # Neutral label but high confidence → Buy-the-Dip
@@ -634,6 +637,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
             f"{ticker}: Prediction is {signal_text}, "
             f"Despite neutrality, the confidence *{confidence_text}* suggests Buy-the-Dip."
         )
+        colour = 'green'
 
     elif clean_label in neutral_case and conf <= 20:
         # Neutral label but extreme bearish confidence → Panic Selling
@@ -642,6 +646,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
             f"Panic selling, tight SL - else SHORT - "
             f"ML ({will_hit_str}) & bear confidence ({conf:.0f}%) - Look for candles/patterns trade."
         )
+        colour = 'blue'
 
     elif clean_label in neutral_case and 40 <= conf <= 60:
         confidence_text = f"Sideways ({conf:.0f}%)."
@@ -649,12 +654,14 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
             f"{ticker}: Prediction is {signal_text}, "
             f"ML indicates {confidence_text}. Only pattern trades with SL."
         )
+        colour = 'orange'
 
     elif clean_label in bear_case and 21 <= conf < 40:
         action = (
             f"{ticker}: Prediction is {signal_text} - "
             f"ML {will_hit_str} / {conf:.0f}% confidence suggest SHORT or HOLD POSITION/stay on sidelines."
         )
+        colour = 'red'
 
     elif clean_label in bear_case and conf <= 20:
         confidence_text = f" ({conf:.0f}%) confidence indicates SELLERS Market / LONG-TERM up-trend(?) BUY-THE-DIP."
@@ -662,14 +669,16 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
             f"{ticker}: Prediction is {signal_text}, "
             f"{will_hit_str}, {confidence_text}"
         )
+        colour = 'red'
 
     else:
         confidence_text = f"NEUTRAL ({conf:.0f}%)."
         action = (
             f"{ticker} is NEUTRAL - Check for Monthly Candle, patterns, divergences"
         )
+        colour = 'gray'
 
-    return action
+    return action, colour
 
     
 #  🟡 PLOT TA
@@ -827,7 +836,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ]
 
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
-    action = generate_action(ticker, clean_label, conf, will_hit_str)
+    action, cl = generate_action(ticker, clean_label, conf, will_hit_str)
     summary_lines.append(action)
 
     textbox = AnchoredText(
@@ -835,7 +844,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
        loc='lower right',
        frameon=True,
        borderpad=1.5,
-       prop=dict(size=7, color='blue', weight='bold')
+       prop=dict(size=7, color= cl, weight='bold')
     )
     
     textbox.patch.set(facecolor='white', edgecolor='gray', alpha=0.5, boxstyle='round')
@@ -1417,6 +1426,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
