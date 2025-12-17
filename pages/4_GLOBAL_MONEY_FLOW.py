@@ -157,8 +157,6 @@ money_flow_momentum = money_flow_momentum.fillna(0)
 latest_momentum = money_flow_momentum.iloc[-1]
 latest_zscore = money_flow_zscore.iloc[-1]
 
-# --- REVISED SENTIMENT LOGIC COMBINING Z-SCORE AND MOMENTUM ---
-
 Z_EXTREME = 1.8
 MOM_HIGH = 10.0
 MOM_LOW = -10.0
@@ -261,7 +259,7 @@ st.altair_chart(final_chart, use_container_width=True)
 
 momentum_chart = (
     alt.Chart(df_plot)
-    .mark_bar()
+    .mark_bar(opacity=0.5)
     .encode(
         x='Date:T',
         y=alt.Y('Momentum:Q', title='Flow Momentum (%)'),
