@@ -194,7 +194,6 @@ def add_technical_indicators(df):
     df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-     # fill nans
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     conditions = [
@@ -748,44 +747,58 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ]
 
     sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
-    
+        
     bull_case = {
         'TP': "BULLISH — consider buying dips or holding.",
         'Hold': "HOLD current position — no immediate action."
     }
     
     bear_case = {
-        'Short': "BEARISH: short position — be cautious.",
+        'Short': "BEARISH — consider a short position; exercise caution.",
         'SL': "BEARISH — exercise caution or consider selling."
     }
-
-    signal_text = bull_case.get(clean_label, 
-                   bear_case.get(clean_label, "NEUTRAL — monitor for clearer signals."))
     
+    signal_text = bull_case.get(
+        clean_label,
+        bear_case.get(clean_label, "NEUTRAL — monitor for clearer signals.")
+    )
+    
+    # Decision logic
     if clean_label in bull_case and conf >= 65:
         action = (
-            f"{ticker} is {signal_text} "
-            f"ML Hits: {will_hit_str} & with confidence of ({conf:.0f}%)."
+            f"{ticker} is {signal_text}. "
+            f"ML Hits: {will_hit_str}, with confidence of {conf:.0f}%."
         )
-
-    elif clean_label in bull_case and 40.1 <= conf <= 64.9:
+    
+    elif clean_label in bull_case and 40 <= conf < 65:
         action = (
-            f"{ticker} is {signal_text} "
-            f"with lower confidence ({conf:.0f}%)"
+            f"{ticker} is {signal_text}, "
+            f"but with lower confidence ({conf:.0f}%)."
         )
-        
-    elif clean_label in bear_case and conf <= 40:
+    
+    elif clean_label in bear_case and conf >= 41:
         action = (
-            f"ML signal of {ticker} is {signal_text} "
-             f"ML Hits: {will_hit_str} & with confidence of {conf:.0f}%."
+            f"ML signal for {ticker} is {signal_text}. "
+            f"ML Hits: {will_hit_str}, with confidence of {conf:.0f}%."
         )
-
+    
+    elif clean_label in bear_case and 21 <= conf <= 40:
+        action = (
+            f"ML signal for {ticker} is weakly {signal_text}, "
+            f"with confidence of only {conf:.0f}%."
+        )
+    
     elif conf <= 20:
         action = (
-            f"ML signal of {ticker} is poor or BEARISH as it hits {will_hit_str} with confidence of {conf:.0f}%."
+            f"ML signal for {ticker} is very poor or BEARISH. "
+            f"It hits {will_hit_str} with confidence of just {conf:.0f}%."
         )
+    
     else:
-        action = f"{ticker} is NEUTRAL with confidence of ({conf:.0f}%); monitor for clearer signals."
+        action = (
+            f"{ticker} is NEUTRAL, with confidence of {conf:.0f}%. "
+            f"Monitor for clearer signals."
+        )
         
     summary_lines.append(action)
 
@@ -1376,6 +1389,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
