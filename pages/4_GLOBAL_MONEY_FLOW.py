@@ -183,7 +183,6 @@ df_plot = pd.DataFrame({
     "Above": money_flow_s > money_flow_smooth
 }).dropna()
 
-align_cfg = {"axisLeft": {"minExtent": 60}, "axisRight": {"minExtent": 60}}
 base = alt.Chart(df_plot).encode(x='Date:T')
 main_colors = alt.Scale(domain=['Money Flow (Fast)', 'Smoothed (Slow)'], range=['#1f77b4', '#d62728'])
 
@@ -204,39 +203,54 @@ f1 = base.mark_area(opacity=0.17).encode(
 )
 
 st.markdown("### 🌊 GMF Curves")
-st.altair_chart((f1 + c1 + c2).properties(height=400).configure_axis(**align_cfg), use_container_width=True)
+chart_main = (f1 + c1 + c2).properties(height=400).configure(
+    axisLeft=alt.AxisConfig(minExtent=60),
+    axisRight=alt.AxisConfig(minExtent=60)
+)
+st.altair_chart(chart_main, use_container_width=True)
 
 mom_chart = alt.Chart(df_plot).mark_bar().encode(
     x='Date:T',
     y=alt.Y('Momentum:Q', title='Flow Momentum (%)'),
     color=alt.condition(alt.datum.Momentum > 0, alt.value('#2ca02c'), alt.value('#d62728'))
-).properties(height=200, title="📈 Money Flow Momentum (%)")
-st.altair_chart(mom_chart.configure_axis(**align_cfg), use_container_width=True)
+).properties(height=200, title="📈 Money Flow Momentum (%)").configure(
+    axisLeft=alt.AxisConfig(minExtent=60),
+    axisRight=alt.AxisConfig(minExtent=60)
+)
+st.altair_chart(mom_chart, use_container_width=True)
 
 st.markdown("### Climax Zone Indicator (Z-Score)")
 z_chart = alt.Chart(df_plot).mark_area(opacity=0.6).encode(
     x='Date:T',
     y=alt.Y('Z-Score:Q', title='Money Flow Z-Score'),
     color=alt.condition(alt.datum['Z-Score'] > 0, alt.value('#1f77b4'), alt.value('#d62728'))
-).properties(height=200, title="Climax Zone Indicator (Z-Score of Smoothed Money Flow)")
-st.altair_chart(z_chart.configure_axis(**align_cfg), use_container_width=True)
+).properties(height=200, title="Climax Zone Indicator (Z-Score of Smoothed Money Flow)").configure(
+    axisLeft=alt.AxisConfig(minExtent=60),
+    axisRight=alt.AxisConfig(minExtent=60)
+)
+st.altair_chart(z_chart, use_container_width=True)
 
 with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
     spx_aligned, mom_aligned = spx_data.align(money_flow_momentum, join='inner')
     div_df = pd.DataFrame({'SPX': spx_aligned, 'Mom': mom_aligned}).reset_index().rename(columns={'index':'Date'})
-    
     d_base = alt.Chart(div_df).encode(x='Date:T')
     l1 = d_base.mark_line(color='#1f77b4').encode(y=alt.Y('SPX:Q', axis=alt.Axis(title='S&P 500', orient='left')))
     l2 = d_base.mark_line(color='#d62728', strokeDash=[5,5]).encode(y=alt.Y('Mom:Q', axis=alt.Axis(title='Momentum', orient='right')))
-    
-    st.altair_chart(alt.layer(l1, l2).resolve_scale(y='independent').properties(height=400).configure_axis(**align_cfg), use_container_width=True)
+    chart_div = alt.layer(l1, l2).resolve_scale(y='independent').properties(height=400).configure(
+        axisLeft=alt.AxisConfig(minExtent=60),
+        axisRight=alt.AxisConfig(minExtent=60)
+    )
+    st.altair_chart(chart_div, use_container_width=True)
 
 with st.expander("📊 Show Underlying Assets"):
     assets_df = data.reset_index().melt("Date", var_name="Asset", value_name="Value")
     a_chart = alt.Chart(assets_df).mark_line().encode(
         x='Date:T', y='Value:Q', color=alt.Color('Asset:N', legend=alt.Legend(orient='top-left'))
-    ).properties(height=400, title="Normalized Asset Prices (Indexed)")
-    st.altair_chart(a_chart.configure_axis(**align_cfg), use_container_width=True)
+    ).properties(height=400, title="Normalized Asset Prices (Indexed)").configure(
+        axisLeft=alt.AxisConfig(minExtent=60),
+        axisRight=alt.AxisConfig(minExtent=60)
+    )
+    st.altair_chart(a_chart, use_container_width=True)
 
 with st.expander("🧠 Interpretation"):
     st.markdown("""
@@ -270,7 +284,13 @@ u_base = alt.Chart(comb_df).encode(x='Date:T')
 ul1 = u_base.mark_line(color='#1f77b4', opacity=0.4).encode(y=alt.Y('GMF:Q', axis=alt.Axis(title='Global Money Flow', orient='left')))
 ul2 = u_base.mark_line(color='gray', opacity=0.4).encode(y=alt.Y('Stock:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')))
 
-st.altair_chart(alt.layer(ul1, ul2).resolve_scale(y='independent').properties(height=400, title=f'{user_ticker} Price vs Money Flow Smooth').configure_axis(**align_cfg), use_container_width=True)
+chart_stock = alt.layer(ul1, ul2).resolve_scale(y='independent').properties(
+    height=400, title=f'{user_ticker} Price vs Money Flow Smooth'
+).configure(
+    axisLeft=alt.AxisConfig(minExtent=60),
+    axisRight=alt.AxisConfig(minExtent=60)
+)
+st.altair_chart(chart_stock, use_container_width=True)
 
 tickers_input = st.text_input("Enter tickers separated by commas (min 5 required):", value="COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, BABA, XPEV, NIO, U, INTC, SNAP, UNH")
 ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
