@@ -533,7 +533,7 @@ def plot_confidence_heatmap(df_results):
         return
 
     df_plot['Index'] = range(len(df_plot))
-    df_plot['Row'] = (df_plot['Index'] // 3).astype(str) 
+    df_plot['Row'] = (df_plot['Index'] // 5).astype(str) 
     df_plot['Col'] = (df_plot['Index'] % 5).astype(str)
     
     df_plot['Display_Text'] = df_plot.apply(
@@ -1372,6 +1372,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
