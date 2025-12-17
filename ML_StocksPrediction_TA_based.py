@@ -647,10 +647,10 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
         )
 
     elif clean_label in neutral_case and 40 <= conf <= 60:
-        confidence_text = f"Neutral/Sideways ({conf:.0f}%)."
+        confidence_text = f"Sideways ({conf:.0f}%)."
         action = (
             f"{ticker}: TI is {signal_text}, "
-            f"with confidence: {confidence_text}. Market likely sideways."
+            f"ML indicates {confidence_text}. Only pattern trades with SL."
         )
 
     elif clean_label in bear_case and 21 <= conf < 40:
@@ -1421,6 +1421,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
