@@ -54,11 +54,11 @@ default_weights = {
     "Bitcoin (BTC)": 0.05,
     "S&P 500 (SPX)": 0.15,
     "Emerging Markets (EEM)": 0.15,
-    "Crude Oil (CL)": 0.12,
+    "Crude Oil (CL)": 0.15,
     "Gold (XAU)": -0.15,
-    "US Dollar Index (DXY)": -0.10,
-    "US 10Y Treasury (IEF)": -0.10,
-    "Volatility Index (VIX)": -0.025
+    "US Dollar Index (DXY)": -0.12,
+    "US 10Y Treasury (IEF)": -0.13,
+    "Volatility Index (VIX)": -0.1
 }
 
 weights = {}
