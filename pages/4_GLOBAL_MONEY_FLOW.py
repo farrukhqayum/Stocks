@@ -498,12 +498,16 @@ if len(gf_single) >= cw_:
         "Date": rolling_corr_single.index,
         "Correlation": rolling_corr_single * 100
     }).dropna()
-    
+
     corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.4).encode(
-        x='Date:T',
+        x=alt.X('Date:T', scale=alt.Scale(domain=[gf_single.index.min(), gf_single.index.max()])), # Added scale domain
         y=alt.Y('Correlation:Q', title='Rolling Correlation (%)', scale=alt.Scale(domain=[-100, 100])),
         tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
-    ).properties(title=f"Correlation Trend for {user_ticker}")
+    ).properties(
+        title=f"Correlation Trend for {user_ticker}",
+        width='container' # Ensure it stretches fully
+    )
+        
     st.altair_chart(corr_chart, use_container_width=True)
 
 # Create DataFrames for the dual-axis chart 
@@ -532,9 +536,9 @@ correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
 )
 
 # -----------------------------------------------------------------
-
-base = alt.Chart(combined_long_df).encode(x='Date:T')
-
+base = alt.Chart(combined_long_df).encode(
+    x=alt.X('Date:T', scale=alt.Scale(domain=[gf_single.index.min(), gf_single.index.max()]))
+)
 color_scale = alt.Scale(
     domain=['Global Money Flow', 'Stock Price'],
     range=['#1f77b4', 'gray']
