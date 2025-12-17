@@ -499,7 +499,7 @@ if len(gf_single) >= cw_:
         "Correlation": rolling_corr_single * 100
     }).dropna()
     
-    corr_chart = alt.Chart(rolling_corr_df).mark_line().encode(
+    corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.4).encode(
         x='Date:T',
         y=alt.Y('Correlation:Q', title='Rolling Correlation (%)', scale=alt.Scale(domain=[-100, 100])),
         tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
