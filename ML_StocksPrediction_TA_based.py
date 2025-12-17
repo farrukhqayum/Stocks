@@ -593,7 +593,7 @@ def plot_confidence_heatmap(df_results):
     st.altair_chart(chart, use_container_width=False)
 
 def generate_action(ticker, clean_label, conf, will_hit_str):
-    colour = 'blue'
+    colour = 'white'
     bull_case = {
         'TP': "BULLISH",
         'Hold': "HOLD"
@@ -637,7 +637,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
             f"{ticker}: Prediction is {signal_text}, "
             f"Despite neutrality, the confidence *{confidence_text}* suggests Buy-the-Dip."
         )
-        colour = 'green'
+        colour = 'lightgreen'
 
     elif clean_label in neutral_case and conf <= 20:
         # Neutral label but extreme bearish confidence → Panic Selling
@@ -646,7 +646,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
             f"Panic selling, tight SL - else SHORT - "
             f"ML ({will_hit_str}) & bear confidence ({conf:.0f}%) - Look for candles/patterns trade."
         )
-        colour = 'blue'
+        colour = 'white'
 
     elif clean_label in neutral_case and 40 <= conf <= 60:
         confidence_text = f"Sideways ({conf:.0f}%)."
@@ -844,10 +844,10 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
        loc='lower right',
        frameon=True,
        borderpad=1.5,
-       prop=dict(size=7, color= cl, weight='bold')
+       prop=dict(size=7, color= 'blue', weight='bold')
     )
     
-    textbox.patch.set(facecolor='white', edgecolor='gray', alpha=0.5, boxstyle='round')
+    textbox.patch.set(facecolor= cl, edgecolor='gray', alpha=0.5, boxstyle='round')
     ax1.add_artist(textbox)
   
     plt.tight_layout()
@@ -1426,6 +1426,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
