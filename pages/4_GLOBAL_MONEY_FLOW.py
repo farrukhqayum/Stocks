@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🌍 Global Money Flow")
+st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
 This app tracks capital flows between **risk-on** and **risk-off** assets 
 to estimate global risk appetite. 
@@ -232,18 +232,33 @@ df_plot = pd.DataFrame({
 df_plot['Global Money Flow'] = money_flow_smooth
 base = alt.Chart(df_plot).encode(x='Date:T')
 df_plot['Above'] = df_plot['Money Flow Curve'] > df_plot['Smoothed Curve']
-
 base = alt.Chart(df_plot).encode(x='Date:T')
 
-curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
-    y=alt.Y('Money Flow Curve:Q', title='Money Flow Curve (Fast)'),
-    tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
+main_color_scale = alt.Scale(
+    domain=['Money Flow (Fast)', 'Smoothed (Slow)'],
+    range=['#1f77b4', '#d62728']
 )
 
-smooth_chart = base.mark_line(color='#d62728', size=2).encode(
-    y=alt.Y('Smoothed Curve:Q', title='Smoothed Curve (Slow)'),
+curve_chart = base.mark_line(opacity=0.6).encode(
+    y=alt.Y('Money Flow Curve:Q', title='Money Flow'),
+    color=alt.Color('Metric:N', scale=main_color_scale, 
+                    legend=alt.Legend(
+                        orient='top-left', 
+                        title=None, 
+                        fillColor='white', # Adds a white background so lines don't bleed through
+                        padding=5,
+                        strokeColor='gray',
+                        cornerRadius=5
+                    )),
+    tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
+).transform_calculate(Metric="'Money Flow (Fast)'")
+
+# 3. Update Slow Curve
+smooth_chart = base.mark_line(size=2).encode(
+    y=alt.Y('Smoothed Curve:Q'),
+    color=alt.Color('Metric:N', scale=main_color_scale, legend=None), # Legend already handled by layer above
     tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
-)
+).transform_calculate(Metric="'Smoothed (Slow)'")
 
 fill_area = base.mark_area(opacity=0.17).encode(
     y='Money Flow Curve:Q',
@@ -256,7 +271,8 @@ fill_area = base.mark_area(opacity=0.17).encode(
 )
 
 final_chart = fill_area + curve_chart + smooth_chart
-st.markdown("### 🌊 Global Money Flow Curve & Crossover Signal")
+
+st.markdown("### 🌊 GMF Curve with Average")
 st.altair_chart(final_chart, use_container_width=True)
 
 momentum_chart = (
@@ -302,7 +318,7 @@ final_zscore_chart = (zscore_chart + climax_lines_z).properties(
 )
 st.altair_chart(final_zscore_chart, use_container_width=True)
 
-with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
+with st.expander("⚠️ Divergence: S&P 500 vs. GMF Momentum"):
     
     # Ensure spx_data and money_flow_momentum are properly aligned Series before combining
     spx_aligned, momentum_aligned = spx_data.align(money_flow_momentum, join='inner')
