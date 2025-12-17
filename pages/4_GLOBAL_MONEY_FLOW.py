@@ -7,12 +7,12 @@ from datetime import datetime, timedelta
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
 st.set_page_config(
-    page_title="Global Money Flow Curve",
+    page_title="Global Money Flow Curve (GMF)",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.title("🌍 Global Money Flow")
+st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
 This app tracks capital flows between **risk-on** and **risk-off** assets 
 to estimate global risk appetite. 
@@ -256,7 +256,7 @@ fill_area = base.mark_area(opacity=0.17).encode(
 )
 
 final_chart = fill_area + curve_chart + smooth_chart
-st.markdown("### 🌊 Global Money Flow Curve & Crossover Signal")
+st.markdown("### 🌊 GMF Curves")
 st.altair_chart(final_chart, use_container_width=True)
 
 momentum_chart = (
@@ -276,10 +276,10 @@ momentum_chart = (
 
 climax_lines_m = alt.Chart(pd.DataFrame({'y': [-10, 10]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
 
-final_momentum_chart = (momentum_chart + climax_lines_m).properties(title="📈 Money Flow Momentum (Rate of Change %)")
+final_momentum_chart = (momentum_chart + climax_lines_m).properties(title="📈 Money Flow Momentum (%)")
 st.altair_chart(final_momentum_chart, use_container_width=True)
 
-st.markdown("### Climax Zone Indicator (Money Flow Z-Score)")
+st.markdown("### Climax Zone Indicator (Z-Score)")
 zscore_chart = (
     alt.Chart(df_plot)
     .mark_area(opacity=0.6)
