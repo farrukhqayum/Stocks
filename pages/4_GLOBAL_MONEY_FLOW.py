@@ -183,18 +183,18 @@ df_plot = pd.DataFrame({
     "Above": money_flow_s > money_flow_smooth
 }).dropna()
 
+align_cfg = {"axisLeft": {"minExtent": 60}, "axisRight": {"minExtent": 60}}
 base = alt.Chart(df_plot).encode(x='Date:T')
-main_colors = alt.Scale(domain=['Money Flow (Fast)', 'Smoothed (Slow)'], range=['#1f77b4', '#d62728'])
 
-c1 = base.mark_line(opacity=0.6).encode(
-    y=alt.Y('Money Flow Curve:Q', title='Money Flow'),
-    color=alt.Color('Metric:N', scale=main_colors, legend=alt.Legend(orient='top-left', title=None, fillColor='white', padding=8, strokeColor='gray'))
-).transform_calculate(Metric="'Money Flow (Fast)'")
+c1 = base.mark_line(color='#1f77b4', opacity=0.6).encode(
+    y=alt.Y('Money Flow Curve:Q', title='Money Flow Curve (Fast)'),
+    tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
+)
 
-c2 = base.mark_line(size=2).encode(
-    y=alt.Y('Smoothed Curve:Q'),
-    color=alt.Color('Metric:N', scale=main_colors, legend=None)
-).transform_calculate(Metric="'Smoothed (Slow)'")
+c2 = base.mark_line(color='#d62728', size=2).encode(
+    y=alt.Y('Smoothed Curve:Q', title='Smoothed Curve (Slow)'),
+    tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
+)
 
 f1 = base.mark_area(opacity=0.17).encode(
     y='Money Flow Curve:Q',
@@ -212,7 +212,8 @@ st.altair_chart(chart_main, use_container_width=True)
 mom_chart = alt.Chart(df_plot).mark_bar().encode(
     x='Date:T',
     y=alt.Y('Momentum:Q', title='Flow Momentum (%)'),
-    color=alt.condition(alt.datum.Momentum > 0, alt.value('#2ca02c'), alt.value('#d62728'))
+    color=alt.condition(alt.datum.Momentum > 0, alt.value('#2ca02c'), alt.value('#d62728')),
+    tooltip=['Date:T', alt.Tooltip('Momentum:Q', format='.2f')]
 ).properties(height=200, title="📈 Money Flow Momentum (%)").configure(
     axisLeft=alt.AxisConfig(minExtent=60),
     axisRight=alt.AxisConfig(minExtent=60)
@@ -223,7 +224,8 @@ st.markdown("### Climax Zone Indicator (Z-Score)")
 z_chart = alt.Chart(df_plot).mark_area(opacity=0.6).encode(
     x='Date:T',
     y=alt.Y('Z-Score:Q', title='Money Flow Z-Score'),
-    color=alt.condition(alt.datum['Z-Score'] > 0, alt.value('#1f77b4'), alt.value('#d62728'))
+    color=alt.condition(alt.datum['Z-Score'] > 0, alt.value('#1f77b4'), alt.value('#d62728')),
+    tooltip=['Date:T', alt.Tooltip('Z-Score:Q', format='.2f')]
 ).properties(height=200, title="Climax Zone Indicator (Z-Score of Smoothed Money Flow)").configure(
     axisLeft=alt.AxisConfig(minExtent=60),
     axisRight=alt.AxisConfig(minExtent=60)
@@ -266,8 +268,10 @@ with st.expander("🧠 Interpretation"):
 
 with st.expander(" 🧠 Correlation Matrix"):
     st.markdown("### 🧠 Correlation of multiple assets")
-    corr_matrix = data.corr().reset_index().melt(id_vars='index')
-    heatmap = alt.Chart(corr_matrix).mark_rect().encode(
+    corr_matrix = data.corr()
+    corr_matrix.index.name = 'index'
+    corr_melt = corr_matrix.reset_index().melt(id_vars='index')
+    heatmap = alt.Chart(corr_melt).mark_rect().encode(
         x='index:N', y='variable:N', color=alt.Color('value:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1)))
     ).properties(title="🔥 Pairwise Asset Correlation Heatmap")
     st.altair_chart(heatmap, use_container_width=True)
