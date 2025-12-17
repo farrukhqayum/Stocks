@@ -616,17 +616,15 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
 
     # Confidence-based interpretation
     if clean_label in bull_case and conf >= 80:
-        confidence_text = f"Extremely BULLISH ({conf:.0f}%)."
         action = (
-            f"{ticker}: Prediction is {signal_text}, "
-            f"ML ({will_hit_str}) & bull confidence ({confidence_text}) - BUY THE DIP"
+            f"{ticker}: Prediction is extremely {signal_text}, "
+            f"with ML {will_hit_str} & bull confidence ({conf:.0f}%) - BUY THE DIP"
         )
 
     elif clean_label in bull_case and 60 <= conf < 80:
-        confidence_text = f"BULLISH ({conf:.0f}%)."
         action = (
             f"{ticker}: Prediction is {signal_text}, "
-            f"ML ({will_hit_str}) & bull confidence ({confidence_text}) - BUY THE DIP"
+            f"ML ({will_hit_str}) & bull confidence ({conf:.0f}%) suggests - BUY THE DIP"
         )
 
     elif clean_label in neutral_case and conf > 60:
@@ -1420,6 +1418,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
