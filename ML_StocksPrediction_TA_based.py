@@ -661,10 +661,10 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
         )
 
     elif clean_label in bear_case and conf <= 20:
-        confidence_text = f"Extremely BEARISH ({conf:.0f}%)."
+        confidence_text = f"Short the rise ({conf:.0f}%)."
         action = (
             f"{ticker}: Prediction is {signal_text}, "
-            f"ML ({will_hit_str}) & confidence ({confidence_text}) suggest Short the rise."
+            f"({will_hit_str}), {confidence_text}"
         )
 
     else:
@@ -1421,6 +1421,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
