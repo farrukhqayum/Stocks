@@ -1148,11 +1148,11 @@ def PlotPredictions(df_results):
             else 'white'
         )
         
-        if row.Confidence > 70 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
+        if row.Confidence > 61 and str(row.Will_Hit).split()[0] in ['TP', 'Hold', 'None']:
             ProbColor = 'green'
-        elif row.Confidence > 70 and str(row.Will_Hit).split()[0] in ['Hold']:
+        elif row.Confidence > 61 and str(row.Will_Hit).split()[0] in ['Hold']:
             ProbColor = 'orange'
-        elif "Bear" in row.Signal and row.Confidence < 40 and str(row.Will_Hit).split()[0] == 'SL':
+        elif "Bear" in row.Signal and row.Confidence < 40 and str(row.Will_Hit).split()[0] in ['SL', 'None']:
             ProbColor = 'red'
         else:
             ProbColor = 'white'
@@ -1370,6 +1370,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
