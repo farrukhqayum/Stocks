@@ -147,6 +147,46 @@ def get_company_data(ticker):
         "beta": beta
     }
 
+# --------------------------------
+# SPECULATIVE CHECK
+# --------------------------------
+
+def classify_fundamental_and_speculation(data, score):
+    speculative_flags = []
+    fundamental_flags = []
+
+    # Fundamental strength
+    strong_fund = (
+        data["cagr"] >= 8 and
+        data["margin"] >= 25 and
+        data["fcf"] > 0
+    )
+    weak_fund = (
+        data["cagr"] <= 0 or
+        data["margin"] < 20 or
+        data["fcf"] <= 0
+    )
+
+    if strong_fund:
+        fundamental = "Fundamentally Strong"
+    elif weak_fund:
+        fundamental = "Fundamentally Weak / Speculative"
+    else:
+        fundamental = "Mixed Fundamentals"
+
+    # Speculative behavior
+    if data["stock_3yr"] > data["sp_3yr"] + 40 and weak_fund:
+        speculative_flags.append("Price far ahead of fundamentals (meme/speculative behavior)")
+
+    if data["beta"] is not None and data["beta"] >= 1.8 and weak_fund:
+        speculative_flags.append("High volatility with weak fundamentals (avoid as long-term hold)")
+
+    if not speculative_flags:
+        speculative_label = "No strong meme/speculative signs"
+    else:
+        speculative_label = " / ".join(speculative_flags)
+
+    return fundamental, speculative_label
 
 # ----------------------------
 # VOLATILITY CLASSIFICATION
@@ -282,6 +322,13 @@ if st.button("Analyze stock"):
             # Volatility Highlight
             st.subheader("⚡ Volatility Level")
             st.info(breakdown["Beta / Volatility"])
+
+            # Speculative Check
+            fundamental, speculative = classify_fundamental_and_speculation(data, score)
+            st.subheader("🧬 Company Type")
+            st.write(f"Fundamental profile: **{fundamental}**")
+            st.write(f"Speculative / meme risk: **{speculative}**")
+
 
             # Breakdown Table
             st.subheader("📌 Breakdown")
