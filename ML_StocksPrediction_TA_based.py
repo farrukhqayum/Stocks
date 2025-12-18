@@ -156,33 +156,7 @@ def get_stock_data(ticker, start_date, end_date):
 
     if df.empty:
         return None
-
-    # -------------------------
-    # ✅ Proper Heiken Ashi block
-    # -------------------------
-    ha = df.copy()
-
-    # HA Close
-    ha['HA_Close'] = (ha['Open'] + ha['High'] + ha['Low'] + ha['Close']) / 4
-
-    # HA Open (requires iterative calculation)
-    ha['HA_Open'] = 0.0
-    ha.iloc[0, ha.columns.get_loc('HA_Open')] = (ha.iloc[0]['Open'] + ha.iloc[0]['Close']) / 2
-
-    for i in range(1, len(ha)):
-        ha.iloc[i, ha.columns.get_loc('HA_Open')] = (
-            ha.iloc[i-1]['HA_Open'] + ha.iloc[i-1]['HA_Close']
-        ) / 2
-
-    # HA High / Low
-    ha['HA_High'] = ha[['High', 'HA_Open', 'HA_Close']].max(axis=1)
-    ha['HA_Low']  = ha[['Low', 'HA_Open', 'HA_Close']].min(axis=1)
-
-    df.Open = ha['HA_Open']
-    df.High  = ha['HA_High']
-    df.Low   = ha['HA_Low']
-    df.Close = ha['HA_Close']
-
+        
     return df
 
 
@@ -1472,6 +1446,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
