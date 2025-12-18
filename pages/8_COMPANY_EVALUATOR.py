@@ -2,9 +2,6 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
-# ----------------------------
-# PAGE CONFIG
-# ----------------------------
 st.set_page_config(
     page_title="Company Evaluator",
     page_icon="🔎",
@@ -24,16 +21,13 @@ def calculate_beta(stock_ticker, benchmark_ticker="^GSPC", period="5y"):
         if stock_hist.empty or index_hist.empty:
             return None
         
-        # Align dates
         df = stock_hist.join(index_hist, lsuffix="_stock", rsuffix="_index", how="inner")
 
-        # Daily returns (smoothed)
         df["stock_ret"] = df["Close_stock"].pct_change().rolling(window=21).mean()
         df["index_ret"] = df["Close_index"].pct_change().rolling(window=21).mean()
 
         df = df.dropna()
 
-        # Compute beta
         cov = df["stock_ret"].cov(df["index_ret"])
         var = df["index_ret"].var()
 
@@ -46,14 +40,9 @@ def calculate_beta(stock_ticker, benchmark_ticker="^GSPC", period="5y"):
     except Exception:
         return None
 
-# ----------------------------
-# SAFE DATA FETCHING FUNCTION
-# ----------------------------
-
 def get_company_data(ticker):
     stock = yf.Ticker(ticker)
 
-    # Validate ticker
     try:
         test = stock.history(period="1d")
         if test.empty:
@@ -61,7 +50,6 @@ def get_company_data(ticker):
     except:
         return None
 
-    # Try loading financial statements
     try:
         income = stock.financials.T
     except:
@@ -72,15 +60,11 @@ def get_company_data(ticker):
     except:
         cashflow = pd.DataFrame()
 
-    # Load company info safely (not used now but kept for extension)
     try:
         info = stock.get_info()
     except:
         info = {}
 
-    # ----------------------------
-    # Revenue CAGR
-    # ----------------------------
     try:
         rev = income.get("Total Revenue", pd.Series()).dropna()
 
@@ -97,9 +81,6 @@ def get_company_data(ticker):
     except:
         cagr = 0
 
-    # ----------------------------
-    # Gross Margin
-    # ----------------------------
     try:
         gp = income["Gross Profit"]
         tr = income["Total Revenue"]
@@ -107,17 +88,11 @@ def get_company_data(ticker):
     except:
         margin = 0
 
-    # ----------------------------
-    # Free Cash Flow
-    # ----------------------------
     try:
         fcf = cashflow["Free Cash Flow"].mean()
     except:
         fcf = 0
 
-    # ----------------------------
-    # 3-Year Performance vs S&P 500
-    # ----------------------------
     try:
         hist = stock.history(period="3y")
         sp = yf.Ticker("^GSPC").history(period="3y")
@@ -132,9 +107,6 @@ def get_company_data(ticker):
         stock_return = 0
         sp_return = 0
 
-    # ----------------------------
-    # Beta
-    # ----------------------------
     beta = calculate_beta(ticker)
 
     return {
@@ -147,14 +119,9 @@ def get_company_data(ticker):
         "beta": beta
     }
 
-# --------------------------------
-# SPECULATIVE CHECK
-# --------------------------------
-
 def classify_fundamental_and_speculation(data, score):
     speculative_flags = []
 
-    # Fundamental strength
     strong_fund = (
         data["cagr"] >= 8 and
         data["margin"] >= 25 and
@@ -173,7 +140,6 @@ def classify_fundamental_and_speculation(data, score):
     else:
         fundamental = "Mixed Fundamentals"
 
-    # Speculative behavior
     if data["stock_3yr"] > data["sp_3yr"] + 40 and weak_fund:
         speculative_flags.append("Price far ahead of fundamentals (meme/speculative behavior)")
 
@@ -187,12 +153,7 @@ def classify_fundamental_and_speculation(data, score):
 
     return fundamental, speculative_label
 
-# ----------------------------
-# VOLATILITY CLASSIFICATION
-# ----------------------------
-
 def classify_volatility(beta):
-
     if beta is None:
         return "Unknown", "⚠️"
 
@@ -207,16 +168,10 @@ def classify_volatility(beta):
     else:
         return "Emotionally Destructive", "🔴"
 
-# ----------------------------
-# SCORING SYSTEM
-# ----------------------------
-
 def calculate_hold_score(data, tailwind, leader):
-
     score = 0
     breakdown = {}
 
-    # 1. Revenue growth
     if data["cagr"] > 15:
         score += 2
         breakdown["Revenue CAGR"] = f"{data['cagr']}% ✅"
@@ -226,7 +181,6 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Revenue CAGR"] = f"{data['cagr']}% ❌"
 
-    # 2. Gross margin
     if data["margin"] > 40:
         score += 2
         breakdown["Gross Margin"] = f"{data['margin']}% ✅"
@@ -236,21 +190,18 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Gross Margin"] = f"{data['margin']}% ❌"
 
-    # 3. Free cash flow
     if data["fcf"] > 0:
         score += 2
         breakdown["Free Cash Flow"] = f"${data['fcf']:,.0f} ✅"
     else:
         breakdown["Free Cash Flow"] = f"${data['fcf']:,.0f} ❌"
 
-    # 4. 3Y performance vs S&P
     if data["stock_3yr"] > data["sp_3yr"]:
         score += 2
         breakdown["3Y vs S&P"] = f"{data['stock_3yr']}% > {data['sp_3yr']}% ✅"
     else:
         breakdown["3Y vs S&P"] = f"{data['stock_3yr']}% ≤ {data['sp_3yr']}% ❌"
 
-    # 5. Tailwind
     if tailwind == "Yes":
         score += 1
         breakdown["Sector Tailwind"] = "Yes ✅"
@@ -259,7 +210,6 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Sector Tailwind"] = "No ❌"
 
-    # 6. Leader
     if leader == "Yes":
         score += 1
         breakdown["Market Leader"] = "Yes ✅"
@@ -268,22 +218,15 @@ def calculate_hold_score(data, tailwind, leader):
     else:
         breakdown["Market Leader"] = "No ❌"
 
-    # 7. Beta (Volatility)
     vol_label, icon = classify_volatility(data["beta"])
     beta_display = data['beta'] if data['beta'] is not None else "Unknown"
     breakdown["Beta / Volatility"] = f"{beta_display} → {vol_label} {icon}"
 
-    # Optional penalty
     if data["beta"] and data["beta"] > 1.6:
         score -= 1
 
     return score, breakdown
 
-# ==================================================
-# ================= STREAMLIT UI ===================
-# ==================================================
-
-# Multi-ticker input
 raw = st.text_input(
     "Enter up to 10 stock tickers, separated by commas (ex: AAPL, MSFT, TSLA)"
 )
@@ -294,17 +237,16 @@ if len(tickers) > 10:
     tickers = tickers[:10]
 
 tailwind = st.selectbox(
-    "Is industry in a long-term tailwind?",
+    "Industry tailwind (applies to all stocks)?",
     ["Yes", "No", "Uncertain"]
 )
 
 leader = st.selectbox(
-    "Is the company an industry leader?",
+    "Company leadership status (applies to all stocks)?",
     ["Yes", "No", "Uncertain"]
 )
 
 if st.button("Analyze stocks"):
-
     if not tickers:
         st.warning("Enter at least one stock symbol")
     else:
@@ -322,7 +264,6 @@ if st.button("Analyze stocks"):
             fundamental, speculative = classify_fundamental_and_speculation(data, score)
             vol_label, vol_icon = classify_volatility(data["beta"])
 
-            # Save for summary table
             results_summary.append({
                 "Ticker": ticker,
                 "Score": score,
@@ -337,15 +278,13 @@ if st.button("Analyze stocks"):
                 "Speculative": speculative
             })
 
-            # Save breakdown for detailed section
             detailed_sections.append((ticker, score, breakdown, fundamental, speculative))
 
         if not results_summary:
             st.error("No valid data found for the provided tickers.")
-        else:            
-            # Summary table for comparison with row coloring
+        else:
             st.subheader("📊 Multi-Stock Summary")
-            
+
             def color_row(fundamental):
                 if "Strong" in fundamental:
                     return 'style="background-color: rgba(0, 255, 0, 0.1); border-left: 4px solid #28a745;"'
@@ -353,18 +292,18 @@ if st.button("Analyze stocks"):
                     return 'style="background-color: rgba(255, 0, 0, 0.1); border-left: 4px solid #dc3545;"'
                 else:
                     return 'style="background-color: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107;"'
-            
-            # Convert to HTML table with conditional coloring
+
             html_table = """
             <table class="summary-table" style="width:100%; border-collapse: collapse; font-size: 14px;">
                 <thead>
                     <tr style="background-color: #f8f9fa; font-weight: bold;">
             """
+            df_summary = pd.DataFrame(results_summary)
             columns = df_summary.columns
             for col in columns:
                 html_table += f"<th style='padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;'>{col}</th>"
             html_table += "</tr></thead><tbody>"
-            
+
             for idx, row in df_summary.iterrows():
                 row_style = color_row(row['Fundamental'])
                 html_table += f"<tr {row_style}>"
@@ -377,15 +316,12 @@ if st.button("Analyze stocks"):
                     else:
                         display_value = str(value)
                     
-                    # Special formatting for some columns
                     if col == "FCF" and isinstance(value, (int, float)):
                         display_value = f"${value:,.0f}"
-                    elif "Volatility" in col:
-                        display_value = str(value)
                     
                     html_table += f"<td style='padding: 12px; border-bottom: 1px solid #dee2e6;'>{display_value}</td>"
                 html_table += "</tr>"
-            
+
             html_table += """
                 </tbody>
             </table>
@@ -398,10 +334,9 @@ if st.button("Analyze stocks"):
             }
             </style>
             """
-            
+
             st.markdown(html_table, unsafe_allow_html=True)
 
-            # Detailed per-ticker sections
             for ticker, score, breakdown, fundamental, speculative in detailed_sections:
                 st.markdown("---")
                 st.subheader(f"🔍 Details for {ticker}")
