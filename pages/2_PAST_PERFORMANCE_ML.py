@@ -39,7 +39,7 @@ with st.expander("Example Entry Using Daily Data"):
     st.markdown("""
 - Suppose the stock closes at $100.
 - If the ML model predicts a bullish move with confidence above the threshold, and no open trade exists, entry happens at the daily close ($100).
-- For TP: If the given TP% is smaller than the ML predicted return, meaning ML expects the stock to gain more, it uses the ML predicted target (larger). Otherwise, it keeps the fixed (smaller) given TP.
+- For TP: If the given TP% is higher than the ML predicted return, meaning ML expects the stock to gain less, it uses the ML target, else it retains given TP.
 - Next trades only occur after closing the current trade.
     """)
 
