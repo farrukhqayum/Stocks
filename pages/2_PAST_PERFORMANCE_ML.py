@@ -711,35 +711,17 @@ if st.button("Run ML Strategy Backtest"):
             }
             in_trade = True
 
-        # -------------------------
-        # EXIT LOGIC
-        # -------------------------
         elif in_trade:
-            last_date = daily_dates[-1]
-            entry_date = current_trade['entry_date']
-            exit_days = (last_date - current_trade['entry_date']).days
-            entry_price = current_trade['entry_price']
-            TP_price = current_trade['tp_price']
-            SL_price = current_trade['sl_price']
-            days_in_trade = (current_date - entry_date).days
-        
-            current_open = float(df_daily.loc[current_date, 'Open'])
-            current_high = float(df_daily.loc[current_date, 'High'])
-            current_low = float(df_daily.loc[current_date, 'Low'])
-            current_close = float(df_daily.loc[current_date, 'Close'])
-        
             exit_reason = None
             exit_price = None
         
-            # --- NEW OVERRIDES ---
-            # Immediate Bear exit
+            # --- Bear exit ---
             if df_daily.loc[current_date, 'Bear']:
                 exit_reason = 'Bear'
                 exit_price = current_close
         
-            # Bull override: if next day is Bull, hold until Hold
-            elif (current_date in df_daily.index and
-                  df_daily.index.get_loc(current_date) + 1 < len(df_daily.index)):
+            # --- Bull override ---
+            elif (df_daily.index.get_loc(current_date) + 1 < len(df_daily.index)):
                 next_date = df_daily.index[df_daily.index.get_loc(current_date) + 1]
                 if df_daily.loc[next_date, 'Bull']:
                     j = df_daily.index.get_loc(next_date)
@@ -750,23 +732,27 @@ if st.button("Run ML Strategy Backtest"):
                         exit_reason = 'BullOverride_Hold'
                         exit_price = float(df_daily.loc[hold_date, 'Close'])
                         current_date = hold_date  # advance exit date
+                        # IMPORTANT: skip ahead in the loop
+                        i = j
         
-            # --- EXISTING EXIT CONDITIONS ---
-            elif current_low <= SL_price:
-                exit_reason = 'SL'
-                exit_price = SL_price
-            elif current_high >= TP_price:
-                exit_reason = 'TP'
-                exit_price = TP_price
-            elif current_open <= SL_price:
-                exit_reason = 'Gap_SL'
-                exit_price = min(current_open, SL_price)
-            elif current_open >= TP_price:
-                exit_reason = 'Gap_TP'
-                exit_price = max(current_open, TP_price)
-            elif days_in_trade >= max_holding_days:
-                exit_reason = 'Max_Hold'
-                exit_price = current_close
+            # --- Normal exits (only if no override) ---
+            if not exit_reason:
+                if current_low <= SL_price:
+                    exit_reason = 'SL'
+                    exit_price = SL_price
+                elif current_high >= TP_price:
+                    exit_reason = 'TP'
+                    exit_price = TP_price
+                elif current_open <= SL_price:
+                    exit_reason = 'Gap_SL'
+                    exit_price = min(current_open, SL_price)
+                elif current_open >= TP_price:
+                    exit_reason = 'Gap_TP'
+                    exit_price = max(current_open, TP_price)
+                elif days_in_trade >= max_holding_days:
+                    exit_reason = 'Max_Hold'
+                    exit_price = current_close
+
         
             # --- Finalize trade if exit triggered ---
             if exit_reason:
