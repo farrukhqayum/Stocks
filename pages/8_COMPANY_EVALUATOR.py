@@ -286,7 +286,7 @@ def calculate_hold_score(data, tailwind, leader):
 # ================= STREAMLIT UI ===================
 # ==================================================
 
-ticker = st.text_input("Enter stock ticker (ex: AAPL, COIN, TSLA)").upper()
+ticker = st.text_input("Enter one stock ticker (ex: AAPL)").upper()
 
 tailwind = st.selectbox(
     "Is industry in a long-term tailwind?",
