@@ -20,7 +20,7 @@ warnings.filterwarnings('ignore')
 # Removed aggressive cache clearing for better performance
 # st.cache_data.clear()
 # st.cache_resource.clear()
-st.set_page_config(page_title="Entry Position Analyzer", layout="wide")
+st.set_page_config(page_title="📊 Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
 # Global Parameters - Adjusted for different timeframes
