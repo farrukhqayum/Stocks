@@ -287,23 +287,23 @@ if st.button("Analyze stocks"):
 
             def color_row(fundamental):
                 if "Strong" in fundamental:
-                    return 'style="background-color: rgba(0, 255, 0, 0.1); border-left: 4px solid #28a745;"'
+                    return 'style="background-color: rgba(0, 255, 0, 0.1); border-left: 4px solid rgba(40, 167, 69, 0.3);"'
                 elif "Weak" in fundamental:
-                    return 'style="background-color: rgba(255, 0, 0, 0.1); border-left: 4px solid #dc3545;"'
+                    return 'style="background-color: rgba(255, 0, 0, 0.1); border-left: 4px solid rgba(220, 53, 69, 0.3);"'
                 else:
-                    return 'style="background-color: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107;"'
-
+                    return 'style="background-color: rgba(255, 193, 7, 0.1); border-left: 4px solid rgba(255, 193, 7, 0.3);"'
+            
             html_table = """
             <table class="summary-table" style="width:100%; border-collapse: collapse; font-size: 14px;">
                 <thead>
-                    <tr style="background-color: #f8f9fa; font-weight: bold;">
+                    <tr style="background-color: #f8f9fa !important; font-weight: bold;">
             """
             df_summary = pd.DataFrame(results_summary)
             columns = df_summary.columns
             for col in columns:
-                html_table += f"<th style='padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;'>{col}</th>"
+                html_table += f"<th style='padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.1);'>{col}</th>"
             html_table += "</tr></thead><tbody>"
-
+            
             for idx, row in df_summary.iterrows():
                 row_style = color_row(row['Fundamental'])
                 html_table += f"<tr {row_style}>"
@@ -319,9 +319,9 @@ if st.button("Analyze stocks"):
                     if col == "FCF" and isinstance(value, (int, float)):
                         display_value = f"${value:,.0f}"
                     
-                    html_table += f"<td style='padding: 12px; border-bottom: 1px solid #dee2e6;'>{display_value}</td>"
+                    html_table += f"<td style='padding: 12px; border-bottom: 1px solid rgba(0,0,0,0.05);'>{display_value}</td>"
                 html_table += "</tr>"
-
+            
             html_table += """
                 </tbody>
             </table>
@@ -329,11 +329,20 @@ if st.button("Analyze stocks"):
             .summary-table th, .summary-table td {
                 vertical-align: top;
             }
-            .summary-table tr:hover {
-                background-color: rgba(0,0,0,0.05) !important;
+            .summary-table thead tr {
+                background-color: #f8f9fa !important;
+            }
+            .summary-table thead tr:hover {
+                background-color: #f8f9fa !important;
+            }
+            .summary-table tbody tr:hover {
+                background-color: rgba(0,0,0,0.03) !important;
             }
             </style>
             """
+            
+            st.markdown(html_table, unsafe_allow_html=True)
+
 
             st.markdown(html_table, unsafe_allow_html=True)
 
