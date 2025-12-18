@@ -17,6 +17,10 @@ st.markdown("""
 This app tracks capital flows between **risk-on** and **risk-off** assets 
 to estimate global risk appetite. 
 Includes BTC, S&P 500, Emerging Markets, Gold, US Dollar, Treasury Bonds, Oil, and VIX.
+- Use this curve, z-score and stocks correlation to become bullish or bearish for 6M or longer.
+- THe oscillators such as momentum and Z-score help to define if you should be bullish/bearish on stocks. 
+- GMF below average is mostly a sector change over the past-decade causing a crash in non-correlatable assests.
+- -30% momentum down while z-score exceeding 2-std deviation are classic pullbacks or corrections.
 """)
 
 st.sidebar.header("⚙️ Settings")
@@ -234,12 +238,12 @@ df_plot['Above'] = df_plot['Money Flow Curve'] > df_plot['Smoothed Curve']
 base = alt.Chart(df_plot).encode(x='Date:T')
 
 curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
-    y=alt.Y('Money Flow Curve:Q', title='Money Flow Curve (Fast)'),
+    y=alt.Y('Money Flow Curve:Q', title='Money Flow Curve'),
     tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
 )
 
 smooth_chart = base.mark_line(color='#d62728', size=2).encode(
-    y=alt.Y('Smoothed Curve:Q', title='Smoothed Curve (Slow)'),
+    y=alt.Y('Smoothed Curve:Q', title='Smoothed Curve'),
     tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
 )
 
@@ -296,7 +300,7 @@ zscore_chart = (
 climax_lines_z = alt.Chart(pd.DataFrame({'y': [-2.0, 2.0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
 
 final_zscore_chart = (zscore_chart + climax_lines_z).properties(
-    title="Climax Zone Indicator (Z-Score of Smoothed Money Flow)"
+    title="Climax Zone Indicator"
 )
 st.altair_chart(final_zscore_chart, use_container_width=True)
 
