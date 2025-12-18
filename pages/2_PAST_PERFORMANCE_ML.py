@@ -710,46 +710,30 @@ if st.button("Run ML Strategy Backtest"):
                 'ml_signal': current_ml_signal
             }
             in_trade = True
-
+        
+        # EXIT LOGIC - NEW PRIORITY SYSTEM
         elif in_trade:
-            last_date = daily_dates[-1]
             entry_date = current_trade['entry_date']
-            exit_days = (last_date - current_trade['entry_date']).days
-            entry_price = current_trade['entry_price']
-            TP_price = current_trade['tp_price']
-            SL_price = current_trade['sl_price']
             days_in_trade = (current_date - entry_date).days
             
-            current_open = float(df_daily.loc[current_date, 'Open'])
-            current_high = float(df_daily.loc[current_date, 'High'])
-            current_low = float(df_daily.loc[current_date, 'Low'])
-            current_close = float(df_daily.loc[current_date, 'Close'])
-            
-            exit_reason = None
-            exit_price = None
-        
-            # --- Bear exit ---
-            if df_daily.loc[current_date, 'Bear']:
-                exit_reason = 'Bear'
-                exit_price = current_close
-        
-            # --- Bull override ---
-            elif (df_daily.index.get_loc(current_date) + 1 < len(df_daily.index)):
-                next_date = df_daily.index[df_daily.index.get_loc(current_date) + 1]
-                if df_daily.loc[next_date, 'Bull']:
-                    j = df_daily.index.get_loc(next_date)
-                    while j < len(df_daily.index) and not df_daily.iloc[j]['Hold']:
-                        j += 1
-                    if j < len(df_daily.index):
-                        hold_date = df_daily.index[j]
-                        exit_reason = 'BullOverride_Hold'
-                        exit_price = float(df_daily.loc[hold_date, 'Close'])
-                        current_date = hold_date  # advance exit date
-                        # IMPORTANT: skip ahead in the loop
-                        i = j
-        
-            # --- Normal exits (only if no override) ---
-            if not exit_reason:
+            # PRIORITY 1: TECHNICAL INDICATOR OVERRIDE (Bear = Exit)
+            current_ti = df_daily.loc[current_date, 'TI']
+            if current_ti == 'Bear' and days_in_trade >= 1:  # No same-day exit
+                exit_reason = 'TI_Bear'
+                exit_price = float(df_daily.loc[current_date, 'Open'])  # Exit at open
+            else:
+                # Existing logic (TP/SL/MaxHold) only if NOT Bear
+                current_open = float(df_daily.loc[current_date, 'Open'])
+                current_high = float(df_daily.loc[current_date, 'High'])
+                current_low = float(df_daily.loc[current_date, 'Low'])
+                current_close = float(df_daily.loc[current_date, 'Close'])
+                entry_price = current_trade['entry_price']
+                TP_price = current_trade['tp_price']
+                SL_price = current_trade['sl_price']
+                
+                exit_reason = None
+                exit_price = None
+                
                 if current_low <= SL_price:
                     exit_reason = 'SL'
                     exit_price = SL_price
@@ -765,9 +749,9 @@ if st.button("Run ML Strategy Backtest"):
                 elif days_in_trade >= max_holding_days:
                     exit_reason = 'Max_Hold'
                     exit_price = current_close
-
-        
-            # --- Finalize trade if exit triggered ---
+                else:
+                    exit_reason = None  # Bull/Hold/Neutral -> Continue holding
+                    
             if exit_reason:
                 return_pct = (exit_price / entry_price - 1) * 100.0
                 trades.append({
@@ -779,11 +763,11 @@ if st.button("Run ML Strategy Backtest"):
                     'Return_%': return_pct,
                     'HoldingDays': days_in_trade,
                     'ML_Confidence': current_trade['ml_confidence'],
-                    'ML_Signal': current_trade['ml_signal']
+                    'ML_Signal': current_trade['ml_signal'],
+                    'Exit_TI': current_ti  # Track what TI caused exit
                 })
                 in_trade = False
                 current_trade = {}
-
 
     if in_trade:
         last_date = daily_dates[-1]
@@ -1046,41 +1030,45 @@ if st.button("Run ML Strategy Backtest"):
                 }
                 in_trade = True
             
-            # EXIT LOGIC
+            # EXIT LOGIC - NEW PRIORITY SYSTEM (Multiple % Test)
             elif in_trade:
-                last_date = daily_dates[-1]
-                exit_days = (last_date - current_trade['entry_date']).days
                 entry_date = current_trade['entry_date']
-                entry_price = current_trade['entry_price']
-                TP_price = current_trade['tp_price']
-                SL_price = current_trade['sl_price']
-                
                 days_in_trade = (current_date - entry_date).days
                 
-                current_open = float(df_daily.loc[current_date, 'Open'])
-                current_high = float(df_daily.loc[current_date, 'High'])
-                current_low = float(df_daily.loc[current_date, 'Low'])
-                current_close = float(df_daily.loc[current_date, 'Close'])
-                
-                exit_reason = None
-                exit_price = None
-                
-                if current_low <= SL_price:
-                    exit_reason = 'SL'
-                    exit_price = SL_price
-                elif current_high >= TP_price:
-                    exit_reason = 'TP'
-                    exit_price = TP_price
-                elif current_open <= SL_price:
-                    exit_reason = 'Gap_SL'
-                    exit_price = min(current_open, SL_price)
-                elif current_open >= TP_price:
-                    exit_reason = 'Gap_TP'
-                    exit_price = max(current_open, TP_price)
-                elif days_in_trade >= max_holding_days:
-                    exit_reason = 'Max_Hold'
-                    exit_price = current_close
-                
+                # PRIORITY 1: TECHNICAL INDICATOR OVERRIDE (Bear = Exit)
+                current_ti = df_daily.loc[current_date, 'TI']
+                if current_ti == 'Bear' and days_in_trade >= 1:  # No same-day exit
+                    exit_reason = 'TI_Bear'
+                    exit_price = float(df_daily.loc[current_date, 'Open'])
+                else:
+                    # Existing TP/SL logic only if NOT Bear
+                    current_open = float(df_daily.loc[current_date, 'Open'])
+                    current_high = float(df_daily.loc[current_date, 'High'])
+                    current_low = float(df_daily.loc[current_date, 'Low'])
+                    current_close = float(df_daily.loc[current_date, 'Close'])
+                    entry_price = current_trade['entry_price']
+                    TP_price = current_trade['tp_price']
+                    SL_price = current_trade['sl_price']
+                    
+                    exit_reason = None
+                    exit_price = None
+                    
+                    if current_low <= SL_price:
+                        exit_reason = 'SL'
+                        exit_price = SL_price
+                    elif current_high >= TP_price:
+                        exit_reason = 'TP'
+                        exit_price = TP_price
+                    elif current_open <= SL_price:
+                        exit_reason = 'Gap_SL'
+                        exit_price = min(current_open, SL_price)
+                    elif current_open >= TP_price:
+                        exit_reason = 'Gap_TP'
+                        exit_price = max(current_open, TP_price)
+                    elif days_in_trade >= max_holding_days:
+                        exit_reason = 'Max_Hold'
+                        exit_price = current_close
+                    
                 if exit_reason:
                     return_pct = (exit_price / entry_price - 1) * 100.0
                     trades.append({
@@ -1096,6 +1084,7 @@ if st.button("Run ML Strategy Backtest"):
                     })
                     in_trade = False
                     current_trade = {}
+
         
         if in_trade:
             last_date = daily_dates[-1]
