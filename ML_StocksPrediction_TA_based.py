@@ -578,14 +578,14 @@ def plot_confidence_heatmap(df_results):
     ).encode(
         text=alt.Text('Display_Text:N'),
         color=alt.condition(
-            alt.datum.Confidence > 65,
+            alt.datum.Confidence > 60,
             alt.value('white'), 
             alt.value('black')
         )
     )
 
     chart = (heatmap + text).properties(
-        title='Top ML Confidence: Green ~High Confidence/BULLISH, Red ~Low Confidence/BEARISH',
+        title='Top ML Confidence: ~High Confidence/BULLISH, Low Confidence/BEARISH',
         width=600,
         height=400
     ).interactive()
@@ -1435,6 +1435,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
