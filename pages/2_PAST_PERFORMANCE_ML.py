@@ -718,7 +718,7 @@ if st.button("Run ML Strategy Backtest"):
             
             # PRIORITY 1: TECHNICAL INDICATOR OVERRIDE (Bear = Exit)
             current_ti = df_daily.loc[current_date, 'TI']
-            if current_ti == 'Bear' and days_in_trade >= 1:  # No same-day exit
+            if current_ti in ['Bear', 'Hold', 'None'] and days_in_trade >= 1:  # No same-day exit
                 exit_reason = 'TI_Bear'
                 exit_price = float(df_daily.loc[current_date, 'Open'])  # Exit at open
             else:
