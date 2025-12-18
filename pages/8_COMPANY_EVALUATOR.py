@@ -296,12 +296,12 @@ if st.button("Analyze stocks"):
             html_table = """
             <table class="summary-table" style="width:100%; border-collapse: collapse; font-size: 14px;">
                 <thead>
-                    <tr style="background-color: #f8f9fa !important; font-weight: bold;">
+                    <tr style="background: none !important;">
             """
             df_summary = pd.DataFrame(results_summary)
             columns = df_summary.columns
             for col in columns:
-                html_table += f"<th style='padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.1);'>{col}</th>"
+                html_table += f"<th style='padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.1); font-weight: bold;'>{col}</th>"
             html_table += "</tr></thead><tbody>"
             
             for idx, row in df_summary.iterrows():
@@ -329,11 +329,9 @@ if st.button("Analyze stocks"):
             .summary-table th, .summary-table td {
                 vertical-align: top;
             }
-            .summary-table thead tr {
-                background-color: #f8f9fa !important;
-            }
+            .summary-table thead tr,
             .summary-table thead tr:hover {
-                background-color: #f8f9fa !important;
+                background: none !important;
             }
             .summary-table tbody tr:hover {
                 background-color: rgba(0,0,0,0.03) !important;
@@ -343,8 +341,6 @@ if st.button("Analyze stocks"):
             
             st.markdown(html_table, unsafe_allow_html=True)
 
-
-            st.markdown(html_table, unsafe_allow_html=True)
 
             for ticker, score, breakdown, fundamental, speculative in detailed_sections:
                 st.markdown("---")
