@@ -326,8 +326,8 @@ if st.button("Analyze stock"):
             # Speculative Check
             fundamental, speculative = classify_fundamental_and_speculation(data, score)
             st.subheader("🧬 Company Type")
-            st.write(f"Fundamental profile: **{fundamental}**")
-            st.write(f"Speculative / meme risk: **{speculative}**")
+            st.info(f"**{fundamental}**")
+            st.warning(f"**{speculative}**")
 
 
             # Breakdown Table
