@@ -712,6 +712,19 @@ if st.button("Run ML Strategy Backtest"):
             in_trade = True
 
         elif in_trade:
+            last_date = daily_dates[-1]
+            entry_date = current_trade['entry_date']
+            exit_days = (last_date - current_trade['entry_date']).days
+            entry_price = current_trade['entry_price']
+            TP_price = current_trade['tp_price']
+            SL_price = current_trade['sl_price']
+            days_in_trade = (current_date - entry_date).days
+            
+            current_open = float(df_daily.loc[current_date, 'Open'])
+            current_high = float(df_daily.loc[current_date, 'High'])
+            current_low = float(df_daily.loc[current_date, 'Low'])
+            current_close = float(df_daily.loc[current_date, 'Close'])
+            
             exit_reason = None
             exit_price = None
         
