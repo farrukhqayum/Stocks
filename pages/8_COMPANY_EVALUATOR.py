@@ -237,6 +237,7 @@ if st.button("Analyze stocks"):
         else:
             st.subheader("📊 Multi-Stock Summary")
             df_summary = pd.DataFrame(results_summary)
+            df_summary = df_summary.sort_values(['Fundamental', 'Score'], key=lambda x: x.map({'Fundamentally Strong': 3, 'Mixed Fundamentals': 2, 'Fundamentally Weak / Speculative': 1}).fillna(0).astype(int), ascending=False)
             html_table = """
             <table class="summary-table" style="width:100%; border-collapse: collapse; font-size: 14px;">
                 <thead>
