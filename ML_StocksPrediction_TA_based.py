@@ -640,19 +640,18 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
         colour = 'lightgreen'
 
     elif clean_label in neutral_case and conf <= 20:
-        # Neutral label but extreme bearish confidence → Panic Selling
         action = (
             f"{ticker}: Prediction is {signal_text}, "
             f"Panic selling, tight SL - else SHORT - "
-            f"ML ({will_hit_str}) & bear confidence ({conf:.0f}%) - Look for candles/patterns trade."
+            f"ML ({will_hit_str}) & bear confidence ({conf:.0f}%) suggests candles/patterns trades only."
         )
         colour = 'white'
 
     elif clean_label in neutral_case and 40 <= conf <= 60:
-        confidence_text = f"Sideways ({conf:.0f}%)."
+        confidence_text = f"."
         action = (
             f"{ticker}: Prediction is {signal_text}, "
-            f"ML indicates {confidence_text}. Only pattern trades with SL."
+            f"ML indicates SIDEWAYS ({conf:.0f}%). Only trade patterns with SL."
         )
         colour = 'orange'
 
@@ -1436,6 +1435,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
