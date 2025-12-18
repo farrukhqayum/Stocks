@@ -167,7 +167,7 @@ def strip_ansi_codes(text):
 
 def add_technical_indicators(df):
     close = df.Close
-    df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(3).mean()
+    df['Close'] = df[['Open', 'Close']].mean(axis=1).rolling(2).mean()
     df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
@@ -1446,6 +1446,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
