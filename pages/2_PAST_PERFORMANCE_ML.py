@@ -711,7 +711,9 @@ if st.button("Run ML Strategy Backtest"):
             }
             in_trade = True
 
+        # -------------------------
         # EXIT LOGIC
+        # -------------------------
         elif in_trade:
             last_date = daily_dates[-1]
             entry_date = current_trade['entry_date']
@@ -720,16 +722,37 @@ if st.button("Run ML Strategy Backtest"):
             TP_price = current_trade['tp_price']
             SL_price = current_trade['sl_price']
             days_in_trade = (current_date - entry_date).days
-            
+        
             current_open = float(df_daily.loc[current_date, 'Open'])
             current_high = float(df_daily.loc[current_date, 'High'])
             current_low = float(df_daily.loc[current_date, 'Low'])
             current_close = float(df_daily.loc[current_date, 'Close'])
-            
+        
             exit_reason = None
             exit_price = None
-            
-            if current_low <= SL_price:
+        
+            # --- NEW OVERRIDES ---
+            # Immediate Bear exit
+            if df_daily.loc[current_date, 'Bear']:
+                exit_reason = 'Bear'
+                exit_price = current_close
+        
+            # Bull override: if next day is Bull, hold until Hold
+            elif (current_date in df_daily.index and
+                  df_daily.index.get_loc(current_date) + 1 < len(df_daily.index)):
+                next_date = df_daily.index[df_daily.index.get_loc(current_date) + 1]
+                if df_daily.loc[next_date, 'Bull']:
+                    j = df_daily.index.get_loc(next_date)
+                    while j < len(df_daily.index) and not df_daily.iloc[j]['Hold']:
+                        j += 1
+                    if j < len(df_daily.index):
+                        hold_date = df_daily.index[j]
+                        exit_reason = 'BullOverride_Hold'
+                        exit_price = float(df_daily.loc[hold_date, 'Close'])
+                        current_date = hold_date  # advance exit date
+        
+            # --- EXISTING EXIT CONDITIONS ---
+            elif current_low <= SL_price:
                 exit_reason = 'SL'
                 exit_price = SL_price
             elif current_high >= TP_price:
@@ -744,7 +767,8 @@ if st.button("Run ML Strategy Backtest"):
             elif days_in_trade >= max_holding_days:
                 exit_reason = 'Max_Hold'
                 exit_price = current_close
-            
+        
+            # --- Finalize trade if exit triggered ---
             if exit_reason:
                 return_pct = (exit_price / entry_price - 1) * 100.0
                 trades.append({
@@ -760,6 +784,7 @@ if st.button("Run ML Strategy Backtest"):
                 })
                 in_trade = False
                 current_trade = {}
+
 
     if in_trade:
         last_date = daily_dates[-1]
