@@ -27,7 +27,7 @@ def calculate_beta(stock_ticker, benchmark_ticker="^GSPC", period="5y"):
         # Align dates
         df = stock_hist.join(index_hist, lsuffix="_stock", rsuffix="_index", how="inner")
 
-        # Daily returns
+        # Daily returns (smoothed)
         df["stock_ret"] = df["Close_stock"].pct_change().rolling(window=21).mean()
         df["index_ret"] = df["Close_index"].pct_change().rolling(window=21).mean()
 
@@ -72,7 +72,7 @@ def get_company_data(ticker):
     except:
         cashflow = pd.DataFrame()
 
-    # Load company info safely
+    # Load company info safely (not used now but kept for extension)
     try:
         info = stock.get_info()
     except:
@@ -116,7 +116,7 @@ def get_company_data(ticker):
         fcf = 0
 
     # ----------------------------
-    # 5-Year Performance vs S&P 500
+    # 3-Year Performance vs S&P 500
     # ----------------------------
     try:
         hist = stock.history(period="3y")
@@ -133,7 +133,7 @@ def get_company_data(ticker):
         sp_return = 0
 
     # ----------------------------
-    # Beta (from info)
+    # Beta
     # ----------------------------
     beta = calculate_beta(ticker)
 
@@ -153,7 +153,6 @@ def get_company_data(ticker):
 
 def classify_fundamental_and_speculation(data, score):
     speculative_flags = []
-    fundamental_flags = []
 
     # Fundamental strength
     strong_fund = (
@@ -207,7 +206,6 @@ def classify_volatility(beta):
         return "Highly Volatile", "🔴"
     else:
         return "Emotionally Destructive", "🔴"
-
 
 # ----------------------------
 # SCORING SYSTEM
@@ -281,12 +279,19 @@ def calculate_hold_score(data, tailwind, leader):
 
     return score, breakdown
 
-
 # ==================================================
 # ================= STREAMLIT UI ===================
 # ==================================================
 
-ticker = st.text_input("Enter one stock ticker (ex: AAPL)").upper()
+# Multi-ticker input
+raw = st.text_input(
+    "Enter up to 10 stock tickers, separated by commas (ex: AAPL, MSFT, TSLA)"
+)
+tickers = [t.strip().upper() for t in raw.split(",") if t.strip()]
+
+if len(tickers) > 10:
+    st.warning("Only the first 10 tickers will be analyzed.")
+    tickers = tickers[:10]
 
 tailwind = st.selectbox(
     "Is industry in a long-term tailwind?",
@@ -298,39 +303,71 @@ leader = st.selectbox(
     ["Yes", "No", "Uncertain"]
 )
 
-if st.button("Analyze stock"):
+if st.button("Analyze stocks"):
 
-    if ticker == "":
-        st.warning("Enter a stock symbol")
+    if not tickers:
+        st.warning("Enter at least one stock symbol")
     else:
-        data = get_company_data(ticker)
+        results_summary = []
+        detailed_sections = []
 
-        if data is None:
-            st.error("❌ No data found or invalid ticker")
-        else:
+        for ticker in tickers:
+            data = get_company_data(ticker)
+
+            if data is None:
+                st.error(f"❌ No data found or invalid ticker: {ticker}")
+                continue
+
             score, breakdown = calculate_hold_score(data, tailwind, leader)
-
-            st.subheader(f"📊 Final Hold Score: {score} / 10")
-
-            if score >= 8:
-                st.success("STRONG LONG-TERM HOLD")
-            elif score >= 5:
-                st.warning("CONDITIONAL HOLD — Monitor Annually")
-            else:
-                st.error("NOT SUITABLE FOR LONG-TERM HOLD")
-
-            # Volatility Highlight
-            st.subheader("⚡ Volatility Level")
-            st.info(breakdown["Beta / Volatility"])
-
-            # Speculative Check
             fundamental, speculative = classify_fundamental_and_speculation(data, score)
-            st.subheader("🧬 Company Type")
-            st.info(f"**{fundamental}**")
-            st.warning(f"**{speculative}**")
+            vol_label, vol_icon = classify_volatility(data["beta"])
 
+            # Save for summary table
+            results_summary.append({
+                "Ticker": ticker,
+                "Score": score,
+                "Rev CAGR %": data["cagr"],
+                "Gross Margin %": data["margin"],
+                "FCF": data["fcf"],
+                "3Y Stock %": data["stock_3yr"],
+                "3Y S&P %": data["sp_3yr"],
+                "Beta": data["beta"],
+                "Volatility": f"{vol_label} {vol_icon}",
+                "Fundamental": fundamental,
+                "Speculative": speculative
+            })
 
-            # Breakdown Table
-            st.subheader("📌 Breakdown")
-            df = pd.DataFrame(breakdown.items(), columns=["Metric", "Status"])
-            st.table(df)
+            # Save breakdown for detailed section
+            detailed_sections.append((ticker, score, breakdown, fundamental, speculative))
+
+        if not results_summary:
+            st.error("No valid data found for the provided tickers.")
+        else:
+            # Summary table for comparison
+            st.subheader("📊 Multi-Stock Summary")
+            df_summary = pd.DataFrame(results_summary)
+            st.dataframe(df_summary)
+
+            # Detailed per-ticker sections
+            for ticker, score, breakdown, fundamental, speculative in detailed_sections:
+                st.markdown("---")
+                st.subheader(f"🔍 Details for {ticker}")
+                st.markdown(f"**Final Hold Score:** {score} / 10")
+
+                if score >= 8:
+                    st.success("STRONG LONG-TERM HOLD")
+                elif score >= 5:
+                    st.warning("CONDITIONAL HOLD — Monitor Annually")
+                else:
+                    st.error("NOT SUITABLE FOR LONG-TERM HOLD")
+
+                st.subheader("⚡ Volatility Level")
+                st.info(breakdown["Beta / Volatility"])
+
+                st.subheader("🧬 Company Type")
+                st.info(f"**{fundamental}**")
+                st.warning(f"**{speculative}**")
+
+                st.subheader("📌 Breakdown")
+                df_breakdown = pd.DataFrame(breakdown.items(), columns=["Metric", "Status"])
+                st.table(df_breakdown)
