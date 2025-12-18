@@ -208,92 +208,94 @@ if st.button("Analyze stocks"):
     if not tickers:
         st.warning("Enter at least one stock symbol")
     else:
-        results_summary = []
-        detailed_sections = []
-        for ticker in tickers:
-            data = get_company_data(ticker)
-            if data is None:
-                st.error(f"❌ No data found or invalid ticker: {ticker}")
-                continue
-            score, breakdown = calculate_hold_score(data, tailwind, leader)
-            fundamental, speculative = classify_fundamental_and_speculation(data, score)
-            vol_label, vol_icon = classify_volatility(data["beta"])
-            results_summary.append({
-                "Ticker": ticker,
-                "Score": score,
-                "Rev CAGR %": data["cagr"],
-                "Gross Margin %": data["margin"],
-                "FCF": data["fcf"],
-                "3Y Stock %": data["stock_3yr"],
-                "3Y S&P %": data["sp_3yr"],
-                "Beta": data["beta"],
-                "Volatility": f"{vol_label} {vol_icon}",
-                "Fundamental": fundamental,
-                "Speculative": speculative
-            })
-            detailed_sections.append((ticker, score, breakdown, fundamental, speculative))
-        if not results_summary:
-            st.error("No valid data found for the provided tickers.")
-        else:
-            st.subheader("📊 Multi-Stock Summary")
-            df_summary = pd.DataFrame(results_summary)
-            df_summary = df_summary.sort_values(['Fundamental', 'Score'], key=lambda x: x.map({'Fundamentally Strong': 3, 'Mixed Fundamentals': 2, 'Fundamentally Weak / Speculative': 1}).fillna(0).astype(int), ascending=False)
-            html_table = """
-            <table class="summary-table" style="width:100%; border-collapse: collapse; font-size: 14px;">
-                <thead>
-                    <tr style="background: none !important;">
-            """
-            columns = df_summary.columns
-            for col in columns:
-                html_table += f"<th style='padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.1); font-weight: bold;'>{col}</th>"
-            html_table += "</tr></thead><tbody>"
-            for idx, row in df_summary.iterrows():
-                row_style = color_row(row['Fundamental'])
-                html_table += f"<tr {row_style}>"
+        with st.spinner(f"Analyzing {len(tickers)} stocks... Fetching financial data and calculating scores"):
+            results_summary = []
+            detailed_sections = []
+            for i, ticker in enumerate(tickers):
+                data = get_company_data(ticker)
+                if data is None:
+                    st.error(f"❌ No data found or invalid ticker: {ticker}")
+                    continue
+                score, breakdown = calculate_hold_score(data, tailwind, leader)
+                fundamental, speculative = classify_fundamental_and_speculation(data, score)
+                vol_label, vol_icon = classify_volatility(data["beta"])
+                results_summary.append({
+                    "Ticker": ticker,
+                    "Score": score,
+                    "Rev CAGR %": data["cagr"],
+                    "Gross Margin %": data["margin"],
+                    "FCF": data["fcf"],
+                    "3Y Stock %": data["stock_3yr"],
+                    "3Y S&P %": data["sp_3yr"],
+                    "Beta": data["beta"],
+                    "Volatility": f"{vol_label} {vol_icon}",
+                    "Fundamental": fundamental,
+                    "Speculative": speculative
+                })
+                detailed_sections.append((ticker, score, breakdown, fundamental, speculative))
+            
+            if not results_summary:
+                st.error("No valid data found for the provided tickers.")
+            else:
+                st.subheader("📊 Multi-Stock Summary")
+                df_summary = pd.DataFrame(results_summary)
+                df_summary = df_summary.sort_values(['Fundamental', 'Score'], key=lambda x: x.map({'Fundamentally Strong': 3, 'Mixed Fundamentals': 2, 'Fundamentally Weak / Speculative': 1}).fillna(0).astype(int), ascending=False)
+                html_table = """
+                <table class="summary-table" style="width:100%; border-collapse: collapse; font-size: 14px;">
+                    <thead>
+                        <tr style="background: none !important;">
+                """
+                columns = df_summary.columns
                 for col in columns:
-                    value = row[col]
-                    if pd.isna(value):
-                        display_value = "N/A"
-                    elif isinstance(value, float):
-                        display_value = f"{value:.1f}" if value % 1 != 0 else f"{int(value)}"
+                    html_table += f"<th style='padding: 12px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.1); font-weight: bold;'>{col}</th>"
+                html_table += "</tr></thead><tbody>"
+                for idx, row in df_summary.iterrows():
+                    row_style = color_row(row['Fundamental'])
+                    html_table += f"<tr {row_style}>"
+                    for col in columns:
+                        value = row[col]
+                        if pd.isna(value):
+                            display_value = "N/A"
+                        elif isinstance(value, float):
+                            display_value = f"{value:.1f}" if value % 1 != 0 else f"{int(value)}"
+                        else:
+                            display_value = str(value)
+                        if col == "FCF":
+                            display_value = format_fcf(value)
+                        html_table += f"<td style='padding: 12px; border-bottom: 1px solid rgba(0,0,0,0.05);'>{display_value}</td>"
+                    html_table += "</tr>"
+                html_table += """
+                    </tbody>
+                </table>
+                <style>
+                .summary-table th, .summary-table td {
+                    vertical-align: top;
+                }
+                .summary-table thead tr,
+                .summary-table thead tr:hover {
+                    background: none !important;
+                }
+                .summary-table tbody tr:hover {
+                    background-color: rgba(0,0,0,0.03) !important;
+                }
+                </style>
+                """
+                st.markdown(html_table, unsafe_allow_html=True)
+                for ticker, score, breakdown, fundamental, speculative in detailed_sections:
+                    st.markdown("---")
+                    st.subheader(f"🔍 Details for {ticker}")
+                    st.markdown(f"**Final Hold Score:** {score} / 10")
+                    if score >= 8:
+                        st.success("STRONG LONG-TERM HOLD")
+                    elif score >= 5:
+                        st.warning("CONDITIONAL HOLD — Monitor Annually")
                     else:
-                        display_value = str(value)
-                    if col == "FCF":
-                        display_value = format_fcf(value)
-                    html_table += f"<td style='padding: 12px; border-bottom: 1px solid rgba(0,0,0,0.05);'>{display_value}</td>"
-                html_table += "</tr>"
-            html_table += """
-                </tbody>
-            </table>
-            <style>
-            .summary-table th, .summary-table td {
-                vertical-align: top;
-            }
-            .summary-table thead tr,
-            .summary-table thead tr:hover {
-                background: none !important;
-            }
-            .summary-table tbody tr:hover {
-                background-color: rgba(0,0,0,0.03) !important;
-            }
-            </style>
-            """
-            st.markdown(html_table, unsafe_allow_html=True)
-            for ticker, score, breakdown, fundamental, speculative in detailed_sections:
-                st.markdown("---")
-                st.subheader(f"🔍 Details for {ticker}")
-                st.markdown(f"**Final Hold Score:** {score} / 10")
-                if score >= 8:
-                    st.success("STRONG LONG-TERM HOLD")
-                elif score >= 5:
-                    st.warning("CONDITIONAL HOLD — Monitor Annually")
-                else:
-                    st.error("NOT SUITABLE FOR LONG-TERM HOLD")
-                st.subheader("⚡ Volatility Level")
-                st.info(breakdown["Beta / Volatility"])
-                st.subheader("🧬 Company Type")
-                st.info(f"**{fundamental}**")
-                st.warning(f"**{speculative}**")
-                st.subheader("📌 Breakdown")
-                df_breakdown = pd.DataFrame(breakdown.items(), columns=["Metric", "Status"])
-                st.table(df_breakdown)
+                        st.error("NOT SUITABLE FOR LONG-TERM HOLD")
+                    st.subheader("⚡ Volatility Level")
+                    st.info(breakdown["Beta / Volatility"])
+                    st.subheader("🧬 Company Type")
+                    st.info(f"**{fundamental}**")
+                    st.warning(f"**{speculative}**")
+                    st.subheader("📌 Breakdown")
+                    df_breakdown = pd.DataFrame(breakdown.items(), columns=["Metric", "Status"])
+                    st.table(df_breakdown)
