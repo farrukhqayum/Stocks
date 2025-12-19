@@ -819,7 +819,7 @@ if st.button("Run ML Strategy Backtest"):
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
     col3.metric("Avg. Return", f"{avg_return:.1f}%")
-    col4.metric("ML Hits", f"{int(results.MLHits)}")
+    col4.metric("ML Hits", int(results.MLHits).sum())
     col5.metric("Avg. Holding Days", f"{avg_holding_days:.0f}")
     col6.metric("Avg. No-Trade Days", f"{avg_no_trade_days:.0f}")
     col7.metric("Net Return", f"{net_return_pct:.1f}%")
