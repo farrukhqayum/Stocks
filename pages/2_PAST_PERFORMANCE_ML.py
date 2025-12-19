@@ -178,7 +178,7 @@ with col3:
     risk_setup = st.selectbox(
         "Risk Setup", 
         ["a) Extreme Risk (Beta <1.5)", "b) Moderate Risk (Beta >2)", "c) Low Risk (Less Rewards)"], 
-        index=1
+        index=1,
         key="risk_setup"
     )
 
