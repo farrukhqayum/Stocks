@@ -816,7 +816,7 @@ if st.button("Run ML Strategy Backtest"):
         
     # Display results
     st.subheader(f"📊 ML Strategy Summary ({ticker})")
-    col1, col2, col3, col4, col5, col6, col7 = st.columns(6)
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
     col3.metric("Avg. Return", f"{avg_return:.1f}%")
