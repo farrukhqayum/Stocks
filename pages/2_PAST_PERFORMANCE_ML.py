@@ -170,17 +170,34 @@ with col1:
 
 with col2:
     period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=2)
-with col3:
-    TP_pct = st.number_input("TP (%)", value=3.75, min_value=0.0, max_value=100.0, step=0.5, help="3-10% are logical to add more training data. 15% are less likely and not repeatable.")
-with col4:
-    SL_pct = st.number_input("SL (%)", value=7.0, min_value=0.0, max_value=100.0, step=0.5, help="To hit less 'SL', try to use 2x TP e.g. 14% as a number")
 
-# ML prediction settings
-col5, col6 = st.columns(2)
-with col5:
-    ml_confidence_threshold = st.number_input("ML Confidence Threshold", min_value=0, max_value=100,  value=63, step=5, help = "30% Strongly Bearish, 70% Strongly Bullish")
-with col6:
-    max_holding_days = st.number_input("Max Holding Days", min_value= 3, max_value=181, value=15, step= 1, help = "This is like a forced stop-loss, make it 15-21 days.")
+# Risk Setup Selector
+col3, col4 = st.columns(2)
+with col3:
+    risk_setup = st.selectbox(
+        "Risk Setup", 
+        ["a) Extreme Risk (Beta <1.5)", "b) Moderate Risk (Beta >2)", "c) Low Risk (Less Rewards)"], 
+        index=0
+    )
+with col4:
+    ml_confidence_threshold = st.number_input("ML Confidence", min_value=0, max_value=100, value=63, step=5)
+
+# Auto-set FIRST, then allow overrides
+if risk_setup == "a) Extreme Risk (Beta <1.5)":
+    TP_pct, SL_pct, max_holding_days = 15.0, 90.0, 180
+elif risk_setup == "b) Moderate Risk (Beta >2)":
+    TP_pct, SL_pct, max_holding_days = 15.0, 30.0, 90
+else:  # c) Low Risk
+    TP_pct, SL_pct, max_holding_days = 7.0, 14.0, 21
+
+st.info(f"📊 Current: TP={TP_pct}%, SL={SL_pct}%, Hold={max_holding_days} days")
+
+# MANUAL OVERRIDES (user can edit)
+col_tp, col_sl, col_hold = st.columns(3)
+TP_pct = col_tp.number_input("TP %", value=TP_pct, min_value=0.0, max_value=100.0, step=0.5)
+SL_pct = col_sl.number_input("SL %", value=SL_pct, min_value=0.0, max_value=100.0, step=0.5)
+max_holding_days = col_hold.number_input("Hold Days", value=max_holding_days, min_value=3, max_value=365, step=1)
+
 
 # -------------------------
 # Technical Analysis Functions (Simplified)
@@ -778,7 +795,6 @@ if st.button("Run ML Strategy Backtest"):
             'ExitDate': last_date,
             'EntryPrice': current_trade['entry_price'],
             'ExitPrice': exit_price,
-            'MLHits' : ml_hit,
             'Outcome': 'Open',
             'Return_%': return_pct,
             'HoldingDays': (last_date - current_trade['entry_date']).days,
