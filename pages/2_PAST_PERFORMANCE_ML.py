@@ -802,7 +802,6 @@ if st.button("Run ML Strategy Backtest"):
     win_rate = 100.0 * wins.sum() / total_trades if total_trades > 0 else 0
     avg_return = results['Return_%'].mean()
     net_return_pct = (results['Cumulative'].iloc[-1] - initial_cap) / initial_cap * 100.0
-
     avg_holding_days = results['HoldingDays'].mean()
     
     # Calculate no-trades days
@@ -820,7 +819,7 @@ if st.button("Run ML Strategy Backtest"):
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
     col3.metric("Avg. Return", f"{avg_return:.1f}%")
-    col4.metric("ML Hits", f"{int(ml_hit)}")
+    col4.metric("ML Hits", f"{int(results.MLHits)}")
     col5.metric("Avg. Holding Days", f"{avg_holding_days:.0f}")
     col6.metric("Avg. No-Trade Days", f"{avg_no_trade_days:.0f}")
     col7.metric("Net Return", f"{net_return_pct:.1f}%")
