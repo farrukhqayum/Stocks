@@ -180,7 +180,9 @@ with col3:
         "Risk Setup",
         ["a) Extreme Risk (Beta <1.5)",
          "b) Moderate Risk (Beta >2)",
-         "c) Low Risk (Less Rewards)"],
+         "c) Low Risk (Less Rewards)",
+         "d) Gambler Style (Symmetric)
+         ],
         index=2,
         key="risk_setup"
     )
@@ -203,7 +205,8 @@ with col4:
 defaults = {
     "a) Extreme Risk (Beta <1.5)":  (15.0, 90.0, 180),
     "b) Moderate Risk (Beta >2)":   (15.0, 30.0, 90),
-    "c) Low Risk (Less Rewards)":   (7.0, 14.0, 21),
+    "c) Low Risk (Beta > 2.5)":   (7.0, 14.0, 21),
+    "d) Gambler Style (Symmetric)": (7.0, 7.0, 3.0),
 }
 
 # Initialize editable fields once
@@ -736,6 +739,7 @@ if st.button("Run ML Strategy Backtest"):
     progress_bar = st.progress(0)
     RETRAIN_EVERY = 5
     ml_tp_success_counter = 0
+    used_ml_tp = False
 
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
