@@ -174,6 +174,7 @@ with col2:
 # -------------------------
 # Risk Setup Selector
 # -------------------------
+
 col3, col4 = st.columns(2)
 
 with col3:
@@ -184,51 +185,36 @@ with col3:
     )
 
 with col4:
-    ml_confidence_threshold = st.number_input("ML Confidence", min_value=0, max_value=100, value=63, step=5)
+    ml_confidence_threshold = st.number_input(
+        "ML Confidence", min_value=0, max_value=100, value=63, step=5,
+        key="ml_conf"  # <-- Add this too
+    )
 
-# Initialize session state if not exists
-if 'TP_pct' not in st.session_state:
-    st.session_state.TP_pct = 7.0
-if 'SL_pct' not in st.session_state:
-    st.session_state.SL_pct = 14.0
-if 'max_holding_days' not in st.session_state:
-    st.session_state.max_holding_days = 21
+# Initialize session state
+if 'TP_pct' not in st.session_state: st.session_state.TP_pct = 7.0
+if 'SL_pct' not in st.session_state: st.session_state.SL_pct = 14.0
+if 'max_holding_days' not in st.session_state: st.session_state.max_holding_days = 21
 
 # Auto-set presets
 if risk_setup == "a) Extreme Risk (Beta <1.5)":
-    st.session_state.TP_pct = 15.0
-    st.session_state.SL_pct = 90.0
-    st.session_state.max_holding_days = 180
+    st.session_state.TP_pct, st.session_state.SL_pct, st.session_state.max_holding_days = 15.0, 90.0, 180
 elif risk_setup == "b) Moderate Risk (Beta >2)":
-    st.session_state.TP_pct = 15.0
-    st.session_state.SL_pct = 30.0
-    st.session_state.max_holding_days = 90
+    st.session_state.TP_pct, st.session_state.SL_pct, st.session_state.max_holding_days = 15.0, 30.0, 90
 elif risk_setup == "c) Low Risk (Less Rewards)":
-    st.session_state.TP_pct = 7.0
-    st.session_state.SL_pct = 14.0
-    st.session_state.max_holding_days = 21
+    st.session_state.TP_pct, st.session_state.SL_pct, st.session_state.max_holding_days = 7.0, 14.0, 21
 
-# Editable fields (updates session_state directly)
+# FIXED Editable fields with unique keys
 col_tp, col_sl, col_hold = st.columns(3)
-st.session_state.TP_pct = col_tp.number_input("TP %", value=st.session_state.TP_pct, min_value=0.0, max_value=100.0, step=0.5)
-st.session_state.SL_pct = col_sl.number_input("SL %", value=st.session_state.SL_pct, min_value=0.0, max_value=100.0, step=0.5)
-st.session_state.max_holding_days = col_hold.number_input("Hold Days", value=st.session_state.max_holding_days, min_value=3, max_value=365, step=1)
+st.session_state.TP_pct = col_tp.number_input("TP %", value=st.session_state.TP_pct, min_value=0.0, max_value=100.0, step=0.5, key="tp_input")
+st.session_state.SL_pct = col_sl.number_input("SL %", value=st.session_state.SL_pct, min_value=0.0, max_value=100.0, step=0.5, key="sl_input")
+st.session_state.max_holding_days = col_hold.number_input("Hold Days", value=st.session_state.max_holding_days, min_value=3, max_value=365, step=1, key="hold_input")
 
-# NOW UPDATES LIVE
 st.info(f"📊 ACTIVE: TP={st.session_state.TP_pct}%, SL={st.session_state.SL_pct}%, Hold={st.session_state.max_holding_days} days")
 
-# For backtest compatibility
+# Backtest compatibility
 TP_pct = st.session_state.TP_pct
 SL_pct = st.session_state.SL_pct
 max_holding_days = st.session_state.max_holding_days
-
-
-# MANUAL OVERRIDES (user can edit)
-col_tp, col_sl, col_hold = st.columns(3)
-TP_pct = col_tp.number_input("TP %", value=TP_pct, min_value=0.0, max_value=100.0, step=0.5)
-SL_pct = col_sl.number_input("SL %", value=SL_pct, min_value=0.0, max_value=100.0, step=0.5)
-max_holding_days = col_hold.number_input("Hold Days", value=max_holding_days, min_value=3, max_value=365, step=1)
-
 
 # -------------------------
 # Technical Analysis Functions (Simplified)
