@@ -155,51 +155,118 @@ def validate_ticker(ticker: str) -> dict:
         return {"valid": False, "reason": str(e)}
 
 # -------------------------
-# User inputs
+# User inputs (PAST PERFORMANCE TAB)
 # -------------------------
+
 col1, col2, col3, col4 = st.columns(4)
 
+# --- Ticker ---
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
     result = validate_ticker(ticker)
     if result["valid"]:
         st.success(f"{ticker} is valid ✅ ({result['reason']})")
     else:
-        st.error(f"{ticker} is valid ❌ ({result['reason']})")
+        st.error(f"{ticker} is invalid ❌ ({result['reason']})")
         st.stop()
 
+# --- History period ---
 with col2:
     period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=2)
 
+# --- Risk setup ---
 with col3:
     risk_setup = st.selectbox(
-        "Risk Setup", 
-        ["a) Extreme Risk (Beta <1.5)", "b) Moderate Risk (Beta >2)", "c) Low Risk (Less Rewards)"], 
+        "Risk Setup",
+        ["a) Extreme Risk (Beta <1.5)",
+         "b) Moderate Risk (Beta >2)",
+         "c) Low Risk (Less Rewards)"],
         index=2,
         key="risk_setup"
     )
 
+# --- ML confidence ---
 with col4:
-    ml_confidence_threshold = st.number_input("ML Confidence", min_value=0, max_value=100, value=63, step=5, key="ml_conf")
+    ml_confidence_threshold = st.number_input(
+        "ML Confidence",
+        min_value=0,
+        max_value=100,
+        value=63,
+        step=5,
+        key="ml_conf"
+    )
 
-if 'override_manual' not in st.session_state:
-    st.session_state.override_manual = False
+# -------------------------
+# Session State Initialization
+# -------------------------
 
-# Get CURRENT preset values based on risk_setup
-if risk_setup == "a) Extreme Risk (Beta <1.5)":
-    preset_tp, preset_sl, preset_hold = 15.0, 90.0, 180
-elif risk_setup == "b) Moderate Risk (Beta >2)":
-    preset_tp, preset_sl, preset_hold = 15.0, 30.0, 90
-else:  # c) Low Risk
-    preset_tp, preset_sl, preset_hold = 7.0, 14.0, 21
+defaults = {
+    "a) Extreme Risk (Beta <1.5)":  (15.0, 90.0, 180),
+    "b) Moderate Risk (Beta >2)":   (15.0, 30.0, 90),
+    "c) Low Risk (Less Rewards)":   (7.0, 14.0, 21),
+}
 
-# Editable fields with PRESET VALUES (they WILL show preset on risk change)
+# Initialize editable fields once
+if "tp_input" not in st.session_state:
+    st.session_state.tp_input = defaults[risk_setup][0]
+if "sl_input" not in st.session_state:
+    st.session_state.sl_input = defaults[risk_setup][1]
+if "hold_input" not in st.session_state:
+    st.session_state.hold_input = defaults[risk_setup][2]
+
+# Track last selected risk setup
+if "last_risk_setup" not in st.session_state:
+    st.session_state.last_risk_setup = risk_setup
+
+# -------------------------
+# Update values ONLY when risk setup changes
+# -------------------------
+
+if st.session_state.last_risk_setup != risk_setup:
+    preset_tp, preset_sl, preset_hold = defaults[risk_setup]
+
+    st.session_state.tp_input = preset_tp
+    st.session_state.sl_input = preset_sl
+    st.session_state.hold_input = preset_hold
+
+    st.session_state.last_risk_setup = risk_setup
+
+# -------------------------
+# Editable Inputs (bound to session_state)
+# -------------------------
+
 col_tp, col_sl, col_hold = st.columns(3)
-TP_pct = col_tp.number_input("TP %", value=preset_tp, min_value=0.0, max_value=100.0, step=0.5, key="tp_input")
-SL_pct = col_sl.number_input("SL %", value=preset_sl, min_value=0.0, max_value=100.0, step=0.5, key="sl_input")
-max_holding_days = col_hold.number_input("Hold Days", value=preset_hold, min_value=3, max_value=365, step=1, key="hold_input")
 
-st.info(f"📊 ACTIVE: TP={TP_pct}%, SL={SL_pct}%, Hold={max_holding_days} days")
+TP_pct = col_tp.number_input(
+    "TP %",
+    min_value=0.0,
+    max_value=100.0,
+    step=0.5,
+    key="tp_input"
+)
+
+SL_pct = col_sl.number_input(
+    "SL %",
+    min_value=0.0,
+    max_value=100.0,
+    step=0.5,
+    key="sl_input"
+)
+
+max_holding_days = col_hold.number_input(
+    "Hold Days",
+    min_value=3,
+    max_value=365,
+    step=1,
+    key="hold_input"
+)
+
+# -------------------------
+# Display active settings
+# -------------------------
+
+st.info(f"📊 ACTIVE SETTINGS → TP={TP_pct}%, SL={SL_pct}%, Hold={max_holding_days} days")
+
 
 
 # -------------------------
