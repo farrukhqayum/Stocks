@@ -116,14 +116,14 @@ with st.expander("What happens to the model after a trade is opened?"):
     """)
 
 with st.expander("🤖 Example Backtest Results"):
-    st.markdown("Testing various risk profiles given below.")
+    st.markdown("Testing various risk profiles.")
     
-    # CSS-styled image container
-    st.markdown("""
-    <div style="width: 850px; height: 450px; overflow: hidden; border-radius: 8px;">
-        <img src="pages/ML_backtest_COIN.png" style="width: 100%; height: 100%; object-fit: cover;">
-    </div>
-    """, unsafe_allow_html=True)
+    col1, col2 = st.columns([3, 1])  # 75% width column
+    
+    with col1:
+        st.image("pages/ML_backtest_COIN.png", 
+                width=800, 
+                use_column_width=True)
 
 # -------------------------
 # Strategy Parameters
