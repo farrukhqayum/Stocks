@@ -162,7 +162,6 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
     result = validate_ticker(ticker)
-    
     if result["valid"]:
         st.success(f"{ticker} is valid ✅ ({result['reason']})")
     else:
@@ -172,14 +171,19 @@ with col1:
 with col2:
     period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=2)
 
-# Risk Setup with callback (IMPROVED - fits your col3/col4)
+# Initialize ALL session_state FIRST
+if 'TP_pct' not in st.session_state: st.session_state.TP_pct = 7.0
+if 'SL_pct' not in st.session_state: st.session_state.SL_pct = 14.0
+if 'max_holding_days' not in st.session_state: st.session_state.max_holding_days = 21
+if 'risk_setup' not in st.session_state: st.session_state.risk_setup = "c) Low Risk (Less Rewards)"
+
 def update_risk_presets():
     """Reset to preset when risk changes"""
     if st.session_state.risk_setup == "a) Extreme Risk (Beta <1.5)":
         st.session_state.TP_pct, st.session_state.SL_pct, st.session_state.max_holding_days = 15.0, 90.0, 180
     elif st.session_state.risk_setup == "b) Moderate Risk (Beta >2)":
         st.session_state.TP_pct, st.session_state.SL_pct, st.session_state.max_holding_days = 15.0, 30.0, 90
-    else:  # c) Low Risk
+    else:
         st.session_state.TP_pct, st.session_state.SL_pct, st.session_state.max_holding_days = 7.0, 14.0, 21
 
 with col3:
@@ -191,19 +195,10 @@ with col3:
         on_change=update_risk_presets
     )
 
-
 with col4:
-    ml_confidence_threshold = st.number_input(
-        "ML Confidence", min_value=0, max_value=100, value=63, step=5, key="ml_conf"
-    )
+    ml_confidence_threshold = st.number_input("ML Confidence", min_value=0, max_value=100, value=63, step=5, key="ml_conf")
 
-# Initialize session state (your style - clean)
-if 'TP_pct' not in st.session_state: st.session_state.TP_pct = 7.0
-if 'SL_pct' not in st.session_state: st.session_state.SL_pct = 14.0
-if 'max_holding_days' not in st.session_state: st.session_state.max_holding_days = 21
-if 'risk_setup' not in st.session_state: st.session_state.risk_setup = "c) Low Risk (Less Rewards)"
-
-# Editable fields (new row - your 3-column style)
+# Editable fields
 col_tp, col_sl, col_hold = st.columns(3)
 st.session_state.TP_pct = col_tp.number_input("TP %", value=st.session_state.TP_pct, min_value=0.0, max_value=100.0, step=0.5, key="tp_input")
 st.session_state.SL_pct = col_sl.number_input("SL %", value=st.session_state.SL_pct, min_value=0.0, max_value=100.0, step=0.5, key="sl_input")
@@ -211,7 +206,7 @@ st.session_state.max_holding_days = col_hold.number_input("Hold Days", value=st.
 
 st.info(f"📊 ACTIVE: TP={st.session_state.TP_pct}%, SL={st.session_state.SL_pct}%, Hold={st.session_state.max_holding_days} days")
 
-# Backtest compatibility (your exact style)
+# Backtest compatibility
 TP_pct = st.session_state.TP_pct
 SL_pct = st.session_state.SL_pct
 max_holding_days = st.session_state.max_holding_days
