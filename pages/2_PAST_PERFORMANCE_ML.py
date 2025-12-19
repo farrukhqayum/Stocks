@@ -174,15 +174,13 @@ with col1:
 with col2:
     period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=2)
 
-# --- Risk setup ---
 with col3:
     risk_setup = st.selectbox(
         "Risk Setup",
         ["a) Extreme Risk (Beta <1.5)",
          "b) Moderate Risk (Beta >2)",
          "c) Low Risk (Less Rewards)",
-         "d) Gambler Style (Symmetric)
-         ],
+         "d) Gambler Style (Symmetric)"],
         index=2,
         key="risk_setup"
     )
