@@ -815,9 +815,9 @@ if st.button("Run ML Strategy Backtest"):
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
-    col3.metric("Avg Return per Trade", f"{avg_return:.1f}%")
-    col4.metric("Holding Days", f"{avg_holding_days:.0f}")
-    col5.metric("No-Trade Days", f"{avg_no_trade_days:.0f}")
+    col3.metric("Avg. Return", f"{avg_return:.1f}%")
+    col4.metric("Avg. Holding Days", f"{avg_holding_days:.0f}")
+    col5.metric("Avg. No-Trade Days", f"{avg_no_trade_days:.0f}")
     col6.metric("Net Return", f"{net_return_pct:.1f}%")
 
     # Trade outcomes breakdown
@@ -829,7 +829,10 @@ if st.button("Run ML Strategy Backtest"):
     st.subheader("Trade History")
     st.dataframe(results.sort_values('EntryDate', ascending=False))
 
+    # -------------------
     # Plot results
+    # -------------------
+    
     st.subheader("Backtest and Equity")
     
     fig, (ax, ax1, bx, cx) = plt.subplots(4, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1.5, 1, 1]})
@@ -854,18 +857,17 @@ if st.button("Run ML Strategy Backtest"):
     ax1.axhline(y=50, color='gray', linestyle='--', alpha=0.5, linewidth=1)
     ax1.axhline(y=30, color='red', linestyle='--', alpha=0.5, linewidth=1)
 
-    # Hit labels overlay (example)
     tp_mask = df_daily['Hit_Label'] == 2
     sl_mask = df_daily['Hit_Label'] == 1
     hold_mask = df_daily['Hit_Label'] == 3
     short_mask = df_daily['Hit_Label'] == 4
     neutral_mask = df_daily['Hit_Label'] == 0
     _s = 5
-    ax1.scatter(df_daily.index[tp_mask], rsi_[tp_mask], color='green', marker='^', s=_s, alpha=0.4, label='TP', zorder=6)
-    ax1.scatter(df_daily.index[sl_mask], rsi_[sl_mask], color='red', marker='v', s=_s, alpha=0.4, label='SL', zorder=7)
-    ax1.scatter(df_daily.index[hold_mask], rsi_[hold_mask], color='orange', marker='o', s=_s, alpha=0.4, label='Hold', zorder=8)
-    ax1.scatter(df_daily.index[short_mask], rsi_[short_mask], color='purple', marker='x', s=_s, alpha=0.4, label='Short', zorder=9)
-    ax1.scatter(df_daily.index[neutral_mask], rsi_[neutral_mask], color='gray', marker='.', s=_s, alpha=0.4, label='Neutral', zorder=10)
+    ax1.scatter(df_daily.index[tp_mask], rsi_[tp_mask], color='green', marker='^', s=_s, alpha=0.3, label='TP', zorder=6)
+    ax1.scatter(df_daily.index[sl_mask], rsi_[sl_mask], color='red', marker='v', s=_s, alpha=0.3, label='SL', zorder=7)
+    ax1.scatter(df_daily.index[hold_mask], rsi_[hold_mask], color='orange', marker='o', s=_s, alpha=0.3, label='Hold', zorder=8)
+    ax1.scatter(df_daily.index[short_mask], rsi_[short_mask], color='purple', marker='x', s=_s, alpha=0.3, label='Short', zorder=9)
+    ax1.scatter(df_daily.index[neutral_mask], rsi_[neutral_mask], color='gray', marker='.', s=_s, alpha=0.3, label='Neutral', zorder=10)
 
     ax1.fill_between(df_daily.index, rsi_, df_daily['RSI_SMA'],
                     where=(rsi_ > df_daily['RSI_SMA']),
@@ -897,15 +899,17 @@ if st.button("Run ML Strategy Backtest"):
     nr = 1
 
     if len(results) > 50:
-        nr = 2
+        nr = 1
     elif len(results) > 100:
-        nr = 3
+        nr = 2
     elif len(results) > 150:
+        nr = 3
+    else:
         nr = 4
         
     for i in range(0, len(results), nr):
         outcome = results['Outcome'].iloc[i]
-        color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'black'
+        color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'gray'
         # Plot entry (all blue, no label)
         ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=5, zorder=5, alpha=0.5)
         # Plot exit by outcome
@@ -916,14 +920,14 @@ if st.button("Run ML Strategy Backtest"):
             label = 'SL'
         elif outcome not in ['TP', 'SL'] and 'Other' not in ax.get_legend_handles_labels()[1]:
             label = 'Other'
-        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color=color, label=label, s=7, zorder=5, alpha=0.7)
+        ax.scatter(results['ExitDate'].iloc[i], results['ExitPrice'].iloc[i], color=color, label=label, s=5, alpha = 0.5, zorder=5)
         # Annotate only the first blue entry if desired
         if not entry_annotated:
             ax.annotate('Entry', (results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i]), xytext=(0, -12), textcoords='offset points', fontsize=8, color='blue')
             entry_annotated = True
     
     rd = pd.to_datetime(results['EntryDate'])
-    cx.scatter(rd, results['ML_Confidence'], color='blue', alpha=0.8, s=7, label='ML Confidence (Entries)')
+    cx.scatter(rd, results['ML_Confidence'], color='blue', alpha=0.5, s=7, label='ML Confidence (Entries)')
     cx.plot(conf['Date'], conf['ML_Confidence'], color='gray', alpha=0.5, linewidth=1.0, label='ML Confidence')
     cx.fill_between(df_daily.index, 0, ml_confidence_threshold, color='red', alpha=0.15)
     
