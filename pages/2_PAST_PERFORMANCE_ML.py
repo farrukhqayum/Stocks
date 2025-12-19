@@ -115,12 +115,13 @@ with st.expander("What happens to the model after a trade is opened?"):
     - Clean, realistic performance tracking
     """)
 
-with st.expander("Try ETH-USD or XRP-USD"):
-    st.markdown("""
-- 7% TP target
-- Put SL far away like 99%, try your luck for free!
-- Put ML Confidence to 60-70%
-    """)
+with st.expander("🤖 Example Backtest Results"):
+    st.markdown("Testing various risk profiles given below.")
+    
+    st.image("pages/ML_backtest_COIN.png",
+             caption="COIN ML Backtest Results",
+             width=850,
+             use_column_width=False)
 
 # -------------------------
 # Strategy Parameters
@@ -172,7 +173,7 @@ with col1:
 
 # --- History period ---
 with col2:
-    period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=2)
+    period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=1)
 
 with col3:
     risk_setup = st.selectbox(
