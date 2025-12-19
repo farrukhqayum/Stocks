@@ -648,7 +648,7 @@ if st.button("Run ML Strategy Backtest"):
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
     RETRAIN_EVERY = 5
-    ml_hit = 0
+    ml_tp_success_counter = 0
 
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
@@ -694,9 +694,10 @@ if st.button("Run ML Strategy Backtest"):
             
             if tp_given > predicted_return:
                 TP_price = entry_price * (1 + predicted_return)
-                ml_hit += 1
+                used_ml_tp = True
             else:
                 TP_price = entry_price * (1 + tp_given)
+                used_ml_tp = False
             
             if np.abs(sl_given) > np.abs(predicted_loss):
                 SL_price = entry_price * (1 + sl_given)
@@ -709,7 +710,8 @@ if st.button("Run ML Strategy Backtest"):
                 'tp_price': TP_price,
                 'sl_price': SL_price,
                 'ml_confidence': current_ml_confidence,
-                'ml_signal': current_ml_signal
+                'ml_signal': current_ml_signal,
+                'used_ml_tp': used_ml_tp
             }
             in_trade = True
 
@@ -749,12 +751,15 @@ if st.button("Run ML Strategy Backtest"):
             
             if exit_reason:
                 return_pct = (exit_price / entry_price - 1) * 100.0
+                if (exit_reason in ['TP', 'Gap_TP'] and 
+                    current_trade.get('used_ml_tp', False) and 
+                    current_trade['ml_signal'] == 'TP'):
+                    ml_tp_success_counter += 1
                 trades.append({
                     'EntryDate': entry_date,
                     'ExitDate': current_date,
                     'EntryPrice': entry_price,
                     'ExitPrice': exit_price,
-                    'MLHits' : ml_hit,
                     'Outcome': exit_reason,
                     'Return_%': return_pct,
                     'HoldingDays': days_in_trade,
@@ -819,7 +824,7 @@ if st.button("Run ML Strategy Backtest"):
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
     col3.metric("Avg. Return", f"{avg_return:.1f}%")
-    col4.metric("ML Hits", int(results["MLHits"].sum()))
+    col4.metric("ML TP Hits", ml_tp_success_counter)
     col5.metric("Avg. Holding Days", f"{avg_holding_days:.0f}")
     col6.metric("Avg. No-Trade Days", f"{avg_no_trade_days:.0f}")
     col7.metric("Net Return", f"{net_return_pct:.1f}%")
