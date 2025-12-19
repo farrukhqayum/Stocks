@@ -183,13 +183,14 @@ def update_risk_presets():
         st.session_state.TP_pct, st.session_state.SL_pct, st.session_state.max_holding_days = 7.0, 14.0, 21
 
 with col3:
-    st.selectbox(
+    risk_setup = st.selectbox(
         "Risk Setup", 
         ["a) Extreme Risk (Beta <1.5)", "b) Moderate Risk (Beta >2)", "c) Low Risk (Less Rewards)"], 
         index=2,
         key="risk_setup",
         on_change=update_risk_presets
     )
+
 
 with col4:
     ml_confidence_threshold = st.number_input(
