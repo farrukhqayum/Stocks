@@ -648,6 +648,7 @@ if st.button("Run ML Strategy Backtest"):
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
     RETRAIN_EVERY = 5
+    ml_hit = 0
 
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
@@ -676,7 +677,7 @@ if st.button("Run ML Strategy Backtest"):
         current_ml_confidence = ml_prediction['confidence_score']
         confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
             
-        # ENTRY LOGIC 
+        # ENTRY LOGIC
         if (not in_trade and
             current_ml_signal in ['TP', 'Hold', 'None'] and  
             current_ml_confidence >= ml_confidence_threshold):
@@ -685,7 +686,7 @@ if st.button("Run ML Strategy Backtest"):
 
             tp_given = TP_pct / 100.0
             sl_given = -SL_pct / 100.0
-            
+                     
             predicted_return = ml_prediction['predicted_return']
             predicted_loss = ml_prediction['predicted_loss']
             
@@ -693,6 +694,7 @@ if st.button("Run ML Strategy Backtest"):
             
             if tp_given > predicted_return:
                 TP_price = entry_price * (1 + predicted_return)
+                ml_hit += 1
             else:
                 TP_price = entry_price * (1 + tp_given)
             
@@ -713,6 +715,9 @@ if st.button("Run ML Strategy Backtest"):
 
         # EXIT LOGIC
         elif in_trade:
+            exit_reason = None
+            exit_price = None
+  
             last_date = daily_dates[-1]
             entry_date = current_trade['entry_date']
             exit_days = (last_date - current_trade['entry_date']).days
@@ -725,9 +730,6 @@ if st.button("Run ML Strategy Backtest"):
             current_high = float(df_daily.loc[current_date, 'High'])
             current_low = float(df_daily.loc[current_date, 'Low'])
             current_close = float(df_daily.loc[current_date, 'Close'])
-            
-            exit_reason = None
-            exit_price = None
             
             if current_low <= SL_price:
                 exit_reason = 'SL'
@@ -752,6 +754,7 @@ if st.button("Run ML Strategy Backtest"):
                     'ExitDate': current_date,
                     'EntryPrice': entry_price,
                     'ExitPrice': exit_price,
+                    'MLHits' : ml_hit,
                     'Outcome': exit_reason,
                     'Return_%': return_pct,
                     'HoldingDays': days_in_trade,
@@ -770,6 +773,7 @@ if st.button("Run ML Strategy Backtest"):
             'ExitDate': last_date,
             'EntryPrice': current_trade['entry_price'],
             'ExitPrice': exit_price,
+            'MLHits' : ml_hit,
             'Outcome': 'Open',
             'Return_%': return_pct,
             'HoldingDays': (last_date - current_trade['entry_date']).days,
@@ -812,13 +816,14 @@ if st.button("Run ML Strategy Backtest"):
         
     # Display results
     st.subheader(f"📊 ML Strategy Summary ({ticker})")
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(6)
     col1.metric("Total Trades", total_trades)
     col2.metric("Win Rate", f"{win_rate:.1f}%")
     col3.metric("Avg. Return", f"{avg_return:.1f}%")
-    col4.metric("Avg. Holding Days", f"{avg_holding_days:.0f}")
-    col5.metric("Avg. No-Trade Days", f"{avg_no_trade_days:.0f}")
-    col6.metric("Net Return", f"{net_return_pct:.1f}%")
+    col4.metric("ML Hits", f"{int(ml_hit)}")
+    col5.metric("Avg. Holding Days", f"{avg_holding_days:.0f}")
+    col6.metric("Avg. No-Trade Days", f"{avg_no_trade_days:.0f}")
+    col7.metric("Net Return", f"{net_return_pct:.1f}%")
 
     # Trade outcomes breakdown
     st.subheader("Trade Outcomes")
