@@ -184,7 +184,8 @@ with col3:
          "c) Low Risk (Less Rewards)",
          "d) Gambler Style (Symmetric)"],
         index=2,
-        key="risk_setup"
+        key="risk_setup",
+        help="Learn the parameterizations vs. gains before diving in a real trade. Hindsight/Parameters don't reward but the patience does!"    
     )
 
 # --- ML confidence ---
