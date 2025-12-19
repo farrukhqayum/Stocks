@@ -245,7 +245,8 @@ TP_pct = col_tp.number_input(
     min_value=0.0,
     max_value=100.0,
     step=0.5,
-    key="tp_input"
+    key="tp_input",
+    help="3.75-7% compound better, too far TP (e.g. 30%) will force ML's TP."     
 )
 
 SL_pct = col_sl.number_input(
@@ -253,7 +254,8 @@ SL_pct = col_sl.number_input(
     min_value=0.0,
     max_value=100.0,
     step=0.5,
-    key="sl_input"
+    key="sl_input",
+    help="Solid stocks, move SL far away & decide on holding days e.g. 90-180days."    
 )
 
 max_holding_days = col_hold.number_input(
@@ -261,7 +263,8 @@ max_holding_days = col_hold.number_input(
     min_value=3,
     max_value=365,
     step=1,
-    key="hold_input"
+    key="hold_input",
+    help="Forced exit (15-21 days for stocks like TSLA/COIN)"    
 )
 
 # -------------------------
