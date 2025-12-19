@@ -195,11 +195,11 @@ def format_fcf(value):
 st.set_page_config(page_title="Company Evaluator", page_icon="🔎", layout="wide")
 st.title("🔎 Company Strength & Hold Score")
 
-raw = st.text_input("Enter up to 10 stock tickers, separated by commas (ex: AAPL, MSFT, TSLA)")
+raw = st.text_input("Enter up to 15 stock tickers, separated by commas (ex: AAPL, MSFT, TSLA)")
 tickers = [t.strip().upper() for t in raw.split(",") if t.strip()]
-if len(tickers) > 10:
-    st.warning("Only the first 10 tickers will be analyzed.")
-    tickers = tickers[:10]
+if len(tickers) > 15:
+    st.warning("Only the first 15 tickers will be analyzed.")
+    tickers = tickers[:15]
 
 tailwind = st.selectbox("Industry tailwind (applies to all stocks)?", ["Yes", "No", "Uncertain"])
 leader = st.selectbox("Company leadership status (applies to all stocks)?", ["Yes", "No", "Uncertain"])
