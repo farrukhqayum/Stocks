@@ -686,7 +686,7 @@ if st.button("Run ML Strategy Backtest"):
 
             tp_given = TP_pct / 100.0
             sl_given = -SL_pct / 100.0
-                     
+
             predicted_return = ml_prediction['predicted_return']
             predicted_loss = ml_prediction['predicted_loss']
             
