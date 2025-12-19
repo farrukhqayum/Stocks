@@ -117,12 +117,11 @@ with st.expander("What happens to the model after a trade is opened?"):
 
 with st.expander("🤖 Example Backtest Results"):
     st.markdown("Testing various risk profiles.")
-    
-    col1, col2 = st.columns([3, 1])  # 75% width column
+    col1, col2 = st.columns([3, 1])
     
     with col1:
         st.image("pages/ML_backtest_COIN.png", 
-                width=800, 
+                width=600, 
                 use_column_width=True)
 
 # -------------------------
