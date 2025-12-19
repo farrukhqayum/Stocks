@@ -186,20 +186,21 @@ if 'TP_pct' not in st.session_state: st.session_state.TP_pct = 7.0
 if 'SL_pct' not in st.session_state: st.session_state.SL_pct = 14.0
 if 'max_holding_days' not in st.session_state: st.session_state.max_holding_days = 21
 
-if risk_setup == "a) Extreme Risk (Beta <1.5)":
+if risk_setup == "a) Extreme Risk (Beta <1.5)": 
+    st.rerun()
     st.session_state.TP_pct = 15.0
     st.session_state.SL_pct = 90.0
     st.session_state.max_holding_days = 180
 elif risk_setup == "b) Moderate Risk (Beta >2)":
+    st.rerun()
     st.session_state.TP_pct = 15.0
     st.session_state.SL_pct = 30.0
     st.session_state.max_holding_days = 90
 elif risk_setup == "c) Low Risk (Less Rewards)":
+    st.rerun()
     st.session_state.TP_pct = 7.0
     st.session_state.SL_pct = 14.0
     st.session_state.max_holding_days = 21
-
-st.rerun()
 
 col_tp, col_sl, col_hold = st.columns(3)
 st.session_state.TP_pct = col_tp.number_input("TP %", value=st.session_state.TP_pct, min_value=0.0, max_value=100.0, step=0.5, key="tp_input")
