@@ -116,7 +116,7 @@ with st.expander("What happens to the model after a trade is opened?"):
     """)
 
 with st.expander("🤖 Example Backtest Results"):
-    st.markdown("Testing various risk profiles.")
+    st.markdown("COIN backtest JAN 2023 from to DEC 2025")
     col1, col2 = st.columns([3, 1])
     
     with col1:
