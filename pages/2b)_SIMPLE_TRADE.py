@@ -219,8 +219,8 @@ entry_signals = (
     (df_bt['ADX'] > 25) &
     (df_bt['RSI'] > df_bt['RSI_EMA']) &
     (df_bt['RSI'] > 30) &
-    (curr_close > df_bt['SMA_FAST']) &
-    (curr_close > df_bt['SMA_SLOW'])
+    (df_bt.Close > df_bt['SMA_FAST']) &
+    (df_bt.Close > df_bt['SMA_SLOW'])
 )
 
 if len(entry_signals) > 0:
