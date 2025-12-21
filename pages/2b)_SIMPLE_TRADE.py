@@ -128,7 +128,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                 exit_price = stop_price
                 exit_reason = 'Stop_Loss'
                 exit_triggered = True
-            elif curr_close < row['SMA_FAST'] or curr_close < row.SMA_SLOW:
+            elif curr_close < row['SMA_FAST']:
                 exit_price = curr_close
                 exit_reason = 'SMA_Exit'
                 exit_triggered = True
