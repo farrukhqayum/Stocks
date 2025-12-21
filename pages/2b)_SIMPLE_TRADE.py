@@ -240,15 +240,6 @@ if len(completed) > 0:
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-ax1 = axes[0]
-ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
-ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}', alpha=0.7)
-ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label=f'EMA{ema_slow}', alpha=0.7)
-
-bull_signals = df_bt[df_bt['BULL_HIGH_CONF']]
-ax1.scatter(bull_signals.index, bull_signals['Close'], color='lightgreen', marker='^', s=50, alpha=0.3,
-            label=f'Signals ({len(bull_signals)})', zorder=3)
-
 # 1. Price Chart
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
