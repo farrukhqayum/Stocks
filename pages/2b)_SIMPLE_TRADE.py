@@ -181,10 +181,6 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                     exit_price = curr_low  
                     exit_reason = 'Stop_Loss'
                     exit_triggered = True
-                elif curr_close < row['SMA_FAST']:
-                    exit_price = curr_close
-                    exit_reason = 'SMA_Exit'
-                    exit_triggered = True
                 elif (curr_close / entry_price - 1) >= take_profit_pct:
                     exit_price = curr_close
                     exit_reason = 'Take_Profit'
