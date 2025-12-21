@@ -2,8 +2,10 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import time
 from datetime import datetime
+from matplotlib.dates import DateFormatter
 
 # Your exact parameters and functions from backtest
 TICKER = "COIN"
@@ -127,23 +129,25 @@ if BULL:
     - **RSI Weakness**: RSI < 35 + price < EMA8
     """)
 
-# Chart
+# Matplotlib Chart
 st.subheader("📈 Price Chart with Signals")
+fig, ax = plt.subplots(figsize=(14, 8), facecolor='white')
+ax.plot(df.index, df['Close'], color='#2C3E50', linewidth=2, label='Close', alpha=0.8)
+ax.plot(df.index, df['EMA_FAST'], color='#3498DB', linewidth=2, label=f'EMA {EMA_FAST}', alpha=0.8)
+ax.plot(df.index, df['EMA_SLOW'], color='#E74C3C', linewidth=2, label=f'EMA {EMA_SLOW}', alpha=0.8)
+
 if BULL:
-    df['BULL'] = (df['EMA_FAST'] > df['EMA_SLOW']) & (
-        (df['Close'] > df['EMA_FAST']) & (df['Close'].shift(1) <= df['EMA_FAST'].shift(1)) |
-        (df['Close'] < df['EMA_FAST']) & (df['Close'] > df['EMA_FAST'] * 0.97) & (df['RSI'] < 55) & (df['RSI'] > 40) |
-        (df['Close'] > df['EMA_FAST']) & (df['RSI'] > 50)
-    ) & (df['ADX'] > MIN_ADX)
-    
-import plotly.graph_objects as go
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name='Close', line=dict(color='gray')))
-fig.add_trace(go.Scatter(x=df.index, y=df['EMA_FAST'], name=f'EMA{EMA_FAST}', line=dict(color='blue')))
-fig.add_trace(go.Scatter(x=df.index, y=df['EMA_SLOW'], name=f'EMA{EMA_SLOW}', line=dict(color='red')))
-if BULL:
-    fig.add_trace(go.Scatter(x=[df.index[-1]], y=[latest['Close']], mode='markers', 
-                            marker=dict(color='green', size=20, symbol='triangle-up'), name='BUY'))
-st.plotly_chart(fig, use_container_width=True)
+    ax.scatter(df.index[-1], latest['Close'], color='green', s=200, 
+              marker='^', edgecolors='white', linewidth=2, zorder=5, label='BUY SIGNAL')
+
+ax.set_title(f'{ticker} - Early Entry Multi-Strategy', fontsize=16, fontweight='bold', pad=20)
+ax.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
+ax.legend(loc='upper left')
+ax.grid(True, alpha=0.3)
+ax.set_facecolor('#F8F9FA')
+plt.xticks(rotation=45)
+plt.tight_layout()
+
+st.pyplot(fig)
 
 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Auto-refreshes every 5min")
