@@ -74,7 +74,8 @@ def ATR(df, period=14):
 def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct):
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
-    df_bt['RSI'] = RSI(df_bt['Close'], rsi_len)
+    df_bt['RSI_raw'] = RSI(df_bt['Close'], rsi_len)
+    df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=4, adjust=False).mean()
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
     df_bt['ATR'] = ATR(df_bt, 14)
@@ -182,22 +183,22 @@ ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='#3498DB', linewidth=1.5, label=f
 
 entry_signals = df_bt[(df_bt['RSI'] > df_bt['RSI_EMA']) & (df_bt['Close'] > df_bt['SMA_FAST'])]
 if len(entry_signals) > 0:
-    ax1.scatter(entry_signals.index, entry_signals['Close'], color='limegreen', marker='^', s=50, 
+    ax1.scatter(entry_signals.index, entry_signals['Close'], color='limegreen', marker='^', s=15, 
                label=f'Signals ({len(entry_signals)})', zorder=5)
 
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-               color='green', marker='o', s=150, label=f'Entries ({len(trades)})', zorder=6, edgecolors='white', linewidths=2)
+               color='green', marker='o', s=15, label=f'Entries ({len(trades)})', zorder=6, edgecolors='white', linewidths=2)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
         winners = exits[exits['pnl'] > 0]
         losers = exits[exits['pnl'] <= 0]
         if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'], color='#27AE60', marker='v', s=150, zorder=6, edgecolors='white', linewidths=2)
+            ax1.scatter(winners['exit_date'], winners['exit_price'], color='#27AE60', marker='v', s=15, zorder=6, edgecolors='white', linewidths=2)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', s=150, zorder=6, edgecolors='white', linewidths=2)
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', s=15, zorder=6, edgecolors='white', linewidths=2)
 
 ax1.set_title(f'{ticker} - Simple RSI+SMA | Return: {total_return:+.1f}% | {len(trades)} Trades', 
               fontsize=16, fontweight='bold', pad=15)
