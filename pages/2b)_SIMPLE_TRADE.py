@@ -202,59 +202,44 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     final_capital = cash
     return equity_series, final_capital, trades, df_bt
 
-# ===== LOAD DATA FIRST =====
 df_raw = get_data(ticker, period)
 if df_raw is None or df_raw.empty:
     st.error("❌ Failed to load data")
     st.stop()
 
-# ===== LIVE STATUS AHEAD OF BACKTEST =====
-st.subheader("🔍 LIVE STATUS (Ahead of Backtest)")
-st.info("📡 Checking current market conditions before running backtest...")
+# ===== LIVE STATUS AHEAD OF BACKTEST (YOUR EXACT CODE MOVED UP) =====
+st.subheader("🔍 LIVE STATUS")
+col1, col2, col3, col4 = st.columns(4)
 
-# Compute LIVE indicators (minimal computation)
+# Compute live indicators using your exact functions
 df_live = df_raw.copy()
 df_live['SMA_FAST'] = df_live['Close'].rolling(sma_fast_len, min_periods=1).mean()
 df_live['RSI_raw'] = RSI(df_live['Close'], rsi_len)
 df_live['RSI'] = df_live['RSI_raw'].ewm(span=5, adjust=False).mean()
 df_live['RSI_EMA'] = df_live['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
-df_live['ADX'], _, _ = ADX(df_live, 14)
+df_live['ADX'], _, _ = ADX(df_live)
 
 latest = df_live.iloc[-1]
-latest_date = latest.name.strftime('%Y-%m-%d %H:%M')
+live_entry = (latest['RSI'] > latest['RSI_EMA']) and (latest['Close'] > latest['SMA_FAST'])
 
-# Live signal conditions
-rsi_bullish = latest['RSI'] > latest['RSI_EMA']
-price_above_sma = latest['Close'] > latest['SMA_FAST']
-live_entry = rsi_bullish and price_above_sma
-price_vs_sma_pct = ((latest['Close'] / latest['SMA_FAST']) - 1) * 100
-
-col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("RSI", f"{latest['RSI']:.1f}", f"{latest['RSI_EMA']:.1f}", 
-           delta=f"{'🟢 Bull' if rsi_bullish else '🔴 Bear'}")
-col2.metric("Price vs SMA", f"{latest['Close']:.2f}", f"{latest['SMA_FAST']:.2f}", 
-           delta=f"{price_vs_sma_pct:+.1f}%")
+col1.metric("RSI > RSI_EMA", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌", f"{latest['RSI']:.1f}")
+col2.metric("Close > SMA", "✅" if latest['Close'] > latest['SMA_FAST'] else "❌", f"{latest['SMA_FAST']:.1f}")
 col3.metric("ADX", f"{latest['ADX']:.1f}", "✅" if latest['ADX'] > 25 else "❌")
-col4.metric("Entry Signal", "🟢 GO" if live_entry else "🔴 WAIT")
-col5.metric("Last Update", latest_date)
+col4.metric("Signal", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 
 if live_entry:
-    st.success("🎯 **LIVE ENTRY SIGNAL ACTIVE!** Current conditions meet strategy criteria.")
+    st.success("🎯 LIVE ENTRY SIGNAL!")
     st.balloons()
-else:
-    st.warning("⏳ **No entry signal.** Waiting for RSI > RSI_EMA + Price > SMA...")
 
 st.divider()
 
-# ===== NOW RUN BACKTEST =====
-with st.spinner("Running backtest..."):
-    equity_series, final_capital, trades, df_bt = run_simple_backtest(
-        df_raw, capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, 
-        take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct
-    )
+# ===== YOUR ORIGINAL BACKTEST (UNCHANGED) =====
+equity_series, final_capital, trades, df_bt = run_simple_backtest(
+    df_raw, capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, 
+    take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct
+)
 
-# Backtest Results
-latest_bt = df_bt.iloc[-1]
+latest = df_bt.iloc[-1]
 total_return = ((final_capital / capital) - 1) * 100
 
 st.subheader("📊 SIMPLE STRATEGY RESULTS")
@@ -280,11 +265,11 @@ if len(completed) > 0:
     risky_trades = len(completed[completed['type'] == 'Risky'])
     r23.metric("Risky Trades", f"{risky_trades} / {normal_trades + risky_trades}")
 
-# Charts
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
 ax1 = axes[0]
+
 above_sma = df_bt['Close'] > df_bt['SMA_FAST']
 ax1.fill_between(df_bt.index, df_bt['Low'], df_bt['High'], 
                  where=above_sma, color='green', alpha=0.2, interpolate=True)
@@ -366,4 +351,4 @@ with st.expander("📋 Trade History"):
     if len(trades) > 0:
         st.dataframe(pd.DataFrame(trades), use_container_width=True)
 
-st.caption(f"Simple Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')} | Live status computed on latest {len(df_raw)} candles")
+st.caption(f"Simple Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
