@@ -44,11 +44,40 @@ def RSI(series, period=14):
     rs = gain / loss.replace(0, np.nan)
     return 100 - (100 / (1 + rs)).fillna(50)
 
+def ADX(df, period=14):
+    high = df["High"].squeeze()
+    low = df["Low"].squeeze()
+    close = df["Close"].squeeze()
+    tr1, tr2, tr3 = high-low, abs(high-close.shift()), abs(low-close.shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    up_move = high.diff()
+    down_move = -low.diff()
+    plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
+    minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
+    plus_dm = pd.Series(plus_dm, index=high.index)
+    minus_dm = pd.Series(minus_dm, index=high.index)
+    atr = tr.rolling(window=period, min_periods=1).mean()
+    plus_di = 100 * (plus_dm.rolling(period, min_periods=1).mean() / atr)
+    minus_di = 100 * (minus_dm.rolling(period, min_periods=1).mean() / atr)
+    dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+    adx = dx.rolling(period, min_periods=1).mean()
+    return adx.fillna(0), plus_di.fillna(0), minus_di.fillna(0)
+
+def ATR(df, period=14):
+    high = df["High"].squeeze()
+    low = df["Low"].squeeze()
+    close = df["Close"].squeeze()
+    tr1, tr2, tr3 = high-low, abs(high-close.shift()), abs(low-close.shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return tr.rolling(period, min_periods=1).mean()
+
 def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct):
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
     df_bt['RSI'] = RSI(df_bt['Close'], rsi_len)
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
+    df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
+    df_bt['ATR'] = ATR(df_bt, 14)
     df_bt = df_bt.dropna()
     
     cash = float(initial_capital)
@@ -144,56 +173,80 @@ if len(completed) > 0:
     win_rate = (completed['pnl'] > 0).mean() * 100
     st.metric("Win Rate", f"{win_rate:.1f}%")
 
-fig, axes = plt.subplots(3, 1, figsize=(16, 10), height_ratios=[3, 1, 1.5])
+fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
-ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='#3498DB', linewidth=2, label=f'SMA{sma_fast_len}')
+ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='#3498DB', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.7)
 
 entry_signals = df_bt[(df_bt['RSI'] > df_bt['RSI_EMA']) & (df_bt['Close'] > df_bt['SMA_FAST'])]
-ax1.scatter(entry_signals.index, entry_signals['Close'], color='limegreen', marker='^', s=50, 
-           label=f'Entries ({len(entry_signals)})', zorder=5)
+if len(entry_signals) > 0:
+    ax1.scatter(entry_signals.index, entry_signals['Close'], color='limegreen', marker='^', s=50, 
+               label=f'Signals ({len(entry_signals)})', zorder=5)
 
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-               color='green', marker='o', s=100, label=f'Trades ({len(trades)})', zorder=6)
+               color='green', marker='o', s=150, label=f'Entries ({len(trades)})', zorder=6, edgecolors='white', linewidths=2)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
         winners = exits[exits['pnl'] > 0]
         losers = exits[exits['pnl'] <= 0]
         if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'], color='green', marker='v', s=100, zorder=6)
+            ax1.scatter(winners['exit_date'], winners['exit_price'], color='#27AE60', marker='v', s=150, zorder=6, edgecolors='white', linewidths=2)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', s=100, zorder=6)
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', s=150, zorder=6, edgecolors='white', linewidths=2)
 
 ax1.set_title(f'{ticker} - Simple RSI+SMA | Return: {total_return:+.1f}% | {len(trades)} Trades', 
-              fontsize=16, fontweight='bold')
-ax1.legend(); ax1.grid(True, alpha=0.2)
+              fontsize=16, fontweight='bold', pad=15)
+ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
+ax1.legend(loc='upper left', fontsize=8, ncol=2)
+ax1.grid(True, alpha=0.2, linestyle='--')
+ax1.set_facecolor('#F8F9FA')
 
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RSI_EMA({rsi_ema_len})')
-ax2.axhline(50, color='gray', ls='--', alpha=0.5)
-ax2.set_ylabel('RSI'); ax2.legend(); ax2.grid(True, alpha=0.2)
+ax2.axhline(y=70, color='#E74C3C', linestyle='--', alpha=0.5, linewidth=1)
+ax2.axhline(y=50, color='gray', linestyle='--', alpha=0.3, linewidth=1)
+ax2.axhline(y=30, color='#27AE60', linestyle='--', alpha=0.5, linewidth=1)
+ax2.set_ylabel('RSI', fontsize=11, fontweight='bold')
+ax2.legend(loc='upper left', fontsize=9)
+ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100)
+ax2.set_facecolor('#F8F9FA')
 
 ax3 = axes[2]
-ax3.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio')
-ax3.axhline(capital, color='gray', ls='--', alpha=0.5)
-ax3.set_ylabel('Equity ($)'); ax3.legend(); ax3.grid(True, alpha=0.2)
+ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
+ax3.axhline(y=25, color='#E74C3C', linestyle='--', alpha=0.5, linewidth=1, label='Min=25')
+ax3.set_ylabel('ADX', fontsize=11, fontweight='bold')
+ax3.legend(loc='upper left', fontsize=9)
+ax3.grid(True, alpha=0.2)
+ax3.set_facecolor('#F8F9FA')
+
+ax4 = axes[3]
+ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio Value')
+ax4.fill_between(equity_series.index, capital, equity_series, 
+                 alpha=0.3, color='#27AE60' if final_capital > capital else '#E74C3C')
+ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, linewidth=1, label=f'Start ${capital:,.0f}')
+ax4.set_ylabel('Equity ($)', fontsize=11, fontweight='bold')
+ax4.set_xlabel('Date', fontsize=12, fontweight='bold')
+ax4.legend(loc='upper left', fontsize=9)
+ax4.grid(True, alpha=0.2)
+ax4.set_facecolor('#F8F9FA')
 
 plt.tight_layout()
 st.pyplot(fig)
 
 st.subheader("🔍 LIVE STATUS")
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 live_entry = (latest['RSI'] > latest['RSI_EMA']) and (latest['Close'] > latest['SMA_FAST'])
 col1.metric("RSI > RSI_EMA", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌", f"{latest['RSI']:.1f}")
 col2.metric("Close > SMA", "✅" if latest['Close'] > latest['SMA_FAST'] else "❌", f"{latest['SMA_FAST']:.1f}")
-col3.metric("Signal", "🟢 ENTRY" if live_entry else "🔴 WAIT")
+col3.metric("ADX", f"{latest['ADX']:.1f}", "✅" if latest['ADX'] > 25 else "❌")
+col4.metric("Signal", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 
 if live_entry:
     st.success("🎯 LIVE ENTRY SIGNAL!")
@@ -202,3 +255,5 @@ if live_entry:
 with st.expander("📋 Trade History"):
     if len(trades) > 0:
         st.dataframe(pd.DataFrame(trades), use_container_width=True)
+
+st.caption(f"Simple Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
