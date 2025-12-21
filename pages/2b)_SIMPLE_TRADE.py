@@ -180,6 +180,11 @@ completed = trades_df[trades_df['exit_date'].notna()]
 if len(completed) > 0:
     win_rate = (completed['pnl'] > 0).mean() * 100
     st.metric("Win Rate", f"{win_rate:.1f}%")
+    
+    gross_profit = completed[completed['pnl'] > 0]['pnl'].sum()
+    gross_loss = abs(completed[completed['pnl'] <= 0]['pnl'].sum())
+    profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
+    st.metric("Profit Factor", f"{profit_factor:.2f}")
 
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
