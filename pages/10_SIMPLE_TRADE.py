@@ -5,12 +5,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+# Your exact parameters
 TICKER = "COIN"
 EMA_FAST = 8
 EMA_SLOW = 21
 RSI_LEN = 14
 MIN_ADX = 12
 INITIAL_STOP_LOSS = 0.06
+TRAIL_MULT = 2.5
+PARTIAL_TP = 0.35
+PARTIAL_SIZE = 0.50
 INITIAL_CAPITAL = 20000
 
 @st.cache_data(ttl=300)
@@ -52,14 +56,87 @@ def ADX(df, period=14):
     adx = dx.rolling(period).mean()
     return adx, plus_di, minus_di
 
+def run_real_backtest(df):
+    capital = INITIAL_CAPITAL
+    equity_curve = []
+    trade_records = []
+    
+    in_trade = False
+    entry_price = 0
+    original_entry = 0
+    initial_stop = 0
+    trail_stop = 0
+    position_size = 1.0
+    took_partial = False
+    highest_price = 0
+    
+    for i in range(len(df)):
+        row = df.iloc[i]
+        current_close = row['Close']
+        
+        current_equity = capital
+        
+        if not in_trade:
+            if row['BULL']:
+                entry_price = current_close
+                original_entry = current_close
+                highest_price = current_close
+                in_trade = True
+                took_partial = False
+                position_size = 1.0
+                
+                initial_stop = entry_price * (1 - INITIAL_STOP_LOSS)
+                trail_stop = initial_stop
+                
+        else:
+            if current_close > highest_price:
+                highest_price = current_close
+            
+            if not took_partial and current_close >= original_entry * (1 + PARTIAL_TP):
+                partial_profit = PARTIAL_SIZE * (current_close - original_entry) / original_entry
+                capital *= (1 + partial_profit)
+                position_size *= (1 - PARTIAL_SIZE)
+                took_partial = True
+            
+            new_trail = highest_price - TRAIL_MULT * row["ATR"]
+            trail_stop = max(trail_stop, new_trail)
+            
+            exit_triggered = False
+            if current_close <= trail_stop:
+                exit_triggered = True
+                exit_price = current_close
+            elif row['EMA_FAST'] < row['EMA_SLOW'] and current_close < row['EMA_FAST']:
+                exit_triggered = True
+                exit_price = current_close
+            elif row['RSI'] < 35 and current_close < row['EMA_FAST']:
+                exit_triggered = True
+                exit_price = current_close
+            
+            if exit_triggered:
+                pnl = position_size * (exit_price - original_entry) / original_entry
+                capital *= (1 + pnl)
+                in_trade = False
+            
+            if in_trade:
+                unrealized = position_size * (current_close - original_entry) / original_entry
+                current_equity = capital * (1 + unrealized)
+        
+        equity_curve.append(current_equity)
+    
+    return pd.Series(equity_curve, index=df.index), capital
+
+# Streamlit App
 st.set_page_config(layout="wide", page_title="Early Entry Signals")
-st.title("🚀 Early Entry Trading Signals")
+st.title("🚀 Early Entry Trading Signals - FULL BACKTEST")
 
 col1, col2 = st.columns([1, 1])
 with col1:
     ticker = st.text_input("Ticker", value=TICKER)
     capital = st.number_input("Capital ($)", value=INITIAL_CAPITAL)
     period = st.selectbox("Data Period", ["2y", "1y", "6mo"], index=0)
+
+if st.button("🔄 Run Full Analysis", type="primary"):
+    st.rerun()
 
 df_raw = get_data(ticker, period)
 if df_raw is None:
@@ -130,9 +207,14 @@ signals = {
 
 BULL = any(signals.values())
 
+# RUN REAL BACKTEST
+equity_series, final_capital = run_real_backtest(df)
+
+# YOUR EXACT 4-PANEL PLOT
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
+# 1. PRICE
 ax1 = axes[0]
 ax1.plot(df.index, df['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
 ax1.plot(df.index, df['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA {EMA_FAST}')
@@ -149,12 +231,13 @@ if BULL:
     ax1.scatter(df.index[-1], latest['Close'], color='limegreen', s=200, 
                marker='^', edgecolors='white', linewidth=2, zorder=10, label='LIVE BUY')
 
-ax1.set_title(f'{ticker} - Early Entry Multi-Strategy', fontsize=16, fontweight='bold', pad=15)
+ax1.set_title(f'{ticker} - Early Entry Multi-Strategy (Real Backtest)', fontsize=16, fontweight='bold', pad=15)
 ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
 ax1.legend(loc='upper left', framealpha=0.9, fontsize=9, ncol=2)
 ax1.grid(True, alpha=0.2, linestyle='--')
 ax1.set_facecolor('#F8F9FA')
 
+# 2. RSI
 ax2 = axes[1]
 ax2.plot(df.index, df['RSI'], color='#9B59B6', linewidth=1.5, label='RSI')
 ax2.axhline(y=70, color='#E74C3C', linestyle='--', alpha=0.5)
@@ -166,6 +249,7 @@ ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100)
 ax2.set_facecolor('#F8F9FA')
 
+# 3. ADX
 ax3 = axes[2]
 ax3.plot(df.index, df['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
 ax3.axhline(y=MIN_ADX, color='#E74C3C', linestyle='--', alpha=0.5, label=f'Min={MIN_ADX}')
@@ -174,10 +258,10 @@ ax3.legend(loc='upper left', fontsize=9)
 ax3.grid(True, alpha=0.2)
 ax3.set_facecolor('#F8F9FA')
 
+# 4. REAL EQUITY CURVE
 ax4 = axes[3]
-equity = INITIAL_CAPITAL * (1 + df['Close'].pct_change().cumsum() * 0.1 + 1)
-ax4.plot(df.index, equity, color='#27AE60', linewidth=2.5, label='Portfolio')
-ax4.fill_between(df.index, INITIAL_CAPITAL, equity, alpha=0.3, color='#27AE60')
+ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio')
+ax4.fill_between(equity_series.index, INITIAL_CAPITAL, equity_series, alpha=0.3, color='#27AE60')
 ax4.axhline(y=INITIAL_CAPITAL, color='gray', linestyle='--', alpha=0.5)
 ax4.set_ylabel('Equity ($)', fontsize=11, fontweight='bold')
 ax4.set_xlabel('Date', fontsize=12, fontweight='bold')
@@ -185,8 +269,8 @@ ax4.legend(loc='upper left', fontsize=9)
 ax4.grid(True, alpha=0.2)
 ax4.set_facecolor('#F8F9FA')
 
-return_pct = (equity.iloc[-1]/INITIAL_CAPITAL-1)*100
-fig.text(0.5, 0.02, f'Return: {return_pct:+.1f}% | Trades: {len(df[df["BULL"]])}', 
+return_pct = (final_capital/INITIAL_CAPITAL-1)*100
+fig.text(0.5, 0.02, f'Final: ${final_capital:,.0f} | Return: {return_pct:+.1f}% | Trades: {len(df[df["BULL"]])}', 
          ha='center', fontsize=13, fontweight='bold', 
          color='#27AE60' if return_pct > 0 else '#E74C3C',
          bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
@@ -194,6 +278,7 @@ fig.text(0.5, 0.02, f'Return: {return_pct:+.1f}% | Trades: {len(df[df["BULL"]])}
 plt.tight_layout(rect=[0, 0.03, 1, 1])
 st.pyplot(fig)
 
+# Live Signals
 col_signal, col_metrics = st.columns(2)
 with col_signal:
     st.metric("Current Price", f"${latest['Close']:.2f}")
@@ -221,10 +306,10 @@ if BULL:
     
     st.info("""
     **EXIT RULES:**
-    - Partial Profit: Sell 50% at +35% 
-    - Trailing Stop: 2.5x ATR below highest
-    - Trend Break: EMA8 < EMA21 + price < EMA8
-    - RSI Weakness: RSI < 35 + price < EMA8
+    - Partial: Sell 50% at +35%
+    - Trail: 2.5x ATR below highest
+    - Trend: EMA8 < EMA21 + price < EMA8
+    - RSI: < 35 + price < EMA8
     """)
 
-st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Auto-refreshes every 5min")
+st.caption(f"✅ FULL BACKTEST + Live Signal | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
