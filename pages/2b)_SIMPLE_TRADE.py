@@ -30,6 +30,11 @@ risky_tp_pct = col7.number_input("Risky TP %", value=15.0, min_value=3.0, max_va
 risky_sl_pct = col8.number_input("Risky SL %", value=9.0, min_value=2.0, max_value=25.0)/100
 no_entry_pct = col9.number_input("No Entry Above SMA %", value=20.0, min_value=5.0, max_value=25.0)/100
 
+# NEW: Red days wait parameter
+col_red1, col_red2 = st.columns(2)
+red_days_wait = col_red1.number_input("Wait X Red Days After Profit", value=2, min_value=0, max_value=5, 
+                                     help="Wait for X successive red days after taking profit before new entry")
+
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
     try:
@@ -78,7 +83,7 @@ def ATR(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(period, min_periods=1).mean()
 
-def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct):
+def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct, red_days_wait):
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
     df_bt['RSI_raw'] = RSI(df_bt['Close'], rsi_len)
@@ -87,6 +92,9 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
     df_bt['ATR'] = ATR(df_bt, 14)
     df_bt = df_bt.dropna()
+    
+    # NEW: Track red days after profit
+    df_bt['Red_Day'] = df_bt['Close'] < df_bt['Open']
     
     cash = float(initial_capital)
     position_shares = 0.0
@@ -100,6 +108,8 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     risky_entry_price = 0.0
     risky_stop_price = 0.0
     is_risky_trade = False
+    red_days_count = 0  # NEW: Track consecutive red days after profit
+    just_exited_profit = False  # NEW: Flag for recent profitable exit
     
     for i in range(len(df_bt)):
         row = df_bt.iloc[i]
@@ -107,9 +117,18 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         curr_low = float(row['Low'])
         curr_open = float(row['Open'])
         price_vs_sma = curr_close / row['SMA_FAST']
+        is_red_day = row['Red_Day']
+        
+        # NEW: Reset red days count on green day
+        if not is_red_day:
+            red_days_count = 0
+            just_exited_profit = False
         
         if position_shares == 0:
-            if price_vs_sma >= (1 + no_entry_pct):
+            # NEW: Block entry if waiting for red days after recent profit
+            if just_exited_profit and red_days_count < red_days_wait:
+                pass  # Skip entry - waiting for more red days
+            elif price_vs_sma >= (1 + no_entry_pct):
                 pass
             elif can_enter and (row['RSI'] > row['RSI_EMA']) and (price_vs_sma < (1 + no_entry_pct)):
                 position_shares = (cash * 0.95) / curr_close
@@ -119,6 +138,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                 stop_price = entry_price * (1 - stop_loss_pct)
                 can_enter = False
                 is_risky_trade = False
+                red_days_count = 0  # Reset red days on new entry
                 
                 trades.append({
                     'entry_date': df_bt.index[i], 'entry_price': entry_price,
@@ -135,6 +155,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                 risky_stop_price = risky_entry_price * (1 - risky_sl_pct)
                 risky_pending = False
                 is_risky_trade = True
+                red_days_count = 0  # Reset red days on new entry
                 
                 trades.append({
                     'entry_date': df_bt.index[i], 'entry_price': risky_entry_price,
@@ -169,7 +190,6 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                     exit_reason = 'Take_Profit'
                     exit_triggered = True
 
-            
             if exit_triggered:
                 exit_value = position_shares * exit_price
                 pnl = exit_value - (position_shares * (risky_entry_price if is_risky_trade else entry_price))
@@ -181,9 +201,21 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                 trades[-1]['pnl'] = pnl
                 trades[-1]['pnl_pct'] = pnl_pct
                 
+                # NEW: If profitable exit, start red days countdown
+                if pnl > 0:
+                    just_exited_profit = True
+                    red_days_count = 0
+                else:
+                    just_exited_profit = False
+                    red_days_count = 0
+                
                 position_shares = 0.0
                 can_enter = True
                 is_risky_trade = False
+        
+        # NEW: Count red days when waiting after profit
+        if just_exited_profit and is_red_day:
+            red_days_count += 1
         
         pos_value = position_shares * curr_close
         equity_curve.append(cash + pos_value)
@@ -233,10 +265,10 @@ if live_entry:
 
 st.divider()
 
-# ===== YOUR ORIGINAL BACKTEST (UNCHANGED) =====
+# ===== YOUR ORIGINAL BACKTEST (NOW WITH RED DAYS FILTER) =====
 equity_series, final_capital, trades, df_bt = run_simple_backtest(
     df_raw, capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, 
-    take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct
+    take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct, red_days_wait
 )
 
 latest = df_bt.iloc[-1]
@@ -265,11 +297,11 @@ if len(completed) > 0:
     risky_trades = len(completed[completed['type'] == 'Risky'])
     r23.metric("Risky Trades", f"{risky_trades} / {normal_trades + risky_trades}")
 
+# Charts (unchanged)
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
 ax1 = axes[0]
-
 above_sma = df_bt['Close'] > df_bt['SMA_FAST']
 ax1.fill_between(df_bt.index, df_bt['Low'], df_bt['High'], 
                  where=above_sma, color='green', alpha=0.2, interpolate=True)
@@ -351,4 +383,4 @@ with st.expander("📋 Trade History"):
     if len(trades) > 0:
         st.dataframe(pd.DataFrame(trades), use_container_width=True)
 
-st.caption(f"Simple Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"Simple Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')} | Red Days Wait: {red_days_wait}")
