@@ -227,9 +227,9 @@ ax2.set_ylim(0, 100)
 ax2.set_facecolor('#F8F9FA')
 
 ax3 = axes[2]
-ax3.plot(df_bt.index, df_bt['DI+'], color='#27AE60', linewidth=1.5, label='DI+', alpha=0.8)
-ax3.plot(df_bt.index, df_bt['DI-'], color='#E74C3C', linewidth=1.5, label='DI-', alpha=0.8)
-ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=2, label='ADX', alpha=0.9)
+ax3.plot(df_bt.index, df_bt['DI+'], color='green', linewidth=1, label='DI+', alpha=0.5)
+ax3.plot(df_bt.index, df_bt['DI-'], color='red', linewidth=1, label='DI-', alpha=0.5)
+ax3.plot(df_bt.index, df_bt['ADX'], color='gray', linewidth=2, label='ADX', alpha=0.7)
 ax3.axhline(y=25, color='gray', linestyle='--', alpha=0.5, linewidth=1)
 ax3.set_ylabel('ADX/DI', fontsize=11, fontweight='bold')
 ax3.legend(loc='upper left', fontsize=9)
