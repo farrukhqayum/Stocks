@@ -216,11 +216,11 @@ ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_slow_len}', alpha=0.5)
 
 entry_signals = (
-    (row['ADX'] > 25) &
-    (row['RSI'] > row['RSI_EMA']) &
-    (row['RSI'] > 30) &
-    (curr_close > row['SMA_FAST']) &
-    (curr_close > row['SMA_SLOW'])
+    (df_bt['ADX'] > 25) &
+    (df_bt['RSI'] > df_bt['RSI_EMA']) &
+    (df_bt['RSI'] > 30) &
+    (curr_close > df_bt['SMA_FAST']) &
+    (curr_close > df_bt['SMA_SLOW'])
 )
 
 if len(entry_signals) > 0:
