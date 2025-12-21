@@ -98,16 +98,16 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
         rsi_block = (row['RSI'] < 30) and (row['RSI'] < row['RSI_EMA'])
+        df_bt['ADX_ROC'] = df_bt['ADX'].pct_change(periods=5)
       
         entry_condition = (
-            (row['ADX'] > 25) &
+            (row['ADX'] > 25 & (row['ADX_ROC'] > 0)) &
             (row['RSI'] > row['RSI_EMA']) &
             (row['RSI'] > 30) &
             (curr_close > row['SMA_FAST']) &
             (curr_close > row['SMA_SLOW']) &
             (not rsi_block)
         )
-
 
         if position_shares == 0:
             if can_enter and entry_condition:
@@ -215,12 +215,15 @@ ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close'
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_slow_len}', alpha=0.5)
 
+rsi_block = (df_bt['RSI'] < 30) and (df_bt['RSI'] < df_bt['RSI_EMA'])
+
 entry_signals = df_bt[
-    (df_bt['ADX'] > 25) &
+    (df_bt['ADX'] > 25 & df_bt['ADX'].pct_change(periods=5) > 0 ) &
     (df_bt['RSI'] > df_bt['RSI_EMA']) &
     (df_bt['RSI'] > 30) &
     (df_bt['Close'] > df_bt['SMA_FAST']) &
-    (df_bt['Close'] > df_bt['SMA_SLOW'])
+    (df_bt['Close'] > df_bt['SMA_SLOW']) &
+    (not rsi_block)
 ]
 
 if len(entry_signals) > 0:
