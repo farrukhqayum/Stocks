@@ -188,8 +188,9 @@ completed = trades_df[trades_df['exit_date'].notna()]
 r21, r22, r23 = st.columns(3)
 
 if len(completed) > 0:
-    avg_positive_gain = completed[completed['pnl_pct'] > 0]['pnl_pct'].mean()
-    r21.metric("Avg Win %", f"{avg_positive_gain:.2f}%")
+    avg_gain = completed[completed['pnl_pct'] > 0]['pnl_pct'].mean()
+    avg_loss = completed[completed['pnl_pct'] < 0]['pnl_pct'].mean()
+    r21.metric("Avg Win/Loss%", f"{avg_gain:.1f} / {avg_loss:.1f}")
 
     win_rate = (completed['pnl'] > 0).mean() * 100
     r22.metric("Win Rate", f"{win_rate:.1f}%")
