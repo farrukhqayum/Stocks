@@ -188,6 +188,8 @@ completed = trades_df[trades_df['exit_date'].notna()]
 r21, r22, r23 = st.columns(3)
 
 if len(completed) > 0:
+    
+
     win_rate = (completed['pnl'] > 0).mean() * 100
     r21.metric("Win Rate", f"{win_rate:.1f}%")
     
@@ -195,6 +197,19 @@ if len(completed) > 0:
     gross_loss = abs(completed[completed['pnl'] <= 0]['pnl'].sum())
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r22.metric("Profit Factor", f"{profit_factor:.2f}")
+
+    with r23:
+        st.write("Per‑Trade Return %")
+
+        fig2, axp = plt.subplots(figsize=(4, 2))
+        axp.bar(range(len(completed)), completed['pnl_pct'], 
+                color=['#27AE60' if x > 0 else '#E74C3C' for x in completed['pnl_pct']])
+        axp.axhline(0, color='black', linewidth=1)
+        axp.set_ylabel('%')
+        axp.set_xticks([])
+        axp.set_title("Trade Returns", fontsize=10)
+        st.pyplot(fig2)
+
 
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
