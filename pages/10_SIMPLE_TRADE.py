@@ -88,6 +88,11 @@ def run_real_backtest(df):
                 initial_stop = entry_price * (1 - INITIAL_STOP_LOSS)
                 trail_stop = initial_stop
                 
+                trade_records.append({
+                    'entry_date': df.index[i],
+                    'entry_price': entry_price,
+                    'strategy': 'LIVE' if i == len(df)-1 else 'HISTORICAL'
+                })
         else:
             if current_close > highest_price:
                 highest_price = current_close
@@ -102,19 +107,30 @@ def run_real_backtest(df):
             trail_stop = max(trail_stop, new_trail)
             
             exit_triggered = False
+            exit_price = current_close
+            exit_reason = ""
+            
             if current_close <= trail_stop:
                 exit_triggered = True
-                exit_price = current_close
+                exit_reason = "TRAIL_STOP"
             elif row['EMA_FAST'] < row['EMA_SLOW'] and current_close < row['EMA_FAST']:
                 exit_triggered = True
-                exit_price = current_close
+                exit_reason = "TREND_BREAK"
             elif row['RSI'] < 35 and current_close < row['EMA_FAST']:
                 exit_triggered = True
-                exit_price = current_close
+                exit_reason = "RSI_WEAK"
             
             if exit_triggered:
                 pnl = position_size * (exit_price - original_entry) / original_entry
                 capital *= (1 + pnl)
+                if len(trade_records) > 0:
+                    trade_records[-1].update({
+                        'exit_date': df.index[i],
+                        'exit_price': exit_price,
+                        'pnl_pct': pnl * 100,
+                        'exit_reason': exit_reason,
+                        'highest_price': highest_price
+                    })
                 in_trade = False
             
             if in_trade:
@@ -123,20 +139,17 @@ def run_real_backtest(df):
         
         equity_curve.append(current_equity)
     
-    return pd.Series(equity_curve, index=df.index), capital
+    return pd.Series(equity_curve, index=df.index), capital, trade_records
 
 # Streamlit App
 st.set_page_config(layout="wide", page_title="Early Entry Signals")
-st.title("🚀 Early Entry Trading Signals - FULL BACKTEST")
+st.title("🚀 Early Entry Trading Signals - COMPLETE TRADE PLAN")
 
 col1, col2 = st.columns([1, 1])
 with col1:
     ticker = st.text_input("Ticker", value=TICKER)
     capital = st.number_input("Capital ($)", value=INITIAL_CAPITAL)
     period = st.selectbox("Data Period", ["2y", "1y", "6mo"], index=0)
-
-if st.button("🔄 Run Full Analysis", type="primary"):
-    st.rerun()
 
 df_raw = get_data(ticker, period)
 if df_raw is None:
@@ -207,14 +220,14 @@ signals = {
 
 BULL = any(signals.values())
 
-# RUN REAL BACKTEST
-equity_series, final_capital = run_real_backtest(df)
+# RUN COMPLETE BACKTEST WITH TRADE RECORDS
+equity_series, final_capital, trades = run_real_backtest(df)
 
-# YOUR EXACT 4-PANEL PLOT
+# 4-PANEL CHART
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-# 1. PRICE
+# Price chart with entries
 ax1 = axes[0]
 ax1.plot(df.index, df['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
 ax1.plot(df.index, df['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA {EMA_FAST}')
@@ -231,46 +244,45 @@ if BULL:
     ax1.scatter(df.index[-1], latest['Close'], color='limegreen', s=200, 
                marker='^', edgecolors='white', linewidth=2, zorder=10, label='LIVE BUY')
 
-ax1.set_title(f'{ticker} - Early Entry Multi-Strategy (Real Backtest)', fontsize=16, fontweight='bold', pad=15)
-ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
+ax1.set_title(f'{ticker} - Early Entry Strategy', fontsize=16, fontweight='bold', pad=15)
+ax1.set_ylabel('Price ($)')
 ax1.legend(loc='upper left', framealpha=0.9, fontsize=9, ncol=2)
-ax1.grid(True, alpha=0.2, linestyle='--')
+ax1.grid(True, alpha=0.2)
 ax1.set_facecolor('#F8F9FA')
 
-# 2. RSI
+# RSI, ADX (same as before)
 ax2 = axes[1]
 ax2.plot(df.index, df['RSI'], color='#9B59B6', linewidth=1.5, label='RSI')
 ax2.axhline(y=70, color='#E74C3C', linestyle='--', alpha=0.5)
 ax2.axhline(y=50, color='gray', linestyle='--', alpha=0.3)
 ax2.axhline(y=30, color='#27AE60', linestyle='--', alpha=0.5)
-ax2.set_ylabel('RSI', fontsize=11, fontweight='bold')
+ax2.set_ylabel('RSI')
 ax2.legend(loc='upper left', fontsize=9)
 ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100)
 ax2.set_facecolor('#F8F9FA')
 
-# 3. ADX
 ax3 = axes[2]
 ax3.plot(df.index, df['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
 ax3.axhline(y=MIN_ADX, color='#E74C3C', linestyle='--', alpha=0.5, label=f'Min={MIN_ADX}')
-ax3.set_ylabel('ADX', fontsize=11, fontweight='bold')
+ax3.set_ylabel('ADX')
 ax3.legend(loc='upper left', fontsize=9)
 ax3.grid(True, alpha=0.2)
 ax3.set_facecolor('#F8F9FA')
 
-# 4. REAL EQUITY CURVE
+# REAL Equity
 ax4 = axes[3]
 ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio')
 ax4.fill_between(equity_series.index, INITIAL_CAPITAL, equity_series, alpha=0.3, color='#27AE60')
 ax4.axhline(y=INITIAL_CAPITAL, color='gray', linestyle='--', alpha=0.5)
-ax4.set_ylabel('Equity ($)', fontsize=11, fontweight='bold')
-ax4.set_xlabel('Date', fontsize=12, fontweight='bold')
+ax4.set_ylabel('Equity ($)')
+ax4.set_xlabel('Date')
 ax4.legend(loc='upper left', fontsize=9)
 ax4.grid(True, alpha=0.2)
 ax4.set_facecolor('#F8F9FA')
 
 return_pct = (final_capital/INITIAL_CAPITAL-1)*100
-fig.text(0.5, 0.02, f'Final: ${final_capital:,.0f} | Return: {return_pct:+.1f}% | Trades: {len(df[df["BULL"]])}', 
+fig.text(0.5, 0.02, f'Final: ${final_capital:,.0f} | Return: {return_pct:+.1f}% | Trades: {len(trades)}', 
          ha='center', fontsize=13, fontweight='bold', 
          color='#27AE60' if return_pct > 0 else '#E74C3C',
          bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
@@ -278,38 +290,80 @@ fig.text(0.5, 0.02, f'Final: ${final_capital:,.0f} | Return: {return_pct:+.1f}% 
 plt.tight_layout(rect=[0, 0.03, 1, 1])
 st.pyplot(fig)
 
-# Live Signals
-col_signal, col_metrics = st.columns(2)
-with col_signal:
+# LIVE SIGNAL + DETAILED TRADE PLAN
+col1, col2 = st.columns(2)
+with col1:
     st.metric("Current Price", f"${latest['Close']:.2f}")
-    signal_color = "🟢 BUY" if BULL else "🔴 NO SIGNAL"
+    signal_color = "🟢 BUY NOW" if BULL else "🔴 NO SIGNAL"
     st.metric("Signal", signal_color)
 
-with col_metrics:
+with col2:
     st.metric("RSI", f"{latest['RSI']:.0f}")
-    st.metric("ADX", f"{latest['ADX']:.0f}")
-    st.metric("Trend", "BULLISH" if latest['EMA_FAST'] > latest['EMA_SLOW'] else "BEARISH")
+    st.metric("ADX", f"{latest['ADX']:.1f}")
+    st.metric("Trend", "🟢 BULLISH" if latest['EMA_FAST'] > latest['EMA_SLOW'] else "🔴 BEARISH")
 
 if BULL:
-    st.success(f"**🎯 {next(k for k,v in signals.items() if v)} SIGNAL**")
+    st.success(f"🎯 **{next(k for k,v in signals.items() if v)} SIGNAL ACTIVE**")
     st.balloons()
     
-    shares = int((capital * 0.95) / latest['Close'])
-    stop_price = latest['Close'] * (1 - INITIAL_STOP_LOSS)
+    # COMPLETE TRADE PLAN WITH EXACT NUMBERS
+    entry_price = latest['Close']
+    shares = int((capital * 0.95) / entry_price)
+    position_value = shares * entry_price
+    stop_price = entry_price * (1 - INITIAL_STOP_LOSS)
+    partial_price = entry_price * (1 + PARTIAL_TP)
+    atr_trail = latest['ATR'] * TRAIL_MULT
     
-    st.subheader("📊 TRADE PLAN")
-    col_buy, col_stop = st.columns(2)
-    with col_buy:
-        st.success(f"**BUY {shares:,} shares @ ${latest['Close']:.2f}**")
-    with col_stop:
-        st.warning(f"**STOP LOSS: ${stop_price:.2f}** ({INITIAL_STOP_LOSS*100:.0f}%)")
+    st.subheader("📊 **COMPLETE TRADE EXECUTION PLAN**")
     
-    st.info("""
-    **EXIT RULES:**
-    - Partial: Sell 50% at +35%
-    - Trail: 2.5x ATR below highest
-    - Trend: EMA8 < EMA21 + price < EMA8
-    - RSI: < 35 + price < EMA8
-    """)
+    col_plan1, col_plan2 = st.columns(2)
+    with col_plan1:
+        st.success(f"""
+        **🚀 ENTRY**
+        • Buy **{shares:,} shares**
+        • Entry: **${entry_price:.2f}**
+        • Position: **${position_value:,.0f}**
+        """)
+        
+        st.warning(f"""
+        **🛑 STOP LOSS** 
+        • **${stop_price:.2f}** 
+        • Risk: **{INITIAL_STOP_LOSS*100:.0f}%**
+        • Max Loss: **${(entry_price-stop_price)*shares:,.0f}**
+        """)
+    
+    with col_plan2:
+        st.info(f"""
+        **💰 PARTIAL PROFIT** 
+        • Sell **50%** ({shares//2:,} shares)
+        • Target: **${partial_price:.2f}** 
+        • Gain: **+{PARTIAL_TP*100:.0f}%**
+        • Profit: **${(partial_price-entry_price)*(shares//2):,.0f}**
+        """)
+        
+        st.info(f"""
+        **📈 TRAILING STOP** 
+        • Current ATR: **${latest['ATR']:.2f}**
+        • Trail Distance: **{TRAIL_MULT}x ATR = ${atr_trail:.2f}**
+        • Trail from highest price
+        """)
+    
+    st.subheader("🚪 **EXIT CONDITIONS** (Monitor Daily)")
+    st.error("""
+    **SELL IMMEDIATELY if ANY:**
+    1. **Price ≤ ${stop_price:.2f}** (Stop Loss)
+    2. **Price ≤ [Highest - ${atr_trail:.2f}]** (Trail Stop)
+    3. **EMA8 < EMA21 + Price < EMA8** (Trend Break)
+    4. **RSI < 35 + Price < EMA8** (Weakness)
+    """.replace("${stop_price:.2f}", f"{stop_price:.2f}").replace("${atr_trail:.2f}", f"{atr_trail:.2f}"))
 
-st.caption(f"✅ FULL BACKTEST + Live Signal | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+# BACKTEST TRADE HISTORY
+with st.expander("📋 Historical Trades (Learn from Backtest)"):
+    trades_df = pd.DataFrame(trades)
+    if not trades_df.empty and 'pnl_pct' in trades_df.columns:
+        st.dataframe(trades_df[['entry_date', 'exit_date', 'entry_price', 'exit_price', 'pnl_pct', 'exit_reason']].tail(10),
+                    use_container_width=True)
+        wins = len(trades_df[trades_df['pnl_pct'] > 0])
+        st.metric("Historical Win Rate", f"{wins/len(trades_df)*100:.0f}% ({wins}/{len(trades_df)})")
+
+st.caption(f"✅ Complete plan with exact entry/exit prices | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
