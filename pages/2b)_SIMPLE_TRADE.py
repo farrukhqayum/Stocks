@@ -215,13 +215,13 @@ ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close'
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_slow_len}', alpha=0.5)
 
-entry_signals = (
+entry_signals = df_bt[
     (df_bt['ADX'] > 25) &
     (df_bt['RSI'] > df_bt['RSI_EMA']) &
     (df_bt['RSI'] > 30) &
-    (df_bt.Close > df_bt['SMA_FAST']) &
-    (df_bt.Close > df_bt['SMA_SLOW'])
-)
+    (df_bt['Close'] > df_bt['SMA_FAST']) &
+    (df_bt['Close'] > df_bt['SMA_SLOW'])
+]
 
 if len(entry_signals) > 0:
     ax1.scatter(entry_signals.index, entry_signals['Close'], color='magenta', marker='d', s=20, 
