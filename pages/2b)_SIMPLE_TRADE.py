@@ -242,9 +242,14 @@ fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
 ax1 = axes[0]
-ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close', alpha=0.5)
-ax1.plot(df_bt.index, df_bt['High'], color='gray', linewidth=1.5, label='High', alpha=0.3)
-ax1.plot(df_bt.index, df_bt['Low'], color='gray', linewidth=1.5, label='Low', alpha=0.3)
+
+above_sma = df_bt['Close'] > df_bt['SMA_FAST']
+ax1.fill_between(df_bt.index, df_bt['Low'], df_bt['High'], 
+                 where=above_sma, color='green', alpha=0.2, interpolate=True)
+ax1.fill_between(df_bt.index, df_bt['Low'], df_bt['High'], 
+                 where=~above_sma, color='red', alpha=0.2, interpolate=True)
+
+ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close', alpha=0.7)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
 
 entry_signals = df_bt[(df_bt['RSI'] > df_bt['RSI_EMA']) & (df_bt['Close'] > df_bt['SMA_FAST'])]
