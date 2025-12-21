@@ -26,9 +26,9 @@ conf_thresh = col5.number_input("Conf %", value=65, min_value=50, max_value=100)
 stop_loss_pct = col6.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=99.0)/100
 
 st.sidebar.header("🎯 Hybrid Settings")
-trail_mult = st.sidebar.number_input("Trail ATR Mult", value=2.5, min_value=1.5, max_value=4.0, step=0.5)
+trail_mult = st.sidebar.number_input("Trail % Mult", value=2.5, min_value=1.5, max_value=4.0, step=0.5)
 partial_tp_pct = st.sidebar.number_input("Partial TP %", value=4.0, min_value=2.0, max_value=8.0)/100
-max_hold_days = st.sidebar.number_input("Max Hold Days", value=21, min_value=10, max_value=60)
+max_hold_days = st.sidebar.number_input("Max Hold Days", value=180, min_value=10, max_value=365)
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -70,14 +70,6 @@ def ADX(df, period=14):
     adx = dx.rolling(period, min_periods=1).mean()
     return adx.fillna(0), plus_di.fillna(0), minus_di.fillna(0)
 
-def ATR(df, period=14):
-    high = df["High"].squeeze()
-    low = df["Low"].squeeze()
-    close = df["Close"].squeeze()
-    tr1, tr2, tr3 = high-low, abs(high-close.shift()), abs(low-close.shift())
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    return tr.rolling(period, min_periods=1).mean()
-
 def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, 
                        conf_thresh, stop_loss_pct, trail_mult, partial_tp_pct, max_hold_days):
     
@@ -92,7 +84,6 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
     df_bt['RSI'] = RSI(close, rsi_len)
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
     df_bt['ADX'], _, _ = ADX(df_bt, 14)
-    df_bt['ATR'] = ATR(df_bt, 14)
     df_bt = df_bt.dropna()
     
     sma20 = close.rolling(20, min_periods=1).mean()
@@ -122,7 +113,6 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
         curr_high = float(row['High'])
         curr_low = float(row['Low'])
         curr_close = float(row['Close'])
-        curr_atr = float(row['ATR'])
         
         if (not in_position and row['BULL_HIGH_CONF'] and cash > 100):
             risk_amount = cash * 0.02
@@ -154,7 +144,7 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
                 position_shares *= 0.5
                 partial_taken = True
             
-            new_trail = curr_close - (trail_mult * curr_atr)
+            new_trail = entry_price * (1 + (stop_loss_pct * trail_mult))
             trail_stop = max(trail_stop, new_trail)
             
             exit_triggered = False
@@ -240,7 +230,6 @@ if len(completed) > 0:
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-# 1. Price Chart
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label='EMA12', alpha=0.6)
