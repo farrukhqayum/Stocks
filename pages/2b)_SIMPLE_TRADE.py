@@ -232,8 +232,8 @@ fig.patch.set_facecolor('white')
 
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
-ax1.plot(df_bt.index, df_bt['Low'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
-ax1.plot(df_bt.index, df_bt['High'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['Low'], color='#2C3E50', linewidth=1., label='Close', alpha=0.2)
+ax1.plot(df_bt.index, df_bt['High'], color='#2C3E50', linewidth=1.1, label='Close', alpha=0.2)
 
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label='EMA12', alpha=0.6)
 ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label='EMA26', alpha=0.6)
@@ -256,10 +256,10 @@ if len(trades) > 0:
         losers = exits[exits['pnl'] <= 0]
         if len(winners) > 0:
             ax1.scatter(winners['exit_date'], winners['exit_price'],
-                       color='#27AE60', marker='v', s=10, alpha=0.9, zorder=5)
+                       color='#27AE60', marker='v', label = 'Winners',  s=10, alpha=0.9, zorder=5)
         if len(losers) > 0:
             ax1.scatter(losers['exit_date'], losers['exit_price'],
-                       color='red', marker='v', s=10, alpha=0.9, zorder=5)
+                       color='red', marker='v', label = 'Lossers', s=10, alpha=0.9, zorder=5)
 
 ax1.set_title(f'{ticker} - Hybrid Strategy | Return: {total_return:+.1f}% | {len(trades)} Trades',
               fontsize=16, fontweight='bold', pad=15)
