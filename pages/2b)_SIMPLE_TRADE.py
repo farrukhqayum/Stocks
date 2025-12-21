@@ -20,9 +20,15 @@ sma_fast_len = col1.number_input("SMA Fast", value=12, min_value=5, max_value=30
 rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
 rsi_ema_len = col3.number_input("RSI EMA Length", value=20, min_value=5, max_value=30)
 
-col4, col5 = st.columns(2)
-stop_loss_pct = col4.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=90.0)/100
+col4, col5, col6 = st.columns(3)
+stop_loss_pct = col4.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=10.0)/100
 take_profit_pct = col5.number_input("Take Profit %", value=7.0, min_value=3.0, max_value=15.0)/100
+risky_entry_pct = col6.number_input("Risky Entry %", value=10.0, min_value=5.0, max_value=20.0)/100
+
+col7, col8, col9 = st.columns(3)
+risky_tp_pct = col7.number_input("Risky TP %", value=7.0, min_value=3.0, max_value=15.0)/100
+risky_sl_pct = col8.number_input("Risky SL %", value=7.0, min_value=3.0, max_value=15.0)/100
+no_entry_pct = col9.number_input("No Entry Above SMA %", value=10.0, min_value=5.0, max_value=20.0)/100
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -72,7 +78,7 @@ def ATR(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(period, min_periods=1).mean()
 
-def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct):
+def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct):
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
     df_bt['RSI_raw'] = RSI(df_bt['Close'], rsi_len)
@@ -89,48 +95,84 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     equity_curve = []
     trades = []
     can_enter = True
+    risky_pending = False
+    risky_trigger_price = 0.0
+    risky_entry_price = 0.0
+    risky_stop_price = 0.0
+    is_risky_trade = False
     
     for i in range(len(df_bt)):
         row = df_bt.iloc[i]
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
-        
-        entry_condition = (row['RSI'] > row['RSI_EMA']) and (curr_close > row['SMA_FAST'])
+        curr_open = float(row['Open'])
+        price_vs_sma = curr_close / row['SMA_FAST']
         
         if position_shares == 0:
-            if can_enter and entry_condition:
+            if price_vs_sma >= (1 + no_entry_pct):
+                pass
+            elif can_enter and (row['RSI'] > row['RSI_EMA']) and (price_vs_sma < (1 + no_entry_pct)):
                 position_shares = (cash * 0.95) / curr_close
                 entry_cost = position_shares * curr_close
                 cash -= entry_cost
                 entry_price = curr_close
                 stop_price = entry_price * (1 - stop_loss_pct)
                 can_enter = False
+                is_risky_trade = False
                 
                 trades.append({
                     'entry_date': df_bt.index[i], 'entry_price': entry_price,
-                    'exit_date': None, 'exit_price': None, 'pnl': 0, 'pnl_pct': 0
+                    'exit_date': None, 'exit_price': None, 'pnl': 0, 'pnl_pct': 0, 'type': 'Normal'
+                })
+            elif not risky_pending and price_vs_sma <= (1 - risky_entry_pct):
+                risky_pending = True
+                risky_trigger_price = row['SMA_FAST'] * (1 - risky_entry_pct)
+            elif risky_pending:
+                position_shares = (cash * 0.95) / curr_open
+                entry_cost = position_shares * curr_open
+                cash -= entry_cost
+                risky_entry_price = curr_open
+                risky_stop_price = risky_entry_price * (1 - risky_sl_pct)
+                risky_pending = False
+                is_risky_trade = True
+                
+                trades.append({
+                    'entry_date': df_bt.index[i], 'entry_price': risky_entry_price,
+                    'exit_date': None, 'exit_price': None, 'pnl': 0, 'pnl_pct': 0, 'type': 'Risky'
                 })
         
         elif position_shares > 0:
             exit_triggered = False
+            exit_price = 0
+            exit_reason = ''
             
-            if curr_low <= stop_price:
-                exit_price = stop_price
-                exit_reason = 'Stop_Loss'
-                exit_triggered = True
-            elif curr_close < row['SMA_FAST']:
-                exit_price = curr_close
-                exit_reason = 'SMA_Exit'
-                exit_triggered = True
-            elif (curr_close / entry_price - 1) >= take_profit_pct:
-                exit_price = curr_close
-                exit_reason = 'Take_Profit'
-                exit_triggered = True
+            if is_risky_trade:
+                if curr_low <= risky_stop_price:
+                    exit_price = risky_stop_price
+                    exit_reason = 'Risky_SL'
+                    exit_triggered = True
+                elif (curr_close / risky_entry_price - 1) >= risky_tp_pct:
+                    exit_price = curr_close
+                    exit_reason = 'Risky_TP'
+                    exit_triggered = True
+            if not exit_triggered:
+                if curr_low <= stop_price:
+                    exit_price = stop_price
+                    exit_reason = 'Stop_Loss'
+                    exit_triggered = True
+                elif curr_close < row['SMA_FAST']:
+                    exit_price = curr_close
+                    exit_reason = 'SMA_Exit'
+                    exit_triggered = True
+                elif (curr_close / entry_price - 1) >= take_profit_pct:
+                    exit_price = curr_close
+                    exit_reason = 'Take_Profit'
+                    exit_triggered = True
             
             if exit_triggered:
                 exit_value = position_shares * exit_price
-                pnl = exit_value - (position_shares * entry_price)
-                pnl_pct = ((exit_price - entry_price) / entry_price) * 100
+                pnl = exit_value - (position_shares * (risky_entry_price if is_risky_trade else entry_price))
+                pnl_pct = ((exit_price - (risky_entry_price if is_risky_trade else entry_price)) / (risky_entry_price if is_risky_trade else entry_price)) * 100
                 cash += exit_value
                 
                 trades[-1]['exit_date'] = df_bt.index[i]
@@ -140,6 +182,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                 
                 position_shares = 0.0
                 can_enter = True
+                is_risky_trade = False
         
         pos_value = position_shares * curr_close
         equity_curve.append(cash + pos_value)
@@ -148,7 +191,8 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         final_price = float(df_bt['Close'].iloc[-1])
         final_value = position_shares * final_price
         cash += final_value
-        pnl_pct = ((final_price - entry_price) / entry_price) * 100
+        final_entry_price = risky_entry_price if is_risky_trade else entry_price
+        pnl_pct = ((final_price - final_entry_price) / final_entry_price) * 100
         trades[-1]['exit_date'] = df_bt.index[-1]
         trades[-1]['exit_price'] = final_price
         trades[-1]['pnl_pct'] = pnl_pct
@@ -163,7 +207,8 @@ if df_raw is None or df_raw.empty:
     st.stop()
 
 equity_series, final_capital, trades, df_bt = run_simple_backtest(
-    df_raw, capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct
+    df_raw, capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, 
+    take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct
 )
 
 latest = df_bt.iloc[-1]
@@ -177,7 +222,6 @@ col3.metric("Total Trades", len(trades))
 
 trades_df = pd.DataFrame(trades)
 completed = trades_df[trades_df['exit_date'].notna()]
-
 r21, r22, r23 = st.columns(3)
 
 if len(completed) > 0:
@@ -188,6 +232,10 @@ if len(completed) > 0:
     gross_loss = abs(completed[completed['pnl'] <= 0]['pnl'].sum())
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r22.metric("Profit Factor", f"{profit_factor:.2f}")
+    
+    normal_trades = len(completed[completed['type'] == 'Normal'])
+    risky_trades = len(completed[completed['type'] == 'Risky'])
+    r23.metric("Risky Trades", f"{risky_trades} / {normal_trades + risky_trades}")
 
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
@@ -203,8 +251,14 @@ if len(entry_signals) > 0:
 
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
-    ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-               color='gray', marker='o', s=20, label=f'Entries ({len(trades)})', zorder=6, edgecolors='black', linewidths=0.7)
+    normal_entries = trades_plot[trades_plot['type'] == 'Normal']
+    risky_entries = trades_plot[trades_plot['type'] == 'Risky']
+    if len(normal_entries) > 0:
+        ax1.scatter(normal_entries['entry_date'], normal_entries['entry_price'], 
+                   color='blue', marker='o', s=20, label='Normal Entries', zorder=6, edgecolors='black', linewidths=0.7)
+    if len(risky_entries) > 0:
+        ax1.scatter(risky_entries['entry_date'], risky_entries['entry_price'], 
+                   color='purple', marker='s', s=20, label='Risky Entries', zorder=7, edgecolors='black', linewidths=0.7)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
@@ -243,7 +297,6 @@ ax3.set_ylabel('ADX/DI', fontsize=11, fontweight='bold')
 ax3.legend(loc='upper left', fontsize=9)
 ax3.grid(True, alpha=0.2)
 ax3.set_facecolor('#F8F9FA')
-
 
 ax4 = axes[3]
 ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio Value')
