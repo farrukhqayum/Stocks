@@ -283,19 +283,19 @@ if len(trades) > 0:
     risky_entries = trades_plot[trades_plot['type'] == 'Risky']
     if len(normal_entries) > 0:
         ax1.scatter(normal_entries['entry_date'], normal_entries['entry_price'], 
-                   color='blue', marker='o', s=40, label='Normal Entry', zorder=6, edgecolors='black', linewidth=1)
+                   color='blue', marker='o', s=20, label='Normal Entry', zorder=6, edgecolors='darkblue', linewidth=1)
     if len(risky_entries) > 0:
         ax1.scatter(risky_entries['entry_date'], risky_entries['entry_price'], 
-                   color='purple', marker='s', s=40, label='Risky Entry', zorder=7, edgecolors='black', linewidth=1)
+                   color='purple', marker='s', s=20, label='Risky Entry', zorder=7, edgecolors='purple', linewidth=1)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
         winners = exits[exits['pnl'] > 0]
         losers = exits[exits['pnl'] <= 0]
         if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'], color='#27AE60', marker='v', s=50, label='Win', zorder=9, edgecolors='black', linewidth=1)
+            ax1.scatter(winners['exit_date'], winners['exit_price'], color='#27AE60', marker='v', s=30, label='Win/TP', zorder=9, edgecolors='black', linewidth=1)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', s=50, label='Loss', zorder=10, edgecolors='black', linewidth=1)
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', s=30, label='Loss/Exit', zorder=10, edgecolors='black', linewidth=1)
 
 ax1.set_title(f'{ticker} - Trend Filter | Return: {total_return:+.1f}% | {len(trades)} Trades', fontsize=16, fontweight='bold', pad=15)
 ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
