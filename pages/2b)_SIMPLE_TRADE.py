@@ -21,7 +21,7 @@ rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
 rsi_ema_len = col3.number_input("RSI EMA Length", value=20, min_value=5, max_value=30)
 
 col4, col5 = st.columns(2)
-stop_loss_pct = col4.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=10.0)/100
+stop_loss_pct = col4.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=90.0)/100
 take_profit_pct = col5.number_input("Take Profit %", value=7.0, min_value=3.0, max_value=15.0)/100
 
 @st.cache_data(ttl=300)
