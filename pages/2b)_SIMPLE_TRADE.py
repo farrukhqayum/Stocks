@@ -21,8 +21,8 @@ rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
 rsi_ema_len = col3.number_input("RSI EMA Length", value=20, min_value=5, max_value=30)
 
 col4, col5 = st.columns(2)
-stop_loss_pct = col4.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=90.0)/100
-take_profit_pct = col5.number_input("Take Profit %", value=7.0, min_value=3.0, max_value=15.0)/100
+stop_loss_pct = col4.number_input("Stop Loss %", value=99.0, min_value=1.0, max_value=90.0)/100
+take_profit_pct = col5.number_input("Take Profit %", value=7.75, min_value=3.0, max_value=15.0)/100
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -76,7 +76,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
     df_bt['RSI_raw'] = RSI(df_bt['Close'], rsi_len)
-    df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=4, adjust=False).mean()
+    df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=7, adjust=False).mean()
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
     df_bt['ATR'] = ATR(df_bt, 14)
