@@ -214,12 +214,15 @@ fig.patch.set_facecolor('white')
 
 ax1 = axes[0]
 
+# After ax1 = axes[0]:
 df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(1).fillna(0)
 df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(1).fillna(0)
 
+# Single continuous line with color changes
 x = df_bt.index
-y = df_bt['Close'].value
+y = df_bt['Close'].values  # ✅ Fixed: .values not .value
 
+# Create color segments
 colors = []
 for i in range(len(df_bt)):
     f = df_bt['FAST_EMA_ROC'].iloc[i]
@@ -230,10 +233,13 @@ for i in range(len(df_bt)):
         colors.append('red')
     else:
         colors.append('gray')
-        
+
+# Plot PERFECTLY CONNECTED continuous line
 for i in range(len(x)-1):
     ax1.plot(x[i:i+2], y[i:i+2], color=colors[i], linewidth=2, alpha=0.7)
-ax1.plot(x, y, color='none', linewidth=0, label='Close (ROC Divergence)')
+
+# Add legend entry (invisible line)
+ax1.plot([], [], color='gray', label='Close (ROC Divergence)', linewidth=2)
 
 #ax1.plot(df_bt.index, df_bt['Close'], c='gray', linewidth=2, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
