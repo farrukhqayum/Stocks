@@ -313,8 +313,8 @@ ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RS
 trend_signals = df_bt[df_bt['Trend_Signal'] == 1]
 if len(trend_signals) > 0 and not trend_signals.empty:
     ax2.scatter(trend_signals.index, trend_signals['RSI'].values,  # Use .values to avoid pandas issues
-               color='limegreen', marker='^', s=100, label=f'Trend Signals ({len(trend_signals)})', 
-               alpha=0.9, zorder=10, edgecolors='darkgreen', linewidth=2)
+               color='limegreen', marker='^', s=30, label=f'Trend Signals ({len(trend_signals)})', 
+               alpha=0.4, zorder=3, edgecolors='darkgreen', linewidth=2)
 
 ax2.axhline(y=70, color='#E74C3C', linestyle='--', alpha=0.7, linewidth=1.5, label='Overbought')
 ax2.axhline(y=50, color='gray', linestyle='--', alpha=0.4, linewidth=1)
