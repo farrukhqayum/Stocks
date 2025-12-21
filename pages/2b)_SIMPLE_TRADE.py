@@ -23,7 +23,7 @@ rsi_ema_len = col3.number_input("RSI EMA Length", value=20, min_value=5, max_val
 col4, col5, col6 = st.columns(3)
 stop_loss_pct = col4.number_input("Stop Loss %", value=7.0, min_value=1.0, max_value=99.0)/100
 take_profit_pct = col5.number_input("Take Profit %", value=7.0, min_value=3.0, max_value=15.0)/100
-risky_entry_pct = col6.number_input("Risky Entry %", value=10.0, min_value=5.0, max_value=20.0)/100
+risky_entry_pct = col6.number_input("Risky Entry %", value=20.0, min_value=5.0, max_value=30.0)/100
 
 col7, col8, col9 = st.columns(3)
 risky_tp_pct = col7.number_input("Risky TP %", value=15.0, min_value=3.0, max_value=25.0)/100
