@@ -100,6 +100,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         rsi_block = (row['RSI'] < 30) and (row['RSI'] < row['RSI_EMA'])
         
         entry_condition = (
+            (row('ADX') > 25 and
             (row['RSI'] > row['RSI_EMA']) and
             (row['RSI'] > 30) and
             (curr_close > row['SMA_FAST'] and curr_close > row['SMA_SLOW']) and
