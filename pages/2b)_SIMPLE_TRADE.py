@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
 from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide", page_title="Simple Trade")
@@ -210,21 +211,29 @@ if len(completed) > 0:
 
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
+
+ax1 = axes[0]
+
 df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(1).fillna(0)
 df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(1).fillna(0)
 
-green_mask = (df_bt['FAST_EMA_ROC'] < 0) & (df_bt['RSI_EMA_ROC'] > 0)
-red_mask = (df_bt['FAST_EMA_ROC'] > 0) & (df_bt['RSI_EMA_ROC'] < 0)
-ax1 = axes[0]
+points = np.array([df_bt.index.get_indexer(df_bt.index), df_bt['Close']]).T.reshape(-1, 1, 2)
+segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-if green_mask.any():
-    ax1.plot(df_bt[green_mask].index, df_bt[green_mask]['Close'], 
-             color='green', linewidth=2, alpha=0.8)
-if red_mask.any():
-    ax1.plot(df_bt[red_mask].index, df_bt[red_mask]['Close'], 
-             color='red', linewidth=2, alpha=0.8)
+colors = []
+for i in range(len(df_bt)-1):
+    f_roc = df_bt['FAST_EMA_ROC'].iloc[i]
+    r_roc = df_bt['RSI_EMA_ROC'].iloc[i]
+    if f_roc < 0 and r_roc > 0:
+        colors.append('green')
+    elif f_roc > 0 and r_roc < 0:
+        colors.append('red')
+    else:
+        colors.append('gray')
+line = LineCollection(segments, colors=colors, linewidths=2, alpha=0.7, label='Close')
+ax1.add_collection(line)
 
-ax1.plot(df_bt.index, df_bt['Close'], c='gray', linewidth=2, label='Close', alpha=0.5)
+#ax1.plot(df_bt.index, df_bt['Close'], c='gray', linewidth=2, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=2, label=f'SMA{sma_slow_len}', alpha=0.5)
 
