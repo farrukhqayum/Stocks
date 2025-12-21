@@ -215,10 +215,12 @@ df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(periods=10).fillna(0)
 df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(periods=10).fillna(0)
 df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(1).fillna(0)
 df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(1).fillna(0)
-cls = ['green' if (f<0 and r>0) else 'red' if (f>0 and r<0) else 'gray' 
-          for f,r in zip(df_bt['FAST_EMA_ROC'], df_bt['RSI_EMA_ROC'])]
+
+colors = ['green' if (f < 0 and r > 0) else 'red' if (f > 0 and r < 0) else 'gray' 
+          for f, r in zip(df_bt['FAST_EMA_ROC'], df_bt['RSI_EMA_ROC'])]
+
 ax1 = axes[0]
-ax1.plot(df_bt.index, df_bt['Close'], color= cls, linewidth=1.5, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['Close'], c=colors, linewidth=2, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_slow_len}', alpha=0.5)
 
