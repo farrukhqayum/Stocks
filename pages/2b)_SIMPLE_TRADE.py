@@ -215,8 +215,8 @@ fig.patch.set_facecolor('white')
 ax1 = axes[0]
 
 # After ax1 = axes[0]:
-df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(10).fillna(0)
-df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(10).fillna(0)
+df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(20).fillna(0)
+df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(20).fillna(0)
 
 # Single continuous line with color changes
 x = df_bt.index
