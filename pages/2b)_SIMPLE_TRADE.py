@@ -184,7 +184,7 @@ equity_series, final_capital, trades, df_bt = run_simple_backtest(
 latest = df_bt.iloc[-1]
 total_return = ((final_capital / capital) - 1) * 100
 
-st.subheader("📊 SIMPLE STRATEGY RESULTS")
+st.subheader("📊 {ticker} RESULTS")
 col1, col2, col3 = st.columns(3)
 col1.metric("Total Return", f"{total_return:+.1f}%")
 col2.metric("Final Capital", f"${final_capital:,.0f}")
