@@ -98,14 +98,16 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
         rsi_block = (row['RSI'] < 30) and (row['RSI'] < row['RSI_EMA'])
-        
+      
         entry_condition = (
-            (row('ADX') > 25 and
-            (row['RSI'] > row['RSI_EMA']) and
-            (row['RSI'] > 30) and
-            (curr_close > row['SMA_FAST'] and curr_close > row['SMA_SLOW']) and
+            (row['ADX'] > 25) &
+            (row['RSI'] > row['RSI_EMA']) &
+            (row['RSI'] > 30) &
+            (curr_close > row['SMA_FAST']) &
+            (curr_close > row['SMA_SLOW']) &
             (not rsi_block)
         )
+
 
         if position_shares == 0:
             if can_enter and entry_condition:
