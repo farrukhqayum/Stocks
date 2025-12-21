@@ -216,16 +216,16 @@ if len(entry_signals) > 0:
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-               color='blue', marker='o', s=25, label=f'Entries ({len(trades)})', zorder=6, edgecolors='darkblue', linewidths=0.7)
+               color='blue', marker='o', s=25, label=f'Entries ({len(trades)})', zorder=2, edgecolors='darkblue', linewidths=0.7)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
         winners = exits[exits['pnl'] > 0]
         losers = exits[exits['pnl'] <= 0]
         if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'], color='green', marker='o', s=30, label = f'Winners ({len(winners)})', zorder=9, edgecolors='darkgreen', linewidths=0.7)
+            ax1.scatter(winners['exit_date'], winners['exit_price'], color='green', marker='o', s=30, label = f'Winners ({len(winners)})', zorder=1, edgecolors='darkgreen', linewidths=0.7)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='o', s=30,  label = f'Losses ({len(losers)})', zorder=10, edgecolors='black', linewidths=0.7)
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='o', s=30,  label = f'Losses ({len(losers)})', zorder=1, edgecolors='black', linewidths=0.7)
 
 ax1.set_title(f'{ticker} - Simple RSI+SMA | Return: {total_return:+.1f}% | {len(trades)} Trades', 
               fontsize=16, fontweight='bold', pad=15)
