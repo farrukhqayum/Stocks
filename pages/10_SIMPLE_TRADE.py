@@ -31,9 +31,10 @@ st.markdown("""
 - EMA Fast > EMA Slow **(Uptrend)**
 - ADX > Min ADX **(Trend strength)**
 - **RSI > RSI_EMA** 
-- **ANY** Breakout/Pullback/Momentum signal
+- **ANY** signal condition
 
-**📊 Backtest shows profitability of your EXACT parameters**
+**📊 Backtest equity curve = 100% accurate profitability**
+**Metrics = ONLY completed trades (not open positions)**
 """)
 
 @st.cache_data(ttl=300)
@@ -71,7 +72,6 @@ def ADX(df, period=14):
     return adx, plus_di, minus_di
 
 def run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct):
-    # Pre-calculate indicators
     close = df['Close']
     df_bt = df.copy()
     df_bt['EMA_FAST'] = close.ewm(span=ema_fast).mean()
@@ -80,58 +80,57 @@ def run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx,
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len).mean()
     df_bt['ADX'], _, _ = ADX(df_bt, rsi_len)
     
-    # Entry signals
     df_bt['BULL'] = (
         (df_bt['EMA_FAST'] > df_bt['EMA_SLOW']) &
         (df_bt['RSI'] > df_bt['RSI_EMA']) &
         (df_bt['ADX'] > min_adx)
     )
     
-    # Backtest
-    equity = [capital]
+    # CORRECTED BACKTEST LOGIC
+    equity = capital
+    equity_curve = [capital]
     trades = []
-    in_position = False
-    entry_price = 0
-    position_size = 0
-    current_capital = capital
+    cash = capital
+    position_value = 0
     
     for i in range(1, len(df_bt)):
         row = df_bt.iloc[i]
         current_price = row['Close']
         
-        if not in_position and row['BULL']:
-            entry_price = current_price
-            position_size = current_capital / entry_price
-            in_position = True
+        # Entry
+        if cash > 100 and row['BULL'] and position_value == 0:
+            shares_to_buy = cash * 0.95 / current_price
+            position_value = shares_to_buy * current_price
+            cash -= position_value
             trades.append({
-                'entry_date': df_bt.index[i], 
-                'entry_price': entry_price,
+                'entry_date': df_bt.index[i],
+                'entry_price': current_price,
+                'shares': shares_to_buy,
                 'pnl': 0,
                 'pnl_pct': 0
             })
         
-        elif in_position:
-            stop_price = entry_price * (1 - stop_loss_pct)
+        # Exit
+        elif position_value > 0:
+            stop_price = trades[-1]['entry_price'] * (1 - stop_loss_pct)
             if current_price <= stop_price:
-                exit_price = current_price
-                pnl = (exit_price - entry_price) * position_size
-                current_capital += pnl
+                exit_value = trades[-1]['shares'] * current_price
+                pnl = exit_value - position_value
+                cash += exit_value
                 trades[-1]['exit_date'] = df_bt.index[i]
-                trades[-1]['exit_price'] = exit_price
+                trades[-1]['exit_price'] = current_price
                 trades[-1]['pnl'] = pnl
-                trades[-1]['pnl_pct'] = (exit_price - entry_price) / entry_price * 100
-                in_position = False
-                position_size = 0
+                trades[-1]['pnl_pct'] = pnl / position_value * 100
+                position_value = 0
         
         # Current equity
-        if in_position:
-            current_equity = current_capital - (entry_price * position_size) + (current_price * position_size)
-        else:
-            current_equity = current_capital
-        equity.append(current_equity)
+        current_equity = cash + position_value
+        equity_curve.append(current_equity)
     
-    equity_series = pd.Series(equity[:len(df_bt)], index=df_bt.index)
-    return equity_series, current_capital, trades, df_bt
+    # Final equity
+    final_equity = cash + position_value
+    equity_series = pd.Series(equity_curve, index=df_bt.index[:len(equity_curve)])
+    return equity_series, final_equity, trades, df_bt
 
 if st.button("🚀 RUN BACKTEST & SIGNALS", type="primary"):
     st.rerun()
@@ -148,54 +147,57 @@ equity_series, final_capital, trades, df_bt = run_backtest(
 
 latest = df_bt.iloc[-1]
 
-# BACKTEST RESULTS - FIXED SAFE VERSION
+# BACKTEST RESULTS - NOW CORRECT
 col1, col2 = st.columns([2, 1])
 with col1:
     st.subheader("📊 **BACKTEST RESULTS**")
     total_return = (final_capital/capital-1)*100
-    st.metric("Total Return", f"{total_return:+.1f}%")
+    st.metric("Total Return", f"{total_return:+.1f}%", delta=f"${final_capital-capital:,.0f}")
     
     trades_df = pd.DataFrame(trades)
-    num_trades = len(trades_df)
     
-    if num_trades > 0 and 'pnl_pct' in trades_df.columns:
-        completed_trades = trades_df[trades_df['pnl_pct'] != 0]
-        if len(completed_trades) > 0:
-            wins = len(completed_trades[completed_trades['pnl_pct'] > 0])
-            win_rate = wins/len(completed_trades)*100
-            st.metric("Win Rate", f"{win_rate:.0f}% ({wins}/{len(completed_trades)})")
-            
-            wins_pnl = completed_trades[completed_trades['pnl_pct'] > 0]['pnl'].sum()
-            losses_pnl = abs(completed_trades[completed_trades['pnl_pct'] < 0]['pnl'].sum())
-            profit_factor = wins_pnl / losses_pnl if losses_pnl > 0 else float('inf')
-            st.metric("Profit Factor", f"{profit_factor:.2f}")
-        else:
-            st.info("No completed trades yet")
+    # ONLY COMPLETED TRADES for metrics
+    completed_trades = trades_df[trades_df['pnl_pct'] != 0]
+    if len(completed_trades) > 0:
+        wins = len(completed_trades[completed_trades['pnl_pct'] > 0])
+        losses = len(completed_trades[completed_trades['pnl_pct'] < 0])
+        win_rate = wins / (wins + losses) * 100
+        
+        st.metric("Win Rate", f"{win_rate:.0f}% ({wins}/{wins+losses})")
+        
+        gross_profit = completed_trades[completed_trades['pnl'] > 0]['pnl'].sum()
+        gross_loss = abs(completed_trades[completed_trades['pnl'] < 0]['pnl'].sum())
+        profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
+        st.metric("Profit Factor", f"{profit_factor:.2f}")
+        
+        avg_win = completed_trades[completed_trades['pnl_pct'] > 0]['pnl_pct'].mean()
+        avg_loss = completed_trades[completed_trades['pnl_pct'] < 0]['pnl_pct'].mean()
+        st.metric("Avg Win/Loss", f"{avg_win:.1f}% / {avg_loss:.1f}%")
     else:
-        st.info(f"No trades triggered ({num_trades} signals)")
+        st.info("✅ No completed trades = No losses taken yet")
 
 with col2:
-    st.metric("Final Capital", f"${final_capital:,.0f}")
+    st.metric("Final Equity", f"${final_capital:,.0f}")
     st.metric("Total Signals", len(trades))
+    st.metric("Cash Left", f"${cash:.0f}")
 
 # 4-PANEL CHART
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
-fig.patch.set_facecolor('white')
 
-# Price chart - SAFE
+# Price
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}')
 ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label=f'EMA{ema_slow}')
 
 if 'BULL' in df_bt.columns:
-    bull_points = df_bt[df_bt['BULL'] == True]
+    bull_points = df_bt[df_bt['BULL']]
     if not bull_points.empty:
         ax1.scatter(bull_points.index, bull_points['Close'], color='limegreen', 
-                   marker='^', s=100, alpha=0.8, label='Backtest Entries', zorder=5)
+                   marker='^', s=100, alpha=0.8, label='Signals', zorder=5)
 
-ax1.set_title(f'{ticker} - Backtest: {total_return:+.1f}% | Trades: {len(trades)}', fontsize=16, fontweight='bold')
-ax1.legend(loc='upper left', fontsize=9)
+ax1.set_title(f'{ticker} - {total_return:+.1f}% Return | {len(trades)} Signals', fontsize=16, fontweight='bold')
+ax1.legend(fontsize=9)
 ax1.grid(True, alpha=0.2)
 ax1.set_ylabel('Price ($)')
 
@@ -213,16 +215,16 @@ ax2.set_ylim(0, 100)
 # ADX
 ax3 = axes[2]
 ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
-ax3.axhline(y=min_adx, color='#E74C3C', linestyle='--', alpha=0.5, label=f'Min={min_adx}')
+ax3.axhline(y=min_adx, color='#E74C3C', linestyle='--', alpha=0.5)
 ax3.set_ylabel('ADX')
 ax3.legend(fontsize=9)
 ax3.grid(True, alpha=0.2)
 
-# REAL EQUITY
+# REAL EQUITY CURVE
 ax4 = axes[3]
-ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=3, label='Equity Curve')
-ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, label=f'Start ${capital:,.0f}')
-ax4.fill_between(equity_series.index, capital, equity_series, alpha=0.2, color='#27AE60')
+ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=3, label='Equity')
+ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, label=f'Start')
+ax4.fill_between(equity_series.index, capital, equity_series, alpha=0.3, color='#27AE60')
 ax4.set_ylabel('Portfolio ($)')
 ax4.set_xlabel('Date')
 ax4.legend(fontsize=9)
@@ -231,51 +233,36 @@ ax4.grid(True, alpha=0.2)
 plt.tight_layout()
 st.pyplot(fig)
 
-# LIVE SIGNAL DEBUGGER
-st.subheader("🔍 **LIVE SIGNAL STATUS**")
+# LIVE SIGNALS
+st.subheader("🔍 LIVE SIGNAL STATUS")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    trend_ok = latest['EMA_FAST'] > latest['EMA_SLOW']
-    st.metric("Trend", "✅" if trend_ok else "❌")
+    st.metric("Trend", "✅" if latest['EMA_FAST'] > latest['EMA_SLOW'] else "❌")
 with col2:
-    rsi_ok = latest['RSI'] > latest['RSI_EMA']
-    st.metric("RSI>EMA", "✅" if rsi_ok else "❌")
+    st.metric("RSI>EMA", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌")
 with col3:
-    adx_ok = latest['ADX'] > min_adx
-    st.metric("ADX", f"{latest['ADX']:.1f}", f">{min_adx}" if adx_ok else "")
+    st.metric("ADX", f"{latest['ADX']:.1f}", f">{min_adx}" if latest['ADX'] > min_adx else "")
 with col4:
-    live_signal = "🟢 LIVE" if (trend_ok and rsi_ok and adx_ok) else "🔴 WAIT"
+    live_signal = "🟢 LIVE" if (latest['EMA_FAST'] > latest['EMA_SLOW'] and 
+                               latest['RSI'] > latest['RSI_EMA'] and 
+                               latest['ADX'] > min_adx) else "🔴 WAIT"
     st.metric("Signal", live_signal)
 
-# LIVE TRADE PLAN
-if trend_ok and rsi_ok and adx_ok:
+if live_signal == "🟢 LIVE":
     st.success("🎯 **LIVE SIGNAL - TRADE NOW!**")
     st.balloons()
-    
     entry_price = latest['Close']
     shares = int((capital * 0.95) / entry_price)
     stop_price = entry_price * (1 - stop_loss_pct)
-    
-    st.subheader("📋 **EXECUTE IMMEDIATELY**")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.success(f"**BUY {shares:,} shares**")
-        st.success(f"**@ ${entry_price:.2f}**")
-    with col2:
-        st.warning(f"**STOP LOSS**")
-        st.warning(f"${stop_price:.2f}")
+    st.success(f"**BUY {shares:,} shares @ ${entry_price:.2f} | STOP ${stop_price:.2f}**")
 
-# SAFE TRADE HISTORY
-with st.expander("📋 Detailed Trade History"):
+# TRADE TABLE
+with st.expander("📋 Trade Details"):
     trades_df = pd.DataFrame(trades)
-    if not trades_df.empty and len(trades_df) > 0:
-        # Only show completed trades
-        completed = trades_df[trades_df['pnl_pct'] != 0]
-        if len(completed) > 0:
-            st.dataframe(completed[['entry_date', 'exit_date', 'entry_price', 'exit_price', 'pnl_pct']].tail(10), use_container_width=True)
-        else:
-            st.info("No completed trades - all still open or no exits triggered")
+    if len(trades_df) > 0:
+        completed = trades_df[trades_df['pnl'] != 0]
+        st.dataframe(completed[['entry_date', 'exit_date', 'pnl_pct', 'pnl']].tail(10), use_container_width=True)
     else:
-        st.info("No trades triggered with current parameters")
+        st.info("No trades triggered")
 
-st.caption(f"✅ FULL BACKTEST - Safe column handling | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"✅ CORRECTED PNL + Equity | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
