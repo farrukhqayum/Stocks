@@ -220,7 +220,7 @@ if len(trades) > 0:
         if len(winners) > 0:
             ax1.scatter(winners['exit_date'], winners['exit_price'], color='green', marker='o', s=30, label = 'Winners', zorder=9, edgecolors='darkgreen', linewidths=0.7)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='o', s=30,  label = 'Losses', zorder=10, edgecolors='darkred', linewidths=0.7)
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='o', s=30,  label = 'Losses', zorder=10, edgecolors='black', linewidths=0.7)
 
 ax1.set_title(f'{ticker} - Simple RSI+SMA | Return: {total_return:+.1f}% | {len(trades)} Trades', 
               fontsize=16, fontweight='bold', pad=15)
