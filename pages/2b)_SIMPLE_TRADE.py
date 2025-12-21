@@ -148,7 +148,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
             
             if is_risky_trade:
                 if curr_low <= risky_stop_price:
-                    exit_price = risky_stop_price
+                    exit_price = curr_low  
                     exit_reason = 'Risky_SL'
                     exit_triggered = True
                 elif (curr_close / risky_entry_price - 1) >= risky_tp_pct:
@@ -157,7 +157,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                     exit_triggered = True
             if not exit_triggered:
                 if curr_low <= stop_price:
-                    exit_price = stop_price
+                    exit_price = curr_low  
                     exit_reason = 'Stop_Loss'
                     exit_triggered = True
                 elif curr_close < row['SMA_FAST']:
@@ -168,6 +168,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                     exit_price = curr_close
                     exit_reason = 'Take_Profit'
                     exit_triggered = True
+
             
             if exit_triggered:
                 exit_value = position_shares * exit_price
