@@ -217,10 +217,12 @@ df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(1).fillna(0)
 green_mask = (df_bt['FAST_EMA_ROC'] < 0) & (df_bt['RSI_EMA_ROC'] > 0)
 red_mask = (df_bt['FAST_EMA_ROC'] > 0) & (df_bt['RSI_EMA_ROC'] < 0)
 gray_mask = ~(green_mask | red_mask)
-
-ax1.plot(df_bt[green_mask].index, df_bt[green_mask]['Close'], color='green', linewidth=2, alpha=0.8)
-ax1.plot(df_bt[red_mask].index, df_bt[red_mask]['Close'], color='red', linewidth=2, alpha=0.8)
-ax1.plot(df_bt[gray_mask].index, df_bt[gray_mask]['Close'], color='gray', linewidth=1.5, alpha=0.5)
+if len(df_bt[green_mask]) > 0:
+    ax1.plot(df_bt[green_mask].index, df_bt[green_mask]['Close'], color='green', linewidth=2, label='Close (divergence)', alpha=0.8)
+if len(df_bt[red_mask]) > 0:
+    ax1.plot(df_bt[red_mask].index, df_bt[red_mask]['Close'], color='red', linewidth=2, alpha=0.8)
+if len(df_bt[gray_mask]) > 0:
+    ax1.plot(df_bt[gray_mask].index, df_bt[gray_mask]['Close'], color='gray', linewidth=1.5, alpha=0.5)
 
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], c=colors, linewidth=2, label='Close', alpha=0.5)
