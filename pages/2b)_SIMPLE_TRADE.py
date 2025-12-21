@@ -211,7 +211,7 @@ fig.patch.set_facecolor('white')
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
-ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_slow_len}', alpha=0.5)
 
 entry_condition = (
     (row['ADX'] > 25) and
