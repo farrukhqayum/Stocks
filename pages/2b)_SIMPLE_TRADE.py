@@ -17,6 +17,7 @@ with col2:
 
 col1, col2, col3 = st.columns(3)
 sma_fast_len = col1.number_input("SMA Fast", value=12, min_value=5, max_value=30)
+sma_slow_len = col1.number_input("SMA Fast", value=44, min_value=5, max_value=50)
 rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
 rsi_ema_len = col3.number_input("RSI EMA Length", value=25, min_value=9, max_value=50)
 
@@ -75,6 +76,8 @@ def ATR(df, period=14):
 def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct):
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
+    df_bt['SMA_SLOW'] = df_bt['Close'].rolling(sma_slow_len, min_periods=1).mean()
+
     df_bt['RSI_raw'] = RSI(df_bt['Close'], rsi_len)
     df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=7, adjust=False).mean()
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
@@ -99,7 +102,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         entry_condition = (
             (row['RSI'] > row['RSI_EMA']) and
             (row['RSI'] > 30) and
-            (curr_close > row['SMA_FAST']) and
+            (curr_close > row['SMA_FAST'] and curr_close > row['SMA_SLOW']) and
             (not rsi_block)
         )
 
@@ -125,7 +128,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                 exit_price = stop_price
                 exit_reason = 'Stop_Loss'
                 exit_triggered = True
-            elif curr_close < row['SMA_FAST']:
+            elif curr_close < row['SMA_FAST'] | curr_close < row.SMA_SLOW:
                 exit_price = curr_close
                 exit_reason = 'SMA_Exit'
                 exit_triggered = True
