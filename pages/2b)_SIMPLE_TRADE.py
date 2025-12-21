@@ -20,7 +20,7 @@ col1, col2, col3 = st.columns(3)
 sma_fast_len = col1.number_input("SMA Fast", value=20, min_value=5, max_value=30)
 sma_slow_len = col1.number_input("SMA SLOW", value=50, min_value=5, max_value=50)
 rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
-rsi_ema_len = col3.number_input("RSI EMA Length", value=40, min_value=9, max_value=50)
+rsi_ema_len = col3.number_input("RSI EMA Length", value=14, min_value=9, max_value=50)
 
 col4, col5 = st.columns(2)
 stop_loss_pct = col4.number_input("Stop Loss %", value=3.5, min_value=1.0, max_value=100.0)/100
