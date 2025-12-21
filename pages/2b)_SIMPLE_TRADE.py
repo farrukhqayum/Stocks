@@ -215,6 +215,7 @@ df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(1).fillna(0)
 
 green_mask = (df_bt['FAST_EMA_ROC'] < 0) & (df_bt['RSI_EMA_ROC'] > 0)
 red_mask = (df_bt['FAST_EMA_ROC'] > 0) & (df_bt['RSI_EMA_ROC'] < 0)
+ax1 = axes[0]
 
 if green_mask.any():
     ax1.plot(df_bt[green_mask].index, df_bt[green_mask]['Close'], 
@@ -223,7 +224,6 @@ if red_mask.any():
     ax1.plot(df_bt[red_mask].index, df_bt[red_mask]['Close'], 
              color='red', linewidth=2, alpha=0.8)
 
-ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], c=colors, linewidth=2, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=2, label=f'SMA{sma_slow_len}', alpha=0.5)
