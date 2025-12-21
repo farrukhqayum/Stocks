@@ -107,7 +107,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
             (row['RSI'] > 30) &
             (curr_close > row['SMA_FAST']) &
             (curr_close > row['SMA_SLOW']) &
-            (not rsi_block)
+            (~rsi_block)
         )
 
         if position_shares == 0:
@@ -224,7 +224,7 @@ entry_signals = df_bt[
     (df_bt['RSI'] > 30) &
     (df_bt['Close'] > df_bt['SMA_FAST']) &
     (df_bt['Close'] > df_bt['SMA_SLOW']) &
-    (not rsi_block)
+    (~rsi_block)
 ]
 
 if len(entry_signals) > 0:
