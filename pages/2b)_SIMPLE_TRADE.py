@@ -216,7 +216,7 @@ ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close'
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_slow_len}', alpha=0.5)
 
-rsi_block = (df_bt['RSI'] < 30) and (df_bt['RSI'] < df_bt['RSI_EMA'])
+rsi_block = (df_bt['RSI'] < 30) & (df_bt['RSI'] < df_bt['RSI_EMA'])
 
 entry_signals = df_bt[
     (df_bt['ADX'] > 25 & df_bt['ADX'].pct_change(periods=5) > 0 ) &
