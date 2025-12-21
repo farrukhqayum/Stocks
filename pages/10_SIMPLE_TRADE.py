@@ -1,3 +1,4 @@
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -6,7 +7,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 st.set_page_config(layout="wide", page_title="Simple Signals")
-st.title("📈 Simple Signals")
+st.title("📈 Simple Signals - Multi-Entry Strategy")
 
 # USER INPUTS
 col1, col2 = st.columns(2)
@@ -23,18 +24,25 @@ rsi_len = col5.number_input("RSI Length", value=14, min_value=10, max_value=21)
 
 col6, col7, col8 = st.columns(3)
 rsi_ema_len = col6.number_input("RSI EMA Length", value=20, min_value=10, max_value=30)
-min_adx = col7.number_input("Min ADX", value=12, min_value=10, max_value=25)
+min_adx = col7.number_input("Min ADX", value=12, min_value=5, max_value=25)  # Lower minimum
 stop_loss_pct = col8.number_input("Stop Loss %", value=6.0, min_value=3.0, max_value=12.0)/100
 
-st.markdown("""
-**🟢 LIVE TRADE PLAN appears when:**
-- EMA Fast > EMA Slow **(Uptrend)**
-- ADX > Min ADX **(Trend strength)**
-- **RSI > RSI_EMA** 
-- **ALL** conditions met
+# NEW: Entry strategy selector
+st.sidebar.header("📊 Entry Strategy")
+entry_mode = st.sidebar.radio(
+    "Choose Entry Logic:",
+    ["Strict (All conditions)", "Relaxed (2 of 3)", "Aggressive (Trend only)"],
+    index=1
+)
 
-**📊 Backtest equity curve = 100% accurate profitability**
-**Metrics = ONLY completed trades**
+st.markdown(f"""
+**Current Mode: {entry_mode}**
+
+- **Strict**: EMA trend + RSI>EMA + ADX (fewer, higher quality)
+- **Relaxed**: Trend + ANY 1 other (balanced)
+- **Aggressive**: Just trend following (most signals)
+
+**📊 More signals = More opportunities (but more risk)**
 """)
 
 @st.cache_data(ttl=300)
@@ -86,7 +94,7 @@ def ADX(df, period=14):
     
     return adx.fillna(0), plus_di.fillna(0), minus_di.fillna(0)
 
-def run_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct):
+def run_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct, entry_mode):
     close = df['Close'].squeeze()
     low = df['Low'].squeeze()
     
@@ -100,11 +108,18 @@ def run_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, 
     # Remove NaN rows
     df_bt = df_bt.dropna()
     
-    df_bt['BULL'] = (
-        (df_bt['EMA_FAST'] > df_bt['EMA_SLOW']) &
-        (df_bt['RSI'] > df_bt['RSI_EMA']) &
-        (df_bt['ADX'] > min_adx)
-    )
+    # FLEXIBLE ENTRY SIGNALS
+    trend_up = df_bt['EMA_FAST'] > df_bt['EMA_SLOW']
+    rsi_bullish = df_bt['RSI'] > df_bt['RSI_EMA']
+    adx_strong = df_bt['ADX'] > min_adx
+    
+    if entry_mode == "Strict (All conditions)":
+        df_bt['BULL'] = trend_up & rsi_bullish & adx_strong
+    elif entry_mode == "Relaxed (2 of 3)":
+        # Need trend + at least 1 other
+        df_bt['BULL'] = trend_up & (rsi_bullish | adx_strong)
+    else:  # Aggressive
+        df_bt['BULL'] = trend_up  # Just trend following
     
     # Initialize backtest variables
     cash = float(initial_capital)
@@ -120,7 +135,7 @@ def run_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, 
         current_low = float(row['Low'])
         current_date = df_bt.index[i]
         
-        # ENTRY LOGIC
+        # ENTRY LOGIC - Can enter on ANY bull signal when not in position
         if not in_position and row['BULL'] and cash > 100:
             position_shares = (cash * 0.95) / current_price
             entry_cost = position_shares * current_price
@@ -138,13 +153,14 @@ def run_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, 
                 'pnl_pct': 0
             })
         
-        # EXIT LOGIC (check stop loss)
+        # EXIT LOGIC (check stop loss OR trend reversal)
         elif in_position:
             stop_price = entry_price * (1 - stop_loss_pct)
+            trend_broken = row['EMA_FAST'] < row['EMA_SLOW']
             
-            if current_low <= stop_price:
-                # Exit at stop price
-                exit_price = stop_price
+            # Exit on stop OR trend reversal
+            if current_low <= stop_price or trend_broken:
+                exit_price = stop_price if current_low <= stop_price else current_price
                 exit_value = position_shares * exit_price
                 pnl = exit_value - (position_shares * entry_price)
                 pnl_pct = ((exit_price - entry_price) / entry_price) * 100
@@ -196,7 +212,7 @@ if df_raw is None or df_raw.empty:
 # Run backtest
 try:
     equity_series, final_capital, trades, df_bt, final_cash = run_backtest(
-        df_raw, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct
+        df_raw, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct, entry_mode
     )
 except Exception as e:
     st.error(f"❌ Backtest error: {e}")
@@ -220,6 +236,8 @@ col3.metric("Cash Balance", f"${final_cash:,.0f}")
 # Calculate trade statistics
 trades_df = pd.DataFrame(trades)
 completed_trades = trades_df[trades_df['exit_date'].notna()].copy()
+
+st.metric("Total Trades", f"{len(trades)} signals → {len(completed_trades)} completed")
 
 if len(completed_trades) > 0:
     col4, col5, col6 = st.columns(3)
@@ -248,7 +266,9 @@ if len(completed_trades) > 0:
 else:
     st.info("No completed trades yet")
 
-st.metric("Total Signals", len(trades))
+# Show signal distribution
+total_bull_signals = df_bt['BULL'].sum()
+st.info(f"📊 **{total_bull_signals} total entry signals** in dataset ({len(trades)} executed in backtest)")
 
 # 4-PANEL CHART
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
@@ -260,14 +280,21 @@ ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Clo
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}', alpha=0.7)
 ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label=f'EMA{ema_slow}', alpha=0.7)
 
-# Plot entry/exit points
+# Plot ALL signals as background
+bull_signals = df_bt[df_bt['BULL'] == True]
+if len(bull_signals) > 0:
+    ax1.scatter(bull_signals.index, bull_signals['Close'], 
+                color='lightgreen', marker='^', s=50, alpha=0.3,
+                label=f'All Signals ({len(bull_signals)})', zorder=3)
+
+# Plot executed trades
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     
     # Entries
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-                color='limegreen', marker='^', s=120, alpha=0.9,
-                label='Entry', zorder=5, edgecolors='white', linewidths=1)
+                color='limegreen', marker='^', s=150, alpha=0.9,
+                label=f'Executed ({len(trades)})', zorder=5, edgecolors='white', linewidths=2)
     
     # Exits
     exits = trades_plot[trades_plot['exit_date'].notna()]
@@ -277,17 +304,17 @@ if len(trades) > 0:
         
         if len(winners) > 0:
             ax1.scatter(winners['exit_date'], winners['exit_price'],
-                       color='#27AE60', marker='v', s=120, alpha=0.9,
-                       label='Exit (Win)', zorder=5, edgecolors='white', linewidths=1)
+                       color='#27AE60', marker='v', s=150, alpha=0.9,
+                       label=f'Exit Win ({len(winners)})', zorder=5, edgecolors='white', linewidths=2)
         if len(losers) > 0:
             ax1.scatter(losers['exit_date'], losers['exit_price'],
-                       color='red', marker='v', s=120, alpha=0.9,
-                       label='Exit (Loss)', zorder=5, edgecolors='white', linewidths=1)
+                       color='red', marker='v', s=150, alpha=0.9,
+                       label=f'Exit Loss ({len(losers)})', zorder=5, edgecolors='white', linewidths=2)
 
-ax1.set_title(f'{ticker} - Return: {total_return:+.1f}% | {len(trades)} Signals', 
+ax1.set_title(f'{ticker} - {entry_mode} | Return: {total_return:+.1f}% | {len(trades)} Trades', 
               fontsize=16, fontweight='bold', pad=15)
 ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
-ax1.legend(loc='upper left', fontsize=9, ncol=2)
+ax1.legend(loc='upper left', fontsize=8, ncol=2)
 ax1.grid(True, alpha=0.2, linestyle='--')
 ax1.set_facecolor('#F8F9FA')
 
@@ -335,7 +362,14 @@ col1, col2, col3, col4 = st.columns(4)
 trend_ok = latest['EMA_FAST'] > latest['EMA_SLOW']
 rsi_ok = latest['RSI'] > latest['RSI_EMA']
 adx_ok = latest['ADX'] > min_adx
-live_signal = trend_ok and rsi_ok and adx_ok
+
+# Determine if live signal based on mode
+if entry_mode == "Strict (All conditions)":
+    live_signal = trend_ok and rsi_ok and adx_ok
+elif entry_mode == "Relaxed (2 of 3)":
+    live_signal = trend_ok and (rsi_ok or adx_ok)
+else:  # Aggressive
+    live_signal = trend_ok
 
 with col1:
     st.metric("Trend", "✅ UP" if trend_ok else "❌ DOWN")
@@ -380,6 +414,6 @@ with st.expander("📋 Detailed Trade History"):
         else:
             st.info("No completed trades - position may be open")
     else:
-        st.info("No trades triggered yet")
+        st.info("No trades triggered yet - adjust parameters")
 
-st.caption(f"✅ All calculations verified | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.caption(f"✅ Multi-entry logic | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
