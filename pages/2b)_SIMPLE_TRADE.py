@@ -16,12 +16,12 @@ with col2:
     period = st.selectbox("Backtest Period", ["2y", "1y", "6mo"], index=0)
 
 col1, col2, col3 = st.columns(3)
-ema_fast = col1.number_input("EMA Fast", value=12, min_value=5, max_value=20)
+ema_fast = col1.number_input("EMA Fast", value=12, min_value=5, max_value=30)
 ema_slow = col2.number_input("EMA Slow", value=26, min_value=15, max_value=50)
 rsi_len = col3.number_input("RSI Length", value=14, min_value=10, max_value=21)
 
 col4, col5, col6 = st.columns(3)
-rsi_ema_len = col4.number_input("RSI EMA Len", value=9, min_value=5, max_value=20)
+rsi_ema_len = col4.number_input("RSI EMA Len", value=9, min_value=5, max_value=30)
 conf_thresh = col5.number_input("Conf %", value=65, min_value=50, max_value=100)
 stop_loss_pct = col6.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=99.0)/100
 
