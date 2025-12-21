@@ -211,18 +211,21 @@ if len(completed) > 0:
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(periods=10).fillna(0)
-df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(periods=10).fillna(0)
 df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(1).fillna(0)
 df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(1).fillna(0)
 
-colors = ['green' if (f < 0 and r > 0) else 'red' if (f > 0 and r < 0) else 'gray' 
-          for f, r in zip(df_bt['FAST_EMA_ROC'], df_bt['RSI_EMA_ROC'])]
+green_mask = (df_bt['FAST_EMA_ROC'] < 0) & (df_bt['RSI_EMA_ROC'] > 0)
+red_mask = (df_bt['FAST_EMA_ROC'] > 0) & (df_bt['RSI_EMA_ROC'] < 0)
+gray_mask = ~(green_mask | red_mask)
+
+ax1.plot(df_bt[green_mask].index, df_bt[green_mask]['Close'], color='green', linewidth=2, alpha=0.8)
+ax1.plot(df_bt[red_mask].index, df_bt[red_mask]['Close'], color='red', linewidth=2, alpha=0.8)
+ax1.plot(df_bt[gray_mask].index, df_bt[gray_mask]['Close'], color='gray', linewidth=1.5, alpha=0.5)
 
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], c=colors, linewidth=2, label='Close', alpha=0.5)
-ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
-ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_slow_len}', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=2, label=f'SMA{sma_slow_len}', alpha=0.5)
 
 rsi_block = (df_bt['RSI'] < 30) & (df_bt['RSI'] < df_bt['RSI_EMA'])
 
