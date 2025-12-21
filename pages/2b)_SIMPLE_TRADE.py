@@ -94,11 +94,18 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         row = df_bt.iloc[i]
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
+        rsi_block = (row['RSI'] < 30) and (row['RSI'] < row['RSI_EMA'])
         
-        entry_condition = (row['RSI'] > row['RSI_EMA']) and (curr_close > row['SMA_FAST'])
-        
+        entry_condition = (
+            (row['RSI'] > row['RSI_EMA']) and
+            (row['RSI'] > 30) and
+            (curr_close > row['SMA_FAST']) and
+            (not rsi_block)
+        )
+
         if position_shares == 0:
             if can_enter and entry_condition:
+                
                 position_shares = (cash * 0.95) / curr_close
                 entry_cost = position_shares * curr_close
                 cash -= entry_cost
