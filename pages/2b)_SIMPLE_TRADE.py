@@ -82,6 +82,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=7, adjust=False).mean()
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
+    df_bt['ADX_ROC'] = df_bt['ADX'].pct_change(periods=5).fillna(0
     df_bt['ATR'] = ATR(df_bt, 14)
     df_bt = df_bt.dropna()
     
@@ -98,10 +99,10 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
         rsi_block = (row['RSI'] < 30) and (row['RSI'] < row['RSI_EMA'])
-        row['ADX_ROC'] = row['ADX'].pct_change(periods=5)
       
         entry_condition = (
-            (row['ADX'] > 25 & (row['ADX_ROC'] > 0)) &
+            (row['ADX'] > 25 & 
+            (row['ADX_ROC'] > 0) &
             (row['RSI'] > row['RSI_EMA']) &
             (row['RSI'] > 30) &
             (curr_close > row['SMA_FAST']) &
