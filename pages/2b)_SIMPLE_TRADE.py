@@ -227,12 +227,15 @@ ax2.set_ylim(0, 100)
 ax2.set_facecolor('#F8F9FA')
 
 ax3 = axes[2]
-ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
-ax3.axhline(y=25, color='#E74C3C', linestyle='--', alpha=0.5, linewidth=1, label='Min=25')
-ax3.set_ylabel('ADX', fontsize=11, fontweight='bold')
+ax3.plot(df_bt.index, df_bt['DI+'], color='#27AE60', linewidth=1.5, label='DI+', alpha=0.8)
+ax3.plot(df_bt.index, df_bt['DI-'], color='#E74C3C', linewidth=1.5, label='DI-', alpha=0.8)
+ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=2, label='ADX', alpha=0.9)
+ax3.axhline(y=25, color='gray', linestyle='--', alpha=0.5, linewidth=1)
+ax3.set_ylabel('ADX/DI', fontsize=11, fontweight='bold')
 ax3.legend(loc='upper left', fontsize=9)
 ax3.grid(True, alpha=0.2)
 ax3.set_facecolor('#F8F9FA')
+
 
 ax4 = axes[3]
 ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio Value')
