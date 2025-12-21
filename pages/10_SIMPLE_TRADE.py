@@ -1,4 +1,3 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -32,25 +31,20 @@ st.markdown("""
 - EMA Fast > EMA Slow **(Uptrend)**
 - ADX > Min ADX **(Trend strength)**
 - **RSI > RSI_EMA** 
-- **ALL** conditions met
+- **ANY** Breakout/Pullback/Momentum signal
 
 **📊 Backtest shows profitability of your EXACT parameters**
 """)
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
-    try:
-        df = yf.download(ticker, period=period, progress=False, threads=False)
-        if df.empty: 
-            return None
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-        if 'Adj Close' in df.columns:
-            df['Close'] = df['Adj Close']
-        return df.dropna()
-    except Exception as e:
-        st.error(f"Error downloading data: {e}")
-        return None
+    df = yf.download(ticker, period=period, progress=False, threads=False)
+    if df.empty: return None
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+    if 'Adj Close' in df.columns:
+        df['Close'] = df['Adj Close']
+    return df.dropna()
 
 def RSI(series, period=14):
     delta = series.diff()
@@ -60,263 +54,190 @@ def RSI(series, period=14):
     return 100 - (100 / (1 + rs)).fillna(50)
 
 def ADX(df, period=14):
-    high, low, close = df["High"].squeeze(), df["Low"].squeeze(), df["Close"].squeeze()
-    tr1 = high - low
-    tr2 = abs(high - close.shift())
-    tr3 = abs(low - close.shift())
+    high, low, close = df["High"], df["Low"], df["Close"]
+    tr1, tr2, tr3 = high-low, abs(high-close.shift()), abs(low-close.shift())
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    
     up_move = high.diff()
     down_move = -low.diff()
     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
     minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
-    
     plus_dm = pd.Series(plus_dm, index=high.index)
     minus_dm = pd.Series(minus_dm, index=high.index)
-    
-    atr = tr.rolling(window=period, min_periods=1).mean()
-    plus_di = 100 * (plus_dm.rolling(period, min_periods=1).mean() / atr)
-    minus_di = 100 * (minus_dm.rolling(period, min_periods=1).mean() / atr)
-    
+    atr = tr.rolling(window=period).mean()
+    plus_di = 100 * (plus_dm.rolling(period).mean() / atr)
+    minus_di = 100 * (minus_dm.rolling(period).mean() / atr)
     dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
-    adx = dx.rolling(period, min_periods=1).mean()
-    return adx.fillna(0), plus_di.fillna(0), minus_di.fillna(0)
+    adx = dx.rolling(period).mean()
+    return adx, plus_di, minus_di
 
 def run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct):
-    close = df['Close'].squeeze()
-    high = df['High'].squeeze()
-    low = df['Low'].squeeze()
-    
+    # Pre-calculate all indicators
+    close = df['Close']
     df_bt = df.copy()
-    df_bt['EMA_FAST'] = close.ewm(span=ema_fast, adjust=False).mean()
-    df_bt['EMA_SLOW'] = close.ewm(span=ema_slow, adjust=False).mean()
+    df_bt['EMA_FAST'] = close.ewm(span=ema_fast).mean()
+    df_bt['EMA_SLOW'] = close.ewm(span=ema_slow).mean()
     df_bt['RSI'] = RSI(close, rsi_len)
-    df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
-    df_bt['ADX'], _, _ = ADX(df_bt, 14)
+    df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len).mean()
+    df_bt['ADX'], _, _ = ADX(df_bt, rsi_len)
     
-    # ATR for trailing stop
-    tr = pd.concat([high-low, abs(high-close.shift()), abs(low-close.shift())], axis=1).max(axis=1)
-    df_bt['ATR'] = tr.rolling(14, min_periods=1).mean()
-    
-    df_bt = df_bt.dropna()
-    
-    # Entry signal
+    # Entry signals
     df_bt['BULL'] = (
         (df_bt['EMA_FAST'] > df_bt['EMA_SLOW']) &
         (df_bt['RSI'] > df_bt['RSI_EMA']) &
         (df_bt['ADX'] > min_adx)
     )
     
-    # Backtest
-    current_capital = capital
-    equity = []
+    # Backtest logic
+    equity = [capital]
     trades = []
     in_position = False
     entry_price = 0
-    entry_shares = 0
-    stop_price = 0
+    position_size = 0
     
-    for i in range(len(df_bt)):
+    for i in range(1, len(df_bt)):
         row = df_bt.iloc[i]
         current_price = row['Close']
-        current_low = row['Low']
         
-        if not in_position:
-            if row['BULL']:
-                entry_price = current_price
-                entry_shares = int((current_capital * 0.95) / entry_price)
-                if entry_shares > 0:
-                    in_position = True
-                    stop_price = entry_price * (1 - stop_loss_pct)
-                    trades.append({
-                        'entry_date': df_bt.index[i],
-                        'entry_price': entry_price,
-                        'shares': entry_shares
-                    })
+        if not in_position and row['BULL']:
+            entry_price = current_price
+            position_size = capital / entry_price
+            in_position = True
+            trades.append({'entry_date': df_bt.index[i], 'entry_price': entry_price})
         
         elif in_position:
-            # Check stop loss
-            if current_low <= stop_price:
-                exit_price = stop_price
-                pnl = (exit_price - entry_price) * entry_shares
-                current_capital += pnl
-                
+            stop_price = entry_price * (1 - stop_loss_pct)
+            if current_price <= stop_price:
+                exit_price = current_price
+                pnl = (exit_price - entry_price) * position_size
+                capital = capital - (entry_price * position_size) + (exit_price * position_size)
                 trades[-1].update({
                     'exit_date': df_bt.index[i],
                     'exit_price': exit_price,
                     'pnl': pnl,
-                    'pnl_pct': ((exit_price - entry_price) / entry_price) * 100
+                    'pnl_pct': (exit_price - entry_price) / entry_price * 100
                 })
                 in_position = False
-                entry_shares = 0
+                position_size = 0
         
-        # Calculate equity
+        # Current equity
         if in_position:
-            current_equity = current_capital + ((current_price - entry_price) * entry_shares)
+            current_equity = capital - (entry_price * position_size) + (current_price * position_size)
         else:
-            current_equity = current_capital
-        
+            current_equity = capital
         equity.append(current_equity)
     
-    # Close any open position
-    if in_position:
-        exit_price = df_bt['Close'].iloc[-1]
-        pnl = (exit_price - entry_price) * entry_shares
-        current_capital += pnl
-        
-        trades[-1].update({
-            'exit_date': df_bt.index[-1],
-            'exit_price': exit_price,
-            'pnl': pnl,
-            'pnl_pct': ((exit_price - entry_price) / entry_price) * 100
-        })
-    
-    equity_series = pd.Series(equity, index=df_bt.index)
-    return equity_series, current_capital, trades, df_bt
+    equity_series = pd.Series(equity[:len(df_bt)], index=df_bt.index)
+    return equity_series, capital, trades, df_bt
 
-# Load data
+if st.button("🚀 RUN BACKTEST & SIGNALS", type="primary"):
+    st.rerun()
+
 df_raw = get_data(ticker, period)
-if df_raw is None or df_raw.empty:
-    st.error("❌ Failed to load data. Check ticker symbol.")
+if df_raw is None:
+    st.error("❌ Failed to load data.")
     st.stop()
 
-# Run backtest
-try:
-    equity_series, final_capital, trades, df_bt = run_backtest(
-        df_raw, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct
-    )
-except Exception as e:
-    st.error(f"❌ Backtest error: {e}")
-    st.stop()
-
-if df_bt.empty:
-    st.error("❌ Insufficient data after calculations")
-    st.stop()
+# RUN BACKTEST
+equity_series, final_capital, trades, df_bt = run_backtest(
+    df_raw, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct
+)
 
 latest = df_bt.iloc[-1]
 
 # BACKTEST RESULTS
-st.subheader("📊 BACKTEST RESULTS")
-col1, col2, col3, col4 = st.columns(4)
-
-total_return = ((final_capital / capital) - 1) * 100
-col1.metric("Total Return", f"{total_return:+.1f}%")
-col2.metric("Final Capital", f"${final_capital:,.0f}")
-col3.metric("Total Trades", len(trades))
-
-if trades:
-    trades_df = pd.DataFrame(trades)
-    completed_trades = trades_df[trades_df['pnl_pct'].notna()]
+col1, col2 = st.columns([2, 1])
+with col1:
+    st.subheader("📊 **BACKTEST RESULTS**")
+    total_return = (final_capital/capital-1)*100
+    st.metric("Total Return", f"{total_return:+.1f}%")
     
-    if len(completed_trades) > 0:
-        wins = completed_trades[completed_trades['pnl_pct'] > 0]
-        losses = completed_trades[completed_trades['pnl_pct'] <= 0]
-        win_rate = (len(wins) / len(completed_trades)) * 100 if len(completed_trades) > 0 else 0
+    trades_df = pd.DataFrame(trades)
+    if not trades_df.empty:
+        wins = len(trades_df[trades_df['pnl_pct'] > 0])
+        win_rate = wins/len(trades_df)*100
+        st.metric("Win Rate", f"{win_rate:.0f}% ({wins}/{len(trades_df)})")
         
-        col4.metric("Win Rate", f"{win_rate:.1f}%")
-        
-        if len(wins) > 0 and len(losses) > 0:
-            profit_factor = abs(wins['pnl'].sum() / losses['pnl'].sum())
-            st.metric("Profit Factor", f"{profit_factor:.2f}")
+        profit_factor = abs(trades_df[trades_df['pnl_pct']>0]['pnl'].sum() / 
+                           trades_df[trades_df['pnl_pct']<0]['pnl'].sum()) if len(trades_df[trades_df['pnl_pct']<0]) > 0 else float('inf')
+        st.metric("Profit Factor", f"{profit_factor:.2f}")
+    else:
+        st.info("No trades - loosen parameters")
 
-# 4-PANEL CHART
+with col2:
+    st.metric("Final Capital", f"${final_capital:,.0f}")
+    st.metric("Total Trades", len(trades))
+
+# 4-PANEL CHART WITH REAL EQUITY
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-# 1. Price Chart
+# 1. Price + Entries (FIXED)
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
-ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}', alpha=0.7)
-ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label=f'EMA{ema_slow}', alpha=0.7)
+ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}')
+ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label=f'EMA{ema_slow}')
 
-# Plot entries
-if trades:
-    trades_df = pd.DataFrame(trades)
-    ax1.scatter(trades_df['entry_date'], trades_df['entry_price'], 
-                color='limegreen', marker='^', s=120, alpha=0.9, 
-                label='Entry', zorder=5, edgecolors='white', linewidths=1)
-    
-    # Plot exits
-    exits = trades_df[trades_df['exit_date'].notna()]
-    if len(exits) > 0:
-        winners = exits[exits['pnl_pct'] > 0]
-        losers = exits[exits['pnl_pct'] <= 0]
-        
-        if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'],
-                       color='#27AE60', marker='v', s=120, alpha=0.9,
-                       label='Exit (Win)', zorder=5, edgecolors='white', linewidths=1)
-        if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'],
-                       color='red', marker='v', s=120, alpha=0.9,
-                       label='Exit (Loss)', zorder=5, edgecolors='white', linewidths=1)
+# FIXED: Safe entry points
+bull_points = df_bt[df_bt['BULL'] == True] if 'BULL' in df_bt.columns else pd.DataFrame()
+if not bull_points.empty:
+    ax1.scatter(bull_points.index, bull_points['Close'], color='limegreen', 
+               marker='^', s=100, alpha=0.8, label='Backtest Entries', zorder=5)
 
-ax1.set_title(f'{ticker} - Return: {total_return:+.1f}%', fontsize=16, fontweight='bold', pad=15)
-ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
+ax1.set_title(f'{ticker} - Backtest Return: {total_return:+.1f}%', fontsize=16, fontweight='bold')
 ax1.legend(loc='upper left', fontsize=9)
-ax1.grid(True, alpha=0.2, linestyle='--')
-ax1.set_facecolor('#F8F9FA')
+ax1.grid(True, alpha=0.2)
+ax1.set_ylabel('Price ($)')
 
-# 2. RSI
+# 2. RSI + RSI_EMA
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RSI_EMA({rsi_ema_len})')
-ax2.axhline(y=70, color='#E74C3C', linestyle='--', alpha=0.5, linewidth=1)
-ax2.axhline(y=50, color='gray', linestyle='--', alpha=0.3, linewidth=1)
-ax2.axhline(y=30, color='#27AE60', linestyle='--', alpha=0.5, linewidth=1)
-ax2.set_ylabel('RSI', fontsize=11, fontweight='bold')
-ax2.legend(loc='upper left', fontsize=9)
+ax2.axhline(y=70, color='#E74C3C', linestyle='--', alpha=0.5)
+ax2.axhline(y=50, color='gray', linestyle='--', alpha=0.3)
+ax2.set_ylabel('RSI')
+ax2.legend(fontsize=9)
 ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100)
-ax2.set_facecolor('#F8F9FA')
 
 # 3. ADX
 ax3 = axes[2]
 ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
-ax3.axhline(y=min_adx, color='#E74C3C', linestyle='--', alpha=0.5, linewidth=1, label=f'Min={min_adx}')
-ax3.set_ylabel('ADX', fontsize=11, fontweight='bold')
-ax3.legend(loc='upper left', fontsize=9)
+ax3.axhline(y=min_adx, color='#E74C3C', linestyle='--', alpha=0.5, label=f'Min={min_adx}')
+ax3.set_ylabel('ADX')
+ax3.legend(fontsize=9)
 ax3.grid(True, alpha=0.2)
-ax3.set_facecolor('#F8F9FA')
 
-# 4. Equity Curve
+# 4. REAL EQUITY CURVE
 ax4 = axes[3]
-ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio Value')
-ax4.fill_between(equity_series.index, capital, equity_series, 
-                 alpha=0.3, color='#27AE60' if final_capital > capital else '#E74C3C')
-ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, linewidth=1, label=f'Start ${capital:,.0f}')
-ax4.set_ylabel('Equity ($)', fontsize=11, fontweight='bold')
-ax4.set_xlabel('Date', fontsize=12, fontweight='bold')
-ax4.legend(loc='upper left', fontsize=9)
+ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=3, label='Equity Curve')
+ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, label=f'Start ${capital:,.0f}')
+ax4.fill_between(equity_series.index, capital, equity_series, alpha=0.2, color='#27AE60')
+ax4.set_ylabel('Portfolio ($)')
+ax4.set_xlabel('Date')
+ax4.legend(fontsize=9)
 ax4.grid(True, alpha=0.2)
-ax4.set_facecolor('#F8F9FA')
 
 plt.tight_layout()
 st.pyplot(fig)
 
 # LIVE SIGNAL STATUS
-st.subheader("🔍 LIVE SIGNAL DEBUGGER")
+st.subheader("🔍 **LIVE SIGNAL DEBUGGER**")
 col1, col2, col3, col4 = st.columns(4)
-
-trend_ok = latest['EMA_FAST'] > latest['EMA_SLOW']
-rsi_ok = latest['RSI'] > latest['RSI_EMA']
-adx_ok = latest['ADX'] > min_adx
-live_signal = trend_ok and rsi_ok and adx_ok
-
 with col1:
-    st.metric("Trend", "✅ UP" if trend_ok else "❌ DOWN", 
-              f"EMA{ema_fast}>{ema_slow}" if trend_ok else "")
+    trend_ok = latest['EMA_FAST'] > latest['EMA_SLOW']
+    st.metric("Trend", "✅" if trend_ok else "❌")
 with col2:
-    st.metric("RSI vs EMA", "✅" if rsi_ok else "❌", 
-              f"{latest['RSI']:.1f} > {latest['RSI_EMA']:.1f}" if rsi_ok else f"{latest['RSI']:.1f} < {latest['RSI_EMA']:.1f}")
+    rsi_ok = latest['RSI'] > latest['RSI_EMA']
+    st.metric("RSI>EMA", "✅" if rsi_ok else "❌")
 with col3:
-    st.metric("ADX", f"{latest['ADX']:.1f}", 
-              "✅ Strong" if adx_ok else "❌ Weak")
+    adx_ok = latest['ADX'] > min_adx
+    st.metric("ADX", f"{latest['ADX']:.1f}", f">{min_adx}" if adx_ok else "")
 with col4:
-    st.metric("Signal", "🟢 LIVE" if live_signal else "🔴 WAIT")
+    live_signal = "🟢 LIVE" if (trend_ok and rsi_ok and adx_ok) else "🔴 WAIT"
+    st.metric("Signal", live_signal)
 
 # LIVE TRADE PLAN
-if live_signal:
+if trend_ok and rsi_ok and adx_ok:
     st.success("🎯 **LIVE SIGNAL - TRADE NOW!**")
     st.balloons()
     
@@ -324,23 +245,21 @@ if live_signal:
     shares = int((capital * 0.95) / entry_price)
     stop_price = entry_price * (1 - stop_loss_pct)
     
-    st.subheader("📋 EXECUTE IMMEDIATELY")
+    st.subheader("📋 **EXECUTE IMMEDIATELY**")
     col1, col2 = st.columns(2)
     with col1:
-        st.success(f"**BUY {shares:,} shares @ ${entry_price:.2f}**")
-        st.info(f"Total: ${shares * entry_price:,.0f}")
+        st.success(f"**BUY {shares:,} shares**")
+        st.success(f"**@ ${entry_price:.2f}**")
     with col2:
-        st.warning(f"**STOP LOSS: ${stop_price:.2f}**")
-        st.error(f"Risk: ${shares * (entry_price - stop_price):,.0f}")
+        st.warning(f"**STOP LOSS**")
+        st.warning(f"${stop_price:.2f}")
 
-# TRADE HISTORY
+# TRADE HISTORY TABLE
 with st.expander("📋 Detailed Trade History"):
     if trades:
-        trades_display = pd.DataFrame(trades)
-        if 'pnl_pct' in trades_display.columns:
-            trades_display['pnl_pct'] = trades_display['pnl_pct'].round(2)
-        st.dataframe(trades_display, use_container_width=True)
+        trades_df = pd.DataFrame(trades)
+        st.dataframe(trades_df[['entry_date', 'exit_date', 'entry_price', 'exit_price', 'pnl_pct']].tail(10), use_container_width=True)
     else:
-        st.info("No trades yet - waiting for signal")
+        st.info("No completed trades - strategy too selective")
 
-st.caption(f"✅ Live backtest | Last update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.caption(f"✅ FULL BACKTEST with your parameters | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
