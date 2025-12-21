@@ -13,7 +13,7 @@ with col1:
     ticker = st.text_input("Ticker", value="COIN")
     capital = st.number_input("Capital ($)", value=10000, min_value=1000)
 with col2:
-    period = st.selectbox("Backtest Period", ["5y", "3y", "2y", "1y", "6mo"], index=0)
+    period = st.selectbox("Backtest Period", ["5y", "3y", "2y", "1y", "6mo"], index=1)
 
 col1, col2, col3 = st.columns(3)
 sma_fast_len = col1.number_input("SMA Fast", value=12, min_value=5, max_value=30)
