@@ -16,8 +16,8 @@ with col2:
     period = st.selectbox("Backtest Period", ["5y", "3y", "2y", "1y", "6mo"], index=1)
 
 col1, col2, col3 = st.columns(3)
-sma_fast_len = col1.number_input("SMA Fast", value=12, min_value=5, max_value=30)
-sma_slow_len = col1.number_input("SMA SLOW", value=44, min_value=5, max_value=50)
+sma_fast_len = col1.number_input("SMA Fast", value=20, min_value=5, max_value=30)
+sma_slow_len = col1.number_input("SMA SLOW", value=50, min_value=5, max_value=50)
 rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
 rsi_ema_len = col3.number_input("RSI EMA Length", value=25, min_value=9, max_value=50)
 
