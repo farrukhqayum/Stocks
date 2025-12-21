@@ -71,7 +71,7 @@ def ADX(df, period=14):
     return adx, plus_di, minus_di
 
 def run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct):
-    # Pre-calculate all indicators
+    # Pre-calculate indicators
     close = df['Close']
     df_bt = df.copy()
     df_bt['EMA_FAST'] = close.ewm(span=ema_fast).mean()
@@ -87,12 +87,13 @@ def run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx,
         (df_bt['ADX'] > min_adx)
     )
     
-    # Backtest logic
+    # Backtest
     equity = [capital]
     trades = []
     in_position = False
     entry_price = 0
     position_size = 0
+    current_capital = capital
     
     for i in range(1, len(df_bt)):
         row = df_bt.iloc[i]
@@ -100,34 +101,37 @@ def run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx,
         
         if not in_position and row['BULL']:
             entry_price = current_price
-            position_size = capital / entry_price
+            position_size = current_capital / entry_price
             in_position = True
-            trades.append({'entry_date': df_bt.index[i], 'entry_price': entry_price})
+            trades.append({
+                'entry_date': df_bt.index[i], 
+                'entry_price': entry_price,
+                'pnl': 0,
+                'pnl_pct': 0
+            })
         
         elif in_position:
             stop_price = entry_price * (1 - stop_loss_pct)
             if current_price <= stop_price:
                 exit_price = current_price
                 pnl = (exit_price - entry_price) * position_size
-                capital = capital - (entry_price * position_size) + (exit_price * position_size)
-                trades[-1].update({
-                    'exit_date': df_bt.index[i],
-                    'exit_price': exit_price,
-                    'pnl': pnl,
-                    'pnl_pct': (exit_price - entry_price) / entry_price * 100
-                })
+                current_capital += pnl
+                trades[-1]['exit_date'] = df_bt.index[i]
+                trades[-1]['exit_price'] = exit_price
+                trades[-1]['pnl'] = pnl
+                trades[-1]['pnl_pct'] = (exit_price - entry_price) / entry_price * 100
                 in_position = False
                 position_size = 0
         
         # Current equity
         if in_position:
-            current_equity = capital - (entry_price * position_size) + (current_price * position_size)
+            current_equity = current_capital - (entry_price * position_size) + (current_price * position_size)
         else:
-            current_equity = capital
+            current_equity = current_capital
         equity.append(current_equity)
     
     equity_series = pd.Series(equity[:len(df_bt)], index=df_bt.index)
-    return equity_series, capital, trades, df_bt
+    return equity_series, current_capital, trades, df_bt
 
 if st.button("🚀 RUN BACKTEST & SIGNALS", type="primary"):
     st.rerun()
@@ -144,7 +148,7 @@ equity_series, final_capital, trades, df_bt = run_backtest(
 
 latest = df_bt.iloc[-1]
 
-# BACKTEST RESULTS
+# BACKTEST RESULTS - FIXED SAFE VERSION
 col1, col2 = st.columns([2, 1])
 with col1:
     st.subheader("📊 **BACKTEST RESULTS**")
@@ -152,43 +156,50 @@ with col1:
     st.metric("Total Return", f"{total_return:+.1f}%")
     
     trades_df = pd.DataFrame(trades)
-    if not trades_df.empty:
-        wins = len(trades_df[trades_df['pnl_pct'] > 0])
-        win_rate = wins/len(trades_df)*100
-        st.metric("Win Rate", f"{win_rate:.0f}% ({wins}/{len(trades_df)})")
-        
-        profit_factor = abs(trades_df[trades_df['pnl_pct']>0]['pnl'].sum() / 
-                           trades_df[trades_df['pnl_pct']<0]['pnl'].sum()) if len(trades_df[trades_df['pnl_pct']<0]) > 0 else float('inf')
-        st.metric("Profit Factor", f"{profit_factor:.2f}")
+    num_trades = len(trades_df)
+    
+    if num_trades > 0 and 'pnl_pct' in trades_df.columns:
+        completed_trades = trades_df[trades_df['pnl_pct'] != 0]
+        if len(completed_trades) > 0:
+            wins = len(completed_trades[completed_trades['pnl_pct'] > 0])
+            win_rate = wins/len(completed_trades)*100
+            st.metric("Win Rate", f"{win_rate:.0f}% ({wins}/{len(completed_trades)})")
+            
+            wins_pnl = completed_trades[completed_trades['pnl_pct'] > 0]['pnl'].sum()
+            losses_pnl = abs(completed_trades[completed_trades['pnl_pct'] < 0]['pnl'].sum())
+            profit_factor = wins_pnl / losses_pnl if losses_pnl > 0 else float('inf')
+            st.metric("Profit Factor", f"{profit_factor:.2f}")
+        else:
+            st.info("No completed trades yet")
     else:
-        st.info("No trades - loosen parameters")
+        st.info(f"No trades triggered ({num_trades} signals)")
 
 with col2:
     st.metric("Final Capital", f"${final_capital:,.0f}")
-    st.metric("Total Trades", len(trades))
+    st.metric("Total Signals", len(trades))
 
-# 4-PANEL CHART WITH REAL EQUITY
+# 4-PANEL CHART
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-# 1. Price + Entries (FIXED)
+# Price chart - SAFE
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}')
 ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label=f'EMA{ema_slow}')
 
-# FIXED: Safe entry points
-bull_points = df_bt[df_bt['BULL'] == True] if 'BULL' in df_bt.columns else pd.DataFrame()
-if not bull_points.empty:
-    ax1.scatter(bull_points.index, bull_points['Close'], color='limegreen', 
-               marker='^', s=100, alpha=0.8, label='Backtest Entries', zorder=5)
+if 'BULL' in df_bt.columns:
+    bull_points = df_bt[df_bt['BULL'] == True]
+    if not bull_points.empty:
+        ax1.scatter(bull_points.index, bull_points['Close'], color='limegreen', 
+                   marker='^', s=100, alpha=0.8, label='Backtest Entries', zorder=5)
 
-ax1.set_title(f'{ticker} - Backtest Return: {total_return:+.1f}%', fontsize=16, fontweight='bold')
+ax1.set_title(f'{ticker} - Backtest: {total_return:+.1f}% | Trades: {len(trades)}', fontsize=16, fontweight='bold')
 ax1.legend(loc='upper left', fontsize=9)
 ax1.grid(True, alpha=0.2)
 ax1.set_ylabel('Price ($)')
 
-# 2. RSI + RSI_EMA
+# RSI
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RSI_EMA({rsi_ema_len})')
@@ -199,7 +210,7 @@ ax2.legend(fontsize=9)
 ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100)
 
-# 3. ADX
+# ADX
 ax3 = axes[2]
 ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
 ax3.axhline(y=min_adx, color='#E74C3C', linestyle='--', alpha=0.5, label=f'Min={min_adx}')
@@ -207,7 +218,7 @@ ax3.set_ylabel('ADX')
 ax3.legend(fontsize=9)
 ax3.grid(True, alpha=0.2)
 
-# 4. REAL EQUITY CURVE
+# REAL EQUITY
 ax4 = axes[3]
 ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=3, label='Equity Curve')
 ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, label=f'Start ${capital:,.0f}')
@@ -220,8 +231,8 @@ ax4.grid(True, alpha=0.2)
 plt.tight_layout()
 st.pyplot(fig)
 
-# LIVE SIGNAL STATUS
-st.subheader("🔍 **LIVE SIGNAL DEBUGGER**")
+# LIVE SIGNAL DEBUGGER
+st.subheader("🔍 **LIVE SIGNAL STATUS**")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     trend_ok = latest['EMA_FAST'] > latest['EMA_SLOW']
@@ -254,12 +265,17 @@ if trend_ok and rsi_ok and adx_ok:
         st.warning(f"**STOP LOSS**")
         st.warning(f"${stop_price:.2f}")
 
-# TRADE HISTORY TABLE
+# SAFE TRADE HISTORY
 with st.expander("📋 Detailed Trade History"):
-    if trades:
-        trades_df = pd.DataFrame(trades)
-        st.dataframe(trades_df[['entry_date', 'exit_date', 'entry_price', 'exit_price', 'pnl_pct']].tail(10), use_container_width=True)
+    trades_df = pd.DataFrame(trades)
+    if not trades_df.empty and len(trades_df) > 0:
+        # Only show completed trades
+        completed = trades_df[trades_df['pnl_pct'] != 0]
+        if len(completed) > 0:
+            st.dataframe(completed[['entry_date', 'exit_date', 'entry_price', 'exit_price', 'pnl_pct']].tail(10), use_container_width=True)
+        else:
+            st.info("No completed trades - all still open or no exits triggered")
     else:
-        st.info("No completed trades - strategy too selective")
+        st.info("No trades triggered with current parameters")
 
-st.caption(f"✅ FULL BACKTEST with your parameters | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"✅ FULL BACKTEST - Safe column handling | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
