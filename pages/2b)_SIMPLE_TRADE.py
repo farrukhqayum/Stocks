@@ -217,21 +217,23 @@ ax1 = axes[0]
 df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(1).fillna(0)
 df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(1).fillna(0)
 
-points = np.array([df_bt.index.get_indexer(df_bt.index), df_bt['Close']]).T.reshape(-1, 1, 2)
-segments = np.concatenate([points[:-1], points[1:]], axis=1)
+x = df_bt.index
+y = df_bt['Close'].value
 
 colors = []
-for i in range(len(df_bt)-1):
-    f_roc = df_bt['FAST_EMA_ROC'].iloc[i]
-    r_roc = df_bt['RSI_EMA_ROC'].iloc[i]
-    if f_roc < 0 and r_roc > 0:
+for i in range(len(df_bt)):
+    f = df_bt['FAST_EMA_ROC'].iloc[i]
+    r = df_bt['RSI_EMA_ROC'].iloc[i]
+    if f < 0 and r > 0:
         colors.append('green')
-    elif f_roc > 0 and r_roc < 0:
+    elif f > 0 and r < 0:
         colors.append('red')
     else:
         colors.append('gray')
-line = LineCollection(segments, colors=colors, linewidths=2, alpha=0.7, label='Close')
-ax1.add_collection(line)
+        
+for i in range(len(x)-1):
+    ax1.plot(x[i:i+2], y[i:i+2], color=colors[i], linewidth=2, alpha=0.7)
+ax1.plot(x, y, color='none', linewidth=0, label='Close (ROC Divergence)')
 
 #ax1.plot(df_bt.index, df_bt['Close'], c='gray', linewidth=2, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
