@@ -87,10 +87,11 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
     df_bt = df_bt.dropna()
     
     sma20 = close.rolling(20, min_periods=1).mean()
-    trend_up = df_bt['EMA_FAST'] > df_bt['EMA_SLOW'] & (df_bt['DI+'] > df_bt['DI-'])
+    trend_up = (df_bt['EMA_FAST'] > df_bt['EMA_SLOW']) & (df_bt['DI+'] > df_bt['DI-'])
     rsi_bullish = (df_bt['RSI'] > df_bt['RSI_EMA']) & (df_bt['RSI'] > 50)
     adx_strong = df_bt['ADX'] > 25
     price_above_sma20 = df_bt['Close'] > sma20
+
     
     df_bt['CONFIDENCE'] = (trend_up.astype(int) + rsi_bullish.astype(int) + 
                           adx_strong.astype(int) + price_above_sma20.astype(int)) * 25
