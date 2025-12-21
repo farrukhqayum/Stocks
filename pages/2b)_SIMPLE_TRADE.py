@@ -232,6 +232,9 @@ fig.patch.set_facecolor('white')
 
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['Low'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['High'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
+
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label='EMA12', alpha=0.6)
 ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label='EMA26', alpha=0.6)
 
