@@ -81,13 +81,13 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
     df_bt = df.copy()
     df_bt['EMA_FAST'] = close.ewm(span=ema_fast, adjust=False).mean()
     df_bt['EMA_SLOW'] = close.ewm(span=ema_slow, adjust=False).mean()
-    df_bt['RSI'] = RSI(close, rsi_len)
+    df_bt['RSI'] = RSI(close, rsi_len).ewm(span=4, adjust=False).mean()
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
-    df_bt['ADX'], _, _ = ADX(df_bt, 14)
+    df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
     df_bt = df_bt.dropna()
     
     sma20 = close.rolling(20, min_periods=1).mean()
-    trend_up = df_bt['EMA_FAST'] > df_bt['EMA_SLOW']
+    trend_up = df_bt['EMA_FAST'] > df_bt['EMA_SLOW'] & (df_bt['DI+'] > df_bt['DI-'])
     rsi_bullish = (df_bt['RSI'] > df_bt['RSI_EMA']) & (df_bt['RSI'] > 50)
     adx_strong = df_bt['ADX'] > 25
     price_above_sma20 = df_bt['Close'] > sma20
