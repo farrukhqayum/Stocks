@@ -213,19 +213,12 @@ fig.patch.set_facecolor('white')
 
 df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(periods=10).fillna(0)
 df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(periods=10).fillna(0)
-fast_roc_neg_rsi_pos = (df_bt['FAST_EMA_ROC'] < 0) & (df_bt['RSI_EMA_ROC'] > 0)
-fast_roc_pos_rsi_neg = (df_bt['FAST_EMA_ROC'] > 0) & (df_bt['RSI_EMA_ROC'] < 0)
-neutral = ~(fast_roc_neg_rsi_pos | fast_roc_pos_rsi_neg)
-
+df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(1).fillna(0)
+df_bt['RSI_EMA_ROC'] = df_bt['RSI_EMA'].pct_change(1).fillna(0)
+cls = ['green' if (f<0 and r>0) else 'red' if (f>0 and r<0) else 'gray' 
+          for f,r in zip(df_bt['FAST_EMA_ROC'], df_bt['RSI_EMA_ROC'])]
 ax1 = axes[0]
-ax1.plot(df_bt[fast_roc_neg_rsi_pos].index, df_bt[fast_roc_neg_rsi_pos]['Close'], 
-         color='green', linewidth=1.5, label='Close (Fast↓ RSI↑)', alpha=0.8)
-ax1.plot(df_bt[fast_roc_pos_rsi_neg].index, df_bt[fast_roc_pos_rsi_neg]['Close'], 
-         color='red', linewidth=2, alpha=0.5)
-ax1.plot(df_bt[neutral].index, df_bt[neutral]['Close'], 
-         color='gray', linewidth=2, alpha=0.5)
-
-ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['Close'], color= cls, linewidth=1.5, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=1.5, label=f'SMA{sma_slow_len}', alpha=0.5)
 
