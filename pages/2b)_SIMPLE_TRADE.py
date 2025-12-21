@@ -22,6 +22,7 @@ rsi_ema_len = col3.number_input("RSI EMA Length", value=20, min_value=5, max_val
 
 col4, col5 = st.columns(2)
 stop_loss_pct = col4.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=10.0)/100
+take_profit_pct = col5.number_input("Take Profit %", value=7.0, min_value=3.0, max_value=15.0)/100
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -71,7 +72,7 @@ def ATR(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(period, min_periods=1).mean()
 
-def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct):
+def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct):
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
     df_bt['RSI_raw'] = RSI(df_bt['Close'], rsi_len)
@@ -115,9 +116,15 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
             
             if curr_low <= stop_price:
                 exit_price = stop_price
+                exit_reason = 'Stop_Loss'
                 exit_triggered = True
             elif curr_close < row['SMA_FAST']:
                 exit_price = curr_close
+                exit_reason = 'SMA_Exit'
+                exit_triggered = True
+            elif (curr_close / entry_price - 1) >= take_profit_pct:
+                exit_price = curr_close
+                exit_reason = 'Take_Profit'
                 exit_triggered = True
             
             if exit_triggered:
@@ -156,7 +163,7 @@ if df_raw is None or df_raw.empty:
     st.stop()
 
 equity_series, final_capital, trades, df_bt = run_simple_backtest(
-    df_raw, capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct
+    df_raw, capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct
 )
 
 latest = df_bt.iloc[-1]
@@ -198,7 +205,7 @@ if len(trades) > 0:
         if len(winners) > 0:
             ax1.scatter(winners['exit_date'], winners['exit_price'], color='#27AE60', marker='v', s=50, label = 'Winners', zorder=9, edgecolors='black', linewidths=1)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', s=50,  label = 'loosers', zorder=10, edgecolors='black', linewidths=1)
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', s=50,  label = 'Losses', zorder=10, edgecolors='black', linewidths=1)
 
 ax1.set_title(f'{ticker} - Simple RSI+SMA | Return: {total_return:+.1f}% | {len(trades)} Trades', 
               fontsize=16, fontweight='bold', pad=15)
