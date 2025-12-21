@@ -251,15 +251,14 @@ if len(trades) > 0:
                 label=f'Entries ({len(trades)})', zorder=5, edgecolors='black', linewidths=0.5)
 
     exits = trades_plot[trades_plot['exit_date'].notna()]
-    if len(exits) > 0:
-        winners = exits[exits['pnl'] > 0]
-        losers = exits[exits['pnl'] <= 0]
-        if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'],
-                       color='#27AE60', marker='v', label = 'Winners',  s=10, alpha=0.9, zorder=5)
-        if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'],
-                       color='red', marker='v', label = 'Lossers', s=10, alpha=0.9, zorder=5)
+
+    # ✅ CORRECT - Uses actual exit_price at real price levels
+    if len(winners) > 0:
+        ax1.scatter(winners['exit_date'], winners['exit_price'],  # ← Real trade price
+                   color='#27AE60', marker='v', label='Winners', s=10, alpha=0.9, zorder=5)
+    if len(losers) > 0:
+        ax1.scatter(losers['exit_date'], losers['exit_price'],  # ← Real trade price
+                   color='red', marker='v', label='Lossers', s=10, alpha=0.9, zorder=5)
 
 ax1.set_title(f'{ticker} - Hybrid Strategy | Return: {total_return:+.1f}% | {len(trades)} Trades',
               fontsize=16, fontweight='bold', pad=15)
