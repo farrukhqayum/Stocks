@@ -30,8 +30,12 @@ risky_tp_pct = col7.number_input("Risky TP %", value=15.0, min_value=3.0, max_va
 risky_sl_pct = col8.number_input("Risky SL %", value=9.0, min_value=2.0, max_value=25.0)/100
 no_entry_pct = col9.number_input("No Entry Above SMA %", value=20.0, min_value=5.0, max_value=25.0)/100
 
+# NEW FILTERS
 col_red1, col_red2 = st.columns(2)
 red_days_wait = col_red1.number_input("Wait X Red Days After Profit", value=2, min_value=0, max_value=5)
+
+col_filter1, col_filter2 = st.columns(2)
+below_exit_pct = col_filter1.number_input("Entry must be X% below last exit", value=5.0, min_value=1.0, max_value=15.0)/100
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -81,7 +85,7 @@ def ATR(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(period, min_periods=1).mean()
 
-def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct, red_days_wait):
+def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct, red_days_wait, below_exit_pct):
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
     df_bt['RSI'] = RSI(df_bt['Close'], rsi_len)
@@ -89,7 +93,7 @@ def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_em
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
     df_bt['ATR'] = ATR(df_bt, 14)
     
-    # NEW: TREND FILTER SIGNAL
+    # TREND FILTER SIGNAL
     df_bt['Trend_Signal'] = ((df_bt['Close'] > df_bt['SMA_FAST']) & (df_bt['RSI'] > df_bt['RSI_EMA'])).astype(int)
     df_bt['Red_Day'] = df_bt['Close'] < df_bt['Open']
     df_bt = df_bt.dropna()
@@ -106,6 +110,8 @@ def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_em
     risky_entry_price = 0.0
     risky_stop_price = 0.0
     is_risky_trade = False
+    last_exit_price = 0.0  # NEW: Track last exit price
+    waiting_for_pullback = False  # NEW: Pullback requirement
     
     for i in range(len(df_bt)):
         row = df_bt.iloc[i]
@@ -125,14 +131,18 @@ def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_em
             # Block entry if waiting for red days after profit
             if just_exited_profit and red_days_count < red_days_wait:
                 pass
+            # NEW: Block entry if waiting for pullback from last exit
+            elif waiting_for_pullback and (curr_close > last_exit_price * (1 - below_exit_pct)):
+                pass
             elif trend_signal == 1 and price_vs_sma < (1 + no_entry_pct):
-                # NORMAL ENTRY on trend signal
+                # NORMAL ENTRY
                 position_shares = (cash * 0.95) / curr_close
                 entry_cost = position_shares * curr_close
                 cash -= entry_cost
                 entry_price = curr_close
                 stop_price = entry_price * (1 - stop_loss_pct)
                 is_risky_trade = False
+                waiting_for_pullback = False  # Reset pullback flag
                 
                 trades.append({
                     'entry_date': df_bt.index[i], 'entry_price': entry_price,
@@ -140,8 +150,8 @@ def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_em
                 })
             elif not risky_pending and price_vs_sma <= (1 - risky_entry_pct):
                 risky_pending = True
-            elif risky_pending and trend_signal == 1:
-                # RISKY ENTRY on trend signal
+            elif risky_pending and trend_signal == 1 and (not waiting_for_pullback or curr_close <= last_exit_price * (1 - below_exit_pct)):
+                # RISKY ENTRY
                 position_shares = (cash * 0.95) / curr_open
                 entry_cost = position_shares * curr_open
                 cash -= entry_cost
@@ -149,6 +159,7 @@ def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_em
                 risky_stop_price = risky_entry_price * (1 - risky_sl_pct)
                 risky_pending = False
                 is_risky_trade = True
+                waiting_for_pullback = False  # Reset pullback flag
                 
                 trades.append({
                     'entry_date': df_bt.index[i], 'entry_price': risky_entry_price,
@@ -160,7 +171,7 @@ def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_em
             exit_price = 0
             
             # EXIT on trend signal failure OR stops
-            if not row['Trend_Signal']:  # Exit if Close < SMA OR RSI < RSI_EMA
+            if not row['Trend_Signal']:
                 exit_price = curr_close
                 exit_triggered = True
             elif is_risky_trade:
@@ -188,6 +199,10 @@ def run_trend_filter_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_em
                 trades[-1]['exit_price'] = exit_price
                 trades[-1]['pnl'] = pnl
                 trades[-1]['pnl_pct'] = pnl_pct
+                
+                # NEW: Set pullback requirement after ANY exit
+                last_exit_price = exit_price
+                waiting_for_pullback = True
                 
                 if pnl > 0:
                     just_exited_profit = True
@@ -235,11 +250,12 @@ df_live['Trend_Signal'] = ((df_live['Close'] > df_live['SMA_FAST']) & (df_live['
 latest = df_live.iloc[-1]
 live_signal = latest['Trend_Signal']
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Close > SMA", "✅" if latest['Close'] > latest['SMA_FAST'] else "❌", f"{latest['Close']:.2f}")
 col2.metric("RSI > RSI_EMA", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌", f"{latest['RSI']:.1f}")
 col3.metric("Trend Signal", "🟢 LONG" if live_signal else "🔴 EXIT")
 col4.metric("Price vs SMA", f"{((latest['Close']/latest['SMA_FAST']-1)*100):+.1f}%", f"{latest['SMA_FAST']:.2f}")
+col5.metric("Below Last Exit", "✅", f"{below_exit_pct*100:.0f}%")  # Simplified for live view
 
 if live_signal:
     st.success("🎯 TREND SIGNAL: GO LONG!")
@@ -250,7 +266,8 @@ st.divider()
 # BACKTEST
 equity_series, final_capital, trades, df_bt = run_trend_filter_backtest(
     df_raw, capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, 
-    take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct, red_days_wait
+    take_profit_pct, risky_entry_pct, risky_tp_pct, risky_sl_pct, no_entry_pct, 
+    red_days_wait, below_exit_pct  # NEW PARAMETER
 )
 
 total_return = ((final_capital / capital) - 1) * 100
@@ -261,11 +278,11 @@ col1.metric("Total Return", f"{total_return:+.1f}%")
 col2.metric("Final Capital", f"${final_capital:,.0f}")
 col3.metric("Total Trades", len(trades))
 
-# Charts - NO SIGNALS ON PRICE CHART
+# Charts
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-# PRICE CHART - NO SIGNALS, ONLY ENTRIES/EXITS
+# PRICE CHART
 ax1 = axes[0]
 above_sma = df_bt['Close'] > df_bt['SMA_FAST']
 ax1.fill_between(df_bt.index, df_bt['Low'], df_bt['High'], 
@@ -276,7 +293,6 @@ ax1.fill_between(df_bt.index, df_bt['Low'], df_bt['High'],
 ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close')
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}')
 
-# ONLY actual trade entries/exits on price chart
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     normal_entries = trades_plot[trades_plot['type'] == 'Normal']
@@ -303,16 +319,14 @@ ax1.legend(loc='upper left', fontsize=9)
 ax1.grid(True, alpha=0.2)
 ax1.set_facecolor('#F8F9FA')
 
-# RSI CHART - ALL SIGNALS HERE
-# RSI CHART - ALL SIGNALS HERE
+# RSI CHART
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RSI_EMA({rsi_ema_len})')
 
-# FIXED: Trend signals on RSI chart - check if data exists first
 trend_signals = df_bt[df_bt['Trend_Signal'] == 1]
 if len(trend_signals) > 0 and not trend_signals.empty:
-    ax2.scatter(trend_signals.index, trend_signals['RSI'].values,  # Use .values to avoid pandas issues
+    ax2.scatter(trend_signals.index, trend_signals['RSI'].values,
                color='limegreen', marker='^', s=30, label=f'Trend Signals ({len(trend_signals)})', 
                alpha=0.4, zorder=3, edgecolors='darkgreen', linewidth=2)
 
@@ -372,4 +386,4 @@ with st.expander("📋 Trade History"):
     if len(trades) > 0:
         st.dataframe(pd.DataFrame(trades), use_container_width=True)
 
-st.caption(f"Trend Filter Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')} | Red Days: {red_days_wait}")
+st.caption(f"Trend Filter + Pullback | {datetime.now().strftime('%Y-%m-%d %H:%M')} | Red:{red_days_wait} Pullback:{below_exit_pct*100:.0f}%")
