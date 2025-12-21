@@ -190,7 +190,7 @@ ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'
 
 entry_signals = df_bt[(df_bt['RSI'] > df_bt['RSI_EMA']) & (df_bt['Close'] > df_bt['SMA_FAST'])]
 if len(entry_signals) > 0:
-    ax1.scatter(entry_signals.index, entry_signals['Close'], color='limegreen', marker='^', s=20, 
+    ax1.scatter(entry_signals.index, entry_signals['Close'], color='limegreen', marker='d', s=20, 
                label=f'Signals ({len(entry_signals)})', zorder=5)
 
 if len(trades) > 0:
