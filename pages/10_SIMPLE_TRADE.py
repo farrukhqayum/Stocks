@@ -8,13 +8,13 @@ from datetime import datetime
 st.set_page_config(layout="wide", page_title="Simple Signals")
 st.title("📈 Simple Signals")
 
-# USER INPUTS - FULLY CUSTOMIZABLE
+# USER INPUTS
 col1, col2 = st.columns(2)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
     capital = st.number_input("Capital ($)", value=20000, min_value=1000)
 with col2:
-    period = st.selectbox("Backtest Period", ["2y", "1y", "6mo", "3mo"], index=0)
+    period = st.selectbox("Backtest Period", ["2y", "1y", "6mo"], index=0)
 
 col3, col4, col5 = st.columns(3)
 ema_fast = col3.number_input("EMA Fast", value=8, min_value=5, max_value=20)
@@ -30,9 +30,10 @@ st.markdown("""
 **🟢 LIVE TRADE PLAN appears when:**
 - EMA Fast > EMA Slow **(Uptrend)**
 - ADX > Min ADX **(Trend strength)**
-- **RSI > RSI_EMA** *(Your filter)*
+- **RSI > RSI_EMA** 
 - **ANY** Breakout/Pullback/Momentum signal
-**📊 Backtest shows profitability of your exact parameters below**
+
+**📊 Backtest shows profitability of your EXACT parameters**
 """)
 
 @st.cache_data(ttl=300)
@@ -70,61 +71,48 @@ def ADX(df, period=14):
     return adx, plus_di, minus_di
 
 def run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct):
+    # Pre-calculate all indicators
+    close = df['Close']
+    df_bt = df.copy()
+    df_bt['EMA_FAST'] = close.ewm(span=ema_fast).mean()
+    df_bt['EMA_SLOW'] = close.ewm(span=ema_slow).mean()
+    df_bt['RSI'] = RSI(close, rsi_len)
+    df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len).mean()
+    df_bt['ADX'], _, _ = ADX(df_bt, rsi_len)
+    
+    # Entry signals
+    df_bt['BULL'] = (
+        (df_bt['EMA_FAST'] > df_bt['EMA_SLOW']) &
+        (df_bt['RSI'] > df_bt['RSI_EMA']) &
+        (df_bt['ADX'] > min_adx)
+    )
+    
+    # Backtest logic
     equity = [capital]
     trades = []
-    
     in_position = False
     entry_price = 0
-    highest_price = 0
     position_size = 0
     
-    for i in range(1, len(df)):
-        row = df.iloc[i]
-        
-        # Calculate indicators for this row
-        close = df['Close'].iloc[:i+1]
-        ema_f = close.ewm(span=ema_fast).mean().iloc[-1]
-        ema_s = close.ewm(span=ema_slow).mean().iloc[-1]
-        rsi = RSI(close, rsi_len).iloc[-1]
-        rsi_ema = RSI(close, rsi_len).ewm(span=rsi_ema_len).mean().iloc[-1]
-        adx_val, _, _ = ADX(df.iloc[:i+1], rsi_len)
-        adx_val = adx_val.iloc[-1]
-        atr_val = row['ATR'] if 'ATR' in df.columns else 0
-        
+    for i in range(1, len(df_bt)):
+        row = df_bt.iloc[i]
         current_price = row['Close']
         
-        # Entry signal
-        signal = (
-            (ema_f > ema_s) and 
-            (rsi > rsi_ema) and 
-            (adx_val > min_adx) and
-            ((current_price > ema_f) or  # Momentum or breakout
-             (current_price > ema_f * 0.97 and rsi < 55 and rsi > 40))  # Pullback
-        )
-        
-        if not in_position and signal and position_size == 0:
+        if not in_position and row['BULL']:
             entry_price = current_price
             position_size = capital / entry_price
-            highest_price = current_price
             in_position = True
-            trades.append({'entry_date': df.index[i], 'entry_price': entry_price})
+            trades.append({'entry_date': df_bt.index[i], 'entry_price': entry_price})
         
         elif in_position:
-            # Update highest
-            if current_price > highest_price:
-                highest_price = current_price
-            
-            # Exit conditions
             stop_price = entry_price * (1 - stop_loss_pct)
-            trail_stop = highest_price * (1 - 0.04)  # 4% trail
-            
-            if current_price <= stop_price or current_price <= trail_stop:
+            if current_price <= stop_price:
                 exit_price = current_price
-                pnl = (exit_price - entry_price) / entry_price * position_size * entry_price
-                capital += pnl
+                pnl = (exit_price - entry_price) * position_size
+                capital = capital - (entry_price * position_size) + (exit_price * position_size)
                 trades[-1].update({
-                    'exit_date': df.index[i], 
-                    'exit_price': exit_price, 
+                    'exit_date': df_bt.index[i],
+                    'exit_price': exit_price,
                     'pnl': pnl,
                     'pnl_pct': (exit_price - entry_price) / entry_price * 100
                 })
@@ -133,172 +121,145 @@ def run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx,
         
         # Current equity
         if in_position:
-            unrealized = (current_price - entry_price) * position_size
-            equity.append(capital + unrealized)
+            current_equity = capital - (entry_price * position_size) + (current_price * position_size)
         else:
-            equity.append(capital)
+            current_equity = capital
+        equity.append(current_equity)
     
-    equity_series = pd.Series(equity, index=df.index[:len(equity)])
-    return equity_series, capital, trades
+    equity_series = pd.Series(equity[:len(df_bt)], index=df_bt.index)
+    return equity_series, capital, trades, df_bt
 
 if st.button("🚀 RUN BACKTEST & SIGNALS", type="primary"):
     st.rerun()
 
-# Load and process data
 df_raw = get_data(ticker, period)
 if df_raw is None:
     st.error("❌ Failed to load data.")
     st.stop()
 
-# Pre-calculate indicators for full dataset
-close = df_raw['Close']
-df = df_raw.copy()
-df['EMA_FAST'] = close.ewm(span=ema_fast).mean()
-df['EMA_SLOW'] = close.ewm(span=ema_slow).mean()
-df['RSI'] = RSI(close, rsi_len)
-df['RSI_EMA'] = df['RSI'].ewm(span=rsi_ema_len).mean()
+# RUN BACKTEST
+equity_series, final_capital, trades, df_bt = run_backtest(
+    df_raw, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct
+)
 
-df['ADX'], df['PLUS_DI'], df['MINUS_DI'] = ADX(df, rsi_len)
-tr1 = df['High'] - df['Low']
-tr2 = abs(df['High'] - close.shift())
-tr3 = abs(df['Low'] - close.shift())
-tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-df['ATR'] = tr.rolling(rsi_len, min_periods=1).mean()
-df['PRICE_CHANGE'] = close.pct_change() * 100
-df = df.dropna()
+latest = df_bt.iloc[-1]
 
-latest = df.iloc[-1]
-
-# Live signals
-signals = {
-    "BREAKOUT": (latest['EMA_FAST'] > latest['EMA_SLOW'] and 
-                latest['RSI'] > latest['RSI_EMA'] and 
-                latest['ADX'] > min_adx),
-    "PULLBACK": (latest['EMA_FAST'] > latest['EMA_SLOW'] and 
-                latest['RSI'] > latest['RSI_EMA'] and 
-                latest['Close'] < latest['EMA_FAST'] * 1.03 and
-                latest['RSI'] < 55 and latest['RSI'] > 40 and
-                latest['ADX'] > min_adx),
-    "MOMENTUM": (latest['EMA_FAST'] > latest['EMA_SLOW'] and 
-                latest['RSI'] > latest['RSI_EMA'] and
-                latest['Close'] > latest['EMA_FAST'] and
-                latest['RSI'] > 50 and latest['PRICE_CHANGE'] > 0.5 and
-                latest['ADX'] > min_adx)
-}
-BULL = any(signals.values())
-
-# RUN FULL BACKTEST
-equity_series, final_capital, trades = run_backtest(df, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, min_adx, stop_loss_pct)
-
-# BACKTEST RESULTS TABLE
+# BACKTEST RESULTS
 col1, col2 = st.columns([2, 1])
 with col1:
     st.subheader("📊 **BACKTEST RESULTS**")
-    st.metric("Total Return", f"{(final_capital/capital-1)*100:+.1f}%")
+    total_return = (final_capital/capital-1)*100
+    st.metric("Total Return", f"{total_return:+.1f}%")
     
     trades_df = pd.DataFrame(trades)
     if not trades_df.empty:
         wins = len(trades_df[trades_df['pnl_pct'] > 0])
-        st.metric("Win Rate", f"{wins/len(trades_df)*100:.0f}% ({wins}/{len(trades_df)})")
-        st.metric("Profit Factor", f"{trades_df[trades_df['pnl_pct']>0]['pnl'].sum()/abs(trades_df[trades_df['pnl_pct']<0]['pnl'].sum()):.2f}")
+        win_rate = wins/len(trades_df)*100
+        st.metric("Win Rate", f"{win_rate:.0f}% ({wins}/{len(trades_df)})")
+        
+        profit_factor = abs(trades_df[trades_df['pnl_pct']>0]['pnl'].sum() / 
+                           trades_df[trades_df['pnl_pct']<0]['pnl'].sum()) if len(trades_df[trades_df['pnl_pct']<0]) > 0 else float('inf')
+        st.metric("Profit Factor", f"{profit_factor:.2f}")
     else:
-        st.info("No trades triggered - adjust parameters")
+        st.info("No trades - loosen parameters")
 
 with col2:
     st.metric("Final Capital", f"${final_capital:,.0f}")
-    st.metric("Max Drawdown", "TBD")
+    st.metric("Total Trades", len(trades))
 
 # 4-PANEL CHART WITH REAL EQUITY
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-# Price chart
+# 1. Price + Entries (FIXED)
 ax1 = axes[0]
-ax1.plot(df.index, df['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
-ax1.plot(df.index, df['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}')
-ax1.plot(df.index, df['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label=f'EMA{ema_slow}')
+ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
+ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}')
+ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label=f'EMA{ema_slow}')
 
-# Entry markers
-entry_points = df[df['BULL']]
-if not entry_points.empty:
-    ax1.scatter(entry_points.index, entry_points['Close'], color='limegreen', 
-               marker='^', s=100, alpha=0.8, label='Entries', zorder=5)
+# FIXED: Safe entry points
+bull_points = df_bt[df_bt['BULL'] == True] if 'BULL' in df_bt.columns else pd.DataFrame()
+if not bull_points.empty:
+    ax1.scatter(bull_points.index, bull_points['Close'], color='limegreen', 
+               marker='^', s=100, alpha=0.8, label='Backtest Entries', zorder=5)
 
-if BULL:
-    ax1.scatter(df.index[-1], latest['Close'], color='limegreen', s=200, 
-               marker='^', edgecolors='black', linewidth=2, zorder=10, label='LIVE')
-
-ax1.set_title(f'{ticker} - Backtest: {((final_capital/capital-1)*100):+.1f}%', fontsize=16, fontweight='bold')
-ax1.legend(loc='upper left')
+ax1.set_title(f'{ticker} - Backtest Return: {total_return:+.1f}%', fontsize=16, fontweight='bold')
+ax1.legend(loc='upper left', fontsize=9)
 ax1.grid(True, alpha=0.2)
 ax1.set_ylabel('Price ($)')
 
-# RSI + RSI_EMA
+# 2. RSI + RSI_EMA
 ax2 = axes[1]
-ax2.plot(df.index, df['RSI'], color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
-ax2.plot(df.index, df['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RSI_EMA({rsi_ema_len})')
+ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
+ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RSI_EMA({rsi_ema_len})')
 ax2.axhline(y=70, color='#E74C3C', linestyle='--', alpha=0.5)
 ax2.axhline(y=50, color='gray', linestyle='--', alpha=0.3)
 ax2.set_ylabel('RSI')
-ax2.legend()
+ax2.legend(fontsize=9)
 ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100)
 
-# ADX
+# 3. ADX
 ax3 = axes[2]
-ax3.plot(df.index, df['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
+ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
 ax3.axhline(y=min_adx, color='#E74C3C', linestyle='--', alpha=0.5, label=f'Min={min_adx}')
 ax3.set_ylabel('ADX')
-ax3.legend()
+ax3.legend(fontsize=9)
 ax3.grid(True, alpha=0.2)
 
-# REAL EQUITY CURVE
+# 4. REAL EQUITY CURVE
 ax4 = axes[3]
-ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=3, label='Equity')
-ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, label='Start')
+ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=3, label='Equity Curve')
+ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, label=f'Start ${capital:,.0f}')
 ax4.fill_between(equity_series.index, capital, equity_series, alpha=0.2, color='#27AE60')
 ax4.set_ylabel('Portfolio ($)')
 ax4.set_xlabel('Date')
-ax4.legend()
+ax4.legend(fontsize=9)
 ax4.grid(True, alpha=0.2)
 
 plt.tight_layout()
 st.pyplot(fig)
 
-# SIGNAL DEBUGGER
-st.subheader("🔍 **LIVE SIGNAL STATUS**")
+# LIVE SIGNAL STATUS
+st.subheader("🔍 **LIVE SIGNAL DEBUGGER**")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("Trend", "✅" if latest['EMA_FAST'] > latest['EMA_SLOW'] else "❌")
+    trend_ok = latest['EMA_FAST'] > latest['EMA_SLOW']
+    st.metric("Trend", "✅" if trend_ok else "❌")
 with col2:
-    st.metric("RSI>EMA", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌")
+    rsi_ok = latest['RSI'] > latest['RSI_EMA']
+    st.metric("RSI>EMA", "✅" if rsi_ok else "❌")
 with col3:
-    st.metric("ADX", f"{latest['ADX']:.1f}", f">{min_adx}" if latest['ADX'] > min_adx else "")
+    adx_ok = latest['ADX'] > min_adx
+    st.metric("ADX", f"{latest['ADX']:.1f}", f">{min_adx}" if adx_ok else "")
 with col4:
-    st.metric("Signal", "🟢 LIVE" if BULL else "🔴 WAIT")
+    live_signal = "🟢 LIVE" if (trend_ok and rsi_ok and adx_ok) else "🔴 WAIT"
+    st.metric("Signal", live_signal)
 
 # LIVE TRADE PLAN
-if BULL:
-    st.success(f"🎯 **LIVE SIGNAL ACTIVE** - TRADE NOW!")
+if trend_ok and rsi_ok and adx_ok:
+    st.success("🎯 **LIVE SIGNAL - TRADE NOW!**")
     st.balloons()
     
     entry_price = latest['Close']
     shares = int((capital * 0.95) / entry_price)
     stop_price = entry_price * (1 - stop_loss_pct)
     
-    st.subheader("📋 **EXECUTE THIS TRADE**")
+    st.subheader("📋 **EXECUTE IMMEDIATELY**")
     col1, col2 = st.columns(2)
     with col1:
-        st.success(f"**BUY {shares:,} shares @ ${entry_price:.2f}**")
+        st.success(f"**BUY {shares:,} shares**")
+        st.success(f"**@ ${entry_price:.2f}**")
     with col2:
-        st.warning(f"**STOP LOSS: ${stop_price:.2f}**")
+        st.warning(f"**STOP LOSS**")
+        st.warning(f"${stop_price:.2f}")
 
-# TRADE HISTORY
-with st.expander("📋 Trade History", expanded=False):
+# TRADE HISTORY TABLE
+with st.expander("📋 Detailed Trade History"):
     if trades:
         trades_df = pd.DataFrame(trades)
-        st.dataframe(trades_df[['entry_date', 'exit_date', 'pnl_pct', 'pnl']].tail(10))
+        st.dataframe(trades_df[['entry_date', 'exit_date', 'entry_price', 'exit_price', 'pnl_pct']].tail(10), use_container_width=True)
     else:
-        st.info("No completed trades with current parameters")
+        st.info("No completed trades - strategy too selective")
 
-st.caption(f"✅ Real backtest with your parameters | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"✅ FULL BACKTEST with your parameters | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
