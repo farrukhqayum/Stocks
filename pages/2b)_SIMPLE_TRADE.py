@@ -99,9 +99,9 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
         rsi_block = (row['RSI'] < 30) and (row['RSI'] < row['RSI_EMA'])
-      
+        
         entry_condition = (
-            (row['ADX'] > 25 & 
+            (row['ADX'] > 25) &
             (row['ADX_ROC'] > 0) &
             (row['RSI'] > row['RSI_EMA']) &
             (row['RSI'] > 30) &
