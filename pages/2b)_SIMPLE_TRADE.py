@@ -5,10 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
-st.set_page_config(layout="wide", page_title="Hybrid ML Signals")
-st.title("🚀 Hybrid ML-Style Signals - Let Winners Run Strategy")
+st.set_page_config(layout="wide", page_title="Hybrid Signals")
+st.title("🚀 Hybrid Signals - Simple")
 
-# NEW: HYBRID CONTROLS
 col1, col2 = st.columns(2)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
@@ -16,7 +15,6 @@ with col1:
 with col2:
     period = st.selectbox("Backtest Period", ["2y", "1y", "6mo"], index=0)
 
-# HYBRID PARAMETERS
 col1, col2, col3 = st.columns(3)
 ema_fast = col1.number_input("EMA Fast", value=12, min_value=5, max_value=20)
 ema_slow = col2.number_input("EMA Slow", value=26, min_value=15, max_value=50)
@@ -24,21 +22,13 @@ rsi_len = col3.number_input("RSI Length", value=14, min_value=10, max_value=21)
 
 col4, col5, col6 = st.columns(3)
 rsi_ema_len = col4.number_input("RSI EMA Len", value=9, min_value=5, max_value=20)
-ml_conf_thresh = col5.number_input("ML Conf %", value=65, min_value=50, max_value=100)
+conf_thresh = col5.number_input("Conf %", value=65, min_value=50, max_value=100)
 stop_loss_pct = col6.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=5.0)/100
 
-# ADVANCED HYBRID CONTROLS (sidebar)
 st.sidebar.header("🎯 Hybrid Settings")
 trail_mult = st.sidebar.number_input("Trail ATR Mult", value=2.5, min_value=1.5, max_value=4.0, step=0.5)
 partial_tp_pct = st.sidebar.number_input("Partial TP %", value=4.0, min_value=2.0, max_value=8.0)/100
 max_hold_days = st.sidebar.number_input("Max Hold Days", value=21, min_value=10, max_value=60)
-
-st.sidebar.markdown("""
-**Hybrid ML Logic:**
-- 4 conditions = ML Confidence (0-100%)
-- Entry: ≥ Conf% threshold
-- Exit: Partial TP + ATR Trail + Max Hold
-""")
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -54,7 +44,6 @@ def get_data(ticker, period="2y"):
         st.error(f"Error loading data: {e}")
         return None
 
-# HYBRID FUNCTIONS
 def RSI(series, period=14):
     delta = series.diff()
     gain = delta.clip(lower=0).rolling(window=period, min_periods=1).mean()
@@ -89,9 +78,8 @@ def ATR(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(period, min_periods=1).mean()
 
-# NEW: HYBRID BACKTEST FUNCTION
 def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, 
-                       ml_conf_thresh, stop_loss_pct, trail_mult, partial_tp_pct, max_hold_days):
+                       conf_thresh, stop_loss_pct, trail_mult, partial_tp_pct, max_hold_days):
     
     close = df['Close'].squeeze()
     high = df['High'].squeeze()
@@ -107,18 +95,16 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
     df_bt['ATR'] = ATR(df_bt, 14)
     df_bt = df_bt.dropna()
     
-    # ML-STYLE CONFIDENCE (4 conditions = 100%)
     sma20 = close.rolling(20, min_periods=1).mean()
     trend_up = df_bt['EMA_FAST'] > df_bt['EMA_SLOW']
     rsi_bullish = (df_bt['RSI'] > df_bt['RSI_EMA']) & (df_bt['RSI'] > 50)
     adx_strong = df_bt['ADX'] > 25
     price_above_sma20 = df_bt['Close'] > sma20
     
-    df_bt['ML_CONFIDENCE'] = (trend_up.astype(int) + rsi_bullish.astype(int) + 
-                             adx_strong.astype(int) + price_above_sma20.astype(int)) * 25
-    df_bt['BULL_HIGH_CONF'] = df_bt['ML_CONFIDENCE'] >= ml_conf_thresh
+    df_bt['CONFIDENCE'] = (trend_up.astype(int) + rsi_bullish.astype(int) + 
+                          adx_strong.astype(int) + price_above_sma20.astype(int)) * 25
+    df_bt['BULL_HIGH_CONF'] = df_bt['CONFIDENCE'] >= conf_thresh
     
-    # Backtest
     cash = float(initial_capital)
     position_shares = 0.0
     entry_price = 0.0
@@ -138,9 +124,8 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
         curr_close = float(row['Close'])
         curr_atr = float(row['ATR'])
         
-        # ENTRY: High ML Confidence
         if (not in_position and row['BULL_HIGH_CONF'] and cash > 100):
-            risk_amount = cash * 0.02  # 2% risk
+            risk_amount = cash * 0.02
             initial_stop = curr_close * (1 - stop_loss_pct)
             shares_to_risk = risk_amount / (curr_close - initial_stop)
             
@@ -156,13 +141,12 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
             trades.append({
                 'entry_date': entry_date, 'entry_price': entry_price, 'shares': position_shares,
                 'exit_date': None, 'exit_price': None, 'pnl': 0, 'pnl_pct': 0,
-                'ml_confidence': row['ML_CONFIDENCE'], 'exit_reason': None
+                'confidence': row['CONFIDENCE'], 'exit_reason': None
             })
         
         elif in_position:
             days_held = (current_date - entry_date).days if entry_date else 0
             
-            # Partial profit
             if (not partial_taken and curr_close >= entry_price * (1 + partial_tp_pct)):
                 partial_shares = position_shares * 0.5
                 partial_value = partial_shares * curr_close
@@ -170,11 +154,9 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
                 position_shares *= 0.5
                 partial_taken = True
             
-            # Update trailing stop
             new_trail = curr_close - (trail_mult * curr_atr)
             trail_stop = max(trail_stop, new_trail)
             
-            # Exits (priority order)
             exit_triggered = False
             exit_price = 0
             exit_reason = None
@@ -203,7 +185,6 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
         pos_value = position_shares * curr_close
         equity_curve.append(cash + pos_value)
     
-    # Close final position
     if in_position:
         final_price = float(df_bt['Close'].iloc[-1])
         final_value = position_shares * final_price
@@ -219,7 +200,6 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
     final_capital = cash
     return equity_series, final_capital, trades, df_bt
 
-# EXECUTE
 df_raw = get_data(ticker, period)
 if df_raw is None or df_raw.empty:
     st.error("❌ Failed to load data")
@@ -228,7 +208,7 @@ if df_raw is None or df_raw.empty:
 try:
     equity_series, final_capital, trades, df_bt = run_hybrid_backtest(
         df_raw, capital, ema_fast, ema_slow, rsi_len, rsi_ema_len, 
-        ml_conf_thresh, stop_loss_pct, trail_mult, partial_tp_pct, max_hold_days
+        conf_thresh, stop_loss_pct, trail_mult, partial_tp_pct, max_hold_days
     )
 except Exception as e:
     st.error(f"❌ Backtest error: {e}")
@@ -239,15 +219,15 @@ if df_bt.empty:
     st.stop()
 
 latest = df_bt.iloc[-1]
+sma20_val = df_raw['Close'].rolling(20, min_periods=1).mean().iloc[-1]
 total_return = ((final_capital / capital) - 1) * 100
 
-# RESULTS
-st.subheader("📊 HYBRID ML RESULTS")
+st.subheader("📊 HYBRID RESULTS")
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Return", f"{total_return:+.1f}%", delta=f"${final_capital-capital:,.0f}")
 col2.metric("Final Capital", f"${final_capital:,.0f}")
 col3.metric("Total Trades", len(trades))
-col4.metric("Avg ML Conf", f"{df_bt['ML_CONFIDENCE'].mean():.0f}%")
+col4.metric("Avg Confidence", f"{df_bt['CONFIDENCE'].mean():.0f}%")
 
 trades_df = pd.DataFrame(trades)
 completed = trades_df[trades_df['exit_date'].notna()]
@@ -257,11 +237,9 @@ if len(completed) > 0:
     col5.metric("Win Rate", f"{win_rate:.1f}%")
     col6.metric("Profit Factor", f"{completed[completed['pnl']>0]['pnl_pct'].sum()/abs(completed[completed['pnl']<=0]['pnl_pct'].sum()):.2f}x")
 
-# YOUR 4-PANEL CHART
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
-# 1. Price + Trades
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.8)
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label=f'EMA{ema_fast}', alpha=0.7)
@@ -271,30 +249,42 @@ bull_signals = df_bt[df_bt['BULL_HIGH_CONF']]
 ax1.scatter(bull_signals.index, bull_signals['Close'], color='lightgreen', marker='^', s=50, alpha=0.3,
             label=f'Signals ({len(bull_signals)})', zorder=3)
 
+# 1. Price Chart
+ax1 = axes[0]
+ax1.plot(df_bt.index, df_bt['Close'], color='#2C3E50', linewidth=1.5, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='#3498DB', linewidth=1.5, label='EMA12', alpha=0.6)
+ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='#E74C3C', linewidth=1.5, label='EMA26', alpha=0.6)
+
+bull_signals = df_bt[df_bt['BULL_HIGH_CONF'] == True]
+if len(bull_signals) > 0:
+    ax1.scatter(bull_signals.index, bull_signals['Close'],
+                color='orange', marker='x', s=10, alpha=0.7,
+                label=f'Signals ({len(bull_signals)})', edgecolors = 'black', linewidths = 1, zorder=3)
+
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
-    ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-                color='limegreen', marker='^', s=150, alpha=0.9, label=f'Entries ({len(trades)})', 
-                zorder=5, edgecolors='white', linewidths=2)
-    
+    ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'],
+                color='gray', marker='o', s=10, alpha=0.9,
+                label=f'Entries ({len(trades)})', zorder=5, edgecolors='black', linewidths=0.5)
+
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
         winners = exits[exits['pnl'] > 0]
         losers = exits[exits['pnl'] <= 0]
         if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'], color='#27AE60', marker='v', 
-                       s=150, alpha=0.9, label=f'Win ({len(winners)})', zorder=5)
+            ax1.scatter(winners['exit_date'], winners['exit_price'],
+                       color='#27AE60', marker='v', s=10, alpha=0.9, zorder=5)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='red', marker='v', 
-                       s=150, alpha=0.9, label=f'Loss ({len(losers)})', zorder=5)
+            ax1.scatter(losers['exit_date'], losers['exit_price'],
+                       color='red', marker='v', s=10, alpha=0.9, zorder=5)
 
-ax1.set_title(f'{ticker} - Hybrid ML | Return: {total_return:+.1f}% | {len(trades)} Trades', 
+ax1.set_title(f'{ticker} - Hybrid Strategy | Return: {total_return:+.1f}% | {len(trades)} Trades',
               fontsize=16, fontweight='bold', pad=15)
 ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
-ax1.legend(loc='upper left', fontsize=8, ncol=2)
-ax1.grid(True, alpha=0.2); ax1.set_facecolor('#F8F9FA')
+ax1.legend(loc='upper left', fontsize=8)
+ax1.grid(True, alpha=0.2)
+ax1.set_facecolor('#F8F9FA')
 
-# 2. RSI
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RSI_EMA({rsi_ema_len})')
@@ -303,18 +293,16 @@ ax2.axhline(30, color='#27AE60', ls='--', alpha=0.5)
 ax2.set_ylabel('RSI'); ax2.legend(loc='upper left', fontsize=9); ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100); ax2.set_facecolor('#F8F9FA')
 
-# 3. ADX + ML Confidence
 ax3 = axes[2]
 ax3.plot(df_bt.index, df_bt['ADX'], color='#E67E22', linewidth=1.5, label='ADX')
 ax3.axhline(25, color='#E74C3C', ls='--', alpha=0.5, label='ADX≥25')
 ax3_twin = ax3.twinx()
-ax3_twin.plot(df_bt.index, df_bt['ML_CONFIDENCE'], color='orange', alpha=0.7, linewidth=1, label='ML Conf')
-ax3_twin.axhline(ml_conf_thresh, color='limegreen', ls='--', alpha=0.7, label=f'Thresh {ml_conf_thresh}%')
+ax3_twin.plot(df_bt.index, df_bt['CONFIDENCE'], color='orange', alpha=0.7, linewidth=1, label='Conf')
+ax3_twin.axhline(conf_thresh, color='limegreen', ls='--', alpha=0.7, label=f'Thresh {conf_thresh}%')
 ax3.set_ylabel('ADX'); ax3.legend(loc='upper left', fontsize=9)
-ax3_twin.set_ylabel('ML Conf %'); ax3_twin.legend(loc='upper right', fontsize=9)
+ax3_twin.set_ylabel('Conf %'); ax3_twin.legend(loc='upper right', fontsize=9)
 ax3.grid(True, alpha=0.2); ax3.set_facecolor('#F8F9FA')
 
-# 4. Equity Curve
 ax4 = axes[3]
 ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio')
 ax4.fill_between(equity_series.index, capital, equity_series, alpha=0.3, color='#27AE60')
@@ -326,28 +314,26 @@ ax4.set_facecolor('#F8F9FA')
 plt.tight_layout()
 st.pyplot(fig)
 
-# LIVE STATUS
-st.subheader("🔍 LIVE ML STATUS")
+st.subheader("🔍 LIVE STATUS")
 col1, col2, col3, col4, col5 = st.columns(5)
 trend_ok = latest['EMA_FAST'] > latest['EMA_SLOW']
 rsi_ok = latest['RSI'] > latest['RSI_EMA']
 adx_ok = latest['ADX'] > 25
-sma_ok = latest['Close'] > sma20.iloc[-1]
-ml_conf = latest['ML_CONFIDENCE']
+sma_ok = latest['Close'] > sma20_val
+conf_live = latest['CONFIDENCE']
 
 col1.metric("Trend", "✅" if trend_ok else "❌")
 col2.metric("RSI", "✅" if rsi_ok else "❌")
 col3.metric("ADX", f"{latest['ADX']:.0f}", "✅" if adx_ok else "❌")
 col4.metric("SMA20", "✅" if sma_ok else "❌")
-col5.metric("ML Conf", f"{ml_conf:.0f}%", "🟢" if row['BULL_HIGH_CONF'] else "🔴")
+col5.metric("Conf", f"{conf_live:.0f}%", "🟢" if latest['BULL_HIGH_CONF'] else "🔴")
 
 if latest['BULL_HIGH_CONF']:
-    st.success("🎯 **LIVE SIGNAL - ENTER NOW!**")
+    st.success("🎯 LIVE SIGNAL - ENTER NOW!")
     st.balloons()
 
-# TRADE TABLE
 with st.expander("📋 Trade History"):
     if len(trades) > 0:
         st.dataframe(pd.DataFrame(trades).tail(10), use_container_width=True)
 
-st.caption(f"✅ Hybrid ML Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"Hybrid Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
