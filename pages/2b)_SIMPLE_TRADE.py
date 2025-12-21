@@ -224,7 +224,7 @@ if red_mask.any():
     ax1.plot(df_bt[red_mask].index, df_bt[red_mask]['Close'], 
              color='red', linewidth=2, alpha=0.8)
 
-ax1.plot(df_bt.index, df_bt['Close'], c=colors, linewidth=2, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['Close'], c='gray', linewidth=2, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=2, label=f'SMA{sma_slow_len}', alpha=0.5)
 
