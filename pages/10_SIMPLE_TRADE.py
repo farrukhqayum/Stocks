@@ -1,4 +1,3 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -13,7 +12,7 @@ st.title("📈 Simple Signals - Multi-Entry Strategy")
 col1, col2 = st.columns(2)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
-    capital = st.number_input("Capital ($)", value=20000, min_value=1000)
+    capital = st.number_input("Capital ($)", value=1000, min_value=100)
 with col2:
     period = st.selectbox("Backtest Period", ["2y", "1y", "6mo"], index=0)
 
