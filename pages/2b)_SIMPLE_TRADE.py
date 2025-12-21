@@ -242,6 +242,8 @@ fig.patch.set_facecolor('white')
 
 ax1 = axes[0]
 ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1.5, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['High'], color='gray', linewidth=1.5, label='High', alpha=0.3)
+ax1.plot(df_bt.index, df_bt['Low'], color='gray', linewidth=1.5, label='Low', alpha=0.3)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=1.5, label=f'SMA{sma_fast_len}', alpha=0.5)
 
 entry_signals = df_bt[(df_bt['RSI'] > df_bt['RSI_EMA']) & (df_bt['Close'] > df_bt['SMA_FAST'])]
