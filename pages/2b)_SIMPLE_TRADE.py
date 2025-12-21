@@ -152,13 +152,14 @@ def run_hybrid_backtest(df, initial_capital, ema_fast, ema_slow, rsi_len, rsi_em
             exit_reason = None
             
             if curr_low <= trail_stop:
-                exit_price = trail_stop; exit_reason = 'Trail_Stop'; exit_triggered = True
+                exit_price = curr_low; exit_reason = 'Trail_Stop'; exit_triggered = True      # ✅ Actual low hit
             elif curr_open <= trail_stop:
-                exit_price = max(trail_stop, curr_open); exit_reason = 'Gap_SL'; exit_triggered = True
+                exit_price = curr_open; exit_reason = 'Gap_SL'; exit_triggered = True        # ✅ Actual open price
             elif days_held >= max_hold_days:
-                exit_price = curr_close; exit_reason = 'Max_Hold'; exit_triggered = True
+                exit_price = curr_close; exit_reason = 'Max_Hold'; exit_triggered = True     # ✅ Close price
             elif row['EMA_FAST'] < row['EMA_SLOW']:
-                exit_price = curr_close; exit_reason = 'Trend_Rev'; exit_triggered = True
+                exit_price = curr_close; exit_reason = 'Trend_Rev'; exit_triggered = True    # ✅ Close price
+
             
             if exit_triggered:
                 exit_value = position_shares * exit_price
