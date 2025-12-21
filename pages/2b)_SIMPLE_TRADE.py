@@ -271,7 +271,7 @@ ax1.grid(True, alpha=0.2)
 ax1.set_facecolor('#F8F9FA')
 
 ax2 = axes[1]
-ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
+ax2.plot(df_bt.index, df_bt['RSI'].ewm(span=5, adjust=False).mean(), color='#9B59B6', linewidth=1.5, label=f'RSI({rsi_len})')
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='#F39C12', linewidth=2, label=f'RSI_EMA({rsi_ema_len})')
 ax2.axhline(70, color='#E74C3C', ls='--', alpha=0.5); ax2.axhline(50, color='gray', ls='--', alpha=0.3)
 ax2.axhline(30, color='#27AE60', ls='--', alpha=0.5)
