@@ -82,7 +82,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=7, adjust=False).mean()
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
-    df_bt['ADX_ROC'] = df_bt['ADX'].pct_change(periods=5).fillna(0
+    df_bt['ADX_ROC'] = df_bt['ADX'].pct_change(periods=5).fillna(0)
     df_bt['ATR'] = ATR(df_bt, 14)
     df_bt = df_bt.dropna()
     
