@@ -251,8 +251,10 @@ if len(trades) > 0:
                 label=f'Entries ({len(trades)})', zorder=5, edgecolors='black', linewidths=0.5)
 
     exits = trades_plot[trades_plot['exit_date'].notna()]
+   
+    winners = exits[exits['pnl'] > 0]
+    losers = exits[exits['pnl'] <= 0]
 
-    # ✅ CORRECT - Uses actual exit_price at real price levels
     if len(winners) > 0:
         ax1.scatter(winners['exit_date'], winners['exit_price'],  # ← Real trade price
                    color='#27AE60', marker='v', label='Winners', s=10, alpha=0.9, zorder=5)
