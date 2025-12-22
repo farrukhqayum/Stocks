@@ -570,7 +570,7 @@ def plot_confidence_heatmap(df_results):
     
     df_plot['Tooltip_Detail'] = df_plot.apply(
         lambda row: (
-            f"{row['Ticker']} + ({row['_Extremes'}) | Price: ${row['Price']:.2f} | "
+            f"{row['Ticker']} + ({row['_Extremes']}) | Price: ${row['Price']:.2f} | "
             f"Gain: {row['Max (%)']:.1f}% | SL: {row['Loss (%)']:.1f}% | "
             f"Conf: {row['Confidence']:.0f}%"
         ), 
@@ -1458,6 +1458,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
