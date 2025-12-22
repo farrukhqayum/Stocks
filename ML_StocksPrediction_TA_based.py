@@ -560,7 +560,7 @@ def plot_confidence_heatmap(df_results):
     
     df_plot['Display_Text'] = df_plot.apply(
         lambda row: (
-            f"{row['Ticker']}\n"
+            f"{row['Ticker']} + ({row['_Extremes']})\n"
             f"${row['Price']:.2f}\n"
             f"R/R: {(row['Max (%)'] / abs(row['Loss (%)'])):.1f}\n"
             f"Conf: {row['Confidence']:.0f}%"
@@ -1458,6 +1458,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
