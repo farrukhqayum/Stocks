@@ -1393,7 +1393,7 @@ def run_app():
         st.date_input("Start Date", key="start_date")
     
     with col2:
-        st.date_input("End Date", key="end_date")"end_date")
+        st.date_input("End Date", key="end_date")
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 15):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
     
@@ -1473,6 +1473,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
