@@ -276,3 +276,4 @@ with st.expander("📋 Trade History"):
         st.dataframe(pd.DataFrame(trades), use_container_width=True)
 
 st.caption(f"Simple Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.write(f"🧪 LAST UPDATED: {datetime.now().strftime('%H:%M:%S')}")
