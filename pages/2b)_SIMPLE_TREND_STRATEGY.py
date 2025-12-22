@@ -162,15 +162,15 @@ def calculate_3lb_close(df, line_count=3):
 
 def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct):
     df_bt = df.copy()
-    df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
-    df_bt['SMA_SLOW'] = df_bt['Close'].rolling(sma_slow_len, min_periods=1).mean()
+    df_bt['EMA_FAST'] = df_bt['Close'].ewm(span=sma_fast_len, adjust=False).mean()
+    df_bt['EMA_SLOW'] = df_bt['Close'].ewm(span=sma_slow_len, adjust=False).mean()
     df_bt['3LB_Close'] = calculate_3lb_close(df_bt, line_count=3)
     df_bt['RSI_raw'] = RSI(df_bt['3LB_Close'], rsi_len)
     df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=7, adjust=False).mean()
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
     df_bt['ADX_ROC'] = df_bt['ADX'].pct_change(periods=5).fillna(0)
-    df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(20).fillna(0)
+    df_bt['FAST_EMA_ROC'] = df_bt['EMA_FAST'].pct_change(20).fillna(0)
     df_bt['RSI_EMA_ROC'] = df_bt['RSI'].pct_change(20).fillna(0)
     df_bt['ATR'] = ATR(df_bt, 14)
     df_bt = df_bt.dropna()
@@ -194,8 +194,8 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
             (row['ADX_ROC'] > 0) &
             (row['RSI'] >= row['RSI_EMA']) &
             (row['RSI'] >= 30) &
-            (curr_close >= row['SMA_FAST']) &
-            (curr_close >= row['SMA_SLOW']) &
+            (curr_close >= row['EMA_FAST']) &
+            (curr_close >= row['EMA_SLOW']) &
             (~rsi_block)
         )
 
@@ -221,7 +221,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
                 exit_price = stop_price
                 exit_reason = 'Stop_Loss'
                 exit_triggered = True
-            elif curr_close < row['SMA_FAST']:
+            elif curr_close < row['EMA_FAST']:
                 exit_price = curr_close
                 exit_reason = 'SMA_Exit'
                 exit_triggered = True
@@ -321,8 +321,8 @@ for i in range(len(x)-1):
 # Legend only for 3LB
 ax1.plot(df_bt.index,, df_bt.Close, color='gray', linewidth=0.01, label='3LB Close', alpha=0.8, visible=False)
 
-ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
-ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=2, label=f'SMA{sma_slow_len}', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='red', linewidth=2, label=f'SMA{sma_slow_len}', alpha=0.5)
 
 rsi_block = (df_bt['RSI'] < 30) & (df_bt['RSI'] < df_bt['RSI_EMA'])
 
@@ -330,8 +330,8 @@ entry_signals = df_bt[
     (df_bt['ADX'] > 25 & (df_bt['ADX_ROC'] > 0)) &
     (df_bt['RSI'] > df_bt['RSI_EMA']) &
     (df_bt['RSI'] > 30) &
-    (df_bt['Close'] > df_bt['SMA_FAST']) &
-    (df_bt['Close'] > df_bt['SMA_SLOW']) &
+    (df_bt['Close'] > df_bt['EMA_FAST']) &
+    (df_bt['Close'] > df_bt['EMA_SLOW']) &
     (~rsi_block)
 ]
 
@@ -412,12 +412,12 @@ live_entry = (
     (latest['ADX_ROC'] > 0) and
     (latest['RSI'] > latest['RSI_EMA']) and
     (latest['RSI'] > 30) and
-    (latest['Close'] > latest['SMA_FAST']) and
-    (latest['Close'] > latest['SMA_SLOW'])
+    (latest['Close'] > latest['EMA_FAST']) and
+    (latest['Close'] > latest['EMA_SLOW'])
 )
-#live_entry = (latest['RSI'] > latest['RSI_EMA']) and (latest['Close'] > latest['SMA_FAST'])
+#live_entry = (latest['RSI'] > latest['RSI_EMA']) and (latest['Close'] > latest['EMA_FAST'])
 col1.metric("Momentum", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌", f"{latest['RSI']:.1f}")
-col2.metric("Price above avg?", "✅" if latest['Close'] > latest['SMA_FAST'] else "❌", f"{latest['SMA_FAST']:.1f}")
+col2.metric("Price above avg?", "✅" if latest['Close'] > latest['EMA_FAST'] else "❌", f"{latest['EMA_FAST']:.1f}")
 col3.metric("Trend Strength", f"{latest['ADX']:.1f}", "✅" if latest['ADX'] > 25 else "❌")
 col4.metric("Signal (Mom & Trend)", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 
