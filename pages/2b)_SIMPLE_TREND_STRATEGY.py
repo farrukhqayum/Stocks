@@ -141,6 +141,25 @@ def ATR(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(period, min_periods=1).mean()
 
+def calculate_3lb_close(df, line_count=3):
+    """Simplified 3-Line Break Close line (trend-following smoothed close)"""
+    lb_close = df['Close'].copy()
+    
+    for i in range(line_count, len(df)):
+        recent_high = df['High'].iloc[i-line_count:i].max()
+        recent_low = df['Low'].iloc[i-line_count:i].min()
+        
+        curr_close = df['Close'].iloc[i]
+        if curr_close > recent_high:
+            lb_close.iloc[i] = recent_high 
+ 
+        elif curr_close < recent_low:
+            lb_close.iloc[i] = recent_low   # Cl
+        else:
+            lb_close.iloc[i] = lb_close.iloc[i-1]
+    
+    return lb_close.fillna(method='ffill')
+
 def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len, stop_loss_pct, take_profit_pct):
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
@@ -154,6 +173,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(20).fillna(0)
     df_bt['RSI_EMA_ROC'] = df_bt['RSI'].pct_change(20).fillna(0)
     df_bt['ATR'] = ATR(df_bt, 14)
+    df_bt['3LB_Close'] = calculate_3lb_close(df_bt, line_count=3)
     df_bt = df_bt.dropna()
     
     cash = float(initial_capital)
@@ -284,7 +304,7 @@ fig.patch.set_facecolor('white')
 ax1 = axes[0]
 
 x = df_bt.index
-y = df_bt['Close'].values
+y = df_bt['3LB_Close'].values
 
 colors = []
 for i in range(len(df_bt)):
