@@ -337,6 +337,12 @@ ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
 ax1.legend(loc='upper left', fontsize=8, ncol=2)
 ax1.grid(True, alpha=0.2, linestyle='--')
 ax1.set_facecolor('#F8F9FA')
+ax1 = axes[0]
+ax1_right = ax1.twinx()
+ax1_right.plot(df_bt.index, df_bt['Close'].pct_change(20)*100, 
+               color='orange', linewidth=1, label='20d %Chg')
+ax1_right.set_ylabel('20d % Change', color='orange')
+ax1_right.tick_params(axis='y', colors='orange'
 
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.1, label=f'RSI({rsi_len})', alpha = 0.7)
@@ -349,6 +355,11 @@ ax2.legend(loc='upper left', fontsize=9)
 ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100)
 ax2.set_facecolor('#F8F9FA')
+ax2_right = ax2.twinx()
+ax2_right.plot(df_bt.index, df_bt['RSI_EMA_ROC']*100, 
+               color='purple', linewidth=1, label='RSI Momentum')
+ax2_right.set_ylabel('RSI Momentum %', color='purple')
+ax2_right.tick_params(axis='y', colors='purple')
 
 ax3 = axes[2]
 ax3.plot(df_bt.index, df_bt['DI+'], color='green', linewidth=1, label='DI+', alpha=0.5)
@@ -359,6 +370,11 @@ ax3.set_ylabel('ADX/DI', fontsize=11, fontweight='bold')
 ax3.legend(loc='upper left', fontsize=9)
 ax3.grid(True, alpha=0.2)
 ax3.set_facecolor('#F8F9FA')
+ax3_right = ax3.twinx()
+ax3_right.plot(df_bt.index, df_bt['ADX_ROC']*100, 
+               color='gray', linewidth=1, label='ADX Momentum')
+ax3_right.set_ylabel('ADX ROC %', color='gray')
+ax3_right.tick_params(axis='y', colors='gray')
 
 
 ax4 = axes[3]
