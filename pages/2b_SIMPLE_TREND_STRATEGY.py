@@ -74,16 +74,17 @@ with st.expander("📖 Real-Time Trade Logic", expanded=False):
 
 
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(2)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
-    capital = st.number_input("Capital ($)", value=1000, min_value=1000)
 with col2:
     period = st.selectbox("Backtest Period", ["5y", "3y", "2y", "1y", "6mo"], index=2)
+with col3:
+    capital = st.number_input("Capital ($)", value=1000, min_value=1000)   
 
 col1, col2, col3 = st.columns(3)
-sma_fast_len = col1.number_input("SMA Fast", value=20, min_value=5, max_value=30)
-sma_slow_len = col1.number_input("SMA SLOW", value=50, min_value=5, max_value=50)
+sma_fast_len = col1.number_input("EMA Fast", value=20, min_value=5, max_value=30)
+sma_slow_len = col1.number_input("EMA SLOW", value=50, min_value=5, max_value=50)
 rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
 rsi_ema_len = col3.number_input("RSI EMA Length", value=14, min_value=9, max_value=50)
 
