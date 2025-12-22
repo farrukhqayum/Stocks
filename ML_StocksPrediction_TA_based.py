@@ -906,7 +906,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     for ticker in TICKERS:
         try:
-            df = get_stock_data(ticker, start_date, end_date)
+            df = get_stock_data(ticker, st.session_state.start_date, end_date)
             if not pd.api.types.is_datetime64_any_dtype(df.index):
                 if "Date" in df.columns:
                     df = df.set_index("Date")
@@ -1472,6 +1472,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
