@@ -317,32 +317,32 @@ def add_technical_indicators(df):
     df = df.copy()
     
     # Moving averages
-    df['SMA10'] = df['Close'].rolling(10).mean().shift(1))
-    df['SMA20'] = df['Close'].rolling(20).mean().shift(1))
-    df['SMA50'] = df['Close'].rolling(50).mean().shift(1))
+    df['SMA10'] = df['Close'].rolling(10).mean()
+    df['SMA20'] = df['Close'].rolling(20).mean()
+    df['SMA50'] = df['Close'].rolling(50).mean()
     
     # RSI
     df['RSI'] = calculate_rsi(df).shift(1))
-    df['RSI_SMA'] = df['RSI'].rolling(14).mean().shift(1))
+    df['RSI_SMA'] = df['RSI'].rolling(14).mean()
     
     # ATR
-    df['ATR'] = calculate_atr(df).shift(1))
+    df['ATR'] = calculate_atr(df)
     
     # Volume indicators
-    df['Volume_MA20'] = df['Volume'].rolling(20).mean().shift(1))
-    df['buy_volume'] = (df['Close'] > df['Close'].shift(1)) * df['Volume'].shift(1))
-    df['sell_volume'] = (df['Close'] < df['Close'].shift(1)) * df['Volume'].shift(1))
-    df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum().shift(1))
-    df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum().shift(1))
+    df['Volume_MA20'] = df['Volume'].rolling(20).mean()
+    df['buy_volume'] = (df['Close'] > df['Close'].shift(1)) * df['Volume']
+    df['sell_volume'] = (df['Close'] < df['Close'].shift(1)) * df['Volume']
+    df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
+    df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
     
     # Returns
-    df['return1'] = df['Close'].pct_change(7).rolling(3).mean().shift(1))
-    df['return2'] = df['Close'].pct_change(14).rolling(3).mean().shift(1))
-    df['return3'] = df['Close'].pct_change(21).rolling(3).mean().shift(1))
+    df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
+    df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
+    df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     
     # Volatility
-    df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean().shift(1))
-    df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean().shift(1))
+    df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
+    df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
     conditions = [
         # BULL
         (
@@ -395,11 +395,11 @@ def add_technical_indicators(df):
     
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
-    df['Bull'] = (df['TI'] == 'Bull').astype(int).shift(1))
-    df['Bear'] = (df['TI'] == 'Bear').astype(int).shift(1))
-    df['Hold'] = (df['TI'] == 'Hold').astype(int).shift(1))
-    df['Short'] = (df['TI'] == 'Short').astype(int).shift(1))
-    df['Neutral'] = (df['TI'] == 'Neutral').astype(int).shift(1))
+    df['Bull'] = (df['TI'] == 'Bull').astype(int)
+    df['Bear'] = (df['TI'] == 'Bear').astype(int)
+    df['Hold'] = (df['TI'] == 'Hold').astype(int)
+    df['Short'] = (df['TI'] == 'Short').astype(int)
+    df['Neutral'] = (df['TI'] == 'Neutral').astype(int)
     
     return df
 
