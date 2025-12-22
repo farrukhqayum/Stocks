@@ -844,10 +844,10 @@ if st.button("Run ML Strategy Backtest"):
             days_in_trade = (current_date - entry_date).days
             
             # ✅ For exit logic, we only need current day's OHLC from raw data
-            current_open = float(df_daily_raw.loc[current_date, 'Open'])
-            current_high = float(df_daily_raw.loc[current_date, 'High'])
-            current_low = float(df_daily_raw.loc[current_date, 'Low'])
-            current_close = float(df_daily_raw.loc[current_date, 'Close'])
+            current_open = float(df_daily.loc[current_date, 'Open'])
+            current_high = float(df_daily.loc[current_date, 'High'])
+            current_low = float(df_daily.loc[current_date, 'Low'])
+            current_close = float(df_daily.loc[current_date, 'Close'])
             
             if current_low <= SL_price:
                 exit_reason = 'SL'
@@ -1114,92 +1114,93 @@ if st.button("Run ML Strategy Backtest"):
         progress.progress((idx + 1) / len(TP_SL_list))
         
         for i, current_date in enumerate(daily_dates):
-            current_data = df_daily.iloc[:i+1]
+            if not in_trade:
+                current_data_raw = df_daily.iloc[:i+1].copy()
+                current_data = prepare_features(current_data_raw)
 
-            if len(current_data) < 100:
-                continue
+                if len(current_data) < 100:
+                    continue
 
-            if (not in_trade):
                 if i % RETRAIN_EVERY == 0 or i < 120:
                     models = train_ml_models(current_data)
                     ml_prediction = get_ml_prediction(current_data, models)
                     if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
                         continue
 
-            current_ml_signal = ml_prediction['will_hit']
-            current_ml_confidence = ml_prediction['confidence_score']
-            
-            # ENTRY LOGIC 
-            if (not in_trade and
-                current_ml_signal in ['TP', 'Hold', 'None'] and  
-                current_ml_confidence >= ml_confidence_threshold):
-
-                entry_price = float(df_daily.loc[current_date, 'Close'])
-
-                # Symmetric TP & SL Scenario
-                TP_price = entry_price * (1 + pct)
-                SL_price = entry_price * (1 - pct)
-                                
-                current_trade = {
-                    'entry_date': current_date,
-                    'entry_price': entry_price,
-                    'tp_price': TP_price,
-                    'sl_price': SL_price,
-                    'ml_confidence': current_ml_confidence,
-                    'ml_signal': current_ml_signal
-                }
-                in_trade = True
-            
-            # EXIT LOGIC
-            elif in_trade:
-                last_date = daily_dates[-1]
-                exit_days = (last_date - current_trade['entry_date']).days
-                entry_date = current_trade['entry_date']
-                entry_price = current_trade['entry_price']
-                TP_price = current_trade['tp_price']
-                SL_price = current_trade['sl_price']
+                current_ml_signal = ml_prediction['will_hit']
+                current_ml_confidence = ml_prediction['confidence_score']
                 
-                days_in_trade = (current_date - entry_date).days
+                # ENTRY LOGIC 
+                if (not in_trade and
+                    current_ml_signal in ['TP', 'Hold', 'None'] and  
+                    current_ml_confidence >= ml_confidence_threshold):
+    
+                    entry_price = float(df_daily.loc[current_date, 'Close'])
+    
+                    # Symmetric TP & SL Scenario
+                    TP_price = entry_price * (1 + pct)
+                    SL_price = entry_price * (1 - pct)
+                                    
+                    current_trade = {
+                        'entry_date': current_date,
+                        'entry_price': entry_price,
+                        'tp_price': TP_price,
+                        'sl_price': SL_price,
+                        'ml_confidence': current_ml_confidence,
+                        'ml_signal': current_ml_signal
+                    }
+                    in_trade = True
                 
-                current_open = float(df_daily.loc[current_date, 'Open'])
-                current_high = float(df_daily.loc[current_date, 'High'])
-                current_low = float(df_daily.loc[current_date, 'Low'])
-                current_close = float(df_daily.loc[current_date, 'Close'])
-                
-                exit_reason = None
-                exit_price = None
-                
-                if current_low <= SL_price:
-                    exit_reason = 'SL'
-                    exit_price = SL_price
-                elif current_high >= TP_price:
-                    exit_reason = 'TP'
-                    exit_price = TP_price
-                elif current_open <= SL_price:
-                    exit_reason = 'Gap_SL'
-                    exit_price = min(current_open, SL_price)
-                elif current_open >= TP_price:
-                    exit_reason = 'Gap_TP'
-                    exit_price = max(current_open, TP_price)
-                elif days_in_trade >= max_holding_days:
-                    exit_reason = 'Max_Hold'
-                    exit_price = current_close
-                
-                if exit_reason:
-                    return_pct = (exit_price / entry_price - 1) * 100.0
-                    trades.append({
-                        'EntryDate': entry_date,
-                        'ExitDate': current_date,
-                        'EntryPrice': entry_price,
-                        'ExitPrice': exit_price,
-                        'Outcome': exit_reason,
-                        'Return_%': return_pct,
-                        'HoldingDays': days_in_trade,
-                        'ML_Confidence': current_trade['ml_confidence'],
-                        'ML_Signal': current_trade['ml_signal']
-                    })
-                    in_trade = False
-                    current_trade = {}
+                # EXIT LOGIC
+                elif in_trade:
+                    last_date = daily_dates[-1]
+                    exit_days = (last_date - current_trade['entry_date']).days
+                    entry_date = current_trade['entry_date']
+                    entry_price = current_trade['entry_price']
+                    TP_price = current_trade['tp_price']
+                    SL_price = current_trade['sl_price']
+                    
+                    days_in_trade = (current_date - entry_date).days
+                    
+                    current_open = float(df_daily.loc[current_date, 'Open'])
+                    current_high = float(df_daily.loc[current_date, 'High'])
+                    current_low = float(df_daily.loc[current_date, 'Low'])
+                    current_close = float(df_daily.loc[current_date, 'Close'])
+                    
+                    exit_reason = None
+                    exit_price = None
+                    
+                    if current_low <= SL_price:
+                        exit_reason = 'SL'
+                        exit_price = SL_price
+                    elif current_high >= TP_price:
+                        exit_reason = 'TP'
+                        exit_price = TP_price
+                    elif current_open <= SL_price:
+                        exit_reason = 'Gap_SL'
+                        exit_price = min(current_open, SL_price)
+                    elif current_open >= TP_price:
+                        exit_reason = 'Gap_TP'
+                        exit_price = max(current_open, TP_price)
+                    elif days_in_trade >= max_holding_days:
+                        exit_reason = 'Max_Hold'
+                        exit_price = current_close
+                    
+                    if exit_reason:
+                        return_pct = (exit_price / entry_price - 1) * 100.0
+                        trades.append({
+                            'EntryDate': entry_date,
+                            'ExitDate': current_date,
+                            'EntryPrice': entry_price,
+                            'ExitPrice': exit_price,
+                            'Outcome': exit_reason,
+                            'Return_%': return_pct,
+                            'HoldingDays': days_in_trade,
+                            'ML_Confidence': current_trade['ml_confidence'],
+                            'ML_Signal': current_trade['ml_signal']
+                        })
+                        in_trade = False
+                        current_trade = {}
         
         if in_trade:
             last_date = daily_dates[-1]
