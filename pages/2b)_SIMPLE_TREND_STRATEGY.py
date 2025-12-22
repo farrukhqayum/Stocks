@@ -319,6 +319,8 @@ for i in range(len(df_bt)):
 
 for i in range(len(x)-1):
     ax1.plot(x[i:i+2], y[i:i+2], color=colors[i], linewidth=2, alpha=0.5)
+# Legend only for 3LB
+ax1.plot([], [], color='gray', linewidth=0.01, label='3LB Close', alpha=0.8)
 
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_SLOW'], color='red', linewidth=2, label=f'SMA{sma_slow_len}', alpha=0.5)
