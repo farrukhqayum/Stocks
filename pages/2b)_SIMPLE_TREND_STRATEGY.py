@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", page_title="Simple Momentum Strategy")
 st.title("🚀 Simple Momentum Strategy") 
 
-
+st.markdown("""
+<details>
 <details>
 <summary>a) How does this simple trade work?</summary>
 
@@ -253,7 +254,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     equity_series = pd.Series(equity_curve, index=df_bt.index)
     final_capital = cash
     return equity_series, final_capital, trades, df_bt
-
+"""
 df_raw = get_data(ticker, period)
 if df_raw is None or df_raw.empty:
     st.error("❌ Failed to load data")
