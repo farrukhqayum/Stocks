@@ -214,13 +214,13 @@ def add_technical_indicators(df):
                 (df['EMA1'] > df['EMA2']) &
                 (df['RSI'] >= df['RSI_SMA']) &
                 (df['RSI'].between(52, 95)) &
-                (df['ADX'] > 24)
+                (df['ADX'] > 24 & df['+DI'] > df['-DI'])
             )
             |
             (
                 (df['RSI'] >= df['RSI_SMA']) & 
                 (df['RSI'] > 50) &
-                (df['ADX'] > 24)
+                (df['ADX'] > 24 & df['+DI'] > df['-DI'])
             )
         ),
         # BEAR
@@ -229,13 +229,13 @@ def add_technical_indicators(df):
                 (df['EMA1'] < df['EMA2']) &
                 (df['RSI'].between(18,60)) &
                 (df['RSI'] < df['RSI_SMA']) &
-                (df['ADX'] > 24)
+                (df['ADX'] > 24 df['+DI'] < df['-DI'])
             )
             |
             (
                 (df['RSI'] < df['RSI_SMA']) & 
                 (df['RSI'].between(20, 60)) &
-                (df['ADX'] > 24)
+                (df['ADX'] > 24 & df['+DI'] < df['-DI'])
             )
         ),
         # SHORT
@@ -245,7 +245,7 @@ def add_technical_indicators(df):
                 ((df['Close'] <= df['EMA1']) &
                 (df['EMA1'] < df['EMA2'])) &
                 ((df['RSI'].between(50, 85)) &
-                (df['ADX'] > 24))
+                (df['ADX'] > 24) & df['+DI'] < df['-DI'])
             )
         ),
         # HOLD
@@ -253,7 +253,7 @@ def add_technical_indicators(df):
             (df['Close'] > df['EMA2']) &
             (df['EMA1'] > df['EMA2']) &
             (df['RSI'].between(50, 90)) &
-            (df['ADX'] > 24)
+            (df['ADX'] > 24 & df['+DI'] > df['-DI'])
         )
     ]
     choices = ['Bull', 'Bear', 'Short', 'Hold']
@@ -1457,6 +1457,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
