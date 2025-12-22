@@ -253,8 +253,8 @@ def add_technical_indicators(df):
                 (df['RSI'].between(50, 90)) &
                 ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
             )
-        ]
-    ]
+            ]
+
 
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
@@ -1457,6 +1457,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
