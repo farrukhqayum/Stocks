@@ -750,8 +750,8 @@ if st.button("Run ML Strategy Backtest"):
         st.error("No daily data returned from Yahoo Finance.")
         st.stop()
 
-    with st.spinner('Calculating technical indicators...'):
-        df_daily = prepare_features(df_daily)
+    #with st.spinner('Calculating technical indicators...'):
+        #df_daily = prepare_features(df_daily)
 
     st.write("Running backtest...")
     trades = []
@@ -768,7 +768,8 @@ if st.button("Run ML Strategy Backtest"):
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
         
         # Use daily data only
-        current_data = df_daily.iloc[:i+1]
+        #current_data = df_daily.iloc[:i+1]
+        current_data = prepare_features(df_daily_raw.iloc[:i+1].copy()) # Testing leakage - causes slowness
 
         if len(current_data) < 100:
             continue
