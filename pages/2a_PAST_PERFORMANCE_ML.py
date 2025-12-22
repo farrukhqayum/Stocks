@@ -769,7 +769,7 @@ if st.button("Run ML Strategy Backtest"):
         
         # Use daily data only
         #current_data = df_daily.iloc[:i+1]
-        current_data = prepare_features(df_daily_raw.iloc[:i+1].copy()) # Testing leakage - causes slowness
+        current_data = prepare_features(df_daily.iloc[:i+1].copy()) # Testing leakage - causes slowness
 
         if len(current_data) < 100:
             continue
