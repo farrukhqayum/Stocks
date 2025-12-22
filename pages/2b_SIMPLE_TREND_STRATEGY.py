@@ -74,7 +74,7 @@ with st.expander("📖 Real-Time Trade Logic", expanded=False):
 
 
 
-col1, col2, col3 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
 with col2:
