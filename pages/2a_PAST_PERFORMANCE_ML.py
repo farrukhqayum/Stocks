@@ -322,7 +322,7 @@ def add_technical_indicators(df):
     df['SMA50'] = df['Close'].rolling(50).mean()
     
     # RSI
-    df['RSI'] = calculate_rsi(df).shift(1))
+    df['RSI'] = calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
     
     # ATR
