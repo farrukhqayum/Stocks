@@ -140,7 +140,6 @@ FEATURES = [
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
 ]
 
-@st.cache_data(ttl=1200)
 def get_stock_data(ticker, start_date, end_date):
     try:
         df = yf.download(
@@ -1473,6 +1472,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
