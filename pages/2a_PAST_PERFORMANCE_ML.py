@@ -1019,11 +1019,11 @@ if st.button("Run ML Strategy Backtest"):
     entry_annotated = True
     nr = 1
 
-    if len(results) > 50:
+    if len(results) < 50:
         nr = 1
-    elif len(results) > 100:
+    elif len(results) < 100:
         nr = 2
-    elif len(results) > 150:
+    elif len(results) < 150:
         nr = 3
     else:
         nr = 4
