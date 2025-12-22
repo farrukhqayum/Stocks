@@ -312,12 +312,14 @@ st.pyplot(fig)
 
 st.subheader("🔍 LIVE STATUS")
 col1, col2, col3, col4 = st.columns(4)
-live_entry = (latest['ADX'] > 25 & (latest['ADX_ROC'] > 0)) &
-    (latest['RSI'] > latest['RSI_EMA']) &
-    (latest['RSI'] > 30) &
-    (latest['Close'] > latest['SMA_FAST']) &
+live_entry = (
+    (latest['ADX'] > 25) and 
+    (latest['ADX_ROC'] > 0) and
+    (latest['RSI'] > latest['RSI_EMA']) and
+    (latest['RSI'] > 30) and
+    (latest['Close'] > latest['SMA_FAST']) and
     (latest['Close'] > latest['SMA_SLOW'])
-
+)
 #live_entry = (latest['RSI'] > latest['RSI_EMA']) and (latest['Close'] > latest['SMA_FAST'])
 col1.metric("RSI > RSI_EMA", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌", f"{latest['RSI']:.1f}")
 col2.metric("Close > SMA", "✅" if latest['Close'] > latest['SMA_FAST'] else "❌", f"{latest['SMA_FAST']:.1f}")
