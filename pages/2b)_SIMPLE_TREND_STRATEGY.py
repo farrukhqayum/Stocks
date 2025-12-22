@@ -190,12 +190,12 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
         rsi_block = (row['RSI'] < 30) and (row['RSI'] < row['RSI_EMA'])
         
         entry_condition = (
-            (row['ADX'] > 25) &
+            (row['ADX'] >= 25) &
             (row['ADX_ROC'] > 0) &
-            (row['RSI'] > row['RSI_EMA']) &
-            (row['RSI'] > 30) &
-            (curr_close > row['SMA_FAST']) &
-            (curr_close > row['SMA_SLOW']) &
+            (row['RSI'] >= row['RSI_EMA']) &
+            (row['RSI'] >= 30) &
+            (curr_close >= row['SMA_FAST']) &
+            (curr_close >= row['SMA_SLOW']) &
             (~rsi_block)
         )
 
