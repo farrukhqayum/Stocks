@@ -106,7 +106,7 @@ rsi_ema_len = col3.number_input("RSI EMA Length", value=14, min_value=9, max_val
 col4, col5 = st.columns(2)
 stop_loss_pct = col4.number_input("Stop Loss %", value=2.0, min_value=1.0, max_value=100.0)/100
 take_profit_pct = col5.number_input("Take Profit %", value=4.25, min_value=3.0, max_value=15.0)/100
-
+"""
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
     try:
@@ -120,7 +120,7 @@ def get_data(ticker, period="2y"):
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return None
-
+        
 def RSI(series, period=14):
     delta = series.diff()
     gain = delta.clip(lower=0).rolling(window=period, min_periods=1).mean()
@@ -254,7 +254,7 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     equity_series = pd.Series(equity_curve, index=df_bt.index)
     final_capital = cash
     return equity_series, final_capital, trades, df_bt
-"""
+
 df_raw = get_data(ticker, period)
 if df_raw is None or df_raw.empty:
     st.error("❌ Failed to load data")
