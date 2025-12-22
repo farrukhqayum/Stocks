@@ -164,8 +164,8 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     df_bt = df.copy()
     df_bt['SMA_FAST'] = df_bt['Close'].rolling(sma_fast_len, min_periods=1).mean()
     df_bt['SMA_SLOW'] = df_bt['Close'].rolling(sma_slow_len, min_periods=1).mean()
-
-    df_bt['RSI_raw'] = RSI(df_bt['Close'], rsi_len)
+    df_bt['3LB_Close'] = calculate_3lb_close(df_bt, line_count=3)
+    df_bt['RSI_raw'] = RSI(df_bt['3LB_Close'], rsi_len)
     df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=7, adjust=False).mean()
     df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=rsi_ema_len, adjust=False).mean()
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'] = ADX(df_bt, 14)
@@ -173,7 +173,6 @@ def run_simple_backtest(df, initial_capital, sma_fast_len, rsi_len, rsi_ema_len,
     df_bt['FAST_EMA_ROC'] = df_bt['SMA_FAST'].pct_change(20).fillna(0)
     df_bt['RSI_EMA_ROC'] = df_bt['RSI'].pct_change(20).fillna(0)
     df_bt['ATR'] = ATR(df_bt, 14)
-    df_bt['3LB_Close'] = calculate_3lb_close(df_bt, line_count=3)
     df_bt = df_bt.dropna()
     
     cash = float(initial_capital)
