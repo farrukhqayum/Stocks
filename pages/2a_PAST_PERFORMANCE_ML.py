@@ -767,85 +767,87 @@ if st.button("Run ML Strategy Backtest"):
         if i % 50 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
         
-        # Use daily data only
-        #current_data = df_daily.iloc[:i+1]
-        current_data = prepare_features(df_daily.iloc[:i+1].copy()) # Testing leakage - causes slowness
-
-        if len(current_data) < 100:
-            continue
-        
-        if (not in_trade):
+        # ✅ OPTIMIZED: Only calculate features when NOT in trade OR when we need to retrain
+        if not in_trade:
+            # Calculate features only when we might open a new trade
+            current_data_raw = df_daily_raw.iloc[:i+1].copy()
+            current_data = prepare_features(current_data_raw)
+            
+            if len(current_data) < 100:
+                continue
+            
+            # Train model if needed
             if i % RETRAIN_EVERY == 0 or i < 120:
                 models = train_ml_models(current_data)
-
+    
             if models[0] is None:
-                st.error("Insufficient data for ML model training.")
-                st.stop()
-    
+                continue
+        
             ml_prediction = get_ml_prediction(current_data, models)
-            
-        if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
-            continue
+                
+            if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
+                continue
+        
+            current_ml_signal = ml_prediction['will_hit']
+            current_ml_confidence = ml_prediction['confidence_score']
+            confidence_data.append({
+                'Date': current_date, 
+                'ML_Confidence': current_ml_confidence, 
+                'ML_Signal': current_ml_signal
+            })
+                
+            # ENTRY LOGIC
+            if (current_ml_signal in ['TP', 'Hold', 'None'] and  
+                current_ml_confidence >= ml_confidence_threshold):
     
-        current_ml_signal = ml_prediction['will_hit']
-        current_ml_confidence = ml_prediction['confidence_score']
-        confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
-            
-        # ENTRY LOGIC
-        if (not in_trade and
-            current_ml_signal in ['TP', 'Hold', 'None'] and  
-            current_ml_confidence >= ml_confidence_threshold):
-
-            entry_price = float(df_daily.loc[current_date, 'Close'])
-
-            tp_given = TP_pct / 100.0
-            sl_given = -SL_pct / 100.0
-
-            predicted_return = ml_prediction['predicted_return']
-            predicted_loss = ml_prediction['predicted_loss']
-            
-            entry_price = float(df_daily.loc[current_date, 'Close'])
-            
-            if tp_given > predicted_return:
-                TP_price = entry_price * (1 + predicted_return)
-                used_ml_tp = True
-            else:
-                TP_price = entry_price * (1 + tp_given)
-                used_ml_tp = False
-            
-            if np.abs(sl_given) > np.abs(predicted_loss):
-                SL_price = entry_price * (1 + sl_given)
-            else:
-                SL_price = entry_price * (1 + predicted_loss)
-
-            current_trade = {
-                'entry_date': current_date,
-                'entry_price': entry_price,
-                'tp_price': TP_price,
-                'sl_price': SL_price,
-                'ml_confidence': current_ml_confidence,
-                'ml_signal': current_ml_signal,
-                'used_ml_tp': used_ml_tp
-            }
-            in_trade = True
-
-        # EXIT LOGIC
-        elif in_trade:
+                entry_price = float(current_data.loc[current_date, 'Close'])
+    
+                tp_given = TP_pct / 100.0
+                sl_given = -SL_pct / 100.0
+    
+                predicted_return = ml_prediction['predicted_return']
+                predicted_loss = ml_prediction['predicted_loss']
+                
+                if tp_given > predicted_return:
+                    TP_price = entry_price * (1 + predicted_return)
+                    used_ml_tp = True
+                else:
+                    TP_price = entry_price * (1 + tp_given)
+                    used_ml_tp = False
+                
+                if np.abs(sl_given) > np.abs(predicted_loss):
+                    SL_price = entry_price * (1 + sl_given)
+                else:
+                    SL_price = entry_price * (1 + predicted_loss)
+    
+                current_trade = {
+                    'entry_date': current_date,
+                    'entry_price': entry_price,
+                    'tp_price': TP_price,
+                    'sl_price': SL_price,
+                    'ml_confidence': current_ml_confidence,
+                    'ml_signal': current_ml_signal,
+                    'used_ml_tp': used_ml_tp
+                }
+                in_trade = True
+    
+        # EXIT LOGIC - This runs regardless of feature calculation
+        else:  # in_trade == True
             exit_reason = None
             exit_price = None
-  
+      
             last_date = daily_dates[-1]
             entry_date = current_trade['entry_date']
-            exit_days = (last_date - current_trade['entry_date']).days
             entry_price = current_trade['entry_price']
             TP_price = current_trade['tp_price']
             SL_price = current_trade['sl_price']
             days_in_trade = (current_date - entry_date).days
             
-            current_open = float(df_daily.loc[current_date, 'Open'])
-            current_high = float(df_daily.loc[current_date, 'High'])
-            current_low = float(df_daily.loc[current_date, 'Low'])
-            current_close = float(df_daily.loc[current_date, 'Close'])
+            # ✅ For exit logic, we only need current day's OHLC from raw data
+            current_open = float(df_daily_raw.loc[current_date, 'Open'])
+            current_high = float(df_daily_raw.loc[current_date, 'High'])
+            current_low = float(df_daily_raw.loc[current_date, 'Low'])
+            current_close = float(df_daily_raw.loc[current_date, 'Close'])
             
             if current_low <= SL_price:
                 exit_reason = 'SL'
