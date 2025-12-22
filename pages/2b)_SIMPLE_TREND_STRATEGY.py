@@ -5,8 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from datetime import datetime, timedelta
-st.cache_data.clear()
-st.cache_resource.clear()
 
 st.set_page_config(layout="wide", page_title="Simple Momentum Strategy")
 st.title("🚀 Simple Momentum Strategy") 
