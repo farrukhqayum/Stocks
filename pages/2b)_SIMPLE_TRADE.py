@@ -23,8 +23,8 @@ rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
 rsi_ema_len = col3.number_input("RSI EMA Length", value=14, min_value=9, max_value=50)
 
 col4, col5 = st.columns(2)
-stop_loss_pct = col4.number_input("Stop Loss %", value=3.5, min_value=1.0, max_value=100.0)/100
-take_profit_pct = col5.number_input("Take Profit %", value=7.75, min_value=3.0, max_value=15.0)/100
+stop_loss_pct = col4.number_input("Stop Loss %", value=2, min_value=1.0, max_value=100.0)/100
+take_profit_pct = col5.number_input("Take Profit %", value=4.25, min_value=3.0, max_value=15.0)/100
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
