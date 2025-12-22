@@ -745,13 +745,12 @@ if st.button("Run ML Strategy Backtest"):
 
     with st.spinner('Downloading daily market data...'):
         df_daily = get_stock_data(ticker, start_date, end_date)
-    
-    if df_daily is None or df_daily.empty:
-        st.error("No daily data returned from Yahoo Finance.")
-        st.stop()
+        if df_daily is None or df_daily.empty:
+            st.error("No daily data returned from Yahoo Finance.")
+            st.stop()
 
-    #with st.spinner('Calculating technical indicators...'):
-        #df_daily = prepare_features(df_daily)
+    with st.spinner('Calculating technical indicators (for plotting)...'):
+        df_daily = prepare_features(df_daily)
 
     st.write("Running backtest...")
     trades = []
