@@ -344,7 +344,7 @@ ax1_right = ax1.twinx()
 ax1_right.plot(df_bt.index, df_bt['Close'].pct_change(20)*100, 
                color='orange', linewidth=1, label='20d %Chg')
 ax1_right.set_ylabel('20d % Change', color='orange')
-ax1_right.tick_params(axis='y', colors='orange'
+ax1_right.tick_params(axis='y', colors='orange')
 
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.1, label=f'RSI({rsi_len})', alpha = 0.7)
