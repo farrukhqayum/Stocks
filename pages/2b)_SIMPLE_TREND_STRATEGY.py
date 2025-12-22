@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from datetime import datetime, timedelta
 
-st.set_page_config(layout="wide", page_title="Simple Trade")
-st.title("🚀 Simple Momentum Strategy")
+st.set_page_config(layout="wide", page_title="Simple Momentum Strategy")
+st.title("🚀 Simple Momentum Strategy") 
+
 
 <details>
 <summary>a) How does this simple trade work?</summary>
