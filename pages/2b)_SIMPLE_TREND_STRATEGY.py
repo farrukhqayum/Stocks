@@ -7,7 +7,86 @@ from matplotlib.collections import LineCollection
 from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide", page_title="Simple Trade")
-st.title("🚀 Simple RSI + SMA Strategy")
+st.title("🚀 Simple Momentum Strategy")
+
+<details>
+<summary>a) How does this simple trade work?</summary>
+
+### 1. Setup and intention
+- Choose an asset (stock, ETF, crypto, FX pair, etc.) you want to trade.[web:1][web:7]  
+- Form a directional view:
+  - Bullish → plan to **buy** first and sell later (long).
+  - Bearish → plan to **sell** first (via short/derivative) and buy back later (short).[web:3][web:7]  
+
+---
+
+### 2. Opening the trade (entry)
+- Place an order with a broker or exchange specifying:
+  - Side: buy or sell.
+  - Quantity: number of units/contracts.
+  - Order type: market (fill now at best price) or limit (only at your chosen price or better).[web:3][web:7]  
+- Once filled, you have an **open position**:
+  - Long: you own the asset and benefit from price going up.
+  - Short: you owe the asset and benefit from price going down.[web:3][web:7]  
+
+**Example:**  
+- You buy 10 shares at 100 per share → position size = 1,000 notional.[web:3][web:7]  
+
+---
+
+### 3. While the trade is open
+- Price moves due to supply and demand, news, and broader market flows.[web:1][web:7]  
+- Your **unrealized P&L** changes continuously:
+  - Long: P&L ≈ (current price − entry price) × quantity.
+  - Short: P&L ≈ (entry price − current price) × quantity.[web:3][web:7]  
+- You typically manage risk with:
+  - Stop-loss: predefined exit if price moves against you.
+  - Take-profit/target: predefined exit to lock in gains.[web:1][web:3]  
+
+---
+
+### 4. Closing the trade (exit)
+- To **close**:
+  - Close long → sell the same quantity you bought.
+  - Close short → buy back the same quantity you sold.[web:3][web:7]  
+- The trade’s **realized P&L** is locked in at exit.
+
+**P&L formula (excluding fees, interest, etc.):**  
+- Long trade:  
+  - Profit/Loss = (Exit price − Entry price) × Quantity.[web:3][web:7]  
+- Short trade:  
+  - Profit/Loss = (Entry price − Exit price) × Quantity.[web:3][web:7]  
+
+---
+
+### 5. Simple numeric example (long)
+- Entry: Buy 10 units at 100 → notional 1,000.[web:3][web:7]  
+- Exit: Sell 10 units at 105.  
+- Result: (105 − 100) × 10 = 50 profit (before fees).[web:3][web:7]  
+
+If instead price fell to 95 and you sold:  
+- (95 − 100) × 10 = −50 → a loss of 50.[web:3][web:7]  
+
+---
+
+### 6. Simple numeric example (short)
+- Entry: Short 10 units at 100.  
+- Exit at 90: (100 − 90) × 10 = 100 profit.[web:3][web:7]  
+- Exit at 110: (100 − 110) × 10 = −100 loss.[web:3][web:7]  
+
+---
+
+### 7. Real-world frictions
+In reality, a “simple” trade also has:
+
+- Transaction costs: commissions, spreads, exchange fees.[web:3][web:7]  
+- Financing/margin: interest or funding when using leverage or shorting.[web:3][web:5]  
+- Slippage: fills at slightly worse prices than expected, especially in fast markets.[web:3][web:5]  
+
+These reduce net profit or increase net loss compared with the idealized calculation.[web:3][web:7]  
+
+</details>
+
 
 col1, col2 = st.columns(2)
 with col1:
