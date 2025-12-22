@@ -260,43 +260,56 @@ def add_technical_indicators(df, timeframe='1D'):
         
         conditions = [
         # BULL
+        (
             (
-                (
-                    (df['EMA1'] > df['EMA2']) &
-                    (df['RSI'] >= df['RSI_SMA']) &
-                    (df['RSI'].between(52, 95))
-                )
+                ((df['EMA1'] > df['EMA2']) &
+                 (df['RSI'] >= df['RSI_SMA']) &
+                 (df['RSI'].between(52, 95)) &
+                 ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
                 |
                 (
                     (df['RSI'] >= df['RSI_SMA']) & 
-                    (df['RSI'] > 50)
+                    (df['RSI'] > 50) &
+                    ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
                 )
-            ),
-            # BEAR
+            )
+        ),
+        # BEAR
+        (
             (
-                (df['EMA1'] < df['EMA2']) &
-                (df['RSI'].between(18,60)) &
-                (df['RSI'] < df['RSI_SMA'])
+                ((df['EMA1'] < df['EMA2']) &
+                 (df['RSI'].between(18,60)) &
+                 (df['RSI'] < df['RSI_SMA']) &
+                 ((df['ADX'] > 24) & (df['+DI'] < df['-DI'])))
                 |
                 (
                     (df['RSI'] < df['RSI_SMA']) & 
-                    (df['RSI'].between(20, 60))
+                    (df['RSI'].between(20, 60)) &
+                    ((df['ADX'] > 24) & (df['+DI'] < df['-DI']))
                 )
-            ),
-            # SHORT
-            (
-                (df['Close'] <= df['EMA1']) &
-                (df['EMA1'] < df['EMA2']) &
-                (df['RSI'].between(50, 85))
-            ),
-            # HOLD
-            (
-                (df['Close'] > df['EMA2']) &
-                (df['EMA1'] > df['EMA2']) &
-                (df['RSI'].between(50, 90))
             )
-        ]
-        choices = ['Bull', 'Bear', 'Short', 'Hold']
+        ),
+        # SHORT
+        (
+            (
+                ((df['Close'] <= df['EMA1']) &
+                 (df['EMA1'] < df['EMA2'])) &
+                ((df['RSI'].between(50, 85)) &
+                 (df['ADX'] > 24) & 
+                 (df['+DI'] < df['-DI']))
+            )
+        ),
+        # HOLD
+        (
+            ((df['Close'] > df['EMA2']) &
+             (df['EMA1'] > df['EMA2']) &
+             (df['RSI'].between(50, 90)) &
+             ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
+        )
+    ]
+    
+    choices = ['Bull', 'Bear', 'Short', 'Hold']
+
         df['TI'] = np.select(conditions, choices, default='Neutral')
         df['TI'] = df['TI'].astype('category')
         df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
