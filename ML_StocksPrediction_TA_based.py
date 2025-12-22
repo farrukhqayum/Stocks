@@ -105,6 +105,15 @@ _FIBS = False
 _FibLen = 20
 _ms = 5
 
+import streamlit as st
+from datetime import datetime, timedelta
+
+# Initialize defaults once
+if "start_date" not in st.session_state:
+    st.session_state.start_date = datetime.now().date() - timedelta(days=365)
+if "end_date" not in st.session_state:
+    st.session_state.end_date = datetime.now().date()
+
 FEATURES = [
     # Price High, Low
     'High', 'Low',
@@ -890,7 +899,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                            
 #  🟡 Make Predictions (Gain/Loss/Confidence)
 def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
-    
     n = 1
     dfs = {}
     results = []
@@ -1379,6 +1387,13 @@ def run_app():
 
     #st.header("Machine Learning Signals (Technical Analysis)")  
     st.title("📈 Machine Learning Signals (TA)")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.date_input("Start Date", key="start_date")
+    
+    with col2:
+        st.date_input("End Date", key="end_date")"end_date")
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 15):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
     
@@ -1458,6 +1473,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
