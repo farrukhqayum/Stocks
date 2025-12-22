@@ -8,45 +8,70 @@ from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide", page_title="Simple Momentum Strategy")
 st.title("🚀 Simple Momentum Strategy") 
-
-import streamlit as st
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
-from datetime import datetime, timedelta
-
-st.set_page_config(layout="wide", page_title="Simple Momentum Strategy")
-st.title("🚀 Simple Momentum Strategy") 
-
-with st.expander("📖 How does this simple trade work?", expanded=False):
+with st.expander("📖 Real-Time Trade Logic", expanded=False):
     st.markdown("""
-    ### 1. Setup and intention
-    - Choose an asset (stock, ETF, crypto, FX pair, etc.)
-    - **Bullish** → buy first, sell later (long position)
-    - **Bearish** → sell first, buy back later (short position)
+    ## 🎯 **ENTRY: When ALL 4 lights turn GREEN**
     
-    ### 2. Opening the trade
-    - Place order: **buy/sell**, quantity, market/limit
-    - **Long**: own asset, profit if price rises
-    - **Short**: owe asset, profit if price falls
+    **1. TREND STRENGTH (ADX > 25)**  
+    - Market has real momentum (not choppy/sideways)  
+    - Like driving with the wind vs against it
     
-    **Example**: Buy 10 shares @ $100 → $1,000 position
+    **2. MOMENTUM CONFIRMATION (RSI > RSI_EMA)**  
+    - Buyers are accelerating (not slowing down)  
+    - Price has "second wind" energy
     
-    ### 3. Managing open position
-    - **Unrealized P&L**: (current - entry) × shares
-    - **Stop-loss**: Exit if price drops X%
-    - **Take-profit**: Exit if price rises Y%
+    **3. PRICE ABOVE MOVING AVERAGES**  
+    - Price stays above both fast (20) & slow (50) SMA  
+    - **Train stays on tracks** - don't chase pullbacks
     
-    ### 4. Closing the trade
-    **Long P&L** = (exit - entry) × shares  
-    **Short P&L** = (entry - exit) × shares
+    **4. NO RSI DANGER ZONE**  
+    - RSI not <30 AND below its average (avoid oversold traps)
     
-    ### 5. Example results
-    - **Long**: Buy 10 @ 100 → Sell 10 @ 105 = **+$50**
-    - **Short**: Sell 10 @ 100 → Buy 10 @ 90 = **+$100**
+    **→ ENTER when all conditions align** (see LIVE STATUS below)
+    
+    ---
+    
+    ## 🚪 **EXIT: Protect profits, cut losses**
+    
+    **STOP LOSS (-2%)**  
+    - Price hits your safety net  
+    - **Walk away clean** - no emotions
+    
+    **TAKE PROFIT (+4.25%)**  
+    - Lock in gains at target  
+    - **Don't get greedy** - take what's yours
+    
+    **TREND EXIT**  
+    - Price drops below fast SMA (20)  
+    - **Trend broken** = get out fast
+    
+    ---
+    
+    ## 🧠 **HOLDING LOGIC**
+    
+    **STAY IN as long as:**  
+    ✅ Price > SMA20 (train still on track)  
+    ✅ No stop/target hit  
+    ✅ RSI momentum stays positive  
+    
+    **GET OUT when ANY breaks:**  
+    ❌ Stop loss triggered  
+    ❌ +4.25% profit target  
+    ❌ Price < SMA20 (momentum lost)
+    
+    **Simple rule:** Green lights = BUY & HOLD → Any red light = SELL
+    
+    ---
+    
+    ## 💡 **Real-time example (COIN right now)**
+    Check **LIVE STATUS** panel below:
+    - All ✅ = **ENTER NOW** 
+    - Mixed = **WAIT** 
+    - Any ❌ critical = **STAY OUT**
+    
+    This script automates what pros do manually!
     """)
+
 
 
 col1, col2 = st.columns(2)
