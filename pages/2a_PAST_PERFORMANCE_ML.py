@@ -770,7 +770,7 @@ if st.button("Run ML Strategy Backtest"):
         # ✅ OPTIMIZED: Only calculate features when NOT in trade OR when we need to retrain
         if not in_trade:
             # Calculate features only when we might open a new trade
-            current_data_raw = df_daily_raw.iloc[:i+1].copy()
+            current_data_raw = df_daily.iloc[:i+1].copy()
             current_data = prepare_features(current_data_raw)
             
             if len(current_data) < 100:
