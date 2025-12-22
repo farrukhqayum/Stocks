@@ -92,8 +92,8 @@ today = datetime.now().strftime('%Y-%m-%d')
 
 _Nr = 50
 YEARS_OF_DATA = 3
-#end_date = datetime.now()
-#start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
+end_date = datetime.now()
+start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)
 PROFIT_TARGET = 0.04
 STOP_LOSS = 0.0375
 _DAYS = 22
@@ -104,15 +104,6 @@ _tolerance = 1.07
 _FIBS = False
 _FibLen = 20
 _ms = 5
-
-import streamlit as st
-from datetime import datetime, timedelta
-
-# Initialize defaults once
-if "start_date" not in st.session_state:
-    st.session_state.start_date = datetime.now().date() - timedelta(days=365* YEARS_OF_DATA)
-if "end_date" not in st.session_state:
-    st.session_state.end_date = datetime.now().date()
 
 FEATURES = [
     # Price High, Low
@@ -898,6 +889,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                            
 #  🟡 Make Predictions (Gain/Loss/Confidence)
 def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
+    
     n = 1
     dfs = {}
     results = []
@@ -906,7 +898,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     for ticker in TICKERS:
         try:
-            df = get_stock_data(ticker, st.session_state.start_date, end_date)
+            df = get_stock_data(ticker, start_date, end_date)
             if not pd.api.types.is_datetime64_any_dtype(df.index):
                 if "Date" in df.columns:
                     df = df.set_index("Date")
@@ -1386,13 +1378,6 @@ def run_app():
 
     #st.header("Machine Learning Signals (Technical Analysis)")  
     st.title("📈 Machine Learning Signals (TA)")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.date_input("Start Date", value=st.session_state.start_date, key="start_date")
-    
-    with col2:
-        st.date_input("End Date", value=st.session_state.end_date, key="end_date")
 
     tickers_input = st.text_input("Enter comma-separated tickers (max 15):", placeholder = "e.g., COIN, TSLA, BTC-USD, ETH-USD")
     
@@ -1472,98 +1457,3 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
