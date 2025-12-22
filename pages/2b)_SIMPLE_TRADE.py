@@ -232,7 +232,7 @@ for i in range(len(df_bt)):
         colors.append('gray')
 
 for i in range(len(x)-1):
-    ax1.plot(x[i:i+2], y[i:i+2], color=colors[i], linewidth=2, alpha=0.7)
+    ax1.plot(x[i:i+2], y[i:i+2], color=colors[i], linewidth=2, alpha=0.5)
 
 #ax1.plot(df_bt.index, df_bt['Close'], c='gray', linewidth=2, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['SMA_FAST'], color='orange', linewidth=2, label=f'SMA{sma_fast_len}', alpha=0.5)
