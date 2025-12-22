@@ -321,10 +321,10 @@ live_entry = (
     (latest['Close'] > latest['SMA_SLOW'])
 )
 #live_entry = (latest['RSI'] > latest['RSI_EMA']) and (latest['Close'] > latest['SMA_FAST'])
-col1.metric("RSI > RSI_EMA", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌", f"{latest['RSI']:.1f}")
-col2.metric("Close > SMA", "✅" if latest['Close'] > latest['SMA_FAST'] else "❌", f"{latest['SMA_FAST']:.1f}")
-col3.metric("ADX", f"{latest['ADX']:.1f}", "✅" if latest['ADX'] > 25 else "❌")
-col4.metric("Signal", "🟢 ENTRY" if live_entry else "🔴 WAIT")
+col1.metric("Momentum", "✅" if latest['RSI'] > latest['RSI_EMA'] else "❌", f"{latest['RSI']:.1f}")
+col2.metric("Price above avg?", "✅" if latest['Close'] > latest['SMA_FAST'] else "❌", f"{latest['SMA_FAST']:.1f}")
+col3.metric("Trend Strength", f"{latest['ADX']:.1f}", "✅" if latest['ADX'] > 25 else "❌")
+col4.metric("Signal (Mom & Trend)", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 
 if live_entry:
     st.success("🎯 LIVE ENTRY SIGNAL!")
