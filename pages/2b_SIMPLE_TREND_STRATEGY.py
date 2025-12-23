@@ -316,6 +316,14 @@ ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.1, label=f'RSI(
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='red', linewidth=2, label='RSI_EMA(14)', alpha=0.5)
 ax2.axhspan(rsi_threshold, rsi_overheat, alpha=0.2, color='green', label=f'Profit-taking {rsi_threshold}-{rsi_overheat}')
 ax2.axhspan(0, 10, alpha=0.2, color='red', label=f'Extremely Bearish (0-10)')
+
+if len(trades) > 0:
+    ax2.scatter(trades_plot.index, trades_plot['RSI'], 
+               color='blue', marker='^', s=25, 
+               label=f'Entries ({len(trades)})', 
+               alpha=0.8, zorder=10, 
+               edgecolors='black', linewidths=1.2)
+    
 ax2.axhline(y=rsi_threshold, color='orange', linestyle='--', alpha=0.7, linewidth=1)
 ax2.axhline(y=rsi_overheat, color='#E74C3C', linestyle=':', alpha=0.7, linewidth=1.5, label='Overheat')
 ax2.axhline(y=25, color='#27AE60', linestyle='--', alpha=0.3, linewidth=1)
