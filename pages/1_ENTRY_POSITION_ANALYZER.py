@@ -268,8 +268,7 @@ def add_technical_indicators(df, timeframe='1D'):
                      ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
                     |
                     (
-                        (df['RSI'] >= df['RSI_SMA']) & 
-                        (df['RSI'] > 50) &
+                        ((df['RSI'] > 50) & df['RSI'] >= df['RSI_SMA']) &
                         ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
                     )
                 )
@@ -284,7 +283,7 @@ def add_technical_indicators(df, timeframe='1D'):
                     |
                     (
                         (df['RSI'] < df['RSI_SMA']) & 
-                        (df['RSI'].between(20, 60)) &
+                        (df['RSI'].between(10, 60)) &
                         ((df['ADX'] > 24) & (df['+DI'] < df['-DI']))
                     )
                 )
@@ -294,7 +293,7 @@ def add_technical_indicators(df, timeframe='1D'):
                 (
                     ((df['Close'] <= df['EMA1']) &
                      (df['EMA1'] < df['EMA2'])) &
-                    ((df['RSI'].between(50, 85)) &
+                    ((df['RSI'].between(40, 85)) &
                      (df['ADX'] > 24) & 
                      (df['+DI'] < df['-DI']))
                 )
