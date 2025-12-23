@@ -279,8 +279,8 @@ if len(trades) > 0:
         
         # FIXED: Check if DataFrames are NOT empty before plotting
         if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'], color='green', marker='o', s=30, 
-                       label=f'Winners ({len(winners)})', alpha=0.3, zorder=3, edgecolors='black', linewidths=1.0)
+            ax1.scatter(winners['exit_date'], winners['exit_price'], color='green', marker='o', s=20, 
+                       label=f'Winners ({len(winners)})', alpha=0.7, zorder=3, edgecolors='black', linewidths=1.0)
         
         if len(losers) > 0:
             ax1.scatter(losers['exit_date'], losers['exit_price'], color='darkred', marker='o', s=30, 
