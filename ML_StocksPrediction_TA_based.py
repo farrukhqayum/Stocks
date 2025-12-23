@@ -210,55 +210,59 @@ def add_technical_indicators(df):
         # BULL
         (
             (
-                ((df['EMA1'] > df['EMA2']) &
-                 (df['RSI'] >= df['RSI_SMA']) &
-                 (df['RSI'].between(52, 95)) &
-                 ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
+                ((df['EMA1'] >= df['EMA2']) &
+                  (df['RSI'] >= df['RSI_SMA']) &
+                  (df['RSI'].between(52, 95)) &
+                  ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
                 |
                 (
-                    (df['RSI'] >= df['RSI_SMA'] & (df['RSI'] > 50)) & 
+                    ((df['RSI'] >= df['RSI_SMA']) & (df['RSI'] > 50)) & 
                     ((df['ADX'] > 18) & (df['+DI'] > df['-DI']))
                 )
             )
         ),
-        # BEAR
+        
+        # BEAR  
         (
             (
                 ((df['EMA1'] < df['EMA2']) &
-                 (df['RSI'].between(18,60)) &
-                 (df['RSI'] < df['RSI_SMA']) &
-                 ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
+                  (df['RSI'].between(18,60)) &
+                  (df['RSI'] < df['RSI_SMA']) &
+                  ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
                 |
                 (
-                    (df['RSI'] < df['RSI_SMA']) & 
-                    (df['RSI'].between(20, 60)) &
-                    ((df['ADX'] > 18) & (df['+DI'] < df['-DI']))
+                    ((df['RSI'] < df['RSI_SMA']) & 
+                     (df['RSI'].between(20, 60)) &
+                     ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
                 )
                 |
                 (
-                    ((df['RSI'] > df['RSI_SMA']) & (df['RSI_SMA'] < 37))
+                    (df['RSI'] > df['RSI_SMA']) & 
+                    (df['RSI_SMA'] < 37)
                 )
             )
         ),
+        
         # SHORT
         (
             (
                 ((df['Close'] <= df['EMA1']) &
-                 (df['EMA1'] < df['EMA2'])) &
-                ((df['RSI'].between(50, 85)) &
-                 (df['ADX'] > 24) & 
-                 (df['+DI'] < df['-DI']))
+                  (df['EMA1'] < df['EMA2'])) &
+                (df['RSI'].between(50, 85)) &
+                (df['ADX'] > 24) & 
+                (df['+DI'] < df['-DI'])
             )
         ),
+        
         # HOLD
         (
-            ((df['Close'] > df['EMA2']) &
-             (df['EMA1'] > df['EMA2']) &
-             (df['RSI'].between(50, 90)) &
-             ((df['ADX'] > 40) & (df['+DI'] > df['-DI'])))
+            (df['Close'] > df['EMA2']) &
+            (df['EMA1'] > df['EMA2']) &
+            (df['RSI'].between(50, 90)) &
+            ((df['ADX'] > 40) & (df['+DI'] > df['-DI']))
         )
     ]
-    
+
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
@@ -1460,6 +1464,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
