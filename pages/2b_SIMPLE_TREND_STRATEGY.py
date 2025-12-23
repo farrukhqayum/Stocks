@@ -108,7 +108,7 @@ def run_backtest(df, initial_capital, sma_fast_len, sma_slow_len, rsi_len, atr_m
     df_bt['3LB_Close'] = calculate_3lb_close(df_bt, line_count=3)
     df_bt['RSI_raw'] = RSI(df_bt['3LB_Close'], rsi_len)
     df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=7, adjust=False).mean()
-    df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=14, adjust=False).mean()
+    df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=sma_fast_len, adjust=False).mean()
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'], df_bt['ATR'] = ADX(df_bt, 14)
     df_bt['ADX_ROC'] = df_bt['ADX'].pct_change(periods=5).fillna(0)
     df_bt['FAST_EMA_ROC'] = df_bt['EMA_FAST'].pct_change(20).fillna(0)
