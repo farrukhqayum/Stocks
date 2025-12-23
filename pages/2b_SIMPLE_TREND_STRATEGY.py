@@ -226,29 +226,30 @@ if len(completed) > 0:
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r23.metric("Profit Factor", f"{profit_factor:.2f}")
 
-# FIXED COMPACT TRADE TABLE IN EXPANDER
+# FIXED COMPACT TRADE TABLE IN EXPANDER - REPLACE your current expander
 with st.expander("📋 Recent Trades", expanded=False):
     if len(trades) > 0:
         trades_df_local = pd.DataFrame(trades)
         recent_trades = trades_df_local.tail(10).copy()
         
-        # SAFE DATE FORMATTING
-        recent_trades['entry_date_str'] = recent_trades['entry_date'].dt.strftime('%Y-%m-%d')
-        recent_trades['entry_date'] = recent_trades['entry_date'].dt.date
+        # FIXED: Simple string conversion - NO complex datetime math
+        recent_trades['entry_date'] = recent_trades['entry_date'].dt.strftime('%Y-%m-%d')
         
-        # Handle exit_date safely
-        recent_trades['exit_date_str'] = recent_trades['exit_date'].apply(
-            lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else 'OPEN'
-        ) if recent_trades['exit_date'].notna().any() else 'OPEN'
+        # Handle exit_date safely with fillna
+        recent_trades['exit_date'] = recent_trades['exit_date'].fillna('OPEN')
+        recent_trades['exit_date'] = recent_trades['exit_date'].dt.strftime('%Y-%m-%d')
         
-        # Calculate duration only for closed trades
-        recent_trades['duration'] = recent_trades.apply(
-            lambda row: (row['exit_date'] - row['entry_date']).days if pd.notna(row['exit_date']) else 'OPEN', axis=1
+        # Simple duration (days or 'OPEN')
+        recent_trades['duration'] = np.where(
+            recent_trades['exit_date'] == 'OPEN', 
+            'OPEN', 
+            'Closed'
         )
         
-        display_cols = ['entry_date_str', 'entry_price', 'exit_date_str', 'exit_price', 'pnl_pct', 'duration']
+        # Clean columns
+        display_cols = ['entry_date', 'entry_price', 'exit_date', 'exit_price', 'pnl_pct', 'duration']
         display_df = recent_trades[display_cols].round(2)
-        display_df.columns = ['Entry', 'Entry $', 'Exit', 'Exit $', 'PnL%', 'Days']
+        display_df.columns = ['Entry', 'Entry $', 'Exit', 'Exit $', 'PnL%', 'Status']
         
         st.dataframe(
             display_df,
@@ -258,6 +259,7 @@ with st.expander("📋 Recent Trades", expanded=False):
         )
     else:
         st.info("📊 No trades executed yet")
+
 
 # PLOTTING WITH ALL FIXES
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
