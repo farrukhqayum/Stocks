@@ -207,72 +207,68 @@ def add_technical_indicators(df):
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     conditions = [
-    # 0: BULL - Strong uptrend, enter or add to longs
+        # 0: BULL - Strong buy signal, enter long
         (
             (df['EMA1'] > df['EMA2']) &
-            (df['Close'] > df['EMA1']) &  # Price leading
+            (df['Close'] > df['EMA1']) &  # Price above fast EMA
             (df['RSI'] > df['RSI_SMA']) &
-            (df['RSI'].between(45, 75)) &  # Not overheated
+            (df['RSI'].between(45, 70)) &  # Fresh momentum
             (df['ADX'] > 20) &
-            (df['+DI'] > df['-DI'])
+            (df['+DI'] > df['-DI']) &
+            (df['ADX'].diff() > 0)  # Strengthening trend
         ),
         
-        # 1: BEAR - Downtrend, exit longs or prepare to short
+        # 1: BEAR - Exit longs, stay defensive/cash
         (
             (df['EMA1'] < df['EMA2']) &
-            (df['Close'] < df['EMA1']) &  # Price leading down
             (df['RSI'] < df['RSI_SMA']) &
             (df['RSI'].between(25, 55)) &
-            (df['ADX'] > 20) &
-            (df['+DI'] < df['-DI'])
+            (df['ADX'] > 18) &
+            (df['+DI'] < df['-DI']) &
+            ~(  # But NOT strong enough for SHORT yet
+                (df['Close'] < df['EMA2']) &
+                (df['RSI'] < 45) &
+                (df['ADX'] > 24)
+            )
         ),
         
-        # 2: SHORT - Active short signal, strong downtrend
+        # 2: SHORT - Enter short position
         (
             (df['EMA1'] < df['EMA2']) &
             (df['Close'] < df['EMA2']) &  # Below both EMAs
             (df['RSI'] < 45) &
             (df['RSI'] < df['RSI_SMA']) &
-            (df['ADX'] > 24) &  # Stronger trend required
+            (df['ADX'] > 24) &  # Strong trend required
             (df['+DI'] < df['-DI']) &
-            ((df['-DI'] - df['+DI']) > 5)  # Clear directional bias
+            ((df['-DI'] - df['+DI']) > 5)  # Clear bearish bias
         ),
         
-        # 3: HOLD - Maintain position or consolidation
+        # 3: HOLD - Maintain long position (pullback in uptrend)
         (
+            (df['EMA1'] > df['EMA2']) &  # Still in uptrend
+            (df['Close'] > df['EMA2']) &  # Above slow EMA
             (
-                # Weak uptrend - hold longs
+                # Either weak momentum...
                 (
-                    (df['EMA1'] > df['EMA2']) &
-                    (df['Close'] > df['EMA2']) &
                     (df['RSI'].between(40, 85)) &
-                    (df['ADX'].between(15, 25))
-                )
-            ) |
-            (
-                # Ranging market - hold cash/current position
+                    (df['ADX'].between(15, 30))
+                ) |
+                # Or temporary pullback...
                 (
-                    (df['ADX'] < 20) &
-                    (df['RSI'].between(40, 60))
-                )
-            ) |
-            (
-                # Weak bearish - hold shorts or cash
+                    (df['Close'] < df['EMA1']) &  # Price dipped below fast EMA
+                    (df['Close'] > df['EMA2']) &  # But still above slow EMA
+                    (df['RSI'].between(35, 70)) &
+                    (df['+DI'] > df['-DI'])  # Directional bias still bullish
+                ) |
+                # Or overbought but trending
                 (
-                    (df['EMA1'] < df['EMA2']) &
-                    (df['Close'] < df['EMA2']) &
-                    (df['RSI'].between(20, 50)) &
-                    (df['ADX'].between(15, 24)) &
-                    ~(  # But NOT strong enough for SHORT
-                        (df['RSI'] < 45) &
-                        (df['ADX'] > 24) &
-                        ((df['-DI'] - df['+DI']) > 5)
-                    )
+                    (df['RSI'] > 70) &
+                    (df['ADX'] > 20) &
+                    (df['+DI'] > df['-DI'])
                 )
             )
         )
     ]
-
     
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
@@ -1475,6 +1471,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
