@@ -132,7 +132,7 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mu
         
         entry_condition = (
             (row['ADX'] >= adx_threshold) &
-            (rsi_threshold <= row['RSI'] <= 80) &
+            (rsi_threshold <= row['RSI'] <= 72) &
             (curr_close >= row['EMA_FAST'])
         )
 
@@ -381,7 +381,7 @@ st.subheader("🔍 LIVE STATUS")
 col1, col2, col3, col4 = st.columns(4)
 live_entry = (
     (latest['ADX'] >= adx_threshold) and 
-    (rsi_threshold <= latest['RSI'] <= 80) and
+    (rsi_threshold <= latest['RSI'] <= 72) and
     (latest['Close'] >= latest['EMA_FAST'])
 )
 
