@@ -286,7 +286,7 @@ ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='red', linewidth=2, label=f'EMA{s
 # FIXED ENTRY SIGNALS
 entry_signals = df_bt[
     (df_bt['ADX'] >= adx_threshold) &
-    (df_bt['RSI'] >= rsi_threshold) &
+    (rsi_threshold <= df_bt['RSI'] <= 76) &
     (df_bt['Close'] >= df_bt['EMA_FAST'])
 ]
 
@@ -375,7 +375,7 @@ st.subheader("🔍 LIVE STATUS")
 col1, col2, col3, col4 = st.columns(4)
 live_entry = (
     (latest['ADX'] >= adx_threshold) and 
-    (latest['RSI'] >= rsi_threshold) and
+    (rsi_threshold <= latest['RSI'] <= 76) and
     (latest['Close'] >= latest['EMA_FAST'])
 )
 col1.metric("ADX", "✅" if latest['ADX'] >= adx_threshold else "❌", f"{latest['ADX']:.1f} > {adx_threshold}")
