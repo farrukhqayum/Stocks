@@ -257,53 +257,68 @@ def add_technical_indicators(df, timeframe='1D'):
         # Adjust RSI thresholds for weekly if needed
         rsi_lower = 25 if timeframe == '1W' else 18
         rsi_upper = 60 if timeframe == '1W' else 55
-        
+
         conditions = [
-            # BULL
+            # 0: BULL - Strong buy signal, enter long
             (
+                (df['EMA1'] > df['EMA2']) &
+                (df['Close'] > df['EMA1']) &  # Price above fast EMA
+                (df['RSI'] > df['RSI_SMA']) &
+                (df['RSI'].between(45, 70)) &  # Fresh momentum
+                (df['ADX'] > 20) &
+                (df['+DI'] > df['-DI']) &
+                (df['ADX'].diff() > 0)  # Strengthening trend
+            ),
+            
+            # 1: BEAR - Exit longs, stay defensive/cash
+            (
+                (df['EMA1'] < df['EMA2']) &
+                (df['RSI'] < df['RSI_SMA']) &
+                (df['RSI'].between(25, 55)) &
+                (df['ADX'] > 18) &
+                (df['+DI'] < df['-DI']) &
+                ~(  # But NOT strong enough for SHORT yet
+                    (df['Close'] < df['EMA2']) &
+                    (df['RSI'] < 45) &
+                    (df['ADX'] > 24)
+                )
+            ),
+            
+            # 2: SHORT - Enter short position
+            (
+                (df['EMA1'] < df['EMA2']) &
+                (df['Close'] < df['EMA2']) &  # Below both EMAs
+                (df['RSI'] < 45) &
+                (df['RSI'] < df['RSI_SMA']) &
+                (df['ADX'] > 24) &  # Strong trend required
+                (df['+DI'] < df['-DI']) &
+                ((df['-DI'] - df['+DI']) > 5)  # Clear bearish bias
+            ),
+            
+            # 3: HOLD - Maintain long position (pullback in uptrend)
+            (
+                (df['EMA1'] > df['EMA2']) &  # Still in uptrend
+                (df['Close'] > df['EMA2']) &  # Above slow EMA
                 (
-                    ((df['EMA1'] > df['EMA2']) &
-                     (df['RSI'] >= df['RSI_SMA']) &
-                     (df['RSI'].between(52, 95)) &
-                     ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
-                    |
+                    # Either weak momentum...
                     (
-                        ((df['RSI'] > 50) & (df['RSI'] >= df['RSI_SMA'])) &
-                        ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
+                        (df['RSI'].between(40, 85)) &
+                        (df['ADX'].between(15, 30))
+                    ) |
+                    # Or temporary pullback...
+                    (
+                        (df['Close'] < df['EMA1']) &  # Price dipped below fast EMA
+                        (df['Close'] > df['EMA2']) &  # But still above slow EMA
+                        (df['RSI'].between(35, 70)) &
+                        (df['+DI'] > df['-DI'])  # Directional bias still bullish
+                    ) |
+                    # Or overbought but trending
+                    (
+                        (df['RSI'] > 70) &
+                        (df['ADX'] > 20) &
+                        (df['+DI'] > df['-DI'])
                     )
                 )
-            ),
-            # BEAR
-            (
-                (
-                    ((df['EMA1'] < df['EMA2']) &
-                     (df['RSI'].between(18,60)) &
-                     (df['RSI'] < df['RSI_SMA']) &
-                     ((df['ADX'] > 24) & (df['+DI'] < df['-DI'])))
-                    |
-                    (
-                        (df['RSI'] < df['RSI_SMA']) & 
-                        (df['RSI'].between(10, 60)) &
-                        ((df['ADX'] > 24) & (df['+DI'] < df['-DI']))
-                    )
-                )
-            ),
-            # SHORT
-            (
-                (
-                    ((df['Close'] <= df['EMA1']) &
-                     (df['EMA1'] < df['EMA2'])) &
-                    ((df['RSI'].between(40, 85)) &
-                     (df['ADX'] > 24) & 
-                     (df['+DI'] < df['-DI']))
-                )
-            ),
-            # HOLD
-            (
-                ((df['Close'] > df['EMA2']) &
-                 (df['EMA1'] > df['EMA2']) &
-                 (df['RSI'].between(50, 90)) &
-                 ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
             )
         ]
         
