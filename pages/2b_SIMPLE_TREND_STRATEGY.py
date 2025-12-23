@@ -17,16 +17,15 @@ with st.expander("📖 Real-Time Trade Logic", expanded=False):
     **2. MOMENTUM (RSI > [user input])**  
     **3. STRUCTURE (Close > EMA[user input])**
     
-    ## 🚪 **EXIT: ATR + EMA Protection**
+    ## 🚪 **EXIT: Wide Protection**
     
-    **STOP LOSS ([user input]x ATR)** 
-    **TAKE PROFIT ([user input]x ATR)**
+    **STOP LOSS ([user input]x ATR)** - Very wide stops
     **EXIT** - EMA break only
     
-    **ATR scales perfectly with volatility!**
+    **Let winners run fully!**
     """)
 
-# INPUTS
+# YOUR ORIGINAL INPUTS + SIGNAL PARAMETERS
 col1, col2, col3 = st.columns(3)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
@@ -35,18 +34,18 @@ with col2:
 with col3:
     capital = st.number_input("Capital ($)", value=1000, min_value=1000)   
 
+# EMA INPUTS
 col1, col2, col3 = st.columns(3)
 sma_fast_len = col1.number_input("EMA Fast", value=20, min_value=5, max_value=30)
 sma_slow_len = col2.number_input("EMA SLOW", value=50, min_value=5, max_value=50)
 rsi_len = col3.number_input("RSI Length", value=14, min_value=10, max_value=21)
 
-# SIGNAL PARAMETERS + ATR TP
+# SIGNAL PARAMETERS - USER TUNABLE
 st.subheader("🎛️ Signal Parameters")
 col1, col2, col3, col4 = st.columns(4)
 adx_threshold = col1.number_input("ADX Threshold", value=25.0, min_value=15.0, max_value=40.0, step=1.0)
 rsi_threshold = col2.number_input("RSI Threshold", value=50.0, min_value=40.0, max_value=70.0, step=1.0)
-atr_mult_sl = col3.number_input("ATR SL Mult", value=1.5, min_value=1.05, max_value=10.0, step=0.5)
-atr_mult_tp = col4.number_input("ATR TP Mult", value=3.0, min_value=1.05, max_value=10.0, step=0.5)
+atr_mult_sl = col3.number_input("ATR SL Mult", value=1.5, min_value=1.0, max_value=10.0, step=0.5)
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -62,6 +61,7 @@ def get_data(ticker, period="2y"):
         st.error(f"Error loading data: {e}")
         return None
 
+# YOUR EXACT FUNCTIONS
 def RSI(series, period=14):
     delta = series.diff()
     gain = delta.clip(lower=0).rolling(window=period, min_periods=1).mean()
@@ -102,8 +102,8 @@ def calculate_3lb_close(df, line_count=3):
             lb_close.iloc[i] = lb_close.iloc[i-1]
     return lb_close.fillna(method='ffill')
 
-# FULL BACKTEST WITH ATR TP
-def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mult_tp, adx_threshold, rsi_threshold):
+# BACKTEST WITH USER PARAMETERS
+def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, adx_threshold, rsi_threshold):
     df_bt = df.copy()
     df_bt['EMA_FAST'] = df_bt['Close'].ewm(span=sma_fast_len, adjust=False).mean()
     df_bt['EMA_SLOW'] = df_bt['Close'].ewm(span=sma_slow_len, adjust=False).mean()
@@ -121,7 +121,6 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mu
     position_shares = 0.0
     entry_price = 0.0
     stop_price = 0.0
-    target_price = 0.0
     equity_curve = []
     trades = []
     
@@ -132,7 +131,7 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mu
         
         entry_condition = (
             (row['ADX'] >= adx_threshold) &
-            (rsi_threshold <= row['RSI'] <= 72) &
+            (row['RSI'] >= rsi_threshold) &
             (curr_close >= row['EMA_FAST'])
         )
 
@@ -143,26 +142,18 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mu
             entry_price = curr_close
             atr_value = float(row['ATR'])
             stop_price = entry_price - (atr_mult_sl * atr_value)
-            target_price = entry_price + (atr_mult_tp * atr_value)
             
             trades.append({
                 'entry_date': df_bt.index[i], 'entry_price': entry_price,
-                'stop_price': stop_price, 'target_price': target_price,
-                'exit_date': None, 'exit_price': None, 'pnl': 0, 'pnl_pct': 0, 'exit_reason': None
+                'exit_date': None, 'exit_price': None, 'pnl': 0, 'pnl_pct': 0
             })
         
         elif position_shares > 0:
             exit_triggered = False
-            exit_reason = ""
             
-            # ATR TP FIRST (most profitable)
-            if curr_close >= target_price:
-                exit_price = target_price
-                exit_reason = 'ATR_TP'
-                exit_triggered = True
-            elif curr_low <= stop_price:
+            if curr_low <= stop_price:
                 exit_price = stop_price
-                exit_reason = 'ATR_SL'
+                exit_reason = 'Wide_ATR_Stop'
                 exit_triggered = True
             elif curr_close < row['EMA_FAST']:
                 exit_price = curr_close
@@ -179,7 +170,6 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mu
                 trades[-1]['exit_price'] = exit_price
                 trades[-1]['pnl'] = pnl
                 trades[-1]['pnl_pct'] = pnl_pct
-                trades[-1]['exit_reason'] = exit_reason
                 
                 position_shares = 0.0
         
@@ -194,20 +184,19 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mu
         trades[-1]['exit_date'] = df_bt.index[-1]
         trades[-1]['exit_price'] = final_price
         trades[-1]['pnl_pct'] = pnl_pct
-        trades[-1]['exit_reason'] = 'END'
     
     equity_series = pd.Series(equity_curve, index=df_bt.index)
     final_capital = cash
     return equity_series, final_capital, trades, df_bt
 
-# RUN BACKTEST
+# RUN
 df_raw = get_data(ticker, period)
 if df_raw is None or df_raw.empty:
     st.error("❌ Failed to load data")
     st.stop()
 
 equity_series, final_capital, trades, df_bt = run_backtest(
-    df_raw, capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mult_tp, adx_threshold, rsi_threshold
+    df_raw, capital, sma_fast_len, rsi_len, atr_mult_sl, adx_threshold, rsi_threshold
 )
 
 latest = df_bt.iloc[-1]
@@ -237,35 +226,38 @@ if len(completed) > 0:
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r23.metric("Profit Factor", f"{profit_factor:.2f}")
 
-# FIXED TRADE TABLE - ALL TRADES
 with st.expander("📋 All Trades", expanded=False):
     if len(trades) > 0:
         trades_df_local = pd.DataFrame(trades)
         
+        # ALL TRADES - NO .tail(10)
+        all_trades = trades_df_local.copy()
+        
         # SAFE string conversion
-        trades_df_local['entry_date'] = trades_df_local['entry_date'].dt.strftime('%Y-%m-%d')
-        trades_df_local['exit_date'] = trades_df_local['exit_date'].fillna('OPEN')
-        trades_df_local['exit_date'] = trades_df_local['exit_date'].dt.strftime('%Y-%m-%d')
+        all_trades['entry_date'] = all_trades['entry_date'].dt.strftime('%Y-%m-%d')
+        all_trades['exit_date'] = all_trades['exit_date'].fillna('OPEN')
+        all_trades['exit_date'] = all_trades['exit_date'].dt.strftime('%Y-%m-%d')
         
-        # Status column
-        trades_df_local['status'] = np.where(trades_df_local['exit_date'] == 'OPEN', 'OPEN', 'CLOSED')
+        # Simple status
+        all_trades['status'] = np.where(all_trades['exit_date'] == 'OPEN', 'OPEN', 'CLOSED')
         
-        # Clean columns with exit reason
-        display_cols = ['entry_date', 'entry_price', 'exit_date', 'exit_price', 'pnl_pct', 'status', 'exit_reason']
-        display_df = trades_df_local[display_cols].round(2)
-        display_df.columns = ['Entry', 'Entry $', 'Exit', 'Exit $', 'PnL%', 'Status', 'Reason']
+        # Clean columns
+        display_cols = ['entry_date', 'entry_price', 'exit_date', 'exit_price', 'pnl_pct', 'status']
+        display_df = all_trades[display_cols].round(2)
+        display_df.columns = ['Entry', 'Entry $', 'Exit', 'Exit $', 'PnL%', 'Status']
         
         st.dataframe(
             display_df,
             use_container_width=True,
-            height=400,
+            height=400,  # Taller for all trades
             hide_index=True
         )
+        
         st.caption(f"📈 Showing {len(display_df)} total trades")
     else:
         st.info("📊 No trades executed yet")
 
-# PLOTTING
+# PLOTTING WITH ALL FIXES
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
@@ -291,21 +283,23 @@ ax1.plot(df_bt.index, df_bt.Close, color='gray', linewidth=1, label='Close', alp
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='orange', linewidth=2, label=f'EMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='red', linewidth=2, label=f'EMA{sma_slow_len}', alpha=0.5)
 
-# SIGNALS
+# FIXED ENTRY SIGNALS
 entry_signals = df_bt[
     (df_bt['ADX'] >= adx_threshold) &
     (df_bt['RSI'] >= rsi_threshold) &
     (df_bt['Close'] >= df_bt['EMA_FAST'])
 ]
 
+# FIXED SCATTERS WITH EMPTY CHECKS
 if len(entry_signals) > 0:
     ax1.scatter(entry_signals.index, entry_signals['Close'], color='magenta', marker='d', s=10, 
-               label=f'Signals ({len(entry_signals)})', alpha=0.1, zorder=5, edgecolors='black', linewidths=0.8)
+               label=f'Signals ({len(entry_signals)})', alpha=0.1, zorder=5, 
+               edgecolors='black', linewidths=0.8)
 
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-               color='blue', marker='o', s=20, label=f'Entries ({len(trades)})', alpha=0.5, zorder=4, 
+               color='blue', marker='o', s=20, label=f'Entries ({len(trades)})', alpha=0.3, zorder=4, 
                edgecolors='black', linewidths=0.8)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
@@ -321,7 +315,7 @@ if len(trades) > 0:
             ax1.scatter(losers['exit_date'], losers['exit_price'], color='darkred', marker='o', s=20, 
                        label=f'Losses ({len(losers)})', alpha=0.7, zorder=3, edgecolors='black', linewidths=1.0)
 
-ax1.set_title(f'{ticker} | ATR Strategy | Return: {total_return:+.1f}% | {len(trades)} Trades', 
+ax1.set_title(f'{ticker} | Return: {total_return:+.1f}% | {len(trades)} Trades', 
               fontsize=16, fontweight='bold', pad=15)
 ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
 ax1.legend(loc='upper left', fontsize=8, ncol=2)
@@ -330,7 +324,7 @@ ax1.set_facecolor('#F8F9FA')
 ax1.yaxis.tick_right()     
 ax1.yaxis.set_label_position("right")
 
-# RSI
+# RSI PLOT
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.1, label=f'RSI({rsi_len})', alpha=0.5)
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='red', linewidth=2, label='RSI_EMA(14)', alpha=0.5)
@@ -345,7 +339,7 @@ ax2.set_facecolor('#F8F9FA')
 ax2.yaxis.tick_right()       
 ax2.yaxis.set_label_position("right")
 
-# ADX
+# ADX PLOT
 ax3 = axes[2]
 ax3.plot(df_bt.index, df_bt['DI+'], color='green', linewidth=1, label='DI+', alpha=0.5)
 ax3.plot(df_bt.index, df_bt['DI-'], color='red', linewidth=1, label='DI-', alpha=0.5)
@@ -359,7 +353,7 @@ ax3.set_facecolor('#F8F9FA')
 ax3.yaxis.tick_right()       
 ax3.yaxis.set_label_position("right")
 
-# EQUITY
+# EQUITY CURVE
 ax4 = axes[3]
 ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio Value', alpha=0.5)
 ax4.fill_between(equity_series.index, capital, equity_series, 
@@ -381,17 +375,16 @@ st.subheader("🔍 LIVE STATUS")
 col1, col2, col3, col4 = st.columns(4)
 live_entry = (
     (latest['ADX'] >= adx_threshold) and 
-    (rsi_threshold <= latest['RSI'] <= 72) and
+    (latest['RSI'] >= rsi_threshold) and
     (latest['Close'] >= latest['EMA_FAST'])
 )
-
 col1.metric("ADX", "✅" if latest['ADX'] >= adx_threshold else "❌", f"{latest['ADX']:.1f} > {adx_threshold}")
 col2.metric("RSI", "✅" if latest['RSI'] >= rsi_threshold else "❌", f"{latest['RSI']:.1f} > {rsi_threshold}")
-col3.metric("Structure", "✅" if latest['Close'] >= latest['EMA_FAST'] else "❌", f"EMA{sma_fast_len}: {latest['EMA_FAST']:.1f}")
+col3.metric("Structure", "✅" if latest['Close'] >= latest['EMA_FAST'] else "❌", f"EMA20: {latest['EMA_FAST']:.1f}")
 col4.metric("SIGNAL", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 
 if live_entry:
     st.success("🎯 ENTRY SIGNAL!")
     st.balloons()
 
-st.caption(f"ATR Momentum Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"Tunable Signals | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
