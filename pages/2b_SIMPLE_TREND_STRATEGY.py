@@ -226,40 +226,36 @@ if len(completed) > 0:
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r23.metric("Profit Factor", f"{profit_factor:.2f}")
 
-# FIXED COMPACT TRADE TABLE IN EXPANDER - REPLACE your current expander
-with st.expander("📋 Recent Trades", expanded=False):
+with st.expander("📋 All Trades", expanded=False):
     if len(trades) > 0:
         trades_df_local = pd.DataFrame(trades)
-        recent_trades = trades_df_local.tail(10).copy()
         
-        # FIXED: Simple string conversion - NO complex datetime math
-        recent_trades['entry_date'] = recent_trades['entry_date'].dt.strftime('%Y-%m-%d')
+        # ALL TRADES - NO .tail(10)
+        all_trades = trades_df_local.copy()
         
-        # Handle exit_date safely with fillna
-        recent_trades['exit_date'] = recent_trades['exit_date'].fillna('OPEN')
-        recent_trades['exit_date'] = recent_trades['exit_date'].dt.strftime('%Y-%m-%d')
+        # SAFE string conversion
+        all_trades['entry_date'] = all_trades['entry_date'].dt.strftime('%Y-%m-%d')
+        all_trades['exit_date'] = all_trades['exit_date'].fillna('OPEN')
+        all_trades['exit_date'] = all_trades['exit_date'].dt.strftime('%Y-%m-%d')
         
-        # Simple duration (days or 'OPEN')
-        recent_trades['duration'] = np.where(
-            recent_trades['exit_date'] == 'OPEN', 
-            'OPEN', 
-            'Closed'
-        )
+        # Simple status
+        all_trades['status'] = np.where(all_trades['exit_date'] == 'OPEN', 'OPEN', 'CLOSED')
         
         # Clean columns
-        display_cols = ['entry_date', 'entry_price', 'exit_date', 'exit_price', 'pnl_pct', 'duration']
-        display_df = recent_trades[display_cols].round(2)
+        display_cols = ['entry_date', 'entry_price', 'exit_date', 'exit_price', 'pnl_pct', 'status']
+        display_df = all_trades[display_cols].round(2)
         display_df.columns = ['Entry', 'Entry $', 'Exit', 'Exit $', 'PnL%', 'Status']
         
         st.dataframe(
             display_df,
             use_container_width=True,
-            height=250,
+            height=400,  # Taller for all trades
             hide_index=True
         )
+        
+        st.caption(f"📈 Showing {len(display_df)} total trades")
     else:
         st.info("📊 No trades executed yet")
-
 
 # PLOTTING WITH ALL FIXES
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
