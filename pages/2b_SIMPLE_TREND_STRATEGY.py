@@ -132,7 +132,7 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, atr_mu
         
         entry_condition = (
             (row['ADX'] >= adx_threshold) &
-            (row['RSI'] >= rsi_threshold) &
+            row['RSI'].between(rsi_threshold, 80) &
             (curr_close >= row['EMA_FAST'])
         )
 
