@@ -9,24 +9,23 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", page_title="Simple Momentum Strategy")
 st.title("🚀 Simple Momentum Strategy") 
 
-# YOUR ORIGINAL EXPANDER (SIMPLIFIED)
 with st.expander("📖 Real-Time Trade Logic", expanded=False):
     st.markdown("""
-    ## 🎯 **ENTRY: 3 Simple Signals**
+    ## 🎯 **ENTRY: User-Tunable Signals**
     
-    **1. TREND STRENGTH (ADX > 25)**
-    **2. MOMENTUM (RSI > 50)**  
-    **3. STRUCTURE (Close > EMA20)**
+    **1. TREND STRENGTH (ADX > [user input])**
+    **2. MOMENTUM (RSI > [user input])**  
+    **3. STRUCTURE (Close > EMA[user input])**
     
     ## 🚪 **EXIT: Wide Protection**
     
-    **STOP LOSS (1.5-10x ATR)** - Very wide stops
-    **EXIT** - EMA20 structure break only
+    **STOP LOSS ([user input]x ATR)** - Very wide stops
+    **EXIT** - EMA break only
     
     **Let winners run fully!**
     """)
 
-# YOUR EXACT INPUT LAYOUT
+# YOUR ORIGINAL INPUTS + SIGNAL PARAMETERS
 col1, col2, col3 = st.columns(3)
 with col1:
     ticker = st.text_input("Ticker", value="COIN")
@@ -35,11 +34,18 @@ with col2:
 with col3:
     capital = st.number_input("Capital ($)", value=1000, min_value=1000)   
 
+# EMA INPUTS
 col1, col2, col3 = st.columns(3)
 sma_fast_len = col1.number_input("EMA Fast", value=20, min_value=5, max_value=30)
-sma_slow_len = col1.number_input("EMA SLOW", value=50, min_value=5, max_value=50)
-rsi_len = col2.number_input("RSI Length", value=14, min_value=10, max_value=21)
-atr_mult_sl = col3.number_input("ATR SL Mult", value=1.5, min_value=1.0, max_value=10.0)
+sma_slow_len = col2.number_input("EMA SLOW", value=50, min_value=5, max_value=50)
+rsi_len = col3.number_input("RSI Length", value=14, min_value=10, max_value=21)
+
+# SIGNAL PARAMETERS - USER TUNABLE
+st.subheader("🎛️ Signal Parameters")
+col1, col2, col3, col4 = st.columns(4)
+adx_threshold = col1.number_input("ADX Threshold", value=25.0, min_value=15.0, max_value=40.0, step=1.0)
+rsi_threshold = col2.number_input("RSI Threshold", value=50.0, min_value=40.0, max_value=70.0, step=1.0)
+atr_mult_sl = col3.number_input("ATR SL Mult", value=1.5, min_value=1.0, max_value=10.0, step=0.5)
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -96,15 +102,15 @@ def calculate_3lb_close(df, line_count=3):
             lb_close.iloc[i] = lb_close.iloc[i-1]
     return lb_close.fillna(method='ffill')
 
-# BACKTEST WITH WIDE STOPS
-def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl):
+# BACKTEST WITH USER PARAMETERS
+def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, adx_threshold, rsi_threshold):
     df_bt = df.copy()
     df_bt['EMA_FAST'] = df_bt['Close'].ewm(span=sma_fast_len, adjust=False).mean()
     df_bt['EMA_SLOW'] = df_bt['Close'].ewm(span=sma_slow_len, adjust=False).mean()
     df_bt['3LB_Close'] = calculate_3lb_close(df_bt, line_count=3)
     df_bt['RSI_raw'] = RSI(df_bt['3LB_Close'], rsi_len)
     df_bt['RSI'] = df_bt['RSI_raw'].ewm(span=7, adjust=False).mean()
-    df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=14, adjust=False).mean()  # RESTORED RSI_EMA
+    df_bt['RSI_EMA'] = df_bt['RSI'].ewm(span=14, adjust=False).mean()
     df_bt['ADX'], df_bt['DI+'], df_bt['DI-'], df_bt['ATR'] = ADX(df_bt, 14)
     df_bt['ADX_ROC'] = df_bt['ADX'].pct_change(periods=5).fillna(0)
     df_bt['FAST_EMA_ROC'] = df_bt['EMA_FAST'].pct_change(20).fillna(0)
@@ -123,9 +129,10 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl):
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
         
+        # USER TUNABLE ENTRY CONDITIONS
         entry_condition = (
-            (row['ADX'] >= 25) &
-            (row['RSI'] >= 50) &
+            (row['ADX'] >= adx_threshold) &
+            (row['RSI'] >= rsi_threshold) &
             (curr_close >= row['EMA_FAST'])
         )
 
@@ -135,7 +142,7 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl):
             cash -= entry_cost
             entry_price = curr_close
             atr_value = float(row['ATR'])
-            stop_price = entry_price - (atr_mult_sl * atr_value)  # WIDE: up to 10x ATR
+            stop_price = entry_price - (atr_mult_sl * atr_value)
             
             trades.append({
                 'entry_date': df_bt.index[i], 'entry_price': entry_price,
@@ -190,14 +197,14 @@ if df_raw is None or df_raw.empty:
     st.stop()
 
 equity_series, final_capital, trades, df_bt = run_backtest(
-    df_raw, capital, sma_fast_len, rsi_len, atr_mult_sl
+    df_raw, capital, sma_fast_len, rsi_len, atr_mult_sl, adx_threshold, rsi_threshold
 )
 
 latest = df_bt.iloc[-1]
 total_return = ((final_capital / capital) - 1) * 100
 
 # RESULTS
-st.subheader(f"📊 {ticker}: RESULTS")
+st.subheader(f"📊 {ticker}: RESULTS (ADX>{adx_threshold} RSI>{rsi_threshold})")
 col1, col2, col3 = st.columns(3)
 col1.metric("Total Return", f"{total_return:+.1f}%")
 col2.metric("Final Capital", f"${final_capital:,.0f}")
@@ -220,7 +227,7 @@ if len(completed) > 0:
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r23.metric("Profit Factor", f"{profit_factor:.2f}")
 
-# YOUR EXACT PLOTTING WITH BLACK EDGES + 30% TRANSPARENT
+# PLOTTING WITH 50% TRANSPARENCY LINES + SMALL SCATTERS
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
@@ -242,40 +249,41 @@ for i in range(len(df_bt)):
 for i in range(len(x)-1):
     ax1.plot(x[i:i+2], y[i:i+2], color=colors[i], linewidth=2, alpha=0.5)
 
-ax1.plot(df_bt.index, df_bt.Close, color='gray', linewidth=0.01, label='3LB Close', alpha=0.8)
-ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='orange', linewidth=2, label=f'EMA{sma_fast_len}', alpha=0.25)
-ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='red', linewidth=2, label=f'EMA{sma_slow_len}', alpha=0.25)
+# ALL LINES 50% TRANSPARENT (alpha=0.5)
+ax1.plot(df_bt.index, df_bt.Close, color='gray', linewidth=1, label='Close', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='orange', linewidth=2, label=f'EMA{sma_fast_len}', alpha=0.5)
+ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='red', linewidth=2, label=f'EMA{sma_slow_len}', alpha=0.5)
 
-# FIXED ENTRY SIGNALS
+# USER SIGNAL PARAMETERS IN PLOT
 entry_signals = df_bt[
-    (df_bt['ADX'] >= 25) &
-    (df_bt['RSI'] >= 50) &
+    (df_bt['ADX'] >= adx_threshold) &
+    (df_bt['RSI'] >= rsi_threshold) &
     (df_bt['Close'] >= df_bt['EMA_FAST'])
 ]
 
-# SCATTERS: BLACK EDGES + 30% ALPHA
-ax1.scatter(entry_signals.index, entry_signals['Close'], color='magenta', marker='d', s=50, 
+# SMALL SCATTERS (s=30 or less) + BLACK EDGES
+ax1.scatter(entry_signals.index, entry_signals['Close'], color='magenta', marker='d', s=25, 
            label=f'Signals ({len(entry_signals)})', alpha=0.3, zorder=5, 
-           edgecolors='black', linewidths=1)
+           edgecolors='black', linewidths=0.8)
 
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-               color='blue', marker='o', s=80, label=f'Entries ({len(trades)})', alpha=0.3, zorder=4, 
-               edgecolors='black', linewidths=1.2)
+               color='blue', marker='o', s=20, label=f'Entries ({len(trades)})', alpha=0.3, zorder=4, 
+               edgecolors='black', linewidths=0.8)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
         winners = exits[exits['pnl'] > 0]
         losers = exits[exits['pnl'] <= 0]
         if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'], color='limegreen', marker='o', s=100, 
-                       label=f'Winners ({len(winners)})', alpha=0.3, zorder=3, edgecolors='black', linewidths=1.5)
+            ax1.scatter(winners['exit_date'], winners['exit_price'], color='limegreen', marker='o', s=30, 
+                       label=f'Winners ({len(winners)})', alpha=0.3, zorder=3, edgecolors='black', linewidths=1.0)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='crimson', marker='o', s=100, 
-                       label=f'Losses ({len(losers)})', alpha=0.3, zorder=3, edgecolors='black', linewidths=1.5)
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='crimson', marker='o', s=30, 
+                       label=f'Losses ({len(losers)})', alpha=0.3, zorder=3, edgecolors='black', linewidths=1.0)
 
-ax1.set_title(f'{ticker} - Wide ATR Stops | Return: {total_return:+.1f}% | {len(trades)} Trades', 
+ax1.set_title(f'{ticker} | Return: {total_return:+.1f}% | {len(trades)} Trades', 
               fontsize=16, fontweight='bold', pad=15)
 ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
 ax1.legend(loc='upper left', fontsize=8, ncol=2)
@@ -284,13 +292,13 @@ ax1.set_facecolor('#F8F9FA')
 ax1.yaxis.tick_right()     
 ax1.yaxis.set_label_position("right")
 
-# RSI WITH RSI_EMA RESTORED
+# RSI - 50% TRANSPARENT
 ax2 = axes[1]
-ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.1, label=f'RSI({rsi_len})', alpha=0.7)
-ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='red', linewidth=2, label='RSI_EMA(14)', alpha=0.7)  # RESTORED
-ax2.axhline(y=80, color='#E74C3C', linestyle='--', alpha=0.5, linewidth=1)
-ax2.axhline(y=50, color='gray', linestyle='--', alpha=0.4, linewidth=1)
-ax2.axhline(y=25, color='#27AE60', linestyle='--', alpha=0.5, linewidth=1)
+ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.1, label=f'RSI({rsi_len})', alpha=0.5)
+ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='red', linewidth=2, label='RSI_EMA(14)', alpha=0.5)
+ax2.axhline(y=rsi_threshold, color='orange', linestyle='--', alpha=0.7, linewidth=1, label=f'Signal: {rsi_threshold}')
+ax2.axhline(y=80, color='#E74C3C', linestyle='--', alpha=0.3, linewidth=1)
+ax2.axhline(y=25, color='#27AE60', linestyle='--', alpha=0.3, linewidth=1)
 ax2.set_ylabel('RSI', fontsize=11, fontweight='bold')
 ax2.legend(loc='upper left', fontsize=9)
 ax2.grid(True, alpha=0.2)
@@ -299,12 +307,13 @@ ax2.set_facecolor('#F8F9FA')
 ax2.yaxis.tick_right()       
 ax2.yaxis.set_label_position("right")
 
-# ADX
+# ADX - 50% TRANSPARENT
 ax3 = axes[2]
 ax3.plot(df_bt.index, df_bt['DI+'], color='green', linewidth=1, label='DI+', alpha=0.5)
 ax3.plot(df_bt.index, df_bt['DI-'], color='red', linewidth=1, label='DI-', alpha=0.5)
-ax3.plot(df_bt.index, df_bt['ADX'], color='gray', linewidth=2, label='ADX', alpha=0.7)
-ax3.axhline(y=25, color='gray', linestyle='--', alpha=0.5, linewidth=1)
+ax3.plot(df_bt.index, df_bt['ADX'], color='gray', linewidth=2, label='ADX', alpha=0.5)
+ax3.axhline(y=adx_threshold, color='orange', linestyle='--', alpha=0.7, linewidth=1, label=f'Signal: {adx_threshold}')
+ax3.axhline(y=25, color='gray', linestyle='--', alpha=0.3, linewidth=1)
 ax3.set_ylabel('ADX/DI', fontsize=11, fontweight='bold')
 ax3.legend(loc='upper left', fontsize=9)
 ax3.grid(True, alpha=0.2)
@@ -312,11 +321,11 @@ ax3.set_facecolor('#F8F9FA')
 ax3.yaxis.tick_right()       
 ax3.yaxis.set_label_position("right")
 
-# Equity
+# Equity - 50% TRANSPARENT
 ax4 = axes[3]
-ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio Value')
+ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio Value', alpha=0.5)
 ax4.fill_between(equity_series.index, capital, equity_series, 
-                 alpha=0.3, color='#27AE60' if final_capital > capital else '#E74C3C')
+                 alpha=0.2, color='#27AE60' if final_capital > capital else '#E74C3C')
 ax4.axhline(y=capital, color='gray', linestyle='--', alpha=0.5, linewidth=1, label=f'Start ${capital:,.0f}')
 ax4.set_ylabel('Equity ($)', fontsize=11, fontweight='bold')
 ax4.set_xlabel('Date', fontsize=12, fontweight='bold')
@@ -329,16 +338,16 @@ ax4.yaxis.set_label_position("right")
 plt.tight_layout()
 st.pyplot(fig)
 
-# LIVE STATUS
+# LIVE STATUS WITH USER PARAMETERS
 st.subheader("🔍 LIVE STATUS")
 col1, col2, col3, col4 = st.columns(4)
 live_entry = (
-    (latest['ADX'] >= 25) and 
-    (latest['RSI'] >= 50) and
+    (latest['ADX'] >= adx_threshold) and 
+    (latest['RSI'] >= rsi_threshold) and
     (latest['Close'] >= latest['EMA_FAST'])
 )
-col1.metric("ADX", "✅" if latest['ADX'] >= 25 else "❌", f"{latest['ADX']:.1f}")
-col2.metric("RSI", "✅" if latest['RSI'] >= 50 else "❌", f"{latest['RSI']:.1f}")
+col1.metric("ADX", "✅" if latest['ADX'] >= adx_threshold else "❌", f"{latest['ADX']:.1f} > {adx_threshold}")
+col2.metric("RSI", "✅" if latest['RSI'] >= rsi_threshold else "❌", f"{latest['RSI']:.1f} > {rsi_threshold}")
 col3.metric("Structure", "✅" if latest['Close'] >= latest['EMA_FAST'] else "❌", f"EMA20: {latest['EMA_FAST']:.1f}")
 col4.metric("SIGNAL", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 
@@ -350,4 +359,4 @@ with st.expander("📋 Trade History"):
     if len(trades) > 0:
         st.dataframe(pd.DataFrame(trades), use_container_width=True)
 
-st.caption(f"Wide Stops Strategy | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"Tunable Signals | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
