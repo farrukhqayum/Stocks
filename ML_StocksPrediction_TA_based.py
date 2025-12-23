@@ -235,6 +235,10 @@ def add_technical_indicators(df):
                     (df['RSI'].between(20, 60)) &
                     ((df['ADX'] > 18) & (df['+DI'] < df['-DI']))
                 )
+                |
+                (
+                    ((df['RSI'] > df['RSI_SMA']) & (df['RSI_SMA] < 37))
+                )
             )
         ),
         # SHORT
@@ -1457,3 +1461,4 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
