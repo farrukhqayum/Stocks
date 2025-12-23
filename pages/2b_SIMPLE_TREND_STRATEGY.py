@@ -376,4 +376,4 @@ if live_entry:
     st.success("🎯 ENTRY SIGNAL ACTIVE!")
     st.balloons()
 
-st.caption(f"✅ ALL FIXED | RSI Sweet Spot {rsi_threshold}-{rsi_overheat} | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"✅ LOOK FOR ENTRY & PATIENTLY WAIT | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
