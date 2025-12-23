@@ -268,7 +268,7 @@ def add_technical_indicators(df, timeframe='1D'):
                      ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
                     |
                     (
-                        ((df['RSI'] > 50) & df['RSI'] >= df['RSI_SMA']) &
+                        ((df['RSI'] > 50) & (df['RSI'] >= df['RSI_SMA'])) &
                         ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
                     )
                 )
