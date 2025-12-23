@@ -206,55 +206,73 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
-    
     conditions = [
-        # BULL
+    # 0: BULL - Strong uptrend, enter or add to longs
+        (
+            (df['EMA1'] > df['EMA2']) &
+            (df['Close'] > df['EMA1']) &  # Price leading
+            (df['RSI'] > df['RSI_SMA']) &
+            (df['RSI'].between(45, 75)) &  # Not overheated
+            (df['ADX'] > 20) &
+            (df['+DI'] > df['-DI'])
+        ),
+        
+        # 1: BEAR - Downtrend, exit longs or prepare to short
+        (
+            (df['EMA1'] < df['EMA2']) &
+            (df['Close'] < df['EMA1']) &  # Price leading down
+            (df['RSI'] < df['RSI_SMA']) &
+            (df['RSI'].between(25, 55)) &
+            (df['ADX'] > 20) &
+            (df['+DI'] < df['-DI'])
+        ),
+        
+        # 2: SHORT - Active short signal, strong downtrend
+        (
+            (df['EMA1'] < df['EMA2']) &
+            (df['Close'] < df['EMA2']) &  # Below both EMAs
+            (df['RSI'] < 45) &
+            (df['RSI'] < df['RSI_SMA']) &
+            (df['ADX'] > 24) &  # Stronger trend required
+            (df['+DI'] < df['-DI']) &
+            ((df['-DI'] - df['+DI']) > 5)  # Clear directional bias
+        ),
+        
+        # 3: HOLD - Maintain position or consolidation
         (
             (
-                ((df['EMA1'] > df['EMA2']) &
-                 (df['RSI'] >= df['RSI_SMA']) &
-                 (df['RSI'].between(52, 95)) &
-                 ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
-                |
+                # Weak uptrend - hold longs
                 (
-                    ((df['RSI'] >= df['RSI_SMA']) & (df['RSI'] > 50)) & 
-                    ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
+                    (df['EMA1'] > df['EMA2']) &
+                    (df['Close'] > df['EMA2']) &
+                    (df['RSI'].between(40, 85)) &
+                    (df['ADX'].between(15, 25))
+                )
+            ) |
+            (
+                # Ranging market - hold cash/current position
+                (
+                    (df['ADX'] < 20) &
+                    (df['RSI'].between(40, 60))
+                )
+            ) |
+            (
+                # Weak bearish - hold shorts or cash
+                (
+                    (df['EMA1'] < df['EMA2']) &
+                    (df['Close'] < df['EMA2']) &
+                    (df['RSI'].between(20, 50)) &
+                    (df['ADX'].between(15, 24)) &
+                    ~(  # But NOT strong enough for SHORT
+                        (df['RSI'] < 45) &
+                        (df['ADX'] > 24) &
+                        ((df['-DI'] - df['+DI']) > 5)
+                    )
                 )
             )
-        ),
-        # BEAR
-        (
-            (
-                ((df['EMA1'] < df['EMA2']) &
-                 (df['RSI'].between(10,60)) &
-                 (df['RSI'] < df['RSI_SMA']) &
-                 ((df['ADX'] > 24) & (df['+DI'] < df['-DI'])))
-                |
-                (
-                    (df['RSI'] < df['RSI_SMA']) & 
-                    (df['RSI'].between(10, 60)) &
-                    ((df['ADX'] > 24) & (df['+DI'] < df['-DI']))
-                )
-            )
-        ),
-        # SHORT
-        (
-            (
-                ((df['Close'] <= df['EMA1']) &
-                 (df['EMA1'] < df['EMA2'])) &
-                ((df['RSI'].between(50, 85)) &
-                 (df['ADX'] > 24) & 
-                 (df['+DI'] < df['-DI']))
-            )
-        ),
-        # HOLD
-        (
-            ((df['Close'] > df['EMA2']) &
-             (df['EMA1'] > df['EMA2']) &
-             (df['RSI'].between(50, 90)) &
-             ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
         )
     ]
+
     
     choices = ['Bull', 'Bear', 'Short', 'Hold']
     df['TI'] = np.select(conditions, choices, default='Neutral')
@@ -1457,5 +1475,6 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
