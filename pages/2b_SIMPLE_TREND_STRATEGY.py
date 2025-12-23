@@ -286,10 +286,10 @@ ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='red', linewidth=2, label=f'EMA{s
 # FIXED ENTRY SIGNALS
 entry_signals = df_bt[
     (df_bt['ADX'] >= adx_threshold) &
-    (rsi_threshold <= df_bt['RSI'] <= 76) &
+    (df_bt['RSI'] >= rsi_threshold) &
+    (df_bt['RSI'] <= 80) &                    # RSI sweet spot: 50-80
     (df_bt['Close'] >= df_bt['EMA_FAST'])
 ]
-
 # FIXED SCATTERS WITH EMPTY CHECKS
 if len(entry_signals) > 0:
     ax1.scatter(entry_signals.index, entry_signals['Close'], color='magenta', marker='d', s=10, 
@@ -375,7 +375,8 @@ st.subheader("🔍 LIVE STATUS")
 col1, col2, col3, col4 = st.columns(4)
 live_entry = (
     (latest['ADX'] >= adx_threshold) and 
-    (rsi_threshold <= latest['RSI'] <= 76) and
+    (latest['RSI'] >= rsi_threshold) and
+    (latest['RSI'] <= 76) and
     (latest['Close'] >= latest['EMA_FAST'])
 )
 col1.metric("ADX", "✅" if latest['ADX'] >= adx_threshold else "❌", f"{latest['ADX']:.1f} > {adx_threshold}")
