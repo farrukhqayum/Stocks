@@ -206,8 +206,19 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
-        # BULL
+        # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
+        (
+            (df['Close'] > df['EMA2']) &
+            (df['EMA1'] > df['EMA2']) &
+            (df['RSI'].between(50, 90)) &
+            (df['ADX'] > 40) &
+            (df['+DI'] > df['-DI']) &
+            (df['Close'] > df['Close'].shift(5) * 1.02)  # ✅ Rally proof!
+        ),
+        
+        # 2️⃣ BULL (Entry signals)
         (
             (
                 ((df['EMA1'] >= df['EMA2']) &
@@ -222,7 +233,16 @@ def add_technical_indicators(df):
             )
         ),
         
-        # BEAR  
+        # 3️⃣ SHORT (Aggressive shorts)
+        (
+            ((df['Close'] <= df['EMA1']) &
+             (df['EMA1'] < df['EMA2']) &
+             (df['RSI'].between(50, 85)) &
+             (df['ADX'] > 24) & 
+             (df['+DI'] < df['-DI']))
+        ),
+        
+        # 4️⃣ BEAR (Bearish entries - LOWEST priority)
         (
             (
                 ((df['EMA1'] < df['EMA2']) &
@@ -237,41 +257,23 @@ def add_technical_indicators(df):
                 )
                 |
                 (
-                    (df['RSI'] > df['RSI_SMA']) & 
-                    (df['RSI_SMA'] < 37)
+                    ((df['RSI'] > df['RSI_SMA']) & 
+                     (df['RSI_SMA'] < 37))
                 )
             )
-        ),
-        
-        # SHORT
-        (
-            (
-                ((df['Close'] <= df['EMA1']) &
-                  (df['EMA1'] < df['EMA2'])) &
-                (df['RSI'].between(50, 85)) &
-                (df['ADX'] > 24) & 
-                (df['+DI'] < df['-DI'])
-            )
-        ),
-        
-        # HOLD
-        (
-            (df['Close'] > df['EMA2']) &
-            (df['EMA1'] > df['EMA2']) &
-            (df['RSI'].between(50, 90)) &
-            ((df['ADX'] > 40) & (df['+DI'] > df['-DI']))
         )
     ]
-
-    choices = ['Bull', 'Bear', 'Short', 'Hold']
+    
+    choices = ['Hold', 'Bull', 'Short', 'Bear']  # ✅ Priority order!
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
+ 
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
-    expected_cols = ['Bull', 'Bear', 'Short', 'Hold', 'Neutral']
+    expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
     for col in expected_cols:
         if col not in df_encoded.columns:
             df_encoded[col] = 0
-    df= pd.concat([df, df_encoded], axis=1)
+    df = pd.concat([df, df_encoded], axis=1)
 
     strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
     strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
@@ -1464,6 +1466,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
