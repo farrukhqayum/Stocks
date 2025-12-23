@@ -470,8 +470,166 @@ def compute_expected_loss(df, forward_window=14):
             df.iloc[i, df.columns.get_loc('Expected_Loss')] = (min_future - current_price) / current_price
     
     return df
-
+# Past only
 def label_hit_prob_past(
+    df,
+    window=14,
+    profit_target=0.05,
+    stop_loss=0.05,
+    lookback=60,
+    tp_thresh=0.35,
+    sl_thresh=0.4
+):
+    """
+    Label each row based on PAST price action, not future.
+    
+    For day i, we check if a trade entered at day (i - window) would have
+    hit TP or SL by day i. This ensures no future data leakage.
+    """
+    import numpy as np
+    
+    close_prices = df['Close'].values
+    
+    bull = (df['TI'] == 'Bull').values
+    bear = (df['TI'] == 'Bear').values
+    hold = (df['TI'] == 'Hold').values
+    short = (df['TI'] == 'Short').values
+    neutral = (df['TI'] == 'Neutral').values
+
+    sma1 = df['SMA10'].values
+    sma20 = df['SMA20'].values
+    atr = df['ATR'].values
+    rsi = df['RSI'].values
+    adx = df['ADX'].values
+
+    N = len(close_prices)
+    labels = np.zeros(N, dtype=int)  # Default to 0 (Neutral/None)
+    
+    # We can only label rows where we have enough future data to evaluate
+    # So labels for the last 'window' days will remain 0
+    for i in range(N - window):
+        # Entry would have been at day i
+        entry_price = close_prices[i]
+        tp = entry_price * (1 + profit_target)
+        sl = entry_price * (1 - stop_loss)
+        
+        # Check the NEXT 'window' days to see what happened
+        future_window = close_prices[i + 1 : i + 1 + window]
+        
+        # Find if/when TP or SL was hit
+        tp_hit_idx = None
+        sl_hit_idx = None
+        
+        for j, price in enumerate(future_window):
+            if tp_hit_idx is None and price >= tp:
+                tp_hit_idx = j
+            if sl_hit_idx is None and price <= sl:
+                sl_hit_idx = j
+            if tp_hit_idx is not None and sl_hit_idx is not None:
+                break
+        
+        # Calculate historical probabilities
+        lookback_start = max(0, i - lookback)
+        history_tp = []
+        history_sl = []
+        
+        for j in range(lookback_start, i):
+            hist_price = close_prices[j]
+            hist_tp = hist_price * (1 + profit_target)
+            hist_sl = hist_price * (1 - stop_loss)
+            hist_future = close_prices[j + 1: min(j + 1 + window, N)]
+            
+            if len(hist_future) == 0:
+                continue
+            
+            # Check historical TP hits for Bull signals
+            if bull[j]:
+                hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
+                hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
+                hit = hist_tp_hit_idx is not None and (hist_sl_hit_idx is None or hist_tp_hit_idx < hist_sl_hit_idx)
+                history_tp.append(int(hit))
+                
+            # Check historical SL hits for Bear signals
+            if bear[j]:
+                hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
+                hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
+                hit = hist_sl_hit_idx is not None and (hist_tp_hit_idx is None or hist_sl_hit_idx < hist_tp_hit_idx)
+                history_sl.append(int(hit))
+        
+        # Calculate probabilities
+        tp_prob = np.mean(history_tp) if len(history_tp) >= 3 else min(np.mean(history_tp) if history_tp else 0.5, tp_thresh)
+        sl_prob = np.mean(history_sl) if len(history_sl) >= 3 else min(np.mean(history_sl) if history_sl else 0.5, sl_thresh)
+        
+        # Assign label based on what actually happened and signal type
+        # Priority: TP > SL > Hold > Short > Neutral
+        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx):
+            # TP was hit first
+            if bull[i] and tp_prob >= tp_thresh:
+                labels[i] = 2  # TP
+            elif hold[i]:
+                labels[i] = 2  # Upgrade Hold to TP
+            else:
+                labels[i] = 2  # Default TP
+                
+        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx):
+            # SL was hit first
+            if bear[i] and sl_prob >= sl_thresh:
+                labels[i] = 1  # SL
+            else:
+                labels[i] = 1  # Default SL
+                
+        else:
+            # Neither hit within window
+            if hold[i]:
+                labels[i] = 3  # Hold
+            elif short[i]:
+                labels[i] = 4  # Short
+            elif bull[i]:
+                labels[i] = 2  # Optimistic TP
+            elif bear[i]:
+                labels[i] = 1  # Pessimistic SL
+            else:
+                labels[i] = 0  # Neutral
+    
+    # Post-process: Apply momentum-based SL triggers for TP/Hold bars
+    for i in range(N - window):
+        if labels[i] in [2, 3]:  # TP or Hold bars
+            current_close = close_prices[i]
+            sma1_now = sma1[i]
+            sma20_now = sma20[i]
+            atr_now = atr[i]
+            rsi_now = rsi[i]
+            adx_now = adx[i]
+
+            # Check future window for weakness
+            future_end = min(i + 1 + window, N)
+            future_closes = close_prices[i + 1 : future_end]
+            future_sma1 = sma1[i + 1 : future_end]
+
+            # Detect dips
+            current_dip = current_close < sma1_now or current_close < (sma1_now - 0.5 * atr_now)
+            future_dips = any((p < s) or (p < s - 0.5 * atr_now) 
+                            for p, s in zip(future_closes, future_sma1))
+
+            # Momentum checks
+            bearish_momentum = (rsi_now < 40) and (adx_now > 22)
+            fading_bullish = (rsi_now < 50) or (adx_now < 20)
+            hold_extreme = (labels[i] == 3) and (rsi_now < 45)
+
+            # Override to SL if conditions met
+            if (current_dip or future_dips) and (bearish_momentum or fading_bullish or hold_extreme):
+                # Exception: strong bullish confirmation
+                if not ((rsi_now > 52) and (current_close > sma20_now)):
+                    labels[i] = 1  # Change to SL
+    
+    # ✅ CRITICAL FIX: Shift labels forward by window size
+    # This ensures we're not using future information at prediction time
+    df['Hit_Label'] = labels
+    df['Hit_Label'] = df['Hit_Label'].shift(window).fillna(0).astype(int)
+    
+    return df
+    
+def label_hit_prob_past2(
     df,
     window=14,
     profit_target=0.05,
