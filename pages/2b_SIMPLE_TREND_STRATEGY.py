@@ -283,8 +283,8 @@ if len(trades) > 0:
                        label=f'Winners ({len(winners)})', alpha=0.7, zorder=3, edgecolors='black', linewidths=1.0)
         
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='darkred', marker='o', s=30, 
-                       label=f'Losses ({len(losers)})', alpha=0.3, zorder=3, edgecolors='black', linewidths=1.0)
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='darkred', marker='o', s=20, 
+                       label=f'Losses ({len(losers)})', alpha=0.7, zorder=3, edgecolors='black', linewidths=1.0)
 
 ax1.set_title(f'{ticker} | Return: {total_return:+.1f}% | {len(trades)} Trades', 
               fontsize=16, fontweight='bold', pad=15)
