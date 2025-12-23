@@ -227,6 +227,34 @@ if len(completed) > 0:
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r23.metric("Profit Factor", f"{profit_factor:.2f}")
 
+# SMALL COMPACT TRADE TABLE IN EXPANDER - ADD AFTER RESULTS METRICS
+with st.expander("📋 Recent Trades", expanded=False):
+    trades_df = pd.DataFrame(trades)
+    if len(trades_df) > 0:
+        # Compact display: Last 10 trades only
+        recent_trades = trades_df.tail(10)
+        
+        # Format dates nicely
+        recent_trades['entry_date'] = recent_trades['entry_date'].dt.strftime('%Y-%m-%d')
+        if 'exit_date' in recent_trades.columns:
+            recent_trades['exit_date'] = recent_trades['exit_date'].dt.strftime('%Y-%m-%d')
+        
+        # Clean display columns
+        display_cols = ['entry_date', 'entry_price', 'exit_date', 'exit_price', 'pnl_pct']
+        if 'exit_date' in recent_trades.columns:
+            recent_trades['duration'] = (recent_trades['exit_date'] - recent_trades['entry_date']).dt.days
+            display_cols.append('duration')
+        
+        # SMALL COMPACT TABLE
+        st.dataframe(
+            recent_trades[display_cols].round(2),
+            use_container_width=True,
+            height=200,  # Compact height
+            hide_index=True
+        )
+    else:
+        st.info("No trades yet")
+
 # PLOTTING WITH 50% TRANSPARENCY LINES + SMALL SCATTERS
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
