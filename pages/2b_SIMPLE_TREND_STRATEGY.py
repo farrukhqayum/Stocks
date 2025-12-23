@@ -262,15 +262,15 @@ entry_signals = df_bt[
 ]
 
 # SMALL SCATTERS (s=30 or less) + BLACK EDGES
-ax1.scatter(entry_signals.index, entry_signals['Close'], color='magenta', marker='d', s=25, 
-           label=f'Signals ({len(entry_signals)})', alpha=0.3, zorder=5, 
+ax1.scatter(entry_signals.index, entry_signals['Close'], color='green', marker='d', s=10, 
+           label=f'Signals ({len(entry_signals)})', alpha=0.3, zorder=2, 
            edgecolors='black', linewidths=0.8)
 
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
                color='blue', marker='o', s=20, label=f'Entries ({len(trades)})', alpha=0.3, zorder=4, 
-               edgecolors='black', linewidths=0.8)
+               edgecolors='darkblue', linewidths=0.8)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
@@ -280,7 +280,7 @@ if len(trades) > 0:
             ax1.scatter(winners['exit_date'], winners['exit_price'], color='limegreen', marker='o', s=30, 
                        label=f'Winners ({len(winners)})', alpha=0.3, zorder=3, edgecolors='black', linewidths=1.0)
         if len(losers) > 0:
-            ax1.scatter(losers['exit_date'], losers['exit_price'], color='crimson', marker='o', s=30, 
+            ax1.scatter(losers['exit_date'], losers['exit_price'], color='deepred', marker='o', s=30, 
                        label=f'Losses ({len(losers)})', alpha=0.3, zorder=3, edgecolors='black', linewidths=1.0)
 
 ax1.set_title(f'{ticker} | Return: {total_return:+.1f}% | {len(trades)} Trades', 
