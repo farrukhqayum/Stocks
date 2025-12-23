@@ -305,7 +305,7 @@ if len(entry_signals) > 0:
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
-               color='blue', marker='o', s=20, label=f'Entries ({len(trades)})', alpha=0.3, zorder=4, 
+               color='blue', marker='o', s=20, label=f'Entries ({len(trades)})', alpha=0.5, zorder=4, 
                edgecolors='black', linewidths=0.8)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
