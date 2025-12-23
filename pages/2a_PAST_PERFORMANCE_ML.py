@@ -353,7 +353,8 @@ def add_technical_indicators(df):
                  ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
                 |
                 (
-                    ((df['RSI'] >= df['RSI_SMA']) & (df['RSI'] > 50)) & 
+                    (df['RSI'] >= df['RSI_SMA']) & 
+                    (df['RSI'] > 50) &
                     ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
                 )
             )
@@ -362,7 +363,7 @@ def add_technical_indicators(df):
         (
             (
                 ((df['SMA10'] < df['SMA50']) &
-                 (df['RSI'].between(10,60)) &
+                 (df['RSI'].between(18,60)) &
                  (df['RSI'] < df['RSI_SMA']) &
                  ((df['ADX'] > 24) & (df['+DI'] < df['-DI'])))
                 |
@@ -470,7 +471,7 @@ def compute_expected_loss(df, forward_window=14):
             df.iloc[i, df.columns.get_loc('Expected_Loss')] = (min_future - current_price) / current_price
     
     return df
-    
+
 def label_hit_prob_past(
     df,
     window=14,
@@ -580,12 +581,7 @@ def label_hit_prob_past(
     df['Hit_Label'] = labels
     return df
 
-def prepare_data_for_plotting(df):
-    df = add_technical_indicators(df)
-    df = add_pivots(df, windows)
-    df = average_pivots(df, windows)
-    return df
-
+@st.cache_data
 def prepare_features(df):
     df = add_technical_indicators(df)
     df = add_pivots(df, windows)
@@ -754,7 +750,7 @@ if st.button("Run ML Strategy Backtest"):
             st.stop()
 
     with st.spinner('Calculating technical indicators (for plotting)...'):
-        df_daily = prepare_data_for_plotting(df_daily)
+        df_daily = prepare_features(df_daily)
 
     st.write("Running backtest...")
     trades = []
