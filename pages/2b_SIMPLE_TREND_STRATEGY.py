@@ -45,8 +45,8 @@ st.subheader("🎛️ Signal Parameters")
 col1, col2, col3, col4 = st.columns(4)
 adx_threshold = col1.number_input("ADX Threshold", value=25.0, min_value=15.0, max_value=40.0, step=1.0)
 rsi_threshold = col2.number_input("RSI Threshold", value=50.0, min_value=40.0, max_value=70.0, step=1.0)
-atr_mult_sl = col3.number_input("ATR SL Mult", value=1.5, min_value=1.0, max_value=10.0, step=0.5)
-atr_mult_tp = col4.number_input("ATR TP Mult", value=3.0, min_value=1.5, max_value=8.0, step=0.5)
+atr_mult_sl = col3.number_input("ATR SL Mult", value=1.5, min_value=1.05, max_value=10.0, step=0.5)
+atr_mult_tp = col4.number_input("ATR TP Mult", value=3.0, min_value=1.05, max_value=10.0, step=0.5)
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
