@@ -129,7 +129,6 @@ def run_backtest(df, initial_capital, sma_fast_len, rsi_len, atr_mult_sl, adx_th
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
         
-        # USER TUNABLE ENTRY CONDITIONS
         entry_condition = (
             (row['ADX'] >= adx_threshold) &
             (row['RSI'] >= rsi_threshold) &
@@ -227,35 +226,40 @@ if len(completed) > 0:
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r23.metric("Profit Factor", f"{profit_factor:.2f}")
 
-# SMALL COMPACT TRADE TABLE IN EXPANDER - ADD AFTER RESULTS METRICS
+# FIXED COMPACT TRADE TABLE IN EXPANDER
 with st.expander("📋 Recent Trades", expanded=False):
-    trades_df = pd.DataFrame(trades)
-    if len(trades_df) > 0:
-        # Compact display: Last 10 trades only
-        recent_trades = trades_df.tail(10)
+    if len(trades) > 0:
+        trades_df_local = pd.DataFrame(trades)
+        recent_trades = trades_df_local.tail(10).copy()
         
-        # Format dates nicely
-        recent_trades['entry_date'] = recent_trades['entry_date'].dt.strftime('%Y-%m-%d')
-        if 'exit_date' in recent_trades.columns:
-            recent_trades['exit_date'] = recent_trades['exit_date'].dt.strftime('%Y-%m-%d')
+        # SAFE DATE FORMATTING
+        recent_trades['entry_date_str'] = recent_trades['entry_date'].dt.strftime('%Y-%m-%d')
+        recent_trades['entry_date'] = recent_trades['entry_date'].dt.date
         
-        # Clean display columns
-        display_cols = ['entry_date', 'entry_price', 'exit_date', 'exit_price', 'pnl_pct']
-        if 'exit_date' in recent_trades.columns:
-            recent_trades['duration'] = (recent_trades['exit_date'] - recent_trades['entry_date']).dt.days
-            display_cols.append('duration')
+        # Handle exit_date safely
+        recent_trades['exit_date_str'] = recent_trades['exit_date'].apply(
+            lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else 'OPEN'
+        ) if recent_trades['exit_date'].notna().any() else 'OPEN'
         
-        # SMALL COMPACT TABLE
+        # Calculate duration only for closed trades
+        recent_trades['duration'] = recent_trades.apply(
+            lambda row: (row['exit_date'] - row['entry_date']).days if pd.notna(row['exit_date']) else 'OPEN', axis=1
+        )
+        
+        display_cols = ['entry_date_str', 'entry_price', 'exit_date_str', 'exit_price', 'pnl_pct', 'duration']
+        display_df = recent_trades[display_cols].round(2)
+        display_df.columns = ['Entry', 'Entry $', 'Exit', 'Exit $', 'PnL%', 'Days']
+        
         st.dataframe(
-            recent_trades[display_cols].round(2),
+            display_df,
             use_container_width=True,
-            height=200,  # Compact height
+            height=250,
             hide_index=True
         )
     else:
-        st.info("No trades yet")
+        st.info("📊 No trades executed yet")
 
-# PLOTTING WITH 50% TRANSPARENCY LINES + SMALL SCATTERS
+# PLOTTING WITH ALL FIXES
 fig, axes = plt.subplots(4, 1, figsize=(16, 12), height_ratios=[3, 1, 1, 1.5])
 fig.patch.set_facecolor('white')
 
@@ -277,22 +281,22 @@ for i in range(len(df_bt)):
 for i in range(len(x)-1):
     ax1.plot(x[i:i+2], y[i:i+2], color=colors[i], linewidth=2, alpha=0.5)
 
-# ALL LINES 50% TRANSPARENT (alpha=0.5)
 ax1.plot(df_bt.index, df_bt.Close, color='gray', linewidth=1, label='Close', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='orange', linewidth=2, label=f'EMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='red', linewidth=2, label=f'EMA{sma_slow_len}', alpha=0.5)
 
-# USER SIGNAL PARAMETERS IN PLOT
+# FIXED ENTRY SIGNALS
 entry_signals = df_bt[
     (df_bt['ADX'] >= adx_threshold) &
     (df_bt['RSI'] >= rsi_threshold) &
     (df_bt['Close'] >= df_bt['EMA_FAST'])
 ]
 
-# SMALL SCATTERS (s=30 or less) + BLACK EDGES
-ax1.scatter(entry_signals.index, entry_signals['Close'], color='magenta', marker='d', s=10, 
-           label=f'Signals ({len(entry_signals)})', alpha=0.1, zorder=5, 
-           edgecolors='black', linewidths=0.8)
+# FIXED SCATTERS WITH EMPTY CHECKS
+if len(entry_signals) > 0:
+    ax1.scatter(entry_signals.index, entry_signals['Close'], color='magenta', marker='d', s=10, 
+               label=f'Signals ({len(entry_signals)})', alpha=0.1, zorder=5, 
+               edgecolors='black', linewidths=0.8)
 
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
@@ -305,9 +309,8 @@ if len(trades) > 0:
         winners = exits[exits['pnl'] > 0]
         losers = exits[exits['pnl'] <= 0]
         
-        # FIXED: Check if DataFrames are NOT empty before plotting
         if len(winners) > 0:
-            ax1.scatter(winners['exit_date'], winners['exit_price'], color='green', marker='o', s=20, 
+            ax1.scatter(winners['exit_date'], winners['exit_price'], color='limegreen', marker='o', s=20, 
                        label=f'Winners ({len(winners)})', alpha=0.7, zorder=3, edgecolors='black', linewidths=1.0)
         
         if len(losers) > 0:
@@ -323,7 +326,7 @@ ax1.set_facecolor('#F8F9FA')
 ax1.yaxis.tick_right()     
 ax1.yaxis.set_label_position("right")
 
-# RSI - 50% TRANSPARENT
+# RSI PLOT
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.1, label=f'RSI({rsi_len})', alpha=0.5)
 ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='red', linewidth=2, label='RSI_EMA(14)', alpha=0.5)
@@ -338,7 +341,7 @@ ax2.set_facecolor('#F8F9FA')
 ax2.yaxis.tick_right()       
 ax2.yaxis.set_label_position("right")
 
-# ADX - 50% TRANSPARENT
+# ADX PLOT
 ax3 = axes[2]
 ax3.plot(df_bt.index, df_bt['DI+'], color='green', linewidth=1, label='DI+', alpha=0.5)
 ax3.plot(df_bt.index, df_bt['DI-'], color='red', linewidth=1, label='DI-', alpha=0.5)
@@ -352,7 +355,7 @@ ax3.set_facecolor('#F8F9FA')
 ax3.yaxis.tick_right()       
 ax3.yaxis.set_label_position("right")
 
-# Equity - 50% TRANSPARENT
+# EQUITY CURVE
 ax4 = axes[3]
 ax4.plot(equity_series.index, equity_series, color='#27AE60', linewidth=2.5, label='Portfolio Value', alpha=0.5)
 ax4.fill_between(equity_series.index, capital, equity_series, 
@@ -369,7 +372,7 @@ ax4.yaxis.set_label_position("right")
 plt.tight_layout()
 st.pyplot(fig)
 
-# LIVE STATUS WITH USER PARAMETERS
+# LIVE STATUS
 st.subheader("🔍 LIVE STATUS")
 col1, col2, col3, col4 = st.columns(4)
 live_entry = (
@@ -385,9 +388,5 @@ col4.metric("SIGNAL", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 if live_entry:
     st.success("🎯 ENTRY SIGNAL!")
     st.balloons()
-
-with st.expander("📋 Trade History"):
-    if len(trades) > 0:
-        st.dataframe(pd.DataFrame(trades), use_container_width=True)
 
 st.caption(f"Tunable Signals | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
