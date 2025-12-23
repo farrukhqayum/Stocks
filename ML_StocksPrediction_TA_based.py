@@ -206,6 +206,7 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    
     conditions = [
         # BULL
         (
@@ -216,8 +217,7 @@ def add_technical_indicators(df):
                  ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
                 |
                 (
-                    (df['RSI'] >= df['RSI_SMA']) & 
-                    (df['RSI'] > 50) &
+                    (df['RSI'] >= df['RSI_SMA'] & df['RSI'] > 50) & 
                     ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
                 )
             )
@@ -226,13 +226,13 @@ def add_technical_indicators(df):
         (
             (
                 ((df['EMA1'] < df['EMA2']) &
-                 (df['RSI'].between(18,60)) &
+                 (df['RSI'].between(10,60)) &
                  (df['RSI'] < df['RSI_SMA']) &
                  ((df['ADX'] > 24) & (df['+DI'] < df['-DI'])))
                 |
                 (
                     (df['RSI'] < df['RSI_SMA']) & 
-                    (df['RSI'].between(20, 60)) &
+                    (df['RSI'].between(10, 60)) &
                     ((df['ADX'] > 24) & (df['+DI'] < df['-DI']))
                 )
             )
@@ -1457,3 +1457,4 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
