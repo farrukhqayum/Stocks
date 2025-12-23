@@ -367,9 +367,9 @@ live_entry = (
     (latest['RSI'] <= rsi_overheat) and
     (latest['Close'] >= latest['EMA_FAST'])
 )
-col1.metric("ADX", "✅" if latest['ADX'] >= adx_threshold else "❌", f"{latest['ADX']:.1f}>{adx_threshold}")
-col2.metric("RSI", f"{latest['RSI']:.1f}", f"✅ {rsi_threshold}-{rsi_overheat}" if rsi_threshold <= latest['RSI'] <= rsi_overheat else "❌")
-col3.metric("Structure", "✅" if latest['Close'] >= latest['EMA_FAST'] else "❌", f"EMA{sma_fast_len}: {latest['EMA_FAST']:.1f}")
+col1.metric("Trend Strength", "✅" if latest['ADX'] >= adx_threshold else "❌", f"{latest['ADX']:.1f}>{adx_threshold}")
+col2.metric("Momentum", f"{latest['RSI']:.1f}", f"✅ {rsi_threshold}-{rsi_overheat}" if rsi_threshold <= latest['RSI'] <= rsi_overheat else "❌")
+col3.metric("Structure", "✅" if ((latest['Close'] >= latest['EMA_FAST']) & (latest['EMA_FAST'] > latest['EMA_SLOW'])) else "❌", f"EMA{sma_fast_len}: {latest['EMA_FAST']:.1f}")
 col4.metric("SIGNAL", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 
 if live_entry:
