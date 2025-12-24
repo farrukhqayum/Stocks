@@ -324,7 +324,7 @@ if len(trades) > 0:
     ax2.scatter(trades_plot['entry_date'], trade_rsi, 
                color='blue', marker='^', s=25, 
                label=f'Trade Entries ({len(trades)})', 
-               alpha=0.5, zorder=11, 
+               alpha=0.5, zorder=3, 
                edgecolors='navy', linewidths=1.5)
     
 ax2.axhline(y=rsi_threshold, color='orange', linestyle='--', alpha=0.7, linewidth=1)
