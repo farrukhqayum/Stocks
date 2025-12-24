@@ -20,6 +20,9 @@ to estimate global risk appetite.
 Includes BTC, S&P 500, Emerging Markets, Gold, US Dollar, Treasury Bonds, Oil, and VIX.
 """)
 
+# =========================
+# SIDEBAR
+# =========================
 st.sidebar.header("⚙️ Settings")
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365*3))
 end_date = st.sidebar.date_input("End Date", datetime.now())
@@ -28,24 +31,25 @@ z_score_window = st.sidebar.slider("Climax Z-Score Lookback (Days)", 20, 250, 90
 normalize_start = st.sidebar.checkbox("Normalize to 100 at start", value=True)
 use_business_days = st.sidebar.checkbox("Remove weekend gaps (use business days only)", value=True)
 
-# =========================================================
-# ### FIX 1: SAFE DATE ALIGNMENT (weekends / holidays)
-# =========================================================
+# =========================
+# ### FIX 1 — DATE SAFETY
+# =========================
 def snap_to_last_trading_day(index, d):
     d = pd.Timestamp(d)
     valid = index[index <= d]
     return valid.max() if len(valid) else index.min()
 
-# =========================================================
-# ### FIX 2: SPIKE CONTROL (light, non-destructive)
-# =========================================================
+# =========================
+# ### FIX 2 — SPIKE CONTROL
+# =========================
 def winsorize_returns(s, low=0.01, high=0.99):
     lo = s.quantile(low)
     hi = s.quantile(high)
     return s.clip(lo, hi)
 
-st.sidebar.markdown("### Select Assets")
-
+# =========================
+# ASSETS
+# =========================
 default_tickers = {
     "Bitcoin (BTC)": "BTC-USD",
     "Gold (XAU)": "GC=F",
@@ -63,7 +67,7 @@ selected_assets = st.sidebar.multiselect(
     default=list(default_tickers.keys())
 )
 
-tickers = {asset: default_tickers[asset] for asset in selected_assets}
+tickers = {a: default_tickers[a] for a in selected_assets}
 
 st.sidebar.markdown("### Set Asset Weights (Positive=Risk-On, Negative=Risk-Off)")
 
@@ -87,11 +91,14 @@ for asset in selected_assets:
         step=0.05
     )
 
-# Normalize absolute weights (UNCHANGED)
+# Normalize absolute weights
 abs_sum = sum(abs(w) for w in weights.values())
 if abs_sum:
     weights = {k: v / abs_sum for k, v in weights.items()}
 
+# =========================
+# DATA LOAD
+# =========================
 @st.cache_data
 def load_data(tickers, start, end):
     raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
@@ -100,44 +107,39 @@ def load_data(tickers, start, end):
     raw = raw.rename(columns={v: k for k, v in tickers.items()})
     return raw.dropna(how="all")
 
-# =========================================================
-# LOAD DATA WITH BUFFER (FIX)
-# =========================================================
 data = load_data(tickers, start_date - timedelta(days=7), end_date + timedelta(days=7))
 
 if use_business_days:
     data = data.asfreq("B").ffill()
 
-# Snap dates AFTER data exists
+# Snap dates safely
 start_snap = snap_to_last_trading_day(data.index, start_date)
 end_snap = snap_to_last_trading_day(data.index, end_date)
 data = data.loc[start_snap:end_snap]
 
-# =========================================================
-# ### FIX 2 CONTINUED: RETURNS → INDEXED PRICES
-# =========================================================
+# =========================
+# ### FIXED GMF CONSTRUCTION
+# =========================
 returns = data.pct_change().apply(winsorize_returns)
-indexed = (1 + returns).cumprod()
+
+# ✅ CORRECT: aggregate weighted RETURNS
+money_flow = pd.Series(0.0, index=returns.index)
+for asset, w in weights.items():
+    if asset in returns.columns:
+        money_flow += returns[asset] * w
+
+# Build index
+money_flow = (1 + money_flow).cumprod()
 
 if normalize_start:
-    indexed = indexed / indexed.iloc[0] * 100
-
-# =========================================================
-# GMF CONSTRUCTION (UNCHANGED LOGIC)
-# =========================================================
-money_flow = pd.Series(0.0, index=indexed.index)
-for asset, w in weights.items():
-    if asset in indexed.columns:
-        money_flow += indexed[asset] * w
-
-# =========================================================
-# ### FIX 2 FINAL: PROPER INDEX (Base 100, no zero collapse)
-# =========================================================
-money_flow = money_flow / money_flow.iloc[0] * 100
+    money_flow = money_flow / money_flow.iloc[0] * 100
 
 money_flow_s = money_flow.rolling(3, min_periods=1).mean()
 money_flow_smooth = money_flow.rolling(smooth_window, min_periods=1).mean()
 
+# =========================
+# Z-SCORE & MOMENTUM
+# =========================
 rolling_mean = money_flow_smooth.rolling(z_score_window).mean()
 rolling_std = money_flow_smooth.rolling(z_score_window).std()
 money_flow_zscore = ((money_flow_smooth - rolling_mean) / rolling_std).fillna(0)
@@ -145,9 +147,9 @@ money_flow_zscore = ((money_flow_smooth - rolling_mean) / rolling_std).fillna(0)
 money_flow_momentum = money_flow_smooth.pct_change(10) * 100
 money_flow_momentum = money_flow_momentum.fillna(0)
 
-# =========================================================
-# PLOTTING (UNCHANGED — THIS IS WHY PLOTS NOW WORK)
-# =========================================================
+# =========================
+# PLOTS
+# =========================
 df_plot = pd.DataFrame({
     "Date": money_flow.index,
     "Money Flow Curve": money_flow_s,
