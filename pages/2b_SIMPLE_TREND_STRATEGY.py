@@ -20,6 +20,7 @@ with st.expander("📖 Real-Time Trade Logic", expanded=False):
     ## 🚪 **EXIT: Wide Protection**
     
     **STOP LOSS ([user input]x ATR)**
+    **TAKE PROFIT ([user input]x ATR)** 
     **EMA break backup**
     
     **RSI Sweet Spot: 50-80 (avoids overheated tops!)**
@@ -32,7 +33,7 @@ with col1:
 with col2:
     period = st.selectbox("Backtest Period", ["5y", "3y", "2y", "1y", "6mo"], index=2)
 with col3:
-    capital = st.number_input("Capital ($)", value=1000, min_value=1000)   
+    capital = st.number_input("Capital ($)", value=10000, min_value=1000)   
 
 col1, col2, col3 = st.columns(3)
 sma_fast_len = col1.number_input("EMA Fast", value=20, min_value=5, max_value=30)
@@ -41,11 +42,12 @@ rsi_len = col3.number_input("RSI Length", value=14, min_value=10, max_value=21)
 
 # SIGNAL PARAMETERS
 st.subheader("🎛️ Signal Parameters")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 adx_threshold = col1.number_input("ADX Threshold", value=15.0, min_value=1.0, max_value=40.0, step=1.0)
 rsi_threshold = col2.number_input("RSI Threshold", value=50.0, min_value=40.0, max_value=70.0, step=1.0)
 atr_mult_sl = col3.number_input("ATR SL Mult", value=1.5, min_value=1.0, max_value=10.0, step=0.5)
-rsi_overheat = col4.number_input("RSI Overheated", value=75.0, min_value=70.0, max_value=100.0, step=0.5)
+atr_mult_tp = col4.number_input("ATR TP Mult", value=3.0, min_value=1.5, max_value=8.0, step=0.5)  # 🆕 TP
+rsi_overheat = col5.number_input("RSI Overheated", value=75.0, min_value=70.0, max_value=100.0, step=0.5)
 
 @st.cache_data(ttl=300)
 def get_data(ticker, period="2y"):
@@ -101,7 +103,7 @@ def calculate_3lb_close(df, line_count=3):
             lb_close.iloc[i] = lb_close.iloc[i-1]
     return lb_close.fillna(method='ffill')
 
-def run_backtest(df, initial_capital, sma_fast_len, sma_slow_len, rsi_len, atr_mult_sl, adx_threshold, rsi_threshold, rsi_overheat):
+def run_backtest(df, initial_capital, sma_fast_len, sma_slow_len, rsi_len, atr_mult_sl, atr_mult_tp, adx_threshold, rsi_threshold, rsi_overheat):
     df_bt = df.copy()
     df_bt['EMA_FAST'] = df_bt['Close'].ewm(span=sma_fast_len, adjust=False).mean()
     df_bt['EMA_SLOW'] = df_bt['Close'].ewm(span=sma_slow_len, adjust=False).mean()
@@ -119,6 +121,7 @@ def run_backtest(df, initial_capital, sma_fast_len, sma_slow_len, rsi_len, atr_m
     position_shares = 0.0
     entry_price = 0.0
     stop_price = 0.0
+    target_price = 0.0  # 🆕 TP
     equity_curve = []
     trades = []
     
@@ -126,8 +129,8 @@ def run_backtest(df, initial_capital, sma_fast_len, sma_slow_len, rsi_len, atr_m
         row = df_bt.iloc[i]
         curr_close = float(row['Close'])
         curr_low = float(row['Low'])
+        curr_high = float(row['High'])  # 🆕 For TP
         
-        # CONSISTENT ENTRY CONDITION (same everywhere)
         entry_condition = (
             (row['ADX'] >= adx_threshold) &
             (row['RSI'] >= rsi_threshold) &
@@ -142,16 +145,22 @@ def run_backtest(df, initial_capital, sma_fast_len, sma_slow_len, rsi_len, atr_m
             entry_price = curr_close
             atr_value = float(row['ATR'])
             stop_price = entry_price - (atr_mult_sl * atr_value)
+            target_price = entry_price + (atr_mult_tp * atr_value)  # 🆕 DYNAMIC TP
             
             trades.append({
                 'entry_date': df_bt.index[i], 'entry_price': entry_price,
-                'exit_date': None, 'exit_price': None, 'pnl': 0, 'pnl_pct': 0
+                'exit_date': None, 'exit_price': None, 'pnl': 0, 'pnl_pct': 0,
+                'tp_price': target_price, 'sl_price': stop_price  # 🆕 Track levels
             })
         
         elif position_shares > 0:
             exit_triggered = False
             
-            if curr_low <= stop_price:
+            # 🆕 TP FIRST (most profitable)
+            if curr_high >= target_price:
+                exit_price = target_price
+                exit_triggered = True
+            elif curr_low <= stop_price:
                 exit_price = stop_price
                 exit_triggered = True
             elif curr_close < row['EMA_FAST']:
@@ -194,7 +203,8 @@ if df_raw is None or df_raw.empty:
     st.stop()
 
 equity_series, final_capital, trades, df_bt = run_backtest(
-    df_raw, capital, sma_fast_len, sma_slow_len, rsi_len, atr_mult_sl, adx_threshold, rsi_threshold, rsi_overheat
+    df_raw, capital, sma_fast_len, sma_slow_len, rsi_len, atr_mult_sl, atr_mult_tp,
+    adx_threshold, rsi_threshold, rsi_overheat
 )
 
 latest = df_bt.iloc[-1]
@@ -210,16 +220,17 @@ entry_signals = df_bt[
 
 # RESULTS
 st.subheader(f"📊 {ticker}: RESULTS (ADX>{adx_threshold} RSI>{rsi_threshold} <{rsi_overheat})")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Total Return", f"{total_return:+.1f}%")
 col2.metric("Final Capital", f"${final_capital:,.0f}")
 col3.metric("Total Trades", len(trades))
 col4.metric("Entry Signals", len(entry_signals))
+col5.metric("TP/SL Ratio", f"{atr_mult_tp:.1f}/{atr_mult_sl:.1f}")
 
 trades_df = pd.DataFrame(trades)
 completed = trades_df[trades_df['exit_date'].notna()]
 
-r21, r22, r23 = st.columns(3)
+r21, r22, r23, r24 = st.columns(4)
 if len(completed) > 0:
     avg_gain = completed[completed['pnl_pct'] > 0]['pnl_pct'].mean()
     avg_loss = completed[completed['pnl_pct'] < 0]['pnl_pct'].mean()
@@ -232,6 +243,10 @@ if len(completed) > 0:
     gross_loss = abs(completed[completed['pnl'] <= 0]['pnl'].sum())
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float('inf')
     r23.metric("Profit Factor", f"{profit_factor:.2f}")
+    
+    # 🆕 TP Hit Rate
+    tp_hits = sum(1 for _, trade in completed.iterrows() if trade['exit_price'] >= trade['tp_price'] * 0.99)
+    r24.metric("TP Hits", f"{tp_hits}/{len(completed)} ({tp_hits/len(completed)*100:.0f}%)")
 
 # ALL TRADES TABLE
 with st.expander("📋 All Trades", expanded=False):
@@ -242,9 +257,9 @@ with st.expander("📋 All Trades", expanded=False):
         trades_df_local['exit_date'] = trades_df_local['exit_date'].astype(str)
         trades_df_local['status'] = np.where(trades_df_local['exit_date'] == 'OPEN', 'OPEN', 'CLOSED')
         
-        display_cols = ['entry_date', 'entry_price', 'exit_date', 'exit_price', 'pnl_pct', 'status']
+        display_cols = ['entry_date', 'entry_price', 'tp_price', 'sl_price', 'exit_date', 'exit_price', 'pnl_pct', 'status']
         display_df = trades_df_local[display_cols].round(2)
-        display_df.columns = ['Entry', 'Entry $', 'Exit', 'Exit $', 'PnL%', 'Status']
+        display_df.columns = ['Entry', 'Entry $', 'TP $', 'SL $', 'Exit', 'Exit $', 'PnL%', 'Status']
         
         st.dataframe(display_df, use_container_width=True, height=400, hide_index=True)
         st.caption(f"📈 Showing {len(display_df)} total trades")
@@ -277,7 +292,7 @@ ax1.plot(df_bt.index, df_bt['Close'], color='gray', linewidth=1, label='Close', 
 ax1.plot(df_bt.index, df_bt['EMA_FAST'], color='orange', linewidth=2, label=f'EMA{sma_fast_len}', alpha=0.5)
 ax1.plot(df_bt.index, df_bt['EMA_SLOW'], color='red', linewidth=2, label=f'EMA{sma_slow_len}', alpha=0.5)
 
-# ENTRY_SIGNALS DataFrame plotting
+# ENTRY_SIGNALS + TP/SL LINES
 if len(entry_signals) > 0:
     ax1.scatter(entry_signals.index, entry_signals['Close'], color='orange', marker='d', s=15, 
                label=f'Signals ({len(entry_signals)})', alpha=0.6, zorder=5, 
@@ -288,6 +303,15 @@ if len(trades) > 0:
     ax1.scatter(trades_plot['entry_date'], trades_plot['entry_price'], 
                color='blue', marker='^', s=25, label=f'Entries ({len(trades)})', alpha=0.7, zorder=4, 
                edgecolors='darkblue', linewidths=1.2)
+    
+    # 🆕 Plot TP/SL levels for recent trades
+    recent_trades = trades_plot.tail(10)
+    for _, trade in recent_trades.iterrows():
+        if trade['exit_date'] is not None:
+            entry_date = trade['entry_date']
+            ax1.axhspan(entry_date, trade['exit_date'], 
+                       trade['sl_price'], trade['tp_price'], 
+                       alpha=0.1, color='green', linewidth=0)
     
     exits = trades_plot[trades_plot['exit_date'].notna()]
     if len(exits) > 0:
@@ -301,7 +325,7 @@ if len(trades) > 0:
             ax1.scatter(losers['exit_date'], losers['exit_price'], color='darkred', marker='x', s=25, 
                        label=f'Losses ({len(losers)})', alpha=0.8, zorder=3, edgecolors='black', linewidths=1.2)
 
-ax1.set_title(f'{ticker} | Return: {total_return:+.1f}% | Signals: {len(entry_signals)} | Trades: {len(trades)}', 
+ax1.set_title(f'{ticker} | Return: {total_return:+.1f}% | Signals: {len(entry_signals)} | Trades: {len(trades)} | TP/SL: {atr_mult_tp:.1f}/{atr_mult_sl:.1f}', 
               fontsize=16, fontweight='bold', pad=15)
 ax1.set_ylabel('Price ($)', fontsize=12, fontweight='bold')
 ax1.legend(loc='upper left', fontsize=8, ncol=2)
@@ -310,28 +334,26 @@ ax1.set_facecolor('#F8F9FA')
 ax1.yaxis.tick_right()     
 ax1.yaxis.set_label_position("right")
 
-# RSI
+# RSI WITH TRADE ENTRIES
 ax2 = axes[1]
 ax2.plot(df_bt.index, df_bt['RSI'], color='#9B59B6', linewidth=1.1, label=f'RSI({rsi_len})', alpha=0.5)
-ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='red', linewidth=2, label='RSI_EMA(14)', alpha=0.5)
-ax2.axhspan(rsi_threshold, rsi_overheat, alpha=0.2, color='green', label=f'Profit-taking {rsi_threshold}-{rsi_overheat}')
-ax2.axhspan(0, 10, alpha=0.2, color='red', label=f'Extremely Bearish (0-10)')
+ax2.plot(df_bt.index, df_bt['RSI_EMA'], color='red', linewidth=2, label='RSI_EMA', alpha=0.5)
+ax2.axhspan(rsi_threshold, rsi_overheat, alpha=0.2, color='green', label=f'Sweet Spot {rsi_threshold}-{rsi_overheat}')
+
+if len(entry_signals) > 0:
+    ax2.scatter(entry_signals.index, entry_signals['RSI'], color='orange', marker='D', s=40, 
+               label=f'Signals ({len(entry_signals)})', alpha=0.8, zorder=10, edgecolors='darkorange', linewidths=1.2)
 
 if len(trades) > 0:
     trades_plot = pd.DataFrame(trades)
     trade_rsi = df_bt.loc[trades_plot['entry_date'], 'RSI'].values
-    
-    ax2.scatter(trades_plot['entry_date'], trade_rsi, 
-               color='blue', marker='^', s=25, 
-               label=f'Trade Entries ({len(trades)})', 
-               alpha=0.5, zorder=3, 
-               edgecolors='navy', linewidths=1.5)
-    
+    ax2.scatter(trades_plot['entry_date'], trade_rsi, color='blue', marker='^', s=60, 
+               label=f'Trades ({len(trades)})', alpha=0.9, zorder=11, edgecolors='navy', linewidths=1.5)
+
 ax2.axhline(y=rsi_threshold, color='orange', linestyle='--', alpha=0.7, linewidth=1)
-ax2.axhline(y=rsi_overheat, color='#E74C3C', linestyle=':', alpha=0.7, linewidth=1.5, label='Overheat')
-ax2.axhline(y=25, color='#27AE60', linestyle='--', alpha=0.3, linewidth=1)
+ax2.axhline(y=rsi_overheat, color='#E74C3C', linestyle=':', alpha=0.7, linewidth=1.5)
 ax2.set_ylabel('RSI', fontsize=11, fontweight='bold')
-ax2.legend(loc='upper left', fontsize=9)
+ax2.legend(loc='upper left', fontsize=8)
 ax2.grid(True, alpha=0.2)
 ax2.set_ylim(0, 100)
 ax2.set_facecolor('#F8F9FA')
@@ -369,22 +391,27 @@ ax4.yaxis.set_label_position("right")
 plt.tight_layout()
 st.pyplot(fig)
 
-# LIVE STATUS - SAME CONDITIONS
+# LIVE STATUS
 st.subheader("🔍 LIVE STATUS")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 live_entry = (
     (latest['ADX'] >= adx_threshold) and 
     (latest['RSI'] >= rsi_threshold) and
     (latest['RSI'] <= rsi_overheat) and
     (latest['Close'] >= latest['EMA_FAST'])
 )
+
 col1.metric("Trend Strength", "✅" if latest['ADX'] >= adx_threshold else "❌", f"{latest['ADX']:.1f}>{adx_threshold}")
 col2.metric("Momentum", f"{latest['RSI']:.1f}", f"✅ {rsi_threshold}-{rsi_overheat}" if rsi_threshold <= latest['RSI'] <= rsi_overheat else "❌")
-col3.metric("Structure", "✅" if ((latest['Close'] >= latest['EMA_FAST']) & (latest['EMA_FAST'] > latest['EMA_SLOW'])) else "❌", f"EMA{sma_fast_len}: {latest['EMA_FAST']:.1f}")
-col4.metric("SIGNAL", "🟢 ENTRY" if live_entry else "🔴 WAIT")
+col3.metric("Structure", "✅" if latest['Close'] >= latest['EMA_FAST'] else "❌", f"EMA{sma_fast_len}: {latest['EMA_FAST']:.1f}")
+col4.metric("ATR Levels", f"TP:{atr_mult_tp:.1f}x SL:{atr_mult_sl:.1f}x", f"{latest['ATR']:.2f}")
+col5.metric("SIGNAL", "🟢 ENTRY" if live_entry else "🔴 WAIT")
 
 if live_entry:
-    st.success("🎯 ENTRY SIGNAL ACTIVE!")
+    atr_value = latest['ATR']
+    suggested_tp = latest['Close'] + (atr_mult_tp * atr_value)
+    suggested_sl = latest['Close'] - (atr_mult_sl * atr_value)
+    st.success(f"🎯 ENTRY SIGNAL ACTIVE! TP: ${suggested_tp:.2f} | SL: ${suggested_sl:.2f}")
     st.balloons()
 
-st.caption(f"✅ LOOK FOR ENTRY & PATIENTLY WAIT | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+st.caption(f"✅ FULL TP/SL SYSTEM | R:R {atr_mult_tp/atr_mult_sl:.1f}:1 | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
