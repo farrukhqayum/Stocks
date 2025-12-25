@@ -317,7 +317,7 @@ def add_technical_indicators(df):
     df['SMA10'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA20'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['SMA50'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
-    df['EMA_Ratio'] = df['EMA10'] / df['EMA50']
+    df['EMA_Ratio'] = df['SMA10'] / df['SMA50']
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df = ta.scaled_volatility(df)
     df = ta.add_candlestickpatterns(df)
