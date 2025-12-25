@@ -259,71 +259,63 @@ def add_technical_indicators(df, timeframe='1D'):
         rsi_upper = 60 if timeframe == '1W' else 55
 
         conditions = [
-            # 0: BULL - Strong buy signal, enter long
+        # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
             (
+                (df['Close'] > df['EMA2']) &
                 (df['EMA1'] > df['EMA2']) &
-                (df['Close'] > df['EMA1']) &  # Price above fast EMA
-                (df['RSI'] > df['RSI_SMA']) &
-                (df['RSI'].between(45, 70)) &  # Fresh momentum
-                (df['ADX'] > 20) &
+                (df['RSI'].between(50, 90)) &
+                (df['ADX'] > 40) &
                 (df['+DI'] > df['-DI']) &
-                (df['ADX'].diff() > 0)  # Strengthening trend
+                (df['Close'] > df['Close'].shift(5) * 1.02)  # ✅ Rally proof!
             ),
             
-            # 1: BEAR - Exit longs, stay defensive/cash
+            # 2️⃣ BULL (Entry signals)
             (
-                (df['EMA1'] < df['EMA2']) &
-                (df['RSI'] < df['RSI_SMA']) &
-                (df['RSI'].between(25, 55)) &
-                (df['ADX'] > 18) &
-                (df['+DI'] < df['-DI']) &
-                ~(  # But NOT strong enough for SHORT yet
-                    (df['Close'] < df['EMA2']) &
-                    (df['RSI'] < 45) &
-                    (df['ADX'] > 24)
+                (
+                    ((df['EMA1'] >= df['EMA2']) &
+                      (df['RSI'] >= df['RSI_SMA']) &
+                      (df['RSI'].between(52, 95)) &
+                      ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
+                    |
+                    (
+                        ((df['RSI'] >= df['RSI_SMA']) & (df['RSI'] > 50)) & 
+                        ((df['ADX'] > 18) & (df['+DI'] > df['-DI']))
+                    )
                 )
             ),
             
-            # 2: SHORT - Enter short position
+            # 3️⃣ SHORT (Aggressive shorts)
             (
-                (df['EMA1'] < df['EMA2']) &
-                (df['Close'] < df['EMA2']) &  # Below both EMAs
-                (df['RSI'] < 45) &
-                (df['RSI'] < df['RSI_SMA']) &
-                (df['ADX'] > 24) &  # Strong trend required
-                (df['+DI'] < df['-DI']) &
-                ((df['-DI'] - df['+DI']) > 5)  # Clear bearish bias
+                ((df['Close'] <= df['EMA1']) &
+                 (df['EMA1'] < df['EMA2']) &
+                 (df['RSI'].between(50, 85)) &
+                 (df['ADX'] > 24) & 
+                 (df['+DI'] < df['-DI']))
             ),
             
-            # 3: HOLD - Maintain long position (pullback in uptrend)
+            # 4️⃣ BEAR (Bearish entries - LOWEST priority)
             (
-                (df['EMA1'] > df['EMA2']) &  # Still in uptrend
-                (df['Close'] > df['EMA2']) &  # Above slow EMA
                 (
-                    # Either weak momentum...
+                    ((df['EMA1'] < df['EMA2']) &
+                      (df['RSI'].between(18,60)) &
+                      (df['RSI'] < df['RSI_SMA']) &
+                      ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
+                    |
                     (
-                        (df['RSI'].between(40, 85)) &
-                        (df['ADX'].between(15, 30))
-                    ) |
-                    # Or temporary pullback...
+                        ((df['RSI'] < df['RSI_SMA']) & 
+                         (df['RSI'].between(20, 60)) &
+                         ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
+                    )
+                    |
                     (
-                        (df['Close'] < df['EMA1']) &  # Price dipped below fast EMA
-                        (df['Close'] > df['EMA2']) &  # But still above slow EMA
-                        (df['RSI'].between(35, 70)) &
-                        (df['+DI'] > df['-DI'])  # Directional bias still bullish
-                    ) |
-                    # Or overbought but trending
-                    (
-                        (df['RSI'] > 70) &
-                        (df['ADX'] > 20) &
-                        (df['+DI'] > df['-DI'])
+                        ((df['RSI'] > df['RSI_SMA']) & 
+                         (df['RSI_SMA'] < 37))
                     )
                 )
             )
         ]
         
-        choices = ['Bull', 'Bear', 'Short', 'Hold']
-
+        choices = ['Hold', 'Bull', 'Bear', 'Short']
         df['TI'] = np.select(conditions, choices, default='Neutral')
         df['TI'] = df['TI'].astype('category')
         df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
