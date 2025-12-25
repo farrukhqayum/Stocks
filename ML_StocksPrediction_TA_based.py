@@ -199,7 +199,7 @@ def add_technical_indicators(df):
     df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
-    df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
+    df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
     df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
     df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
@@ -1466,6 +1466,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
