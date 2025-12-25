@@ -353,8 +353,11 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
      # fill nans
-    cols = ['SMA10', 'SMA50', 'RSI', '-DI', 'Close']
-    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    #cols = ['SMA10', 'SMA50', 'RSI', '-DI', 'Close']
+    #df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    df = df.fillna(method='ffill')
+    df = df.fillna(method='bfill')
+    
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
         (
