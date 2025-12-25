@@ -27,7 +27,7 @@ st.sidebar.header("⚙️ Settings")
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365*3))
 end_date = st.sidebar.date_input("End Date", datetime.now())
 smooth_window = st.sidebar.slider("Smoothing (days)", 5, 100, 40)
-z_score_window = st.sidebar.slider("Climax Z-Score Lookback (Days)", 20, 250, 10)
+z_score_window = st.sidebar.slider("Climax Z-Score Lookback (Days)", 20, 250, 30)
 use_business_days = st.sidebar.checkbox("Remove weekend gaps (use business days only)", value=True)
 
 st.sidebar.markdown("### Select Assets")
@@ -478,9 +478,6 @@ else:
 user_stock_data = user_stock_data.fillna(method='ffill')
 smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
 smoothed.iloc[-1] = user_stock_data.iloc[-1]
-
-if normalize_start:
-    smoothed = smoothed / smoothed.iloc[0] * 100
 
 # --- RESTORED SINGLE STOCK CORRELATION LOGIC (Data Prep) ---
 gf_single, stk_single = money_flow_s.align(smoothed.squeeze(), join='inner')
