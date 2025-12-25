@@ -328,8 +328,8 @@ def add_technical_indicators(df):
     df['MACD'] = ema12 - ema26
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
     df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
-    df['Upper_Band'] = df['EMA1'] + (2 * df['Close'].rolling(20).std())
-    df['Lower_Band'] = df['EMA1'] - (2 * df['Close'].rolling(20).std())
+    df['Upper_Band'] = df['SMA10'] + (2 * df['Close'].rolling(20).std())
+    df['Lower_Band'] = df['SMA10'] - (2 * df['Close'].rolling(20).std())
     df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
     df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
     df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
