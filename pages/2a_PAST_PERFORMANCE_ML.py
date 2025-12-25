@@ -317,7 +317,7 @@ def add_technical_indicators(df):
     df['SMA10'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA20'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['SMA50'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
-    df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
+    df['EMA_Ratio'] = df['SMA10'] / df['SMA50']
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df = ta.scaled_volatility(df)
     df = ta.add_candlestickpatterns(df)
@@ -328,8 +328,8 @@ def add_technical_indicators(df):
     df['MACD'] = ema12 - ema26
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
     df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
-    df['Upper_Band'] = df['EMA1'] + (2 * df['Close'].rolling(20).std())
-    df['Lower_Band'] = df['EMA1'] - (2 * df['Close'].rolling(20).std())
+    df['Upper_Band'] = df['SMA10'] + (2 * df['Close'].rolling(20).std())
+    df['Lower_Band'] = df['SMA10'] - (2 * df['Close'].rolling(20).std())
     df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
     df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
     df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
@@ -353,7 +353,7 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
      # fill nans
-    cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
+    cols = ['SMA10', 'SMA50', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
