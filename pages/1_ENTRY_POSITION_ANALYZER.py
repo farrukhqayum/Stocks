@@ -315,7 +315,7 @@ def add_technical_indicators(df, timeframe='1D'):
             )
         ]
         
-        choices = ['Hold', 'Bull', 'Bear', 'Short']
+        choices = ['Hold', 'Bull', 'Short', 'Bear']
         df['TI'] = np.select(conditions, choices, default='Neutral')
         df['TI'] = df['TI'].astype('category')
         df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
