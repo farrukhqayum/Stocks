@@ -312,107 +312,11 @@ def calculate_atr(df, period=14):
     return atr
 
 def add_technical_indicators(df):
-    """Add basic technical indicators"""
-    df = df.copy()
-    # Moving averages
-    df['SMA10'] = df['Close'].rolling(10).mean()
-    df['SMA20'] = df['Close'].rolling(20).mean()
-    df['SMA50'] = df['Close'].rolling(50).mean()
-    
-    # RSI
-    df['RSI'] = calculate_rsi(df)
-    df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-    
-    # ATR
-    df['ATR'] = calculate_atr(df)
-    
-    # Volume indicators
-    df['Volume_MA20'] = df['Volume'].rolling(20).mean()
-    df['buy_volume'] = (df['Close'] > df['Close'].shift(1)) * df['Volume']
-    df['sell_volume'] = (df['Close'] < df['Close'].shift(1)) * df['Volume']
-    df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
-    df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
-    
-    # Returns
-    df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
-    df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
-    df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
-    
-    # Volatility
-    df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-    df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
-    conditions = [
-        # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
-        (
-            (df['Close'] > df['SMA50']) &
-            (df['SMA10'] > df['SMA50']) &
-            (df['RSI'].between(50, 90)) &
-            (df['ADX'] > 40) &
-            (df['+DI'] > df['-DI']) &
-            (df['Close'] > df['Close'].shift(5) * 1.02)  # ✅ Rally proof!
-        ),
-        
-        # 2️⃣ BULL (Entry signals)
-        (
-            (
-                ((df['SMA10'] >= df['SMA50']) &
-                  (df['RSI'] >= df['RSI_SMA']) &
-                  (df['RSI'].between(52, 95)) &
-                  ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
-                |
-                (
-                    ((df['RSI'] >= df['RSI_SMA']) & (df['RSI'] > 50)) & 
-                    ((df['ADX'] > 18) & (df['+DI'] > df['-DI']))
-                )
-            )
-        ),
-        
-        # 3️⃣ SHORT (Aggressive shorts)
-        (
-            ((df['Close'] <= df['SMA10']) &
-             (df['SMA10'] < df['SMA50']) &
-             (df['RSI'].between(50, 85)) &
-             (df['ADX'] > 24) & 
-             (df['+DI'] < df['-DI']))
-        ),
-        
-        # 4️⃣ BEAR (Bearish entries - LOWEST priority)
-        (
-            (
-                ((df['SMA10'] < df['SMA50']) &
-                  (df['RSI'].between(18,60)) &
-                  (df['RSI'] < df['RSI_SMA']) &
-                  ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
-                |
-                (
-                    ((df['RSI'] < df['RSI_SMA']) & 
-                     (df['RSI'].between(20, 60)) &
-                     ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
-                )
-                |
-                (
-                    ((df['RSI'] > df['RSI_SMA']) & 
-                     (df['RSI_SMA'] < 37))
-                )
-            )
-        )
-    ]
-    
-    choices = ['Hold', 'Bull', 'Short', 'Bear']
-    df['TI'] = np.select(conditions, choices, default='Neutral')
-    df['Bull'] = (df['TI'] == 'Bull').astype(int)
-    df['Bear'] = (df['TI'] == 'Bear').astype(int)
-    df['Hold'] = (df['TI'] == 'Hold').astype(int)
-    df['Short'] = (df['TI'] == 'Short').astype(int)
-    df['Neutral'] = (df['TI'] == 'Neutral').astype(int)
-    
-    return df
-def add_technical_indicators(df):
     close = df.Close
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
-    df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
-    df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
-    df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
+    df['SMA10'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
+    df['SMA20'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
+    df['SMA50'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
     df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df = ta.scaled_volatility(df)
@@ -455,7 +359,7 @@ def add_technical_indicators(df):
     # BULL
         (
             (
-                (df['EMA1'] > df['EMA2']) &
+                (df['SMA10'] > df['EMA50']) &
                 (df['RSI'] >= df['RSI_SMA']) &
                 (df['RSI'].between(52, 95))
             )
@@ -467,7 +371,7 @@ def add_technical_indicators(df):
         ),
         # BEAR
         (
-            (df['EMA1'] < df['EMA2']) &
+            (df['SMA10'] < df['SMA50']) &
             (df['RSI'].between(18,60)) &
             (df['RSI'] < df['RSI_SMA'])
             |
@@ -478,14 +382,14 @@ def add_technical_indicators(df):
         ),
         # SHORT
         (
-            (df['Close'] <= df['EMA1']) &
+            (df['Close'] <= df['SMA10']) &
             (df['EMA1'] < df['EMA2']) &
             (df['RSI'].between(50, 85))
         ),
         # HOLD
         (
-            (df['Close'] > df['EMA2']) &
-            (df['EMA1'] > df['EMA2']) &
+            (df['Close'] > df['SMA50']) &
+            (df['SMA10'] > df['SMA50']) &
             (df['RSI'].between(50, 90))
         )
     ]
