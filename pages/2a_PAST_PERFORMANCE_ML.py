@@ -322,7 +322,7 @@ def add_technical_indicators(df):
     df['SMA50'] = df['Close'].rolling(50).mean()
     
     # RSI
-    df['RSI'] = calculate_rsi(df).shift(1))
+    df['RSI'] = calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
     
     # ATR
@@ -344,56 +344,63 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
     conditions = [
-        # BULL
+        # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
+        (
+            (df['Close'] > df['SMA50']) &
+            (df['SMA10'] > df['SMA50']) &
+            (df['RSI'].between(50, 90)) &
+            (df['ADX'] > 40) &
+            (df['+DI'] > df['-DI']) &
+            (df['Close'] > df['Close'].shift(5) * 1.02)  # ✅ Rally proof!
+        ),
+        
+        # 2️⃣ BULL (Entry signals)
         (
             (
-                ((df['SMA10'] > df['SMA50']) &
-                 (df['RSI'] >= df['RSI_SMA']) &
-                 (df['RSI'].between(52, 95)) &
-                 ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
+                ((df['SMA10'] >= df['SMA50']) &
+                  (df['RSI'] >= df['RSI_SMA']) &
+                  (df['RSI'].between(52, 95)) &
+                  ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
                 |
                 (
-                    (df['RSI'] >= df['RSI_SMA']) & 
-                    (df['RSI'] > 50) &
-                    ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
+                    ((df['RSI'] >= df['RSI_SMA']) & (df['RSI'] > 50)) & 
+                    ((df['ADX'] > 18) & (df['+DI'] > df['-DI']))
                 )
             )
         ),
-        # BEAR
+        
+        # 3️⃣ SHORT (Aggressive shorts)
+        (
+            ((df['Close'] <= df['SMA10']) &
+             (df['SMA10'] < df['SMA50']) &
+             (df['RSI'].between(50, 85)) &
+             (df['ADX'] > 24) & 
+             (df['+DI'] < df['-DI']))
+        ),
+        
+        # 4️⃣ BEAR (Bearish entries - LOWEST priority)
         (
             (
                 ((df['SMA10'] < df['SMA50']) &
-                 (df['RSI'].between(18,60)) &
-                 (df['RSI'] < df['RSI_SMA']) &
-                 ((df['ADX'] > 24) & (df['+DI'] < df['-DI'])))
+                  (df['RSI'].between(18,60)) &
+                  (df['RSI'] < df['RSI_SMA']) &
+                  ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
                 |
                 (
-                    (df['RSI'] < df['RSI_SMA']) & 
-                    (df['RSI'].between(20, 60)) &
-                    ((df['ADX'] > 24) & (df['+DI'] < df['-DI']))
+                    ((df['RSI'] < df['RSI_SMA']) & 
+                     (df['RSI'].between(20, 60)) &
+                     ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
+                )
+                |
+                (
+                    ((df['RSI'] > df['RSI_SMA']) & 
+                     (df['RSI_SMA'] < 37))
                 )
             )
-        ),
-        # SHORT
-        (
-            (
-                ((df['Close'] <= df['SMA10']) &
-                 (df['SMA10'] < df['SMA50'])) &
-                ((df['RSI'].between(50, 85)) &
-                 (df['ADX'] > 24) & 
-                 (df['+DI'] < df['-DI']))
-            )
-        ),
-        # HOLD
-        (
-            ((df['Close'] > df['SMA50']) &
-             (df['SMA10'] > df['SMA50']) &
-             (df['RSI'].between(50, 90)) &
-             ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
         )
     ]
     
-    choices = ['Bull', 'Bear', 'Short', 'Hold']
+    choices = ['Hold', 'Bull', 'Short', 'Bear']
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['Bull'] = (df['TI'] == 'Bull').astype(int)
     df['Bear'] = (df['TI'] == 'Bear').astype(int)
@@ -745,12 +752,11 @@ if st.button("Run ML Strategy Backtest"):
 
     with st.spinner('Downloading daily market data...'):
         df_daily = get_stock_data(ticker, start_date, end_date)
-    
-    if df_daily is None or df_daily.empty:
-        st.error("No daily data returned from Yahoo Finance.")
-        st.stop()
+        if df_daily is None or df_daily.empty:
+            st.error("No daily data returned from Yahoo Finance.")
+            st.stop()
 
-    with st.spinner('Calculating technical indicators...'):
+    with st.spinner('Calculating technical indicators (for plotting)...'):
         df_daily = prepare_features(df_daily)
 
     st.write("Running backtest...")
@@ -767,80 +773,83 @@ if st.button("Run ML Strategy Backtest"):
         if i % 50 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
         
-        # Use daily data only
-        current_data = df_daily.iloc[:i+1]
-
-        if len(current_data) < 100:
-            continue
-        
-        if (not in_trade):
+        # ✅ OPTIMIZED: Only calculate features when NOT in trade OR when we need to retrain
+        if not in_trade:
+            # Calculate features only when we might open a new trade
+            current_data_raw = df_daily.iloc[:i+1].copy()
+            current_data = prepare_features(current_data_raw)
+            
+            if len(current_data) < 100:
+                continue
+            
+            # Train model if needed
             if i % RETRAIN_EVERY == 0 or i < 120:
                 models = train_ml_models(current_data)
-
+    
             if models[0] is None:
-                st.error("Insufficient data for ML model training.")
-                st.stop()
-    
+                continue
+        
             ml_prediction = get_ml_prediction(current_data, models)
-            
-        if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
-            continue
+                
+            if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
+                continue
+        
+            current_ml_signal = ml_prediction['will_hit']
+            current_ml_confidence = ml_prediction['confidence_score']
+            confidence_data.append({
+                'Date': current_date, 
+                'ML_Confidence': current_ml_confidence, 
+                'ML_Signal': current_ml_signal
+            })
+                
+            # ENTRY LOGIC
+            if (current_ml_signal in ['TP', 'Hold', 'None'] and  
+                current_ml_confidence >= ml_confidence_threshold):
     
-        current_ml_signal = ml_prediction['will_hit']
-        current_ml_confidence = ml_prediction['confidence_score']
-        confidence_data.append({'Date': current_date, 'ML_Confidence': current_ml_confidence, 'ML_Signal': current_ml_signal})
-            
-        # ENTRY LOGIC
-        if (not in_trade and
-            current_ml_signal in ['TP', 'Hold', 'None'] and  
-            current_ml_confidence >= ml_confidence_threshold):
-
-            entry_price = float(df_daily.loc[current_date, 'Close'])
-
-            tp_given = TP_pct / 100.0
-            sl_given = -SL_pct / 100.0
-
-            predicted_return = ml_prediction['predicted_return']
-            predicted_loss = ml_prediction['predicted_loss']
-            
-            entry_price = float(df_daily.loc[current_date, 'Close'])
-            
-            if tp_given > predicted_return:
-                TP_price = entry_price * (1 + predicted_return)
-                used_ml_tp = True
-            else:
-                TP_price = entry_price * (1 + tp_given)
-                used_ml_tp = False
-            
-            if np.abs(sl_given) > np.abs(predicted_loss):
-                SL_price = entry_price * (1 + sl_given)
-            else:
-                SL_price = entry_price * (1 + predicted_loss)
-
-            current_trade = {
-                'entry_date': current_date,
-                'entry_price': entry_price,
-                'tp_price': TP_price,
-                'sl_price': SL_price,
-                'ml_confidence': current_ml_confidence,
-                'ml_signal': current_ml_signal,
-                'used_ml_tp': used_ml_tp
-            }
-            in_trade = True
-
-        # EXIT LOGIC
-        elif in_trade:
+                entry_price = float(current_data.loc[current_date, 'Close'])
+    
+                tp_given = TP_pct / 100.0
+                sl_given = -SL_pct / 100.0
+    
+                predicted_return = ml_prediction['predicted_return']
+                predicted_loss = ml_prediction['predicted_loss']
+                
+                if tp_given > predicted_return:
+                    TP_price = entry_price * (1 + predicted_return)
+                    used_ml_tp = True
+                else:
+                    TP_price = entry_price * (1 + tp_given)
+                    used_ml_tp = False
+                
+                if np.abs(sl_given) > np.abs(predicted_loss):
+                    SL_price = entry_price * (1 + sl_given)
+                else:
+                    SL_price = entry_price * (1 + predicted_loss)
+    
+                current_trade = {
+                    'entry_date': current_date,
+                    'entry_price': entry_price,
+                    'tp_price': TP_price,
+                    'sl_price': SL_price,
+                    'ml_confidence': current_ml_confidence,
+                    'ml_signal': current_ml_signal,
+                    'used_ml_tp': used_ml_tp
+                }
+                in_trade = True
+    
+        # EXIT LOGIC - This runs regardless of feature calculation
+        else:  # in_trade == True
             exit_reason = None
             exit_price = None
-  
+      
             last_date = daily_dates[-1]
             entry_date = current_trade['entry_date']
-            exit_days = (last_date - current_trade['entry_date']).days
             entry_price = current_trade['entry_price']
             TP_price = current_trade['tp_price']
             SL_price = current_trade['sl_price']
             days_in_trade = (current_date - entry_date).days
             
+            # ✅ For exit logic, we only need current day's OHLC from raw data
             current_open = float(df_daily.loc[current_date, 'Open'])
             current_high = float(df_daily.loc[current_date, 'High'])
             current_low = float(df_daily.loc[current_date, 'Low'])
@@ -1097,8 +1106,7 @@ if st.button("Run ML Strategy Backtest"):
     st.success("Backtest complete!")
 
     ############################## MULTIPLE % TEST #################################
-    
-    st.write(f"Running multiple TP/SL scenarios and building a performance table for {ticker}")
+    st.write(f"Running multiple TP/SL scenarios for {ticker}")
     
     TP_SL_list = [0.01, 0.03, 0.05, 0.07, 0.10]
     progress = st.progress(0)
@@ -1106,63 +1114,69 @@ if st.button("Run ML Strategy Backtest"):
     
     for idx, pct in enumerate(TP_SL_list):
         trades = []
-        in_trade = False
+        in_trade = False  # ✅ Reset for each scenario
         current_trade = {}
         progress.progress((idx + 1) / len(TP_SL_list))
         
+        # ✅ SAME ENTRY LOGIC AS MAIN BACKTEST (with ML)
         for i, current_date in enumerate(daily_dates):
-            current_data = df_daily.iloc[:i+1]
-
-            if len(current_data) < 100:
-                continue
-
-            if (not in_trade):
+            if not in_trade:  # Looking for entry
+                # Calculate features up to current date
+                current_data_raw = df_daily.iloc[:i+1].copy()
+                current_data = prepare_features(current_data_raw)
+                
+                if len(current_data) < 100:
+                    continue
+                
+                # Train/retrain ML models
                 if i % RETRAIN_EVERY == 0 or i < 120:
                     models = train_ml_models(current_data)
-                    ml_prediction = get_ml_prediction(current_data, models)
-                    if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
-                        continue
-
-            current_ml_signal = ml_prediction['will_hit']
-            current_ml_confidence = ml_prediction['confidence_score']
-            
-            # ENTRY LOGIC 
-            if (not in_trade and
-                current_ml_signal in ['TP', 'Hold', 'None'] and  
-                current_ml_confidence >= ml_confidence_threshold):
-
-                entry_price = float(df_daily.loc[current_date, 'Close'])
-
-                # Symmetric TP & SL Scenario
-                TP_price = entry_price * (1 + pct)
-                SL_price = entry_price * (1 - pct)
-                                
-                current_trade = {
-                    'entry_date': current_date,
-                    'entry_price': entry_price,
-                    'tp_price': TP_price,
-                    'sl_price': SL_price,
-                    'ml_confidence': current_ml_confidence,
-                    'ml_signal': current_ml_signal
-                }
-                in_trade = True
-            
-            # EXIT LOGIC
-            elif in_trade:
-                last_date = daily_dates[-1]
-                exit_days = (last_date - current_trade['entry_date']).days
+                
+                if models[0] is None:
+                    continue
+                
+                # Get ML prediction
+                ml_prediction = get_ml_prediction(current_data, models)
+                if ml_prediction is None or ml_prediction['confidence_score'] < ml_confidence_threshold:
+                    continue
+                
+                current_ml_signal = ml_prediction['will_hit']
+                current_ml_confidence = ml_prediction['confidence_score']
+                
+                # ENTRY CONDITION (identical to main backtest)
+                if (current_ml_signal in ['TP', 'Hold', 'None'] and 
+                    current_ml_confidence >= ml_confidence_threshold):
+                    
+                    entry_price = float(df_daily.loc[current_date, 'Close'])
+                    
+                    # Symmetric TP/SL for this scenario
+                    TP_price = entry_price * (1 + pct)
+                    SL_price = entry_price * (1 - pct)
+                    
+                    current_trade = {
+                        'entry_date': current_date,
+                        'entry_price': entry_price,
+                        'tp_price': TP_price,
+                        'sl_price': SL_price,
+                        'ml_confidence': current_ml_confidence,
+                        'ml_signal': current_ml_signal
+                    }
+                    in_trade = True
+                    
+            else:  # in_trade == True - check for exit
                 entry_date = current_trade['entry_date']
                 entry_price = current_trade['entry_price']
                 TP_price = current_trade['tp_price']
                 SL_price = current_trade['sl_price']
-                
                 days_in_trade = (current_date - entry_date).days
                 
+                # Get current day OHLC
                 current_open = float(df_daily.loc[current_date, 'Open'])
                 current_high = float(df_daily.loc[current_date, 'High'])
                 current_low = float(df_daily.loc[current_date, 'Low'])
                 current_close = float(df_daily.loc[current_date, 'Close'])
                 
+                # Identical EXIT LOGIC as main backtest
                 exit_reason = None
                 exit_price = None
                 
@@ -1191,16 +1205,14 @@ if st.button("Run ML Strategy Backtest"):
                         'ExitPrice': exit_price,
                         'Outcome': exit_reason,
                         'Return_%': return_pct,
-                        'HoldingDays': days_in_trade,
-                        'ML_Confidence': current_trade['ml_confidence'],
-                        'ML_Signal': current_trade['ml_signal']
+                        'HoldingDays': days_in_trade
                     })
-                    in_trade = False
+                    in_trade = False  # ✅ Reset for next trade
                     current_trade = {}
         
+        # Handle open trade at end
         if in_trade:
             last_date = daily_dates[-1]
-            exit_days = (last_date - current_trade['entry_date']).days
             exit_price = float(df_daily.loc[last_date, 'Close'])
             return_pct = (exit_price / current_trade['entry_price'] - 1) * 100.0
             trades.append({
@@ -1210,21 +1222,27 @@ if st.button("Run ML Strategy Backtest"):
                 'ExitPrice': exit_price,
                 'Outcome': 'Open',
                 'Return_%': return_pct,
-                'HoldingDays': (last_date - current_trade['entry_date']).days,
-                'ML_Confidence': current_trade['ml_confidence'],
-                'ML_Signal': current_trade['ml_signal']
+                'HoldingDays': (last_date - current_trade['entry_date']).days
             })
         
+        # Calculate metrics (identical to main backtest)
         result_df = pd.DataFrame(trades)
+        if result_df.empty:
+            perf_rows.append({
+                'TP/SL %': f'{int(pct * 100)}%', 'Wins': 0, 'Losses': 0,
+                'Win Rate (%)': 0, 'Total Return (%)': 0, 'Profit Factor': np.nan
+            })
+            continue
+        
         wins = result_df['Return_%'] > 0
         n_win = wins.sum()
         n_loss = len(result_df) - n_win
-        win_rate = 100. * n_win / len(result_df) if len(result_df) > 0 else 0
-        total_return = result_df['Return_%'].cumsum().iloc[-1] if len(result_df) > 0 else 0
-        if n_loss > 0:
-            profit_factor = result_df.loc[wins, 'Return_%'].sum() / abs(result_df.loc[~wins, 'Return_%'].sum())
-        else:
-            profit_factor = np.nan
+        win_rate = 100. * n_win / len(result_df)
+        total_return = result_df['Return_%'].cumsum().iloc[-1]
+        
+        profit_factor = (result_df.loc[wins, 'Return_%'].sum() / 
+                        abs(result_df.loc[~wins, 'Return_%'].sum()) 
+                        if n_loss > 0 else np.nan)
         
         perf_rows.append({
             'TP/SL %': f'{int(pct * 100)}%',
@@ -1234,6 +1252,9 @@ if st.button("Run ML Strategy Backtest"):
             'Total Return (%)': total_return,
             'Profit Factor': profit_factor
         })
+    
+    progress.empty()
+
     
     perf_table = pd.DataFrame(perf_rows)
     st.subheader(f'{ticker}: Symmetric TP/SL % (ML Confidence >= {ml_confidence_threshold}%)')
