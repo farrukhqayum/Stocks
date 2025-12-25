@@ -359,7 +359,7 @@ def add_technical_indicators(df):
     # BULL
         (
             (
-                (df['SMA10'] > df['EMA50']) &
+                (df['SMA10'] > df['SMA50']) &
                 (df['RSI'] >= df['RSI_SMA']) &
                 (df['RSI'].between(52, 95))
             )
@@ -383,7 +383,7 @@ def add_technical_indicators(df):
         # SHORT
         (
             (df['Close'] <= df['SMA10']) &
-            (df['EMA1'] < df['EMA2']) &
+            (df['SMA10'] < df['SMA50']) &
             (df['RSI'].between(50, 85))
         ),
         # HOLD
