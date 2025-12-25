@@ -353,7 +353,7 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
      # fill nans
-    cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
+    cols = ['SMA10', 'SMA20', 'SMA50', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     conditions = [
     # BULL
