@@ -393,7 +393,64 @@ def add_technical_indicators(df):
         )
     ]
     
-    choices = ['Bull', 'Bear', 'Short', 'Hold']
+    choices = ['Bull', 'Bear', 'Short', 'Hold']    conditions = [
+        # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
+        (
+            (df['Close'] > df['SMA50']) &
+            (df['SMA10'] > df['SMA50']) &
+            (df['RSI'].between(50, 90)) &
+            (df['ADX'] > 40) &
+            (df['+DI'] > df['-DI']) &
+            (df['Close'] > df['Close'].shift(5) * 1.02)  # ✅ Rally proof!
+        ),
+        
+        # 2️⃣ BULL (Entry signals)
+        (
+            (
+                ((df['SMA10'] >= df['SMA50']) &
+                  (df['RSI'] >= df['RSI_SMA']) &
+                  (df['RSI'].between(52, 95)) &
+                  ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
+                |
+                (
+                    ((df['RSI'] >= df['RSI_SMA']) & (df['RSI'] > 50)) & 
+                    ((df['ADX'] > 18) & (df['+DI'] > df['-DI']))
+                )
+            )
+        ),
+        
+        # 3️⃣ SHORT (Aggressive shorts)
+        (
+            ((df['Close'] <= df['SMA10']) &
+             (df['SMA10'] < df['SMA50']) &
+             (df['RSI'].between(50, 85)) &
+             (df['ADX'] > 24) & 
+             (df['+DI'] < df['-DI']))
+        ),
+        
+        # 4️⃣ BEAR (Bearish entries - LOWEST priority)
+        (
+            (
+                ((df['SMA10'] < df['SMA50']) &
+                  (df['RSI'].between(18,60)) &
+                  (df['RSI'] < df['RSI_SMA']) &
+                  ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
+                |
+                (
+                    ((df['RSI'] < df['RSI_SMA']) & 
+                     (df['RSI'].between(20, 60)) &
+                     ((df['ADX'] > 18) & (df['+DI'] < df['-DI'])))
+                )
+                |
+                (
+                    ((df['RSI'] > df['RSI_SMA']) & 
+                     (df['RSI_SMA'] < 37))
+                )
+            )
+        )
+    ]
+    
+    choices = ['Hold', 'Bull', 'Short', 'Bear']
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['Bull'] = (df['TI'] == 'Bull').astype(int)
     df['Bear'] = (df['TI'] == 'Bear').astype(int)
