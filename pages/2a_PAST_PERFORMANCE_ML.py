@@ -204,10 +204,10 @@ with col4:
 # -------------------------
 
 defaults = {
-    "a) Extreme Risk (Beta <1.5)": (15.0, 90.0, 180),
-    "b) Moderate Risk (Beta >2)":  (15.0, 30.0, 90),
-    "c) Low Risk (Less Rewards)": (7.0, 14.0, 21),
-    "d) Gambler Style (Symmetric)": (7.0, 7.0, 3),
+    "a) Extreme Risk (Beta <1.5)": (4.35, 90.0, 180),
+    "b) Moderate Risk (Beta >2)":  (4.35, 40.0, 90),
+    "c) Low Risk (Less Rewards)": (4.35, 14.0, 21),
+    "d) Gambler Style (Symmetric)": (4, 4.0, 3),
 }
 
 # Initialize editable fields once
@@ -317,7 +317,7 @@ def add_technical_indicators(df):
     df['SMA10'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['SMA20'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['SMA50'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
-    df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
+    df['EMA_Ratio'] = df['EMA10'] / df['EMA50']
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df = ta.scaled_volatility(df)
     df = ta.add_candlestickpatterns(df)
