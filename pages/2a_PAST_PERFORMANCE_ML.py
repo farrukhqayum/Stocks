@@ -646,7 +646,7 @@ def train_ml_models(df):
     X_scaled_cls = scaler_cls.fit_transform(X_cls)
     
     model_class = RandomForestClassifier(
-        n_estimators=100, 
+        n_estimators=50, 
         max_depth=10, 
         min_samples_leaf=5, 
         random_state=42
@@ -659,7 +659,7 @@ def train_ml_models(df):
     X_scaled_return = scaler_return.fit_transform(X_cls)
     
     model_return = RandomForestRegressor(
-        n_estimators=100, 
+        n_estimators=50, 
         max_depth=10, 
         min_samples_leaf=5, 
         random_state=42
@@ -672,7 +672,7 @@ def train_ml_models(df):
     X_scaled_loss = scaler_loss.fit_transform(X_cls)
     
     model_loss = RandomForestRegressor(
-        n_estimators=100, 
+        n_estimators=50, 
         max_depth=10, 
         min_samples_leaf=5, 
         random_state=42
@@ -787,7 +787,7 @@ if st.button("Run ML Strategy Backtest"):
     current_trade = {}
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
-    RETRAIN_EVERY = 5
+    RETRAIN_EVERY = 7
     ml_tp_success_counter = 0
     used_ml_tp = False
 
