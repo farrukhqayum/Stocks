@@ -630,6 +630,10 @@ def train_ml_models(df):
     """Train ML models using the feature set"""
     # Select available features
     available_features = [f for f in FEATURES if f in df.columns]
+    debug = True
+    if debug: 
+        st.write("🔎 Available features:", len(available_features)) 
+        st.write(available_features)
     
     if len(available_features) < 10:
         st.warning(f"Only {len(available_features)} features available. Need more features for ML.")
