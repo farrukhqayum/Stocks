@@ -605,13 +605,11 @@ if corr_df.empty:
     st.warning("No correlation data available. Check ticker validity and date range.")
 else:
     st.markdown(f"### {cw_}D - Correlation with Global Money Flow")
+    st.markdown("""
+    - **60–100% correlation — Same direction** - When the overall market is bullish, align with the strongest assets and follow the trend.
+    - **10–50% correlation — Weak or sideways relationship** - Often indicates consolidation or range‑bound phases.  
+        - Useful when global money flow is bearish, as these patterns are easier to trade (rectangles, triangles, flags, etc.).
+    - **Below 0 (negative correlation) — Opposite direction** - These assets move against global money flow.  
+        - Favor them when the broader market is declining, since they tend to gain in such conditions.
+    """)
     st.dataframe(corr_df, use_container_width=False, height=500, width=300)
-
-st.markdown("""
-- **60–100% correlation — Same direction** - When the overall market is bullish, align with the strongest assets and follow the trend.
-- **10–50% correlation — Weak or sideways relationship** - Often indicates consolidation or range‑bound phases.  
-    - Useful when global money flow is bearish, as these patterns are easier to trade (rectangles, triangles, flags, etc.).
-- **Below 0 (negative correlation) — Opposite direction** - These assets move against global money flow.  
-    - Favor them when the broader market is declining, since they tend to gain in such conditions.
-""")
-st.dataframe(corr_df, use_container_width=False, height=500, width=300)
