@@ -357,7 +357,11 @@ def add_technical_indicators(df):
     #df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     df = df.fillna(method='ffill')
     df = df.fillna(method='bfill')
-    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        if df[col].isna().any():
+            df[col] = df[col].fillna(df[col].median() if df[col].median() is not np.nan else 0)
+        
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
         (
