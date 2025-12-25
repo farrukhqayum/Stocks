@@ -344,56 +344,6 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
     conditions = [
-        # BULL
-        (
-            (
-                ((df['SMA10'] > df['SMA50']) &
-                 (df['RSI'] >= df['RSI_SMA']) &
-                 (df['RSI'].between(52, 95)) &
-                 ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
-                |
-                (
-                    (df['RSI'] >= df['RSI_SMA']) & 
-                    (df['RSI'] > 50) &
-                    ((df['ADX'] > 24) & (df['+DI'] > df['-DI']))
-                )
-            )
-        ),
-        # BEAR
-        (
-            (
-                ((df['SMA10'] < df['SMA50']) &
-                 (df['RSI'].between(18,60)) &
-                 (df['RSI'] < df['RSI_SMA']) &
-                 ((df['ADX'] > 24) & (df['+DI'] < df['-DI'])))
-                |
-                (
-                    (df['RSI'] < df['RSI_SMA']) & 
-                    (df['RSI'].between(20, 60)) &
-                    ((df['ADX'] > 24) & (df['+DI'] < df['-DI']))
-                )
-            )
-        ),
-        # SHORT
-        (
-            (
-                ((df['Close'] <= df['SMA10']) &
-                 (df['SMA10'] < df['SMA50'])) &
-                ((df['RSI'].between(50, 85)) &
-                 (df['ADX'] > 24) & 
-                 (df['+DI'] < df['-DI']))
-            )
-        ),
-        # HOLD
-        (
-            ((df['Close'] > df['SMA50']) &
-             (df['SMA10'] > df['SMA50']) &
-             (df['RSI'].between(50, 90)) &
-             ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
-        )
-    ]
-    
-    choices = ['Bull', 'Bear', 'Short', 'Hold']    conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
         (
             (df['Close'] > df['SMA50']) &
