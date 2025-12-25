@@ -204,10 +204,10 @@ with col4:
 # -------------------------
 
 defaults = {
-    "a) Extreme Risk (Beta <1.5)": (15.0, 90.0, 180),
-    "b) Moderate Risk (Beta >2)":  (15.0, 30.0, 90),
-    "c) Low Risk (Less Rewards)": (7.0, 14.0, 21),
-    "d) Gambler Style (Symmetric)": (7.0, 7.0, 3),
+    "a) Extreme Risk (Beta <1.5)": (4.35, 90.0, 180),
+    "b) Moderate Risk (Beta >2)":  (4.35, 30.0, 90),
+    "c) Low Risk (Less Rewards)": (4.35, 14.0, 21),
+    "d) Gambler Style (Symmetric)": (4, 4.0, 3),
 }
 
 # Initialize editable fields once
