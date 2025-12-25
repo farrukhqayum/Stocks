@@ -15,53 +15,56 @@ rolling_eps_years = st.sidebar.slider("Years for Normalized EPS", 1, 10, 5)
 forecast_years = st.sidebar.slider("DCF Forecast Period (Years)", 3, 10, 5)
 
 st.sidebar.subheader("Financial Projection Assumptions")
-revenue_growth_rate = st.sidebar.slider("Revenue Growth Rate (%)", 0.0, 0.20, 0.05, 0.01)
-operating_margin = st.sidebar.slider("Operating Margin (%)", 0.0, 0.30, 0.15, 0.01)
-tax_rate = st.sidebar.slider("Tax Rate (%)", 0.0, 0.50, 0.21, 0.01)
-capex_as_pct_revenue = st.sidebar.slider("CapEx as % of Revenue (%)", 0.0, 0.10, 0.02, 0.005)
-depreciation_as_pct_revenue = st.sidebar.slider("Depreciation as % of Revenue (%)", 0.0, 0.10, 0.015, 0.005)
-nwc_as_pct_revenue = st.sidebar.slider("NWC as % of Revenue (%)", 0.0, 0.20, 0.10, 0.01)
-perpetual_growth_rate = st.sidebar.slider("Perpetual Growth Rate (%)", 0.0, 0.05, 0.02, 0.005)
+revenue_growth_rate = st.sidebar.slider("Revenue Growth Rate (%)", 0.0, 20.0, 5.0, 1.0) / 100
+operating_margin = st.sidebar.slider("Operating Margin (%)", 0.0, 30.0, 15.0, 1.0) / 100
+tax_rate = st.sidebar.slider("Tax Rate (%)", 0.0, 50.0, 21.0, 1.0) / 100
+capex_as_pct_revenue = st.sidebar.slider("CapEx as % of Revenue (%)", 0.0, 10.0, 2.0, 0.5) / 100
+depreciation_as_pct_revenue = st.sidebar.slider("Depreciation as % of Revenue (%)", 0.0, 10.0, 1.5, 0.5) / 100
+nwc_as_pct_revenue = st.sidebar.slider("NWC as % of Revenue (%)", 0.0, 20.0, 10.0, 1.0) / 100
+perpetual_growth_rate = st.sidebar.slider("Perpetual Growth Rate (%)", 0.0, 5.0, 2.0, 0.5) / 100
 
 st.sidebar.subheader("WACC Assumptions")
-risk_free_rate = st.sidebar.slider("Risk-Free Rate (%)", 0.01, 0.05, 0.03, 0.005)
-market_risk_premium = st.sidebar.slider("Market Risk Premium (%)", 0.03, 0.07, 0.05, 0.005)
-cost_of_debt = st.sidebar.slider("Cost of Debt (%)", 0.03, 0.10, 0.06, 0.005)
+risk_free_rate = st.sidebar.slider("Risk-Free Rate (%)", 1.0, 5.0, 3.0, 0.5) / 100
+market_risk_premium = st.sidebar.slider("Market Risk Premium (%)", 3.0, 7.0, 5.0, 0.5) / 100
+cost_of_debt = st.sidebar.slider("Cost of Debt (%)", 3.0, 10.0, 6.0, 0.5) / 100
 
-# Convert percentages to decimals
-revenue_growth_rate /= 100
-operating_margin /= 100
-tax_rate /= 100
-capex_as_pct_revenue /= 100
-depreciation_as_pct_revenue /= 100
-nwc_as_pct_revenue /= 100
-perpetual_growth_rate /= 100
-risk_free_rate /= 100
-market_risk_premium /= 100
-cost_of_debt /= 100
 
 # ============================================
 # 2️⃣ Helper Functions
 # ============================================
-def get_financials(ticker):
+
+@st.cache_data(ttl=3600) # Cache data for 1 hour
+def fetch_and_process_peer_data(ticker, rolling_eps_years):
     stock = yf.Ticker(ticker)
     info = stock.info
+    
+    # Data for get_financials part
     pe = info.get("trailingPE", np.nan)
-    eps = info.get("trailingEps", np.nan)
+    eps_trailing = info.get("trailingEps", np.nan)
     fcf = info.get("freeCashflow", np.nan)
     revenue_growth = info.get("revenueGrowth", 0)
     op_margin = info.get("operatingMargins", 0)
     beta = info.get("beta", 1)
     debt_to_equity = info.get("debtToEquity", 0)
+
+    # Normalized EPS calculation (requires financials)
+    financials_df = stock.financials.T
+    if 'Diluted EPS' in financials_df.columns:
+        eps_series = financials_df['Diluted EPS']
+    else:
+        eps_series = financials_df['Net Income'] / financials_df['Diluted Average Shares']
+    eps_norm = eps_series.tail(rolling_eps_years).mean()
+
     return {
         "ticker": ticker,
         "PE": pe,
-        "EPS": eps,
+        "EPS": eps_trailing,
         "FCF": fcf,
         "RevenueGrowth": revenue_growth,
         "OpMargin": op_margin,
         "Beta": beta,
-        "DebtEquity": debt_to_equity
+        "DebtEquity": debt_to_equity,
+        "Norm_EPS": eps_norm
     }
 
 def compute_adjustment(row, industry_df):
@@ -74,15 +77,6 @@ def compute_adjustment(row, industry_df):
     adj_factor = 0.35 * z_growth + 0.25 * z_margin + 0.2 * z_fcf - 0.1 * z_volatility - 0.1 * z_leverage
     return adj_factor
 
-def get_normalized_eps(ticker, years=5):
-    hist = yf.Ticker(ticker).financials.T
-    if 'Diluted EPS' in hist.columns:
-        eps_series = hist['Diluted EPS']
-    else:
-        eps_series = hist['Net Income'] / hist['Diluted Average Shares']
-
-    eps_norm = eps_series.tail(years).mean()
-    return eps_norm
 
 def get_last_historical_value(df, metric_name, default_value=0):
     if metric_name in df.index and not df.iloc[:, 0].isna().all():
@@ -92,6 +86,18 @@ def get_last_historical_value(df, metric_name, default_value=0):
         return value
     return default_value
 
+@st.cache_data(ttl=3600) # Cache historical price data
+def get_historical_stock_data(ticker, period="1y"):
+    return yf.download(ticker, period=period, auto_adjust=True)['Close']
+
+@st.cache_data(ttl=3600)
+def fetch_dcf_base_data(ticker):
+    stock = yf.Ticker(ticker)
+    income_statement = stock.financials.copy()
+    balance_sheet = stock.balance_sheet.copy()
+    cash_flow = stock.cashflow.copy()
+    return income_statement, balance_sheet, cash_flow
+
 # ============================================
 # 3️⃣ Data Fetching and Calculations
 # ============================================
@@ -99,7 +105,11 @@ st.header(f"Valuation Analysis for {target_ticker}")
 
 # --- Industry-Anchored Fair Value ---
 with st.spinner("Fetching industry data..."):
-    peer_data = pd.DataFrame([get_financials(t) for t in industry_peers])
+    peer_processed_data_list = []
+    for t in industry_peers:
+        peer_processed_data_list.append(fetch_and_process_peer_data(t, rolling_eps_years))
+    peer_data = pd.DataFrame(peer_processed_data_list)
+    
     peer_data = peer_data.replace([np.inf, -np.inf], np.nan).dropna(subset=['PE','EPS'])
     industry_median_PE = peer_data["PE"].median()
 
@@ -107,7 +117,7 @@ with st.spinner("Fetching industry data..."):
     peer_data['Adj_PE'] = industry_median_PE * (1 + peer_data['AdjFactor'])
     peer_data['Adj_PE'] = peer_data['Adj_PE'].clip(lower=industry_median_PE*0.6, upper=industry_median_PE*1.6)
 
-    peer_data['Norm_EPS'] = peer_data['ticker'].apply(lambda t: get_normalized_eps(t, rolling_eps_years))
+    # Norm_EPS is already in peer_data from fetch_and_process_peer_data
     peer_data['FairValue'] = peer_data['Norm_EPS'] * peer_data['Adj_PE']
 
     relative_valuation_sigma = peer_data['PE'].std() / industry_median_PE
@@ -118,14 +128,11 @@ with st.spinner("Fetching industry data..."):
     peer_data['FairLower'] = peer_data['FairValue'] * (1 - band_weight)
 
 ticker_row = peer_data[peer_data['ticker']==target_ticker].iloc[0]
-current_price = yf.Ticker(target_ticker).history(period="1d", auto_adjust=True)['Close'].iloc[0]
+current_price = get_historical_stock_data(target_ticker, period="1d").iloc[0].item()
 
 # --- DCF Intrinsic Value ---
 with st.spinner("Performing DCF analysis..."):
-    stock_data = yf.Ticker(target_ticker)
-    income_statement = stock_data.financials.copy()
-    balance_sheet = stock_data.balance_sheet.copy()
-    cash_flow = stock_data.cashflow.copy()
+    income_statement, balance_sheet, cash_flow = fetch_dcf_base_data(target_ticker)
 
     last_historical_year = income_statement.columns[0] # Assuming most recent year is first column
 
@@ -218,10 +225,8 @@ with st.spinner("Performing DCF analysis..."):
 
     # Calculate Terminal Value
     last_fcff = projected_fcff_df['FCFF'].iloc[-1]
-    wacc_placeholder = 0.10 # This will be overwritten by calculated WACC
-    terminal_value = (last_fcff * (1 + perpetual_growth_rate)) / (wacc_placeholder - perpetual_growth_rate)
-
-    # Determine WACC
+    # Ensure wacc is properly defined before use in terminal value calculation
+    # Determine WACC (moved up to ensure it's available before terminal value calculation)
     target_beta = peer_data[peer_data['ticker'] == target_ticker]['Beta'].iloc[0]
     cost_of_equity = risk_free_rate + target_beta * market_risk_premium
 
@@ -238,7 +243,6 @@ with st.spinner("Performing DCF analysis..."):
 
     wacc = (equity_proportion * cost_of_equity) + (debt_proportion * cost_of_debt * (1 - tax_rate))
 
-    # Recalculate Terminal Value with actual WACC
     if wacc > perpetual_growth_rate:
         terminal_value = (last_fcff * (1 + perpetual_growth_rate)) / (wacc - perpetual_growth_rate)
     else:
@@ -256,19 +260,19 @@ with st.spinner("Performing DCF analysis..."):
         present_values_fcff.append(present_value)
 
     discount_factor_tv = 1 / ((1 + wacc) ** forecast_years)
-present_value_terminal_value = terminal_value * discount_factor_tv
+    present_value_terminal_value = terminal_value * discount_factor_tv
 
-total_intrinsic_value = sum(present_values_fcff) + present_value_terminal_value
+    total_intrinsic_value = sum(present_values_fcff) + present_value_terminal_value
 
-if 'Ordinary Shares Number' in balance_sheet.index:
-    total_outstanding_shares = balance_sheet.loc['Ordinary Shares Number'].iloc[0]
-else:
-    stock_info = yf.Ticker(target_ticker).info
-    total_outstanding_shares = stock_info.get('sharesOutstanding', 100_000_000)
-    if total_outstanding_shares <=0:
-        total_outstanding_shares = 100_000_000
+    if 'Ordinary Shares Number' in balance_sheet.index:
+        total_outstanding_shares = balance_sheet.loc['Ordinary Shares Number'].iloc[0]
+    else:
+        stock_info = yf.Ticker(target_ticker).info
+        total_outstanding_shares = stock_info.get('sharesOutstanding', 100_000_000)
+        if total_outstanding_shares <=0:
+            total_outstanding_shares = 100_000_000
 
-intrinsic_value_per_share = total_intrinsic_value / total_outstanding_shares
+    intrinsic_value_per_share = total_intrinsic_value / total_outstanding_shares
 
 # ============================================
 # 4️⃣ Plotting and Summary
@@ -282,7 +286,7 @@ fair_value_lower = ticker_row['FairLower']
 fair_value_upper = ticker_row['FairUpper']
 
 # Fetch historical prices for plotting
-stock_hist = yf.download(target_ticker, period="1y", auto_adjust=True)['Close']
+stock_hist = get_historical_stock_data(target_ticker, period="1y")
 
 fig, ax = plt.subplots(figsize=(14, 8))
 ax.plot(stock_hist.index, stock_hist.values, label=f"{target_ticker} Price", color='blue', linewidth=2)
