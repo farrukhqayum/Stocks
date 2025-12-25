@@ -44,17 +44,16 @@ def safe_get_info(stock, key, default=np.nan):
 
 def safe_get_financials(stock):
     """Safely fetch financials with retry logic"""
-    max_retries = 3
+    max_retries = 2
     for attempt in range(max_retries):
         try:
-            time.sleep(0.5)  # Rate limiting
+            time.sleep(0.3)  # Rate limiting
             financials = stock.financials.T
             return financials
-        except Exception as e:
+        except Exception:
             if attempt == max_retries - 1:
-                st.warning(f"Could not fetch financials after {max_retries} attempts")
                 return pd.DataFrame()
-            time.sleep(1)
+            time.sleep(0.5)
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
@@ -63,34 +62,63 @@ def fetch_and_process_peer_data(ticker, rolling_eps_years):
     try:
         stock = yf.Ticker(ticker)
         
-        # Safely get info
-        pe = safe_get_info(stock, "trailingPE", np.nan)
-        eps_trailing = safe_get_info(stock, "trailingEps", np.nan)
-        fcf = safe_get_info(stock, "freeCashflow", np.nan)
-        revenue_growth = safe_get_info(stock, "revenueGrowth", 0)
-        op_margin = safe_get_info(stock, "operatingMargins", 0)
-        beta = safe_get_info(stock, "beta", 1)
-        debt_to_equity = safe_get_info(stock, "debtToEquity", 0)
+        # Safely get info - use fallbacks that won't break calculations
+        pe = safe_get_info(stock, "trailingPE")
+        eps_trailing = safe_get_info(stock, "trailingEps")
+        
+        # For missing data, use reasonable defaults instead of 0
+        fcf = safe_get_info(stock, "freeCashflow")
+        revenue_growth = safe_get_info(stock, "revenueGrowth")
+        op_margin = safe_get_info(stock, "operatingMargins")
+        beta = safe_get_info(stock, "beta")
+        if pd.isna(beta):
+            beta = 1.0  # Market beta as default
+        
+        debt_to_equity = safe_get_info(stock, "debtToEquity")
 
-        # Normalized EPS calculation
-        eps_norm = eps_trailing  # Default fallback
+        # Normalized EPS calculation with better fallback logic
+        eps_norm = eps_trailing  # Start with trailing EPS
         try:
             financials_df = safe_get_financials(stock)
-            if not financials_df.empty:
+            if not financials_df.empty and len(financials_df) > 0:
+                # Try multiple approaches to get EPS
+                eps_series = None
+                
                 if 'Diluted EPS' in financials_df.columns:
                     eps_series = financials_df['Diluted EPS'].dropna()
+                elif 'Basic EPS' in financials_df.columns:
+                    eps_series = financials_df['Basic EPS'].dropna()
                 elif 'Net Income' in financials_df.columns:
-                    eps_series = financials_df['Net Income'].dropna()
+                    net_income = financials_df['Net Income'].dropna()
+                    # Try to get shares outstanding
                     if 'Diluted Average Shares' in financials_df.columns:
                         shares = financials_df['Diluted Average Shares'].dropna()
-                        eps_series = eps_series / shares
-                else:
-                    eps_series = pd.Series([eps_trailing])
+                        if len(shares) > 0 and len(net_income) > 0:
+                            # Align indices
+                            common_idx = net_income.index.intersection(shares.index)
+                            if len(common_idx) > 0:
+                                eps_series = net_income.loc[common_idx] / shares.loc[common_idx]
                 
-                if len(eps_series) > 0:
-                    eps_norm = eps_series.tail(rolling_eps_years).mean()
-        except Exception as e:
-            st.warning(f"Could not calculate normalized EPS for {ticker}: {str(e)}")
+                # Calculate normalized EPS if we have data
+                if eps_series is not None and len(eps_series) > 0:
+                    years_to_use = min(rolling_eps_years, len(eps_series))
+                    eps_norm = eps_series.tail(years_to_use).mean()
+                    # If normalized is NaN, fall back to trailing
+                    if pd.isna(eps_norm):
+                        eps_norm = eps_trailing
+        except Exception:
+            pass  # Just use eps_trailing as fallback
+
+        # If eps_norm is still NaN and we have PE, try to derive it
+        if pd.isna(eps_norm) and not pd.isna(pe):
+            # Get current price and derive EPS
+            try:
+                hist = stock.history(period="1d")
+                if not hist.empty:
+                    current_price = hist['Close'].iloc[-1]
+                    eps_norm = current_price / pe
+            except Exception:
+                pass
 
         return {
             "ticker": ticker,
@@ -104,8 +132,18 @@ def fetch_and_process_peer_data(ticker, rolling_eps_years):
             "Norm_EPS": eps_norm
         }
     except Exception as e:
-        st.error(f"Error fetching data for {ticker}: {str(e)}")
-        return None
+        st.warning(f"Error fetching data for {ticker}: {str(e)}")
+        return {
+            "ticker": ticker,
+            "PE": np.nan,
+            "EPS": np.nan,
+            "FCF": np.nan,
+            "RevenueGrowth": np.nan,
+            "OpMargin": np.nan,
+            "Beta": 1.0,
+            "DebtEquity": np.nan,
+            "Norm_EPS": np.nan
+        }
 
 def compute_adjustment(row, industry_df):
     """Compute adjustment factor with safe division"""
