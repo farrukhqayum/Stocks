@@ -535,7 +535,7 @@ stock_price_line = base.mark_line(opacity=0.4).encode(
 
 # Add the correlation text overlay
 correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
-    align='center', baseline='top', fontSize=12, color='gray'
+    align='left', baseline='top', fontSize=12, color='gray'
 ).encode(x=alt.value(750), y=alt.value(10), text=alt.value(f'{cw_}D Corr: {latest_corr:.1f}%'))
 
 combined_price_chart = (alt.layer(
@@ -584,24 +584,29 @@ for ticker in ticker_list:
         smoothed_multi = series.rolling(window=5, min_periods=1).mean()
         smoothed_multi.iloc[-1] = series.iloc[-1] 
         
-        if normalize_start and not smoothed_multi.isnull().all():
-            smoothed_multi = smoothed_multi / smoothed_multi.iloc[0] * 100
-            
         gf, stk = money_flow_s.align(smoothed_multi.squeeze(), join='inner')
         if len(gf) >= cw_ and gf.count() > 0 and stk.count() > 0:
             rolling_corr = gf.rolling(cw_, min_periods=cw_//2).corr(stk)
-            latest_corr = round(rolling_corr.iloc[-1] * 100, 1)
-            corr_results.append({'Ticker': ticker, 'Correlation %': latest_corr})
-        else:
-            corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
-
-    except Exception as e:
+            rolling_corr = rolling_corr.dropna()
+            if not rolling_corr.empty:
+                latest_corr = round(rolling_corr.iloc[-1] * 100, 1)
+                corr_results.append({'Ticker': ticker, 'Correlation %': latest_corr})
+                continue
         corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
-corr_df = pd.DataFrame(corr_results).dropna()
-corr_df = corr_df.sort_values('Correlation %')
+    except Exception:
+        corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
-st.markdown(f"### {cw_}D - Correlation with Global Money Flow")
+# Create table - show ALL tickers, NaN becomes empty cell
+corr_df = pd.DataFrame(corr_results)
+corr_df = corr_df.sort_values('Correlation %', na_position='last')
+
+if corr_df.empty:
+    st.warning("No correlation data available. Check ticker validity and date range.")
+else:
+    st.markdown(f"### {cw_}D - Correlation with Global Money Flow")
+    st.dataframe(corr_df, use_container_width=False, height=500, width=300)
+
 st.markdown("""
 - **60–100% correlation — Same direction** - When the overall market is bullish, align with the strongest assets and follow the trend.
 - **10–50% correlation — Weak or sideways relationship** - Often indicates consolidation or range‑bound phases.  
