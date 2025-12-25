@@ -236,8 +236,9 @@ def add_technical_indicators(df, timeframe='1D'):
         df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
         df[['VI+', 'VI-']] = ta.calculate_vortex(df)
         df[['STu', 'STl']] = ta.calculate_supertrend(df)
-        df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
-        
+        #df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
+        df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
+
         # Adjust return periods based on timeframe
         if timeframe == '1W':
             df['return1'] = df['Close'].pct_change(4).rolling(2).mean()   # 1 month
