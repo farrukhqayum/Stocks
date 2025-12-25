@@ -535,7 +535,7 @@ stock_price_line = base.mark_line(opacity=0.4).encode(
 
 # Add the correlation text overlay
 correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
-    align='right', baseline='top', fontSize=12, color='gray'
+    align='center', baseline='top', fontSize=12, color='gray'
 ).encode(x=alt.value(750), y=alt.value(10), text=alt.value(f'{cw_}D Corr: {latest_corr:.1f}%'))
 
 combined_price_chart = (alt.layer(
