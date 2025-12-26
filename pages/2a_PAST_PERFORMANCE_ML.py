@@ -478,39 +478,45 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
         df[f'{level}_Avg'] = df[cols].mean(axis=1)
     return df
 
-def compute_expected_return (df, lookback_window=20):
-    """Use historical patterns to estimate future returns"""
+def compute_expected_return(df, forward_window=14):
+    """Compute expected return - FIXED to handle edge cases"""
     df['Expected_Return'] = 0.0
+    close_prices = df['Close'].values
     
     for i in range(len(df)):
-        if i >= lookback_window:
-            # Use only PAST data
-            past_prices = df['Close'].iloc[i-lookback_window:i].values
-            
-            if len(past_prices) > 1:
-                # Calculate average positive return from recent history
-                past_returns = (past_prices[1:] - past_prices[:-1]) / past_prices[:-1]
-                positive_returns = past_returns[past_returns > 0]
-                
-                if len(positive_returns) > 0:
-                    df.loc[df.index[i], 'Expected_Return'] = positive_returns.mean()
+        current_price = close_prices[i]
+        
+        # Check how much future data is available
+        available_future = len(df) - i - 1
+        lookahead = min(forward_window, available_future)
+        
+        if lookahead > 0:
+            future_prices = close_prices[i+1:i+1+lookahead]
+            if len(future_prices) > 0:
+                max_future = np.nanmax(future_prices)
+                if current_price > 0:  # Avoid division by zero
+                    df.iloc[i, df.columns.get_loc('Expected_Return')] = (max_future - current_price) / current_price
+        # For the last forward_window days, leave as 0.0
     
     return df
 
-def compute_expected_loss (df, lookback_window=20):
-    """Use historical patterns to estimate potential losses"""
+def compute_expected_loss(df, forward_window=14):
+    """Compute expected loss - FIXED to handle edge cases"""
     df['Expected_Loss'] = 0.0
+    close_prices = df['Close'].values
     
     for i in range(len(df)):
-        if i >= lookback_window:
-            past_prices = df['Close'].iloc[i-lookback_window:i].values
-            
-            if len(past_prices) > 1:
-                past_returns = (past_prices[1:] - past_prices[:-1]) / past_prices[:-1]
-                negative_returns = past_returns[past_returns < 0]
-                
-                if len(negative_returns) > 0:
-                    df.loc[df.index[i], 'Expected_Loss'] = negative_returns.mean()
+        current_price = close_prices[i]
+        
+        available_future = len(df) - i - 1
+        lookahead = min(forward_window, available_future)
+        
+        if lookahead > 0:
+            future_prices = close_prices[i+1:i+1+lookahead]
+            if len(future_prices) > 0:
+                min_future = np.nanmin(future_prices)
+                if current_price > 0:
+                    df.iloc[i, df.columns.get_loc('Expected_Loss')] = (min_future - current_price) / current_price
     
     return df
 
@@ -736,22 +742,39 @@ def prepare_features(df):
 # -------------------------
 # ML Model Functions
 # -------------------------
+
 def train_ml_models(df):
     """Train ML models using the feature set"""
     # Select available features
     available_features = [f for f in FEATURES if f in df.columns]
     
     if len(available_features) < 10:
-        st.warning(f"Only {len(available_features)} features available. Need more features for ML.")
+        st.warning(f"Only {len(available_features)} features available.")
         return None, None, None, None, None, None
     
-    df_model = df.dropna(subset=available_features + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
+    # FILL NaN instead of dropping!
+    df_filled = df.copy()
+    
+    # Fill target columns
+    for col in ['Hit_Label', 'Expected_Return', 'Expected_Loss']:
+        if col in df_filled.columns:
+            if col == 'Hit_Label':
+                df_filled[col] = df_filled[col].fillna(0).astype(int)
+            else:
+                df_filled[col] = df_filled[col].fillna(0.0)
+    
+    # Fill feature columns
+    for col in available_features:
+        if col in df_filled.columns:
+            df_filled[col] = df_filled[col].fillna(0)
+    
+    # Now use df_filled for training
+    df_model = df_filled
     
     if len(df_model) < 50:
-        st.warning("Insufficient data after cleaning for ML training.")
+        st.warning("Insufficient data after cleaning.")
         return None, None, None, None, None, None
     
-    # Train classifier
     X_cls = df_model[available_features]
     y_cls = df_model['Hit_Label'].astype(int)
     
