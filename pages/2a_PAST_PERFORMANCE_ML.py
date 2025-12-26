@@ -985,7 +985,7 @@ if st.button("Run ML Strategy Backtest"):
     current_trade = {}
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
-    RETRAIN_EVERY = 5
+    RETRAIN_EVERY = 7
     ml_tp_success_counter = 0
     used_ml_tp = False
 
