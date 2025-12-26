@@ -478,37 +478,39 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
         df[f'{level}_Avg'] = df[cols].mean(axis=1)
     return df
 
-def compute_expected_return (df, lookback_window=14):
-    """Compute expected return using ONLY PAST DATA"""
+def compute_expected_return (df, lookback_window=20):
+    """Use historical patterns to estimate future returns"""
     df['Expected_Return'] = 0.0
     
     for i in range(len(df)):
         if i >= lookback_window:
-            # Use past prices only
+            # Use only PAST data
             past_prices = df['Close'].iloc[i-lookback_window:i].values
-            current_price = df['Close'].iloc[i]
             
-            if len(past_prices) > 0:
-                # Calculate historical volatility or momentum
-                past_returns = np.diff(past_prices) / past_prices[:-1]
-                # Use historical average return or momentum
-                df.loc[df.index[i], 'Expected_Return'] = np.nanmean(past_returns) if len(past_returns) > 0 else 0.0
+            if len(past_prices) > 1:
+                # Calculate average positive return from recent history
+                past_returns = (past_prices[1:] - past_prices[:-1]) / past_prices[:-1]
+                positive_returns = past_returns[past_returns > 0]
+                
+                if len(positive_returns) > 0:
+                    df.loc[df.index[i], 'Expected_Return'] = positive_returns.mean()
     
     return df
 
-def compute_expected_loss (df, lookback_window=14):
-    """Compute expected loss using ONLY PAST DATA"""
+def compute_expected_loss (df, lookback_window=20):
+    """Use historical patterns to estimate potential losses"""
     df['Expected_Loss'] = 0.0
     
     for i in range(len(df)):
         if i >= lookback_window:
             past_prices = df['Close'].iloc[i-lookback_window:i].values
-            current_price = df['Close'].iloc[i]
             
-            if len(past_prices) > 0:
-                # Calculate worst historical drawdown in lookback period
-                max_drawdown = (past_prices.min() - past_prices.max()) / past_prices.max()
-                df.loc[df.index[i], 'Expected_Loss'] = max_drawdown
+            if len(past_prices) > 1:
+                past_returns = (past_prices[1:] - past_prices[:-1]) / past_prices[:-1]
+                negative_returns = past_returns[past_returns < 0]
+                
+                if len(negative_returns) > 0:
+                    df.loc[df.index[i], 'Expected_Loss'] = negative_returns.mean()
     
     return df
 
@@ -633,7 +635,7 @@ def prepare_features2(df):
 
 @st.cache_data
 def prepare_features(df):
-    """Prepare features with proper NaN handling"""
+    """Prepare features with proper error handling"""
     # Early return if not enough data
     if len(df) < 100:
         # Just return basic columns with placeholders
@@ -647,50 +649,87 @@ def prepare_features(df):
         return df
     
     # Step 1: Add basic technical indicators
-    df = add_technical_indicators(df)
+    try:
+        df = add_technical_indicators(df)
+    except Exception as e:
+        st.warning(f"Warning in add_technical_indicators: {e}")
+        # Create basic columns if technical indicators fail
+        if 'Close' in df.columns:
+            df['SMA10'] = df['Close']
+            df['SMA50'] = df['Close']
+            df['RSI'] = 50.0
     
     # Step 2: Add pivots
     try:
-        df = add_pivots(df, windows)
-        df = average_pivots(df, windows)
-    except:
-        # If pivots fail, create placeholders
+        if len(df) > max(windows):
+            df = add_pivots(df, windows)
+            df = average_pivots(df, windows)
+        else:
+            # If not enough data for pivots, create placeholders
+            for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
+                df[f'{level}_Avg'] = df['Close'] if 'Close' in df.columns else 0
+    except Exception as e:
+        st.warning(f"Warning in pivot calculations: {e}")
+        # Create placeholder pivot columns
         for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
-            df[f'{level}_Avg'] = df['Close']
+            df[f'{level}_Avg'] = 0.0
     
     # Step 3: Compute expected values if enough data
     forward_window = 14
-    if len(df) > forward_window + 100:  # Need buffer
-        try:
+    try:
+        if len(df) > forward_window + 100:
             df = compute_expected_return(df, forward_window)
             df = compute_expected_loss(df, forward_window)
             df = label_hit_prob_past(df, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
-        except Exception as e:
-            print(f"Warning: Could not compute expected values: {e}")
+        else:
             df['Expected_Return'] = 0.0
             df['Expected_Loss'] = 0.0
             df['Hit_Label'] = 0
-    else:
+    except Exception as e:
+        st.warning(f"Warning in expected value calculations: {e}")
         df['Expected_Return'] = 0.0
         df['Expected_Loss'] = 0.0
         df['Hit_Label'] = 0
     
-    # Step 4: Clean NaN values - SIMPLIFIED VERSION
-    # Fill NaN in critical columns
-    for col in ['Expected_Return', 'Expected_Loss', 'Hit_Label']:
-        if col in df.columns:
-            # Use .fillna() directly - it's safe even if no NaN
+    # Step 4: Clean NaN values - FIXED VERSION
+    # First, ensure required columns exist
+    required_columns = ['Expected_Return', 'Expected_Loss', 'Hit_Label']
+    for col in required_columns:
+        if col not in df.columns:
             if col == 'Hit_Label':
-                df[col] = df[col].fillna(0).astype(int)
+                df[col] = 0
             else:
-                df[col] = df[col].fillna(0.0)
+                df[col] = 0.0
     
-    # Fill NaN in feature columns
+    # Fill NaN in critical columns
+    for col in required_columns:
+        if col in df.columns:
+            try:
+                if col == 'Hit_Label':
+                    df[col] = df[col].fillna(0).astype(int)
+                else:
+                    df[col] = df[col].fillna(0.0)
+            except Exception as e:
+                st.warning(f"Warning filling NaN in {col}: {e}")
+                df[col] = 0.0 if col != 'Hit_Label' else 0
+    
+    # Fill NaN in feature columns - FIXED VERSION
     for col in df.columns:
-        if col in FEATURES or any(feat in col for feat in ['PP', 'R1', 'S1', 'R2', 'S2', 'SMA', 'EMA', 'RSI', 'ATR']):
-            if df[col].dtype in ['float64', 'float32', 'int64', 'int32']:
-                # Simple fillna with 0 for numeric columns
-                df[col] = df[col].fillna(0)
+        try:
+            # Check if column exists and has data
+            if col in df.columns and len(df[col]) > 0:
+                # Check dtype safely
+                try:
+                    dtype_str = str(df[col].dtype)
+                    if any(dtype in dtype_str for dtype in ['float', 'int']):
+                        # Fill NaN with 0 for numeric columns
+                        df[col] = df[col].fillna(0)
+                except:
+                    # If dtype check fails, try to fill NaN anyway
+                    df[col] = df[col].fillna(0)
+        except Exception as e:
+            # Skip if there's an error with this column
+            continue
     
     return df
 
