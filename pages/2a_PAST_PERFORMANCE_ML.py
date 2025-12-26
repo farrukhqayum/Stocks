@@ -623,13 +623,84 @@ def label_hit_prob_past(
     return df
 
 @st.cache_data
-def prepare_features(df):
+def prepare_features2(df):
     df = add_technical_indicators(df)
     df = add_pivots(df, windows)
     df = average_pivots(df, windows)
     df = compute_expected_return(df)
     df = compute_expected_loss(df)
     df = label_hit_prob_past(df, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+    return df
+
+@st.cache_data
+def prepare_features(df):
+    # Store original length for debugging
+    original_len = len(df)
+    
+    # Step 1: Add basic technical indicators
+    df = add_technical_indicators(df)
+    
+    # Step 2: Add pivots if we have enough data
+    if len(df) > max(windows):
+        df = add_pivots(df, windows)
+        df = average_pivots(df, windows)
+    else:
+        # Create placeholder pivot columns if not enough data
+        for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
+            df[f'{level}_Avg'] = df['Close']  # Placeholder
+    
+    # Step 3: Only compute expected return/loss if we have enough forward-looking data
+    # We need at least forward_window + some buffer
+    forward_window = 14
+    min_data_for_prediction = forward_window + 50  # Need at least 50 more rows than the forward window
+    
+    if len(df) > min_data_for_prediction:
+        df = compute_expected_return(df, forward_window)
+        df = compute_expected_loss(df, forward_window)
+        df = label_hit_prob_past(df, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
+    else:
+        # For early data, create placeholder columns
+        df['Expected_Return'] = 0.0
+        df['Expected_Loss'] = 0.0
+        df['Hit_Label'] = 0
+    
+    # Step 4: FINAL CLEANUP - Ensure no NaN in critical columns
+    critical_columns = ['Expected_Return', 'Expected_Loss', 'Hit_Label']
+    
+    for col in critical_columns:
+        if col in df.columns:
+            # Check for NaN
+            nan_count = df[col].isna().sum()
+            if nan_count > 0:
+                # Fill NaN with appropriate values
+                if col == 'Hit_Label':
+                    df[col] = df[col].fillna(0).astype(int)
+                else:
+                    # For Expected_Return/Loss, fill with 0 (neutral)
+                    df[col] = df[col].fillna(0.0)
+    
+    # Step 5: Also ensure all FEATURES columns don't have NaN
+    for col in FEATURES:
+        if col in df.columns and df[col].isna().any():
+            if pd.api.types.is_numeric_dtype(df[col]):
+                median_val = df[col].median()
+                if pd.isna(median_val):
+                    df[col] = df[col].fillna(0)
+                else:
+                    df[col] = df[col].fillna(median_val)
+    
+    # Debug info
+    st.write(f"DEBUG: Data length - Original: {original_len}, After processing: {len(df)}")
+    
+    # Check for any remaining NaN in required ML columns
+    required_for_ml = [col for col in FEATURES if col in df.columns] + ['Hit_Label', 'Expected_Return', 'Expected_Loss']
+    total_nan = df[required_for_ml].isna().sum().sum()
+    if total_nan > 0:
+        st.warning(f"WARNING: Still have {total_nan} NaN values after cleanup")
+        # Show which columns have NaN
+        nan_cols = df[required_for_ml].columns[df[required_for_ml].isna().any()].tolist()
+        st.write(f"Columns with NaN: {nan_cols[:10]}")
+    
     return df
 
 # -------------------------
