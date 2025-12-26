@@ -881,7 +881,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
     textbox = AnchoredText(
        action,
-       loc='lower right',
+       loc='lower left',
        frameon=True,
        borderpad=1.5,
        prop=dict(size=7, color= 'blue', weight='normal')
@@ -1319,18 +1319,33 @@ def style_rows(row):
     hits = row.Will_Hit
     hit_prob = row.Hit_Prob
     conf = row.Confidence
-    exhaustion = row.get("_Extremes", False) in ["High", "Low"]
 
-    if exhaustion:
-        return ['background-color: rgba(128, 128, 128, 0.5)'] * len(row) 
-    elif 'Hold' in signal and 'Hold' in hits:
-        return ['background-color: rgba(255, 0, 255, 0.3)'] * len(row)  # Magenta semi-transparent
-    elif ('Bull' in signal) and ('TP' in hits or 'None' in hits) and (conf > 60) and (row['Max (%)'] > abs(row['Loss (%)'])):
-        return ['background-color: rgba(144, 238, 144, 0.3)'] * len(row)  # LightGreen semi-transparent
-    elif (('Bear' in signal) or ('SL' in hits) and ('Short' in signal)) and (conf < 40):
-        return ['background-color: rgba(240, 128, 128, 0.3)'] * len(row)  # LightCoral semi-transparent
-    else:
-        return ['color: gray'] * len(row)
+    # Exhaustion logic
+    extreme = row.get("_Extremes", None)
+
+    # 1️⃣ Exhaustion High → GRAY
+    if extreme == "High":
+        return ['background-color: rgba(128, 128, 128, 0.5)'] * len(row)
+
+    # 2️⃣ Exhaustion Low → LIGHT RED
+    if extreme == "Low":
+        return ['background-color: rgba(255, 182, 193, 0.4)'] * len(row)
+
+    # 3️⃣ Hold + Hold → Magenta
+    if ('Hold' in signal) and ('Hold' in hits):
+        return ['background-color: rgba(255, 0, 255, 0.3)'] * len(row)
+
+    # 4️⃣ Bullish TP / None with good confidence
+    if ('Bull' in signal) and (('TP' in hits) or ('None' in hits)) \
+       and (conf > 60) and (row['Max (%)'] > abs(row['Loss (%)'])):
+        return ['background-color: rgba(144, 238, 144, 0.3)'] * len(row)
+
+    # 5️⃣ Bearish / SL / Short with low confidence
+    if (('Bear' in signal) or ('SL' in hits) or ('Short' in signal)) and (conf < 40):
+        return ['background-color: rgba(240, 128, 128, 0.3)'] * len(row)
+
+    # 6️⃣ Default → gray text
+    return ['color: gray'] * len(row)
 
 def tabular_display(df_results):
     _df = df_results.copy()
@@ -1466,6 +1481,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
