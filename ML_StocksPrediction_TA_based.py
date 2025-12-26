@@ -799,8 +799,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f'SL: ${loss_price:.2f}, {loss}%')
     ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label=f'E: ${avg_price:.2f}')
     ax1.annotate(f'E: ${avg_price:.2f}', xy=(last_date, avg_price), xytext=(10, 0), textcoords='offset points', ha='left', va='center', color='orange', fontsize=9, bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    ax1.annotate(f'${current_price}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%', xy=(future_date, gain_price), xytext=(10, 10), textcoords='offset points', ha='left', va='bottom', color='green', fontsize=9, fontname='Segoe UI Emoji', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    ax1.annotate(f'${current_price}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%', xy=(future_date, loss_price), xytext=(10, -10), textcoords='offset points', ha='left', va='top', color='red', fontsize=9, fontname='Segoe UI Emoji', bbox=dict(facecolor='white', alpha=0.4, edgecolor='none'))
+    ax1.annotate(f'${current_price}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%', xy=(future_date, gain_price), xytext=(10, 10), textcoords='offset points', ha='left', va='bottom', color='green', fontsize=9, fontname='DejaVu Sans', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
+    ax1.annotate(f'${current_price}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%', xy=(future_date, loss_price), xytext=(10, -10), textcoords='offset points', ha='left', va='top', color='red', fontsize=9, fontname='DejaVu Sans', bbox=dict(facecolor='white', alpha=0.4, edgecolor='none'))
 
     signal_color = (
         'green' if 'Bull' in predictions['Signal'] else
@@ -1267,7 +1267,7 @@ def PlotPredictions(df_results):
         ax1.text(
             x_coord + x_offset, y_offset1,
             f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}',
-            ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
+            ha='left', va='top', fontsize=7, fontname='DejaVu Sans',
             bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
             transform=ax1.get_xaxis_transform(),
             multialignment='left',
@@ -1277,7 +1277,7 @@ def PlotPredictions(df_results):
         ax1.text(
             x_coord + x_offset, y_offset2,
             f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{str(row.Will_Hit).split()[0]}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%',
-            ha='left', va='top', fontsize=7, fontname='Segoe UI Emoji',
+            ha='left', va='top', fontsize=7, fontname='DejaVu Sans',
             bbox=dict(facecolor=ProbColor, alpha=0.3, linewidth=0.3),
             transform=ax1.get_xaxis_transform(),
             clip_on=False
@@ -1481,6 +1481,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
