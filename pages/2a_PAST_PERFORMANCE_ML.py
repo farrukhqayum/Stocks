@@ -479,32 +479,37 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
     return df
 
 def compute_expected_return(df, forward_window=14):
-    """Compute expected return based on pivot levels"""
+    """Compute expected return based on pivot levels - FIXED to handle edge cases"""
     df['Expected_Return'] = 0.0
     close_prices = df['Close'].values
     
-    for i in range(len(df) - forward_window):
+    for i in range(len(df)):
         current_price = close_prices[i]
-        future_prices = close_prices[i+1:i+1+forward_window]
-        
-        if len(future_prices) > 0:
-            max_future = np.nanmax(future_prices)
-            df.iloc[i, df.columns.get_loc('Expected_Return')] = (max_future - current_price) / current_price
+
+        if i + forward_window < len(df):
+            future_prices = close_prices[i+1:i+1+forward_window]
+            if len(future_prices) > 0:
+                max_future = np.nanmax(future_prices)
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = (max_future - current_price) / current_price
+        else:
+            df.iloc[i, df.columns.get_loc('Expected_Return')] = 0.0
     
     return df
 
 def compute_expected_loss(df, forward_window=14):
-    """Compute expected loss based on pivot levels"""
+    """Compute expected loss based on pivot levels - FIXED to handle edge cases"""
     df['Expected_Loss'] = 0.0
     close_prices = df['Close'].values
     
-    for i in range(len(df) - forward_window):
+    for i in range(len(df)):
         current_price = close_prices[i]
-        future_prices = close_prices[i+1:i+1+forward_window]
-        
-        if len(future_prices) > 0:
-            min_future = np.nanmin(future_prices)
-            df.iloc[i, df.columns.get_loc('Expected_Loss')] = (min_future - current_price) / current_price
+        if i + forward_window < len(df):
+            future_prices = close_prices[i+1:i+1+forward_window]
+            if len(future_prices) > 0:
+                min_future = np.nanmin(future_prices)
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (min_future - current_price) / current_price
+        else:
+            df.iloc[i, df.columns.get_loc('Expected_Loss')] = 0.0
     
     return df
 
