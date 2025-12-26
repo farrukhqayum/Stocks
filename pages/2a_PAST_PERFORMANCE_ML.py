@@ -379,7 +379,7 @@ def add_technical_indicators(df):
                 ((df['SMA10'] >= df['SMA50']) &
                   (df['RSI'] >= df['RSI_SMA']) &
                   (df['RSI'].between(52, 95)) &
-                  ((df['ADX'] > 24) & (df['+DI'] > df['-DI'])))
+                  ((df['ADX'] > 18) & (df['+DI'] > df['-DI'])))
                 |
                 (
                     ((df['RSI'] >= df['RSI_SMA']) & (df['RSI'] > 50)) & 
@@ -393,7 +393,7 @@ def add_technical_indicators(df):
             ((df['Close'] <= df['SMA10']) &
              (df['SMA10'] < df['SMA50']) &
              (df['RSI'].between(50, 85)) &
-             (df['ADX'] > 24) & 
+             (df['ADX'] > 18) & 
              (df['+DI'] < df['-DI']))
         ),
         
