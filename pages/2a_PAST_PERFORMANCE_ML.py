@@ -633,6 +633,7 @@ def prepare_features2(df):
     return df
 
 @st.cache_data
+@st.cache_data
 def prepare_features(df):
     # Store original length for debugging
     original_len = len(df)
@@ -650,9 +651,8 @@ def prepare_features(df):
             df[f'{level}_Avg'] = df['Close']  # Placeholder
     
     # Step 3: Only compute expected return/loss if we have enough forward-looking data
-    # We need at least forward_window + some buffer
     forward_window = 14
-    min_data_for_prediction = forward_window + 50  # Need at least 50 more rows than the forward window
+    min_data_for_prediction = forward_window + 50
     
     if len(df) > min_data_for_prediction:
         df = compute_expected_return(df, forward_window)
@@ -669,37 +669,35 @@ def prepare_features(df):
     
     for col in critical_columns:
         if col in df.columns:
-            # Check for NaN
-            nan_count = df[col].isna().sum()
-            if nan_count > 0:
+            # Check for NaN using .any() properly
+            if df[col].isna().any().any() if hasattr(df[col].isna().any(), '__iter__') else df[col].isna().any():
                 # Fill NaN with appropriate values
                 if col == 'Hit_Label':
                     df[col] = df[col].fillna(0).astype(int)
                 else:
-                    # For Expected_Return/Loss, fill with 0 (neutral)
                     df[col] = df[col].fillna(0.0)
     
     # Step 5: Also ensure all FEATURES columns don't have NaN
     for col in FEATURES:
-        if col in df.columns and df[col].isna().any():
-            if pd.api.types.is_numeric_dtype(df[col]):
-                median_val = df[col].median()
-                if pd.isna(median_val):
-                    df[col] = df[col].fillna(0)
-                else:
-                    df[col] = df[col].fillna(median_val)
-    
-    # Debug info
-    st.write(f"DEBUG: Data length - Original: {original_len}, After processing: {len(df)}")
-    
-    # Check for any remaining NaN in required ML columns
-    required_for_ml = [col for col in FEATURES if col in df.columns] + ['Hit_Label', 'Expected_Return', 'Expected_Loss']
-    total_nan = df[required_for_ml].isna().sum().sum()
-    if total_nan > 0:
-        st.warning(f"WARNING: Still have {total_nan} NaN values after cleanup")
-        # Show which columns have NaN
-        nan_cols = df[required_for_ml].columns[df[required_for_ml].isna().any()].tolist()
-        st.write(f"Columns with NaN: {nan_cols[:10]}")
+        if col in df.columns:
+            # Check if column has any NaN values - FIXED VERSION
+            nan_check = df[col].isna()
+            # Handle both Series and scalar cases
+            if hasattr(nan_check, 'any'):
+                has_nan = nan_check.any()
+                # If has_nan is a Series/array, convert to bool
+                if hasattr(has_nan, '__iter__'):
+                    has_nan = has_nan.any()
+            else:
+                has_nan = bool(nan_check)
+                
+            if has_nan:
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    median_val = df[col].median()
+                    if pd.isna(median_val):
+                        df[col] = df[col].fillna(0)
+                    else:
+                        df[col] = df[col].fillna(median_val)
     
     return df
 
