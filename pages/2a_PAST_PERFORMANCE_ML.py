@@ -807,7 +807,17 @@ if st.button("Run ML Strategy Backtest"):
             # Calculate features only when we might open a new trade
             current_data_raw = df_daily.iloc[:i+1].copy()
             current_data = prepare_features(current_data_raw)
+
+            required_ml_cols = ['Hit_Label', 'Expected_Return', 'Expected_Loss']
+            if not all(col in current_data.columns for col in required_ml_cols):
+                continue
+
+            nan_check = current_data[required_ml_cols].isna().any()
+            if nan_check.any():
+                for col in required_ml_cols:
+                    current_data[col] = current_data[col].fillna(0)
             
+            # Now check if we have enough data
             if len(current_data) < 100:
                 continue
             
