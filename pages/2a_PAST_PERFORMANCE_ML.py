@@ -1034,7 +1034,7 @@ if st.button("Run ML Strategy Backtest"):
                 
             # ENTRY LOGIC
             if (current_ml_signal in ['TP', 'Hold', 'None'] and  
-                current_ml_confidence >= ml_confidence_threshold):
+                current_ml_confidence >= ml_confidence_threshold and current_data.RSI < 65.0):
     
                 entry_price = float(current_data.loc[current_date, 'Close'])
     
