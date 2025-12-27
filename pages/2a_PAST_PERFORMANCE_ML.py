@@ -721,45 +721,26 @@ def prepare_indicators(df):
         df[col] = df[col].fillna(0)
     return df
 
-
 def prepare_features(df, current_idx=None):
-    """Your exact logic, fully fixed - FAST + NO LEAKAGE"""
     forward_window = 14
     df = df.copy()
     df['Expected_Return'] = 0.0
     df['Expected_Loss'] = 0.0
     df['Hit_Label'] = 0
-    
-    try:
-        for i in range(100, len(df)):
-            historical_slice = df.iloc[:i+1].copy()
-            if len(historical_slice) > forward_window:
-                last_idx = len(historical_slice) - 1
-
-                historical_slice = compute_expected_return(historical_slice, forward_window)
-                historical_slice = compute_expected_loss(historical_slice, forward_window)
-                historical_slice = label_hit_prob_past_fixed(
-                    historical_slice, 
-                    profit_target=PROFIT_TARGET, 
-                    stop_loss=STOP_LOSS,
-                    current_time_idx=last_idx
-                )
-                
-                df.iloc[i, df.columns.get_loc('Expected_Return')] = historical_slice.iloc[-1]['Expected_Return']
-                df.iloc[i, df.columns.get_loc('Expected_Loss')] = historical_slice.iloc[-1]['Expected_Loss']
-                df.iloc[i, df.columns.get_loc('Hit_Label')] = historical_slice.iloc[-1]['Hit_Label']
-        
-    except Exception as e:
-        st.warning(f"Warning in expected value calculations: {e}")
-
-    required_columns = ['Expected_Return', 'Expected_Loss', 'Hit_Label']
-    for col in required_columns:
-        if col not in df.columns:
-            df[col] = 0 if col == 'Hit_Label' else 0.0
-        df[col] = df[col].fillna(0).astype(int if col == 'Hit_Label' else float)
-    
-    return df.fillna(0)
-
+    close_prices = df['Close'].values
+    for i in range(100, len(df)):
+        future_start = i + 1
+        future_end = min(i + 1 + forward_window, len(df))
+        if future_end > future_start:
+            future_prices = close_prices[future_start:future_end]
+            current_price = close_prices[i]
+            df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_prices) - current_price) / current_price
+            df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_prices) - current_price) / current_price
+            df.iloc[i, df.columns.get_loc('Hit_Label')] = 2 if np.nanmax(future_prices) >= current_price * 1.0375 else 1
+    for col in ['Expected_Return', 'Expected_Loss', 'Hit_Label']:
+        if col in df.columns:
+            df[col] = df[col].fillna(0)
+    return df
 
 @st.cache_data
 def prepare_all_features(df):
