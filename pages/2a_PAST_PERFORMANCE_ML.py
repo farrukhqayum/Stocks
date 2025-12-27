@@ -1142,8 +1142,8 @@ if st.button("Run ML Strategy Backtest"):
                 with status_container.container():
                     col1, col2, col3 = st.columns(3)
                     col1.metric("Trades", total_trades)
-                    col2.metric("Winners", f"{wins}")
-                    col3.metric("Losses", f"{losses}")
+                    col2.metric("Winners", wins)
+                    col3.metric("Losses", losses)
                     
                 if (exit_reason in ['TP', 'Gap_TP'] and 
                     current_trade.get('used_ml_tp', False) and 
