@@ -708,15 +708,19 @@ def label_hit_prob_past_fixed(
     
     df['Hit_Label'] = labels
     return df
-
+    
 @st.cache_data
 def prepare_indicators(df):
-    """Pure backward-looking indicators - SAFE to cache"""
     df = df.copy()
-    df = add_technical_indicators(df)  # SMAs, RSI, ATR, etc.
+    df = add_technical_indicators(df)
     df = add_pivots(df, windows)
     df = average_pivots(df, windows)
-    return df.fillna(0)
+    df['TI'] = df['TI'].astype(object)
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        df[col] = df[col].fillna(0)
+    return df
+
 
 def prepare_features(df, current_idx=None):
     """Your exact logic, fully fixed - FAST + NO LEAKAGE"""
