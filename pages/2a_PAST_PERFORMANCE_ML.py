@@ -122,7 +122,7 @@ with st.expander("🤖 Example Backtest Results"):
     with col1:
         st.image("pages/ML_backtest_COIN.png", 
                 width=600, 
-                use_column_width=True)
+                width=True)
 
 # -------------------------
 # Strategy Parameters
