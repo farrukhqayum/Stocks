@@ -966,7 +966,7 @@ if st.button("Run ML Strategy Backtest"):
                 col3.metric("Losses", losses)
 
         if not in_trade:
-            current_data = df_daily.iloc[:i+1])
+            current_data = df_daily.iloc[:i+1]
            
             if len(current_data) < 100:
                 continue
