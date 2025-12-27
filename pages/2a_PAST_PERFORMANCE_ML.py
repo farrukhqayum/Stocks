@@ -520,6 +520,30 @@ def compute_expected_loss(df, forward_window=14):
     
     return df
 
+def label_hit_prob_past_vectorized(df, window=14, profit_target=0.05, stop_loss=0.05):
+    close = df['Close'].values
+    N = len(close)
+    
+    # Vectorized TP/SL hit detection
+    tp_levels = close[:-window] * (1 + profit_target)
+    sl_levels = close[:-window] * (1 - stop_loss)
+    
+    future_highs = pd.Series(close).rolling(window).max().shift(-window).values[:-window]
+    future_lows = pd.Series(close).rolling(window).min().shift(-window).values[:-window]
+    
+    tp_hit = future_highs >= tp_levels
+    sl_hit = future_lows <= sl_levels
+    
+    # Simplified labels (expand as needed)
+    df.loc[df.index[:-window], 'Hit_Label'] = np.where(
+        tp_hit & ~sl_hit, 2,  # TP
+        np.where(sl_hit, 1, 0)  # SL or Neutral
+    )
+    
+    df['Hit_Label'] = df['Hit_Label'].fillna(0)
+    return df
+
+
 def label_hit_prob_past_fixed(
     df,
     window=14,
@@ -528,7 +552,7 @@ def label_hit_prob_past_fixed(
     lookback=60,
     tp_thresh=0.35,
     sl_thresh=0.4,
-    current_time_idx=None  # NEW: Track current time in walk-forward
+    current_time_idx=None
 ):
     import numpy as np
     
@@ -548,7 +572,6 @@ def label_hit_prob_past_fixed(
     N = len(close_prices)
     
     # Determine the current time index for walk-forward
-    # If not provided, assume we're at the very end (full historical analysis)
     if current_time_idx is None:
         current_time_idx = N - 1
     else:
@@ -699,19 +722,15 @@ def prepare_features2(df):
 @st.cache_data
 def prepare_features(df, current_idx=None):
     """Prepare features with proper error handling"""
-    # Early return if not enough data
     if len(df) < 100:
-        # Just return basic columns with placeholders
         if 'Close' not in df.columns:
             return df
-        
         df = add_technical_indicators(df)
         df['Expected_Return'] = 0.0
         df['Expected_Loss'] = 0.0
         df['Hit_Label'] = 0
         return df
-    
-    # Step 1: Add basic technical indicators
+        
     try:
         df = add_technical_indicators(df)
     except Exception as e:
@@ -976,7 +995,7 @@ if st.button("Run ML Strategy Backtest"):
             st.error("No daily data returned from Yahoo Finance.")
             st.stop()
 
-    with st.spinner('Calculating technical indicators (for plotting)...'):
+    with st.spinner('Calculating technical indicators (for speed & plotting)...'):
         df_daily = prepare_features(df_daily)
 
     st.write("Running backtest...")
@@ -997,7 +1016,8 @@ if st.button("Run ML Strategy Backtest"):
         if not in_trade:
             # Calculate features only when we might open a new trade
             current_data_raw = df_daily.iloc[:i+1].copy()
-            current_data = prepare_features(current_data_raw, current_idx=i)
+            #current_data = prepare_features(current_data_raw, current_idx=i)
+            # PRECOMPUTED
 
             required_ml_cols = ['Hit_Label', 'Expected_Return', 'Expected_Loss']
             if not all(col in current_data.columns for col in required_ml_cols):
