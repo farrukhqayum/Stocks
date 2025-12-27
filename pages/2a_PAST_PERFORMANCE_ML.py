@@ -1035,7 +1035,7 @@ if st.button("Run ML Strategy Backtest"):
             row = df_daily.iloc[i]
                 
             # ENTRY LOGIC
-            ema1 = current_data.loc[current_date, 'EMA1']
+            ema1 = current_data.loc[current_date, 'SMA10']
             close = current_data.loc[current_date, 'Close']
           
             if (
