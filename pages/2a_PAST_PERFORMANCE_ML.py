@@ -710,53 +710,13 @@ def label_hit_prob_past_fixed(
     return df
 
 @st.cache_data
-def prepare_features2(df):
+def prepare_indicators(df):
     df = add_technical_indicators(df)
     df = add_pivots(df, windows)
     df = average_pivots(df, windows)
-    df = compute_expected_return(df)
-    df = compute_expected_loss(df)
-    df = label_hit_prob_past(df, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS)
     return df
 
-@st.cache_data
 def prepare_features(df, current_idx=None):
-    """Prepare features with proper error handling"""
-    if len(df) < 100:
-        if 'Close' not in df.columns:
-            return df
-        df = add_technical_indicators(df)
-        df['Expected_Return'] = 0.0
-        df['Expected_Loss'] = 0.0
-        df['Hit_Label'] = 0
-        return df
-        
-    try:
-        df = add_technical_indicators(df)
-    except Exception as e:
-        st.warning(f"Warning in add_technical_indicators: {e}")
-        # Create basic columns if technical indicators fail
-        if 'Close' in df.columns:
-            df['SMA10'] = df['Close']
-            df['SMA50'] = df['Close']
-            df['RSI'] = 50.0
-    
-    # Step 2: Add pivots
-    try:
-        if len(df) > max(windows):
-            df = add_pivots(df, windows)
-            df = average_pivots(df, windows)
-        else:
-            # If not enough data for pivots, create placeholders
-            for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
-                df[f'{level}_Avg'] = df['Close'] if 'Close' in df.columns else 0
-    except Exception as e:
-        st.warning(f"Warning in pivot calculations: {e}")
-        # Create placeholder pivot columns
-        for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
-            df[f'{level}_Avg'] = 0.0
-    
-    # Step 3: Compute expected values if enough data
     forward_window = 14
     try:
         if len(df) > forward_window + 100:
@@ -777,9 +737,7 @@ def prepare_features(df, current_idx=None):
         df['Expected_Return'] = 0.0
         df['Expected_Loss'] = 0.0
         df['Hit_Label'] = 0
-    
-    # Step 4: Clean NaN values - FIXED VERSION
-    # First, ensure required columns exist
+
     required_columns = ['Expected_Return', 'Expected_Loss', 'Hit_Label']
     for col in required_columns:
         if col not in df.columns:
@@ -788,7 +746,6 @@ def prepare_features(df, current_idx=None):
             else:
                 df[col] = 0.0
     
-    # Fill NaN in critical columns
     for col in required_columns:
         if col in df.columns:
             try:
@@ -800,24 +757,17 @@ def prepare_features(df, current_idx=None):
                 st.warning(f"Warning filling NaN in {col}: {e}")
                 df[col] = 0.0 if col != 'Hit_Label' else 0
     
-    # Fill NaN in feature columns - FIXED VERSION
     for col in df.columns:
         try:
-            # Check if column exists and has data
             if col in df.columns and len(df[col]) > 0:
-                # Check dtype safely
                 try:
                     dtype_str = str(df[col].dtype)
                     if any(dtype in dtype_str for dtype in ['float', 'int']):
-                        # Fill NaN with 0 for numeric columns
                         df[col] = df[col].fillna(0)
                 except:
-                    # If dtype check fails, try to fill NaN anyway
                     df[col] = df[col].fillna(0)
         except Exception as e:
-            # Skip if there's an error with this column
             continue
-    
     return df
 
 # -------------------------
@@ -996,7 +946,7 @@ if st.button("Run ML Strategy Backtest"):
             st.stop()
 
     with st.spinner('Calculating technical indicators (for speed & plotting)...'):
-        df_daily = prepare_features(df_daily)
+        df_daily = prepare_indicators(df_daily)
 
     st.write("Running backtest...")
     trades = []
@@ -1022,8 +972,8 @@ if st.button("Run ML Strategy Backtest"):
                 col3.metric("Losses", losses)
 
         if not in_trade:
-
-            current_data = df_daily.iloc[:i+1].copy()
+            _data = df_daily.iloc[:i+1].copy()
+            current_data = prepare_features(_data, i)
             required_ml_cols = ['Hit_Label', 'Expected_Return', 'Expected_Loss']
             if not all(col in current_data.columns for col in required_ml_cols):
                 continue
