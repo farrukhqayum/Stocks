@@ -1008,10 +1008,16 @@ if st.button("Run ML Strategy Backtest"):
     ml_tp_success_counter = 0
     used_ml_tp = False
 
+    status_col1, status_col2 = st.columns(2)
+    total_trades = wins = losses = 0
+
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
-        
+            with status_col1:
+                st.metric("Trades", total_trades)
+            with status_col2:
+                st.metric("Win/Loss", f"{wins}/{losses}")
         # ✅ OPTIMIZED: Only calculate features when NOT in trade OR when we need to retrain
         if not in_trade:
             # Calculate features only when we might open a new trade
@@ -1130,7 +1136,17 @@ if st.button("Run ML Strategy Backtest"):
                 exit_price = current_close
             
             if exit_reason:
+                total_trades += 1
                 return_pct = (exit_price / entry_price - 1) * 100.0
+                if return_pct > 0: wins += 1
+                else: losses += 1
+                
+                # Live update
+                with status_col1:
+                    st.metric("Trades", total_trades)
+                with status_col2:
+                    st.metric("Win Rate", f"{100*wins/max(total_trades,1):.0f}%")
+                    
                 if (exit_reason in ['TP', 'Gap_TP'] and 
                     current_trade.get('used_ml_tp', False) and 
                     current_trade['ml_signal'] == 'TP'):
