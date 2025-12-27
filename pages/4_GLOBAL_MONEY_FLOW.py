@@ -129,17 +129,10 @@ if use_business_days:
     spx_data = spx_data.asfreq('B')
     spx_data = spx_data.fillna(method='ffill')
 
+data_norm = data / data.iloc[0]
+money_flow = (data_norm * pd.Series(weights)).sum(axis=1)
 
-money_flow = pd.Series(0, index=data.index, name="Money Flow Curve")
-for asset, w in weights.items():
-    if asset in data.columns:
-        money_flow += data[asset] * w
-
-# --- FIX: Ensure Money Flow Curve never drops below zero ---
-# This is a key fix to ensure the chart is always positive
-money_flow = money_flow.clip(lower=0.01) 
-# -----------------------------------------------------------
-
+# --- Smooth the curve ---
 money_flow_s = money_flow.rolling(3).mean()
 money_flow_smooth = money_flow.rolling(smooth_window).mean()
 
