@@ -1036,7 +1036,7 @@ if st.button("Run ML Strategy Backtest"):
                 
             # ENTRY LOGIC
             if (current_ml_signal in ['TP', 'Hold', 'None'] and  
-                current_ml_confidence >= ml_confidence_threshold): #and row.RSI > row.RSI_SMA
+                current_ml_confidence >= ml_confidence_threshold):
     
                 entry_price = float(current_data.loc[current_date, 'Close'])
     
@@ -1070,7 +1070,7 @@ if st.button("Run ML Strategy Backtest"):
                 in_trade = True
     
         # EXIT LOGIC - This runs regardless of feature calculation
-        else:  # in_trade == True
+        else:
             exit_reason = None
             exit_price = None
       
@@ -1086,7 +1086,10 @@ if st.button("Run ML Strategy Backtest"):
             current_high = float(df_daily.loc[current_date, 'High'])
             current_low = float(df_daily.loc[current_date, 'Low'])
             current_close = float(df_daily.loc[current_date, 'Close'])
-            
+
+            if current_close <= EMA2*1.05:
+                exit_reason = 'EMA'
+                exit_price = round(EMA2*1.05, 2)
             if current_low <= SL_price:
                 exit_reason = 'SL'
                 exit_price = SL_price
@@ -1268,10 +1271,10 @@ if st.button("Run ML Strategy Backtest"):
         nr = 3
     else:
         nr = 4
-        
+
     for i in range(0, len(results), nr):
         outcome = results['Outcome'].iloc[i]
-        color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'gray'
+        color = 'green' if outcome == 'TP' else 'red' if outcome == 'SL' else 'magenta' if outcome == 'Max_Hold' else 'gray'
         # Plot entry (all blue, no label)
         ax.scatter(results['EntryDate'].iloc[i], results['EntryPrice'].iloc[i], color='blue', s=5, zorder=5, alpha=0.5)
         # Plot exit by outcome
