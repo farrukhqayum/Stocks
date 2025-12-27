@@ -1138,7 +1138,8 @@ if st.button("Run ML Strategy Backtest"):
                     wins += 1
                 else: 
                     losses += 1
-              with status_container.container():
+                    
+                with status_container.container():
                     col1, col2, col3 = st.columns(3)
                     col1.metric("Trades", total_trades)
                     col2.metric("Winners", f"{wins}")
