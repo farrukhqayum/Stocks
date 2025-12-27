@@ -1063,11 +1063,12 @@ if st.button("Run ML Strategy Backtest"):
             # ENTRY LOGIC
             ema1 = current_data.loc[current_date, 'SMA10']
             close = current_data.loc[current_date, 'Close']
+            emacheck = (ema1 * 0.97 <= close <= ema1 * 1.02)
           
             if (
                 current_ml_signal in ['TP', 'Hold', 'None']
                 and current_ml_confidence >= ml_confidence_threshold
-                #and (ema1 * 0.97 <= close <= ema1 * 1.02)):
+                ):
     
                 entry_price = float(current_data.loc[current_date, 'Close'])
     
