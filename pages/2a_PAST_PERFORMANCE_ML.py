@@ -711,27 +711,42 @@ def label_hit_prob_past_fixed(
 
 @st.cache_data
 def prepare_indicators(df):
-    df = add_technical_indicators(df)
+    """Pure backward-looking indicators - SAFE to cache"""
+    df = df.copy()
+    df = add_technical_indicators(df)  # SMAs, RSI, ATR, etc.
     df = add_pivots(df, windows)
     df = average_pivots(df, windows)
-    return df
+    return df.fillna(0)
 
 def prepare_features(df, current_idx=None):
+    """Fixed: Proper assignment + causal labels + fast execution"""
     forward_window = 14
+
+    df = df.copy()
+    df['Expected_Return'] = 0.0
+    df['Expected_Loss'] = 0.0
+    df['Hit_Label'] = 0
+    
     try:
-        if len(df) > forward_window + 100:
-            df = compute_expected_return(df, forward_window)
-            df = compute_expected_loss(df, forward_window)
-            df = label_hit_prob_past_fixed(
-                df, 
-                profit_target=PROFIT_TARGET, 
-                stop_loss=STOP_LOSS,
-                current_time_idx=current_idx
-            )
-        else:
-            df['Expected_Return'] = 0.0
-            df['Expected_Loss'] = 0.0
-            df['Hit_Label'] = 0
+        for i in range(100, len(df)):
+            historical_slice = df.iloc[:i+1].copy()
+            
+            if len(historical_slice) > forward_window:
+                last_idx = len(historical_slice) - 1
+    
+                historical_slice = compute_expected_return(historical_slice, forward_window)
+                historical_slice = compute_expected_loss(historical_slice, forward_window)
+                historical_slice = label_hit_prob_past_fixed(
+                    historical_slice, 
+                    profit_target=PROFIT_TARGET, 
+                    stop_loss=STOP_LOSS,
+                    current_time_idx=last_idx
+                )
+                
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = historical_slice.iloc[-1]['Expected_Return']
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = historical_slice.iloc[-1]['Expected_Loss']
+                df.iloc[i, df.columns.get_loc('Hit_Label')] = historical_slice.iloc[-1]['Hit_Label']
+        
     except Exception as e:
         st.warning(f"Warning in expected value calculations: {e}")
         df['Expected_Return'] = 0.0
@@ -741,33 +756,16 @@ def prepare_features(df, current_idx=None):
     required_columns = ['Expected_Return', 'Expected_Loss', 'Hit_Label']
     for col in required_columns:
         if col not in df.columns:
-            if col == 'Hit_Label':
-                df[col] = 0
-            else:
-                df[col] = 0.0
+            df[col] = 0 if col == 'Hit_Label' else 0.0
+        df[col] = df[col].fillna(0).astype(int if col == 'Hit_Label' else float)
     
-    for col in required_columns:
-        if col in df.columns:
-            try:
-                if col == 'Hit_Label':
-                    df[col] = df[col].fillna(0).astype(int)
-                else:
-                    df[col] = df[col].fillna(0.0)
-            except Exception as e:
-                st.warning(f"Warning filling NaN in {col}: {e}")
-                df[col] = 0.0 if col != 'Hit_Label' else 0
-    
-    for col in df.columns:
-        try:
-            if col in df.columns and len(df[col]) > 0:
-                try:
-                    dtype_str = str(df[col].dtype)
-                    if any(dtype in dtype_str for dtype in ['float', 'int']):
-                        df[col] = df[col].fillna(0)
-                except:
-                    df[col] = df[col].fillna(0)
-        except Exception as e:
-            continue
+    return df.fillna(0)
+
+@st.cache_data
+def prepare_all_features(df):
+    """Cached master function - call ONCE before backtest"""
+    df = prepare_indicators(df)     # Backward features
+    df = prepare_features(df)       # Your causal labels
     return df
 
 # -------------------------
@@ -946,7 +944,7 @@ if st.button("Run ML Strategy Backtest"):
             st.stop()
 
     with st.spinner('Calculating technical indicators (for speed & plotting)...'):
-        df_daily = prepare_indicators(df_daily)
+        df_daily = prepare_all_features(df_daily)
 
     st.write("Running backtest...")
     trades = []
@@ -972,17 +970,8 @@ if st.button("Run ML Strategy Backtest"):
                 col3.metric("Losses", losses)
 
         if not in_trade:
-            _data = df_daily.iloc[:i+1].copy()
-            current_data = prepare_features(_data, i)
-            required_ml_cols = ['Hit_Label', 'Expected_Return', 'Expected_Loss']
-            if not all(col in current_data.columns for col in required_ml_cols):
-                continue
-
-            nan_check = current_data[required_ml_cols].isna().any()
-            if nan_check.any():
-                for col in required_ml_cols:
-                    current_data[col] = current_data[col].fillna(0)
-            
+            current_data = df_daily.iloc[:i+1])
+           
             if len(current_data) < 100:
                 continue
 
@@ -1339,13 +1328,8 @@ if st.button("Run ML Strategy Backtest"):
         # ✅ SAME ENTRY LOGIC AS MAIN BACKTEST (with ML)
         for i, current_date in enumerate(daily_dates):
             if not in_trade:  # Looking for entry
-                # Calculate features up to current date
-                current_data_raw = df_daily.iloc[:i+1].copy()
-                current_data = prepare_features(current_data_raw)
-                
-                if len(current_data) < 100:
-                    continue
-                
+                _data = df_daily.iloc[:i+1].copy()
+                current_data = prepare_features(_data, i)               
                 # Train/retrain ML models
                 if i % RETRAIN_EVERY == 0 or i < 120:
                     models = train_ml_models(current_data)
