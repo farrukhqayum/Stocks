@@ -1015,11 +1015,11 @@ if st.button("Run ML Strategy Backtest"):
         if i % 50 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
            
-            with metrics_row.container():
+            with metrics_placeholder.container():
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Trades", total_trades)
                 col2.metric("Wins", wins)
-                col3.metric("Losses", losses
+                col3.metric("Losses", losses)
 
         if not in_trade:
 
