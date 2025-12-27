@@ -1007,14 +1007,14 @@ if st.button("Run ML Strategy Backtest"):
     RETRAIN_EVERY = 7
     ml_tp_success_counter = 0
     used_ml_tp = False
-
-    status_col1, status_col2 = st.columns(2)
+    
+    metrics_placeholder = st.empty()
     total_trades = wins = losses = 0
-    status_container = st.empty()
 
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
+           
             with metrics_row.container():
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Trades", total_trades)
