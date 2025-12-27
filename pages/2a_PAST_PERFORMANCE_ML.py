@@ -1093,9 +1093,9 @@ if st.button("Run ML Strategy Backtest"):
             current_low = float(df_daily.loc[current_date, 'Low'])
             current_close = float(df_daily.loc[current_date, 'Close'])
 
-            if current_close <= EMA2*1.05:
+            if current_close <= ema1*1.1:
                 exit_reason = 'EMA'
-                exit_price = round(EMA2*1.05, 2)
+                exit_price = round(ema1*1.1, 2)
             if current_low <= SL_price:
                 exit_reason = 'SL'
                 exit_price = SL_price
