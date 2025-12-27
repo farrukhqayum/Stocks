@@ -129,7 +129,7 @@ if use_business_days:
     spx_data = spx_data.asfreq('B')
     spx_data = spx_data.fillna(method='ffill')
 
-data_norm = data / data.iloc[0]
+data_norm = (data / data.iloc[0]) * 100
 money_flow = (data_norm * pd.Series(weights)).sum(axis=1)
 
 # --- Smooth the curve ---
