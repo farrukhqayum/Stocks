@@ -1015,10 +1015,11 @@ if st.button("Run ML Strategy Backtest"):
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
             progress_bar.progress(min((i + 1) / len(daily_dates), 1.0))
-            with status_col1:
-                st.metric("Trades", total_trades)
-            with status_col2:
-                st.metric("Win/Loss", f"{wins}/{losses}")
+            with metrics_row.container():
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Trades", total_trades)
+                col2.metric("Wins", wins)
+                col3.metric("Losses", losses
 
         if not in_trade:
 
@@ -1138,17 +1139,12 @@ if st.button("Run ML Strategy Backtest"):
                     wins += 1
                 else: 
                     losses += 1
-                    
-                with status_container.container():
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Trades", total_trades)
-                    col2.metric("Winners", wins)
-                    col3.metric("Losses", losses)
-                    
+                                       
                 if (exit_reason in ['TP', 'Gap_TP'] and 
                     current_trade.get('used_ml_tp', False) and 
                     current_trade['ml_signal'] == 'TP'):
                     ml_tp_success_counter += 1
+                        
                 trades.append({
                     'EntryDate': entry_date,
                     'ExitDate': current_date,
