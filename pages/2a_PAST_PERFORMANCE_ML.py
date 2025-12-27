@@ -1010,6 +1010,7 @@ if st.button("Run ML Strategy Backtest"):
 
     status_col1, status_col2 = st.columns(2)
     total_trades = wins = losses = 0
+    status_container = st.empty()
 
     for i, current_date in enumerate(daily_dates):
         if i % 50 == 0:
@@ -1018,13 +1019,10 @@ if st.button("Run ML Strategy Backtest"):
                 st.metric("Trades", total_trades)
             with status_col2:
                 st.metric("Win/Loss", f"{wins}/{losses}")
-        # ✅ OPTIMIZED: Only calculate features when NOT in trade OR when we need to retrain
-        if not in_trade:
-            # Calculate features only when we might open a new trade
-            current_data = df_daily.iloc[:i+1].copy()
-            #current_data = prepare_features(current_data_raw, current_idx=i)
-            # PRECOMPUTED
 
+        if not in_trade:
+
+            current_data = df_daily.iloc[:i+1].copy()
             required_ml_cols = ['Hit_Label', 'Expected_Return', 'Expected_Loss']
             if not all(col in current_data.columns for col in required_ml_cols):
                 continue
@@ -1034,11 +1032,9 @@ if st.button("Run ML Strategy Backtest"):
                 for col in required_ml_cols:
                     current_data[col] = current_data[col].fillna(0)
             
-            # Now check if we have enough data
             if len(current_data) < 100:
                 continue
-            
-            # Train model if needed
+
             if i % RETRAIN_EVERY == 0 or i < 120:
                 models = train_ml_models(current_data)
     
@@ -1138,14 +1134,15 @@ if st.button("Run ML Strategy Backtest"):
             if exit_reason:
                 total_trades += 1
                 return_pct = (exit_price / entry_price - 1) * 100.0
-                if return_pct > 0: wins += 1
-                else: losses += 1
-                
-                # Live update
-                with status_col1:
-                    st.metric("Trades", total_trades)
-                with status_col2:
-                    st.metric("Win Rate", f"{100*wins/max(total_trades,1):.0f}%")
+                if return_pct > 0: 
+                    wins += 1
+                else: 
+                    losses += 1
+              with status_container.container():
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Trades", total_trades)
+                    col2.metric("Winners", f"{wins}")
+                    col3.metric("Losses", f"{losses}")
                     
                 if (exit_reason in ['TP', 'Gap_TP'] and 
                     current_trade.get('used_ml_tp', False) and 
