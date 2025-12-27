@@ -1095,7 +1095,7 @@ if st.button("Run ML Strategy Backtest"):
 
             if current_close <= ema1*1.1:
                 exit_reason = 'EMA'
-                exit_price = round(ema1*1.1, 2)
+                exit_price = current_close
             if current_low <= SL_price:
                 exit_reason = 'SL'
                 exit_price = SL_price
