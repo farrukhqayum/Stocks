@@ -365,7 +365,7 @@ with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
     st.altair_chart(divergence_chart, use_container_width=True)
 
 with st.expander("📊 Show Underlying Assets"):
-    data_melted = data.reset_index().melt("Date", var_name="Asset", value_name="Value")
+    data_melted = data_norm.reset_index().melt("Date", var_name="Asset", value_name="Value")
     asset_chart = (
         alt.Chart(data_melted)
         .mark_line()
