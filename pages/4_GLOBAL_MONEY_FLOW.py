@@ -176,8 +176,12 @@ money_flow_zscore = money_flow_zscore.replace([np.inf, -np.inf], 0).fillna(0)
 
 cw_ = 60 # Using 60 days (approx. 3 months) for correlation lookback
 money_flow_s = money_flow_s.squeeze()
-money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
-money_flow_momentum = money_flow_momentum.replace([np.inf, -np.inf], 0).fillna(0)
+
+money_flow_momentum = money_flow_smooth.diff(10)
+money_flow_momentum = money_flow_momentum.clip(-20, 20).fillna(0)
+momentum_smooth = money_flow_smooth.rolling(7, min_periods=1).mean()
+money_flow_momentum = momentum_smooth.pct_change(periods=10) * 100
+money_flow_momentum = money_flow_momentum.clip(-75, 75).fillna(0)
 
 latest_momentum = money_flow_momentum.iloc[-1]
 latest_zscore = money_flow_zscore.iloc[-1]
