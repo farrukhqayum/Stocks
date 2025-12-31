@@ -66,6 +66,12 @@ default_weights = {
     "Volatility Index (VIX)": -0.1
 }
 
+def normalize_and_index_100(df: pd.DataFrame) -> pd.DataFrame:
+    first_vals = df.apply(lambda s: s.dropna().iloc[0])
+    first_vals = first_vals.replace(0, np.nan)
+    indexed = df.divide(first_vals) * 100.0
+    return indexed
+
 weights = {}
 for asset in selected_assets:
     default_val = default_weights.get(asset, 0.0)
@@ -131,36 +137,32 @@ if use_business_days:
     spx_data = spx_data.asfreq('B')
     spx_data = spx_data.fillna(method='ffill')
 
-returns = data.pct_change()
-returns = returns.replace([np.inf, -np.inf], np.nan)
-returns = returns.fillna(0)
+data_indexed = normalize_and_index_100(data)
+weights_series = pd.Series(default_weights).reindex(data_indexed.columns).fillna(0.0)
+abs_sum = weights_series.abs().sum()
+if abs_sum != 0:
+    weights_series = weights_series / abs_sum
 
-z_win = 30
-asset_mean = returns.rolling(z_win, min_periods=z_win//2).mean()
-asset_std  = returns.rolling(z_win, min_periods=z_win//2).std(ddof=0)
-returns_z = (returns - asset_mean) / asset_std
-returns_z = returns_z.replace([np.inf, -np.inf], np.nan).fillna(0)
-
-asset_mean = returns.rolling(30).mean()
-asset_std = returns.rolling(30).std()
-w = pd.Series(weights)
-w = w.reindex(returns_z.columns).fillna(0)
-gmf_flow = (returns_z * w).sum(axis=1)
-money_flow = gmf_flow
+gmf_index = (data_indexed * weights_series).sum(axis=1)
+gmf_index.name = "GMF Index"
+gmf_index_100 = (gmf_index / gmf_index.iloc[0]) * 100.0
+money_flow = gmf_index_100 
 
 # --- Smooth the curve ---
-money_flow_s = money_flow.rolling(3).mean()
-money_flow_smooth = money_flow.rolling(smooth_window).mean()
+money_flow_s = money_flow.rolling(3, min_periods=1).mean()
+money_flow_smooth = money_flow.rolling(smooth_window, min_periods=1).mean()
 
-rolling_mean = money_flow_smooth.rolling(window=z_score_window).mean()
-rolling_std = money_flow_smooth.rolling(window=z_score_window).std()
+rolling_mean = money_flow_smooth.rolling(window=z_score_window, min_periods=5).mean()
+rolling_std  = money_flow_smooth.rolling(window=z_score_window, min_periods=5).std()
+
 money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std
-money_flow_zscore = money_flow_zscore.fillna(0)
+money_flow_zscore = money_flow_zscore.replace([np.inf, -np.inf], 0).fillna(0)
 
 cw_ = 60 # Using 60 days (approx. 3 months) for correlation lookback
 money_flow_s = money_flow_s.squeeze()
 money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
-money_flow_momentum = money_flow_momentum.fillna(0)
+money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
+money_flow_momentum = money_flow_momentum.replace([np.inf, -np.inf], 0).fillna(0)
 
 latest_momentum = money_flow_momentum.iloc[-1]
 latest_zscore = money_flow_zscore.iloc[-1]
