@@ -80,14 +80,12 @@ for asset in selected_assets:
         min_value=-1.0, max_value=1.0, value=float(default_val), step=0.05,
         format="%.2f"
     )
-
-# --- WEIGHTS NORMALIZATION (SUM OF ABSOLUTE WEIGHTS = 1.0) ---
-abs_sum = sum(abs(w) for w in weights.values())
+    
+weights_series = pd.Series(weights).reindex(data_indexed.columns).fillna(0.0)
+abs_sum = weights_series.abs().sum()
 if abs_sum != 0:
-    weights = {k: (v / abs_sum) for k, v in weights.items()}
-# -----------------------------------------------------------
-
-@st.cache_data
+    weights_series = weights_series / abs_sum
+    
 def load_data(tickers, start, end):
     raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
 
@@ -139,12 +137,6 @@ if use_business_days:
     spx_data = spx_data.fillna(method='ffill')
 
 data_indexed = normalize_and_index_100(data)
-weights_series = pd.Series(weights).reindex(data_indexed.columns).fillna(0.0)
-
-abs_sum = weights_series.abs().sum()
-if abs_sum != 0:
-    weights_series = weights_series / abs_sum
-
 gmf_index = (data_indexed * weights_series).sum(axis=1)
 gmf_index.name = "GMF Index"
 
