@@ -472,6 +472,29 @@ with st.expander("🧠 Asset Correlation Matrix"):
     )
     
     st.altair_chart(heatmap + text, use_container_width=True)
+    
+# Helper function for correlation interpretation
+def get_correlation_interpretation(corr_value):
+    """Provide interpretation of correlation value"""
+    if pd.isna(corr_value):
+        return "Insufficient data for correlation analysis."
+    
+    corr_value = corr_value  # Already in percentage
+    
+    if corr_value >= 70:
+        return "**Strong Positive Correlation**: Stock moves strongly with global risk appetite. When GMF rises, this stock tends to rise even more."
+    elif corr_value >= 40:
+        return "**Moderate Positive Correlation**: Stock generally moves with global risk flows but may diverge at times."
+    elif corr_value >= 10:
+        return "**Weak Positive Correlation**: Some relationship with global risk flows, but other factors dominate."
+    elif corr_value > -10:
+        return "**No Significant Correlation**: Stock price movements are largely independent of global risk flows."
+    elif corr_value >= -40:
+        return "**Weak Negative Correlation**: Stock shows some tendency to move opposite to risk flows."
+    elif corr_value >= -70:
+        return "**Moderate Negative Correlation**: Stock acts as partial hedge - tends to rise when risk appetite falls."
+    else:
+        return "**Strong Negative Correlation**: Stock is a strong hedge/defensive asset. Tends to rise significantly when risk appetite falls."
 
 # Single Stock Analysis
 st.markdown("""
@@ -654,29 +677,6 @@ if not gf_aligned.empty and not stk_aligned.empty:
         """)
 else:
     st.warning(f"Insufficient overlapping data between {user_ticker} and GMF index for analysis.")
-
-# Helper function for correlation interpretation
-def get_correlation_interpretation(corr_value):
-    """Provide interpretation of correlation value"""
-    if pd.isna(corr_value):
-        return "Insufficient data for correlation analysis."
-    
-    corr_value = corr_value  # Already in percentage
-    
-    if corr_value >= 70:
-        return "**Strong Positive Correlation**: Stock moves strongly with global risk appetite. When GMF rises, this stock tends to rise even more."
-    elif corr_value >= 40:
-        return "**Moderate Positive Correlation**: Stock generally moves with global risk flows but may diverge at times."
-    elif corr_value >= 10:
-        return "**Weak Positive Correlation**: Some relationship with global risk flows, but other factors dominate."
-    elif corr_value > -10:
-        return "**No Significant Correlation**: Stock price movements are largely independent of global risk flows."
-    elif corr_value >= -40:
-        return "**Weak Negative Correlation**: Stock shows some tendency to move opposite to risk flows."
-    elif corr_value >= -70:
-        return "**Moderate Negative Correlation**: Stock acts as partial hedge - tends to rise when risk appetite falls."
-    else:
-        return "**Strong Negative Correlation**: Stock is a strong hedge/defensive asset. Tends to rise significantly when risk appetite falls."
 
 # Multi-ticker Correlation Analysis (keep your original style)
 st.markdown("""
