@@ -265,7 +265,7 @@ with col2:
     st.metric("Z-Score", f"{latest_zscore:+.2f}", 
               delta="Extreme" if abs(latest_zscore) > Z_EXTREME else "Normal")
 with col3:
-    st.metric("30-Day Momentum", f"{latest_momentum:+.3f}%/day",
+    st.metric("30-Day Momentum", f"{latest_momentum:+.0f}%/day",
               delta="Accelerating" if abs(latest_momentum) > MOM_HIGH else "Stable")
 
 # Prepare data for plotting
@@ -537,8 +537,6 @@ except Exception as e:
 user_stock_smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
 user_stock_smoothed.iloc[-1] = user_stock_data.iloc[-1]  # Keep latest value actual
 
-# Align GMF and stock data
-# Use the smoothed GMF (money_flow_s) for correlation calculations
 gf_single = money_flow_s  # This is the 3-day smoothed GMF
 stk_single = user_stock_smoothed
 
@@ -572,8 +570,8 @@ if not gf_aligned.empty and not stk_aligned.empty:
     stk_normalized = (stk_aligned / stk_aligned.iloc[0]) * 100
     
     combined_df = pd.DataFrame({
-        "Date": gf_normalized.index,
-        "Global Money Flow": gf_normalized,
+        "Date": gf_aligned.index,
+        "Global Money Flow": gf_aligned,
         "Stock Price": stk_normalized
     })
     
