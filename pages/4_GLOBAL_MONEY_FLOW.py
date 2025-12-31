@@ -15,11 +15,9 @@ st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
 This app tracks capital flows between **risk-on** and **risk-off** assets 
 to estimate global risk appetite. 
-Includes BTC, S&P 500, Emerging Markets, Gold, US Dollar, Treasury Bonds, Oil, and VIX.
-- Use this curve, z-score and stocks correlation to become bullish or bearish for 6M or longer.
-- The oscillators such as momentum and Z-score help to define if you should be bullish/bearish on stocks. 
-- GMF below average is mostly a sector change over the past-decade causing a crash in non-correlatable assets.
-- -30% momentum down while z-score exceeding 2-std deviation are classic pullbacks or corrections.
+- **Risk-On Assets**: BTC, S&P 500, Emerging Markets, Oil
+- **Risk-Off Assets**: Gold, US Dollar, Treasury Bonds, VIX (inverse)
+- **GMF Index**: Composite of weighted asset returns showing capital rotation
 """)
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
@@ -28,7 +26,7 @@ st.sidebar.header("⚙️ Settings")
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365*3))
 end_date = st.sidebar.date_input("End Date", datetime.now())
 smooth_window = st.sidebar.slider("Smoothing (days)", 5, 100, 40)
-z_score_window = st.sidebar.slider("Climax Z-Score Lookback (Days)", 20, 250, 30)
+z_score_window = st.sidebar.slider("Climax Z-Score Lookback (Days)", 20, 250, 60)
 use_business_days = st.sidebar.checkbox("Remove weekend gaps (use business days only)", value=True)
 
 st.sidebar.markdown("### Select Assets")
@@ -55,14 +53,14 @@ tickers = {asset: default_tickers[asset] for asset in selected_assets}
 st.sidebar.markdown("### Set Asset Weights (Positive=Risk-On, Negative=Risk-Off)")
 
 default_weights = {
-    "Bitcoin (BTC)": 0.15,      # Strong risk-on
-    "S&P 500 (SPX)": 0.20,      # Strong risk-on  
-    "Emerging Markets (EEM)": 0.15,  # Risk-on
+    "Bitcoin (BTC)": 0.25,      # Strong risk-on
+    "S&P 500 (SPX)": 0.25,      # Strong risk-on  
+    "Emerging Markets (EEM)": 0.20,  # Risk-on
     "Crude Oil (CL)": 0.10,     # Risk-on
-    "Gold (XAU)": -0.15,        # Risk-off
-    "US Dollar Index (DXY)": -0.15,  # Risk-off
-    "US 10Y Treasury (IEF)": -0.15,  # Risk-off
-    "Volatility Index (VIX)": -0.05  # Risk-off (inverse)
+    "Gold (XAU)": -0.20,        # Risk-off
+    "US Dollar Index (DXY)": -0.20,  # Risk-off
+    "US 10Y Treasury (IEF)": -0.20,  # Risk-off
+    "Volatility Index (VIX)": -0.20  # Risk-off (inverse)
 }
 
 weights = {}
@@ -79,13 +77,10 @@ weight_sum = sum(weights.values())
 st.sidebar.markdown("---")
 st.sidebar.metric("Sum of Weights", f"{weight_sum:.3f}")
 if abs(weight_sum) < 0.1:
-    st.sidebar.warning("Weights sum near zero - index may be flat")
-
-def normalize_and_index_100(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalize each series to start at 100"""
-    return df.div(df.iloc[0]) * 100
+    st.sidebar.warning("⚠️ Weights sum near zero - index may show little variation")
 
 def load_data(tickers, start, end):
+    """Load data from Yahoo Finance"""
     raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
 
     if isinstance(raw.columns, pd.MultiIndex):
@@ -132,96 +127,127 @@ if use_business_days:
     spx_data = spx_data.asfreq('B')
     spx_data = spx_data.fillna(method='ffill')
 
-# GMF Index Construction using weighted returns method
-data_normalized = normalize_and_index_100(data)
-weights_series = pd.Series(weights).reindex(data_normalized.columns).fillna(0.0)
+# FIXED: GMF Index Construction - Use daily changes, not cumulative returns
+def calculate_gmf_index(data, weights):
+    """
+    Calculate GMF Index as weighted sum of daily percentage changes
+    This keeps the index centered around 0 with reasonable volatility
+    """
+    # Calculate daily percentage changes for each asset
+    daily_pct = data.pct_change().fillna(0)
+    
+    # Apply weights (re-index to match data columns)
+    weights_series = pd.Series(weights).reindex(data.columns).fillna(0.0)
+    
+    # Calculate weighted daily changes
+    weighted_daily = daily_pct.multiply(weights_series, axis=1)
+    
+    # Sum across assets to get daily GMF change
+    daily_gmf_change = weighted_daily.sum(axis=1)
+    
+    # Convert to index starting at 0, then scale to reasonable range
+    # Using cumulative sum of normalized changes
+    gmf_index = (daily_gmf_change * 100).cumsum()  # Scale up for visibility
+    
+    return gmf_index
 
-# Calculate weighted returns
-weighted_returns = pd.DataFrame(index=data_normalized.index)
-
-for asset in data_normalized.columns:
-    # Calculate daily returns
-    returns = data_normalized[asset].pct_change().fillna(0)
-    # Apply weight (positive for risk-on, negative for risk-off)
-    weighted_returns[asset] = returns * weights_series[asset]
-
-# Sum weighted returns across all assets
-daily_gmf_return = weighted_returns.sum(axis=1)
-
-# Convert to cumulative index starting at 100
-gmf_index = 100 * (1 + daily_gmf_return).cumprod()
-gmf_index.name = "GMF Index"
+# Calculate GMF Index
+gmf_raw = calculate_gmf_index(data, weights)
+gmf_index = gmf_raw - gmf_raw.iloc[0]  # Start at 0 for cleaner visualization
 
 # Create smoothed versions
-money_flow = gmf_index.fillna(100)
-money_flow_s = money_flow.rolling(3, min_periods=1).mean()
-money_flow_smooth = money_flow.rolling(smooth_window, min_periods=1).mean()
+money_flow_raw = gmf_index
+money_flow_s = money_flow_raw.rolling(3, min_periods=1).mean()
+money_flow_smooth = money_flow_raw.rolling(smooth_window, min_periods=1).mean()
 
-# Calculate Z-Score
+# Calculate Z-Score (using the SMOOTHED series)
 rolling_mean = money_flow_smooth.rolling(window=z_score_window, min_periods=5).mean()
-rolling_std  = money_flow_smooth.rolling(window=z_score_window, min_periods=5).std()
+rolling_std = money_flow_smooth.rolling(window=z_score_window, min_periods=5).std()
 money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std
 money_flow_zscore = money_flow_zscore.replace([np.inf, -np.inf], 0).fillna(0)
 
-# Calculate Momentum
-cw_ = 60
-money_flow_momentum = money_flow_s.diff(30).clip(-20, 20).fillna(0)
+# FIXED: Calculate Momentum properly (rate of change over 30 days)
+money_flow_momentum = money_flow_smooth.diff(30) / 30 * 100  # Percentage change per day annualized
+money_flow_momentum = money_flow_momentum.fillna(0)
+
+# Get latest values
 latest_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
 latest_zscore = money_flow_zscore.iloc[-1] if not money_flow_zscore.empty else 0
 
-# Sentiment Logic
-Z_EXTREME = 1.8
-MOM_HIGH = 10.0
-MOM_LOW = -10.0
-Z_NEUTRAL_UPPER = 0.5
-Z_NEUTRAL_LOWER = -0.5
+# FIXED: Updated Sentiment Logic with reasonable thresholds
+Z_EXTREME = 1.5      # Reduced from 1.8
+MOM_HIGH = 0.5       # 0.5% daily change is strong (annualized ~125%)
+MOM_LOW = -0.5       # -0.5% daily change is strong negative
+Z_NEUTRAL_UPPER = 0.8
+Z_NEUTRAL_LOWER = -0.8
 
+# Sentiment determination
 if latest_zscore >= Z_EXTREME:
-    sentiment = "🚨 **EXTREME OVERBOUGHT (Euphoria Climax)**"
-    sentiment_color = "#ff8533" 
+    if latest_momentum > 0:
+        sentiment = "🚨 **EXTREME OVERBOUGHT (Euphoria Climax)**"
+        sentiment_color = "#ff6b6b"
+    else:
+        sentiment = "⚠️ **OVERBOUGHT but Losing Momentum**"
+        sentiment_color = "#ffa726"
+        
 elif latest_zscore <= -Z_EXTREME:
-    sentiment = "📉 **PANIC/CAPITULATION (Oversold Climax)**"
-    sentiment_color = "#990000"
+    if latest_momentum < 0:
+        sentiment = "📉 **EXTREME OVERSOLD (Panic/Capitulation)**"
+        sentiment_color = "#5d4037"
+    else:
+        sentiment = "🔄 **OVERSOLD but Recovering**"
+        sentiment_color = "#42a5f5"
+        
 elif latest_momentum > MOM_HIGH:
-    if latest_zscore >= Z_NEUTRAL_UPPER:
-        sentiment = "🟡 **Strong Risk-On: ACCELERATION into STRETCHED ZONE**"
-        sentiment_color = "#ffcc00"
+    if latest_zscore > 0:
+        sentiment = "🚀 **STRONG RISK-ON (Accelerating Higher)**"
+        sentiment_color = "#4caf50"
     else:
-        sentiment = "🟢 **Strong Risk-On: ACCELERATION into NORMAL ZONE**"
-        sentiment_color = "#2ca02c"
+        sentiment = "🟢 **RISK-ON (Recovering from Lows)**"
+        sentiment_color = "#66bb6a"
+        
 elif latest_momentum < MOM_LOW:
-    if latest_zscore <= Z_NEUTRAL_LOWER:
-        sentiment = "🟠 **Strong Risk-Off: DEEPER PULLBACK/DECELERATION**"
-        sentiment_color = "#ff8533"
+    if latest_zscore < 0:
+        sentiment = "🔻 **STRONG RISK-OFF (Accelerating Lower)**"
+        sentiment_color = "#f44336"
     else:
-        sentiment = "🔴 **Strong Risk-Off: ACCELERATION out of NORMAL ZONE**"
-        sentiment_color = "#dc2626"
-elif latest_momentum >= 0:
-    if latest_zscore >= Z_NEUTRAL_UPPER:
-        sentiment = "🟢 **Risk-On/Bullish (STRETCHED but HOLDING)**"
-        sentiment_color = "#16a34a" 
+        sentiment = "🔴 **RISK-OFF (Pulling Back from Highs)**"
+        sentiment_color = "#ef5350"
+        
+elif latest_momentum > 0:
+    if latest_zscore > Z_NEUTRAL_UPPER:
+        sentiment = "🟢 **Risk-On (Above Average)**"
+        sentiment_color = "#81c784"
+    elif latest_zscore < Z_NEUTRAL_LOWER:
+        sentiment = "🟡 **Cautiously Recovering (From Oversold)**"
+        sentiment_color = "#ffd54f"
     else:
-        sentiment = "🟢 **Risk-On/Bullish (NORMAL ZONE)**"
-        sentiment_color = "#4ade80" 
+        sentiment = "⚪ **Mildly Risk-On (Neutral Zone)**"
+        sentiment_color = "#bdbdbd"
+        
 elif latest_momentum < 0:
-    if latest_zscore <= Z_NEUTRAL_LOWER:
-        sentiment = "🔴 **Risk-Off/Defensive (OVERSOLD but DECELERATING)**"
-        sentiment_color = "#dc2626" 
+    if latest_zscore < Z_NEUTRAL_LOWER:
+        sentiment = "🔴 **Risk-Off (Below Average)**"
+        sentiment_color = "#e57373"
+    elif latest_zscore > Z_NEUTRAL_UPPER:
+        sentiment = "🟠 **Correcting (From Overbought)**"
+        sentiment_color = "#ffb74d"
     else:
-        sentiment = "🔴 **Risk-Off/Defensive (NORMAL ZONE pullback)**"
-        sentiment_color = "#f87171" 
+        sentiment = "⚫ **Mildly Risk-Off (Neutral Zone)**"
+        sentiment_color = "#757575"
+        
 else:
-    sentiment = "⚪ **Neutral/Choppy Market**"
-    sentiment_color = "#a3a3a3"
+    sentiment = "⚪ **NEUTRAL / SIDEWAYS**"
+    sentiment_color = "#9e9e9e"
 
 # Display Index Info
 st.markdown(f"""
 **GMF Index Construction:**  
-`Index = Σ (Asset_Return × Weight)` where:
-- Positive weights = Risk-On assets  
-- Negative weights = Risk-Off assets  
+`Daily GMF = Σ (Asset_Daily_Return × Weight)`  
+`GMF Index = Cumulative Sum of Daily GMF × 100`  
+- Positive values: Net risk-on flows  
+- Negative values: Net risk-off flows  
 - Current weight sum = **{weight_sum:.3f}**
-- Index starts at 100 on {money_flow.index[0].date()}
 """)
 
 st.markdown(f"""
@@ -230,9 +256,21 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# Display metrics
+col1, col2, col3 = st.columns(3)
+with col1:
+    current_gmf = money_flow_raw.iloc[-1] if not money_flow_raw.empty else 0
+    st.metric("Current GMF Index", f"{current_gmf:+.2f}")
+with col2:
+    st.metric("Z-Score", f"{latest_zscore:+.2f}", 
+              delta="Extreme" if abs(latest_zscore) > Z_EXTREME else "Normal")
+with col3:
+    st.metric("30-Day Momentum", f"{latest_momentum:+.3f}%/day",
+              delta="Accelerating" if abs(latest_momentum) > MOM_HIGH else "Stable")
+
 # Prepare data for plotting
 df_plot = pd.DataFrame({
-    "Date": money_flow.index,
+    "Date": money_flow_raw.index,
     "Money Flow Curve": money_flow_s,
     "Smoothed Curve": money_flow_smooth,
     "Momentum": money_flow_momentum,
@@ -241,16 +279,20 @@ df_plot = pd.DataFrame({
 
 df_plot['Above'] = df_plot['Money Flow Curve'] > df_plot['Smoothed Curve']
 
-# Create charts
+# Create GMF Chart with zero line
+st.markdown("### 🌊 GMF Curves")
 base = alt.Chart(df_plot).encode(x='Date:T')
 
+# Add zero line
+zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
+
 curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
-    y=alt.Y('Money Flow Curve:Q', title='Money Flow Curve'),
+    y=alt.Y('Money Flow Curve:Q', title='GMF Index'),
     tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
 )
 
 smooth_chart = base.mark_line(color='#d62728', size=2).encode(
-    y=alt.Y('Smoothed Curve:Q', title='Smoothed Curve'),
+    y=alt.Y('Smoothed Curve:Q', title='GMF Index'),
     tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
 )
 
@@ -264,38 +306,42 @@ fill_area = base.mark_area(opacity=0.17).encode(
     )
 )
 
-final_chart = fill_area + curve_chart + smooth_chart
-st.markdown("### 🌊 GMF Curves")
+final_chart = alt.layer(zero_line, fill_area, curve_chart, smooth_chart)
 st.altair_chart(final_chart, use_container_width=True)
 
 # Momentum Chart
+st.markdown("### 📈 GMF Momentum (30-Day Rate of Change)")
 momentum_chart = (
     alt.Chart(df_plot)
     .mark_bar(opacity=0.5)
     .encode(
         x='Date:T',
-        y=alt.Y('Momentum:Q', title='Flow Momentum (%)'),
+        y=alt.Y('Momentum:Q', title='Daily Rate of Change (%)'),
         color=alt.condition(
             alt.datum.Momentum > 0,
             alt.value('#2ca02c'),
             alt.value('#d62728')
         ),
-        tooltip=['Date:T', alt.Tooltip('Momentum:Q', format='.2f')]
+        tooltip=['Date:T', alt.Tooltip('Momentum:Q', format='.3f')]
     )
 )
 
-climax_lines_m = alt.Chart(pd.DataFrame({'y': [-10, 10]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
-final_momentum_chart = (momentum_chart + climax_lines_m).properties(title="📈 Money Flow Momentum (%)")
+# Add momentum threshold lines
+mom_threshold_lines = alt.Chart(pd.DataFrame({'y': [MOM_LOW, 0, MOM_HIGH]})).mark_rule(
+    color='gray', strokeDash=[3, 3]
+).encode(y='y')
+
+final_momentum_chart = (momentum_chart + mom_threshold_lines)
 st.altair_chart(final_momentum_chart, use_container_width=True)
 
 # Z-Score Chart
-st.markdown("### Climax Zone Indicator (Z-Score)")
+st.markdown("### 📊 Climax Zone Indicator (Z-Score)")
 zscore_chart = (
     alt.Chart(df_plot)
     .mark_area(opacity=0.6)
     .encode(
         x='Date:T',
-        y=alt.Y('Z-Score:Q', title='Money Flow Z-Score'),
+        y=alt.Y('Z-Score:Q', title='Z-Score'),
         color=alt.condition(
             alt.datum['Z-Score'] > 0,
             alt.value('#1f77b4'), 
@@ -305,126 +351,102 @@ zscore_chart = (
     )
 )
 
-climax_lines_z = alt.Chart(pd.DataFrame({'y': [-2.0, 2.0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
-final_zscore_chart = (zscore_chart + climax_lines_z).properties(title="Climax Zone Indicator")
+# Add Z-Score threshold lines
+z_threshold_lines = alt.Chart(pd.DataFrame({'y': [-Z_EXTREME, -0.5, 0, 0.5, Z_EXTREME]})).mark_rule(
+    color='gray', strokeDash=[3, 3]
+).encode(y='y')
+
+final_zscore_chart = (zscore_chart + z_threshold_lines).properties(height=300)
 st.altair_chart(final_zscore_chart, use_container_width=True)
 
 # Divergence Check
-with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
-    spx_aligned, momentum_aligned = spx_data.align(money_flow_momentum, join='inner')
+with st.expander("⚠️ Divergence Check: S&P 500 vs. GMF Momentum"):
+    # Align S&P 500 with GMF momentum
+    spx_pct = spx_data.pct_change().fillna(0) * 100  # Convert to percentage
+    spx_aligned, gmf_aligned = spx_pct.align(money_flow_momentum, join='inner')
+    
     divergence_df = pd.DataFrame({
-        'SPX': spx_aligned, 
-        'Money Flow Momentum': momentum_aligned,
+        'SPX_Return': spx_aligned, 
+        'GMF_Momentum': gmf_aligned,
     }).dropna().sort_index()
 
     lookback = 60
     if len(divergence_df) >= lookback:
-        recent_spx = divergence_df['SPX'].iloc[-lookback:]
-        recent_momentum = divergence_df['Money Flow Momentum'].iloc[-lookback:]
-
-        divergence_signal = "No significant divergence detected."
-        signal_color = "#a3a3a3"
-
-        spx_recent_max = recent_spx.max()
-        mom_at_spx_max = recent_momentum[recent_spx.idxmax()] 
-        mom_recent_max = recent_momentum.max()
+        # Calculate rolling correlation
+        rolling_corr = spx_aligned.rolling(lookback).corr(gmf_aligned)
+        latest_corr = rolling_corr.iloc[-1] if not rolling_corr.empty else 0
         
-        spx_recent_min = recent_spx.min()
-        mom_at_spx_min = recent_momentum[recent_spx.idxmin()]
-        mom_recent_min = recent_momentum.min()
-
-        if (recent_spx.iloc[-1] >= (spx_recent_max * 0.99)) and (recent_momentum.iloc[-1] < (mom_recent_max * 0.5)) and (mom_recent_max > 5):
-            divergence_signal = "🚨 **Potential BEARISH Divergence:** SPX near high, but Money Flow Momentum is weak. (Risk-Off Warning)"
+        if latest_corr < -0.5:
+            divergence_signal = "🚨 **STRONG NEGATIVE CORRELATION**: SPX and GMF moving opposite directions"
             signal_color = "#d62728"
-        elif (recent_spx.iloc[-1] <= (spx_recent_min * 1.01)) and (recent_momentum.iloc[-1] > (mom_recent_min * 1.5)) and (mom_recent_min < -5):
-            divergence_signal = "🟢 **Potential BULLISH Divergence:** SPX near low, but Money Flow Momentum is building. (Risk-On Buy Signal)"
+        elif latest_corr > 0.7:
+            divergence_signal = "🟢 **STRONG POSITIVE CORRELATION**: SPX and GMF moving together"
             signal_color = "#2ca02c"
+        else:
+            divergence_signal = "⚪ **MODERATE CORRELATION**: No strong divergence detected"
+            signal_color = "#a3a3a3"
         
         st.markdown(f"""
         <div style="padding:1em; border-radius:8px; text-align:center; background-color:{signal_color}; color:white;">
-        **{divergence_signal}**
+        **{divergence_signal}** (Correlation: {latest_corr:.2f})
         </div>
         """, unsafe_allow_html=True)
+        
+        # Plot correlation over time
+        corr_plot_df = pd.DataFrame({
+            'Date': rolling_corr.index,
+            'Correlation': rolling_corr
+        }).dropna()
+        
+        if not corr_plot_df.empty:
+            corr_chart = alt.Chart(corr_plot_df).mark_line().encode(
+                x='Date:T',
+                y=alt.Y('Correlation:Q', scale=alt.Scale(domain=[-1, 1])),
+                tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.2f')]
+            ).properties(title=f"{lookback}-Day Rolling Correlation")
+            
+            corr_zero = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray').encode(y='y')
+            st.altair_chart(corr_chart + corr_zero, use_container_width=True)
     else:
         st.info(f"Not enough data for a {lookback}-day divergence check.")
 
-    divergence_plot_df = divergence_df.reset_index().rename(columns={'index': 'Date'}).melt(
-        id_vars='Date',
-        var_name='Series',
-        value_name='Value'
-    )
-    
-    momentum_normalized = (divergence_df['Money Flow Momentum'] - divergence_df['Money Flow Momentum'].min()) / (divergence_df['Money Flow Momentum'].max() - divergence_df['Money Flow Momentum'].min()) * (divergence_df['SPX'].max() - divergence_df['SPX'].min()) + divergence_df['SPX'].min()
-    momentum_normalized.name = "Momentum (Rescaled)"
-    
-    dual_plot_df = pd.DataFrame({
-        "Date": divergence_df.index,
-        "SPX": divergence_df['SPX'],
-        "Momentum (Rescaled)": momentum_normalized
-    }).melt(id_vars='Date', var_name='Series', value_name='Value')
-
-    base_divergence = alt.Chart(dual_plot_df).encode(x='Date:T')
-    
-    spx_line = base_divergence.mark_line(color='#1f77b4', opacity=0.8).encode(
-        y=alt.Y('Value:Q', axis=alt.Axis(title='S&P 500 (Normalized)', orient='left')),
-        tooltip=['Date:T', alt.Tooltip('SPX:Q', format='.2f')]
-    ).transform_filter(alt.datum.Series == 'SPX')
-
-    momentum_line = base_divergence.mark_line(color='#d62728', opacity=0.8, strokeDash=[5, 5]).encode(
-        y=alt.Y('Value:Q', axis=alt.Axis(title='Momentum (Rescaled for Visual)', orient='right')),
-        tooltip=['Date:T', alt.Tooltip('Momentum (Rescaled):Q', format='.2f')]
-    ).transform_filter(alt.datum.Series == 'Momentum (Rescaled)')
-
-    divergence_chart = alt.layer(spx_line, momentum_line).resolve_scale(y='independent').properties(title="S&P 500 Price vs. Money Flow Momentum (Rescaled)")
-    st.altair_chart(divergence_chart, use_container_width=True)
-
 # Underlying Assets
-with st.expander("📊 Show Underlying Assets"):
-    data_melted = data_normalized.reset_index().melt("Date", var_name="Asset", value_name="Value")
+with st.expander("📊 Show Underlying Asset Returns"):
+    # Calculate daily returns for each asset
+    asset_returns = data.pct_change().fillna(0) * 100
+    
+    # Apply weights to show contribution
+    weights_series = pd.Series(weights).reindex(asset_returns.columns).fillna(0)
+    weighted_returns = asset_returns.multiply(weights_series, axis=1)
+    
+    # Calculate cumulative contribution
+    cumulative_contrib = weighted_returns.cumsum()
+    
+    cumulative_melted = cumulative_contrib.reset_index().melt("Date", var_name="Asset", value_name="Cumulative Contribution")
+    
     asset_chart = (
-        alt.Chart(data_melted)
-        .mark_line()
+        alt.Chart(cumulative_melted)
+        .mark_area(opacity=0.6)
         .encode(
             x='Date:T',
-            y='Value:Q',
-            color=alt.Color('Asset:N', legend=alt.Legend(
-                title="Assets",
-                orient='top-left',
-                direction='vertical'
-            )),
-            tooltip=['Date:T', 'Asset:N', alt.Tooltip('Value:Q', format='.2f')]
+            y='Cumulative Contribution:Q',
+            color='Asset:N',
+            tooltip=['Date:T', 'Asset:N', alt.Tooltip('Cumulative Contribution:Q', format='.2f')]
         )
         .properties(
-            title="Normalized Asset Prices (Indexed to 100)",
+            title="Cumulative Contribution of Each Asset to GMF Index",
             width='container',
             height=400
         )
     )
     st.altair_chart(asset_chart, use_container_width=True)
 
-# Interpretation
-with st.expander("🧠 Interpretation"):
-    st.markdown("""
-    ### How to read the above chart.
-    - 📈 **Rising Curve:** Capital flowing into *risk-on* assets → bullish market sentiment.  
-    - 📉 **Falling Curve:** Money shifting to *safe* assets → defensive / risk-off tone.  
-    - ⚖️ **Flat Curve:** Neutral or mixed capital rotation.  
-    - 🟢 **Positive Momentum:** Acceleration of risk-on flows.  
-    - 🔴 **Negative Momentum:** Acceleration of risk-off flows.  
-    - **Climax Z-Score ($\mathbf{> 2.0}$ or $\mathbf{< -2.0}$):** Signals historically extreme overbought (euphoria) or oversold (panic) conditions, often leading to a reversal.
-    - **Divergence:** Price action in S&P 500 not supported by money flow momentum. This is a powerful leading signal.
-    """)
-
 # Correlation Matrix
-with st.expander(" 🧠 Correlation Matrix"):
-    st.markdown("""
-    ### 🧠 Correlation of multiple assets
-    - Study the relationship between various assets.
-    """)
-    
-    corr_matrix = data.corr()
-    corr_matrix.index.name = 'Asset1'    
-    corr_melt = corr_matrix.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
+with st.expander("🧠 Asset Correlation Matrix"):
+    # Calculate correlations of daily returns
+    returns_corr = data.pct_change().corr()
+    returns_corr.index.name = 'Asset1'    
+    corr_melt = returns_corr.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
     corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
     
     heatmap = (
@@ -436,7 +458,7 @@ with st.expander(" 🧠 Correlation Matrix"):
             color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1))),
             tooltip=['Asset1', 'Asset2', alt.Tooltip('Correlation:Q', format='.2f')]
         )
-        .properties(title="🔥 Pairwise Asset Correlation Heatmap")
+        .properties(title="Daily Return Correlation Heatmap")
     )
     
     text = (
@@ -450,20 +472,11 @@ with st.expander(" 🧠 Correlation Matrix"):
     )
     
     st.altair_chart(heatmap + text, use_container_width=True)
-    
-    with st.expander("🔎 Heatmap Interpretation"):
-        st.markdown("""
-        ### How to read the heatmap
-        - **Correlation close to +1:** Assets move together (e.g., SPX & EEM).  
-        - **Correlation close to -1:** Assets move opposite (e.g., Gold vs SPX).  
-        - **Near 0:** Assets are largely independent.  
-        """)
 
 # Single Stock Analysis
 st.markdown("""
-###  💹 📈  STUDY STOCKS WITH MONEY FLOW
-- Provide the ticker and study its normalized graph in relation to global money flow.
-- Use the left panel to choose and press ENTER.
+### 💹 Stock Correlation Analysis
+Enter a stock ticker to analyze its correlation with Global Money Flow.
 """)
 user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
 
@@ -489,173 +502,88 @@ try:
             st.stop()
             
     user_stock_data = user_stock_data.fillna(method='ffill')
-    smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
-    smoothed.iloc[-1] = user_stock_data.iloc[-1]
     
 except Exception as e:
     st.error(f"Failed to load data for {user_ticker}: {e}")
     st.stop()
 
-# Correlation calculation
-gf_single, stk_single = money_flow_s.align(smoothed.squeeze(), join='inner')
-latest_corr = float('nan')
+# Calculate correlation with GMF
+stock_returns = user_stock_data.pct_change().fillna(0) * 100
+gmf_returns = money_flow_raw.diff().fillna(0)  # Daily GMF changes
 
-if len(gf_single) >= cw_:
-    rolling_corr_single = gf_single.rolling(cw_, min_periods=cw_//2).corr(stk_single)
-    latest_corr = round(rolling_corr_single.iloc[-1] * 100, 1) if not rolling_corr_single.empty else float('nan')
-    
-    rolling_corr_df = pd.DataFrame({
-        "Date": rolling_corr_single.index,
-        "Correlation": rolling_corr_single * 100
+# Align data
+stock_aligned, gmf_aligned = stock_returns.align(gmf_returns, join='inner')
+
+# Calculate rolling correlation
+corr_window = 60
+if len(stock_aligned) >= corr_window:
+    rolling_corr = stock_aligned.rolling(corr_window).corr(gmf_aligned)
+    latest_corr = rolling_corr.iloc[-1] if not rolling_corr.empty else 0
+else:
+    rolling_corr = pd.Series(index=stock_aligned.index)
+    latest_corr = 0
+
+# Display correlation info
+col1, col2 = st.columns(2)
+with col1:
+    st.metric(f"{user_ticker} - GMF Correlation", 
+              f"{latest_corr:.2f}" if not pd.isna(latest_corr) else "N/A",
+              delta="Strong" if abs(latest_corr) > 0.5 else "Weak")
+with col2:
+    # Calculate performance relative to GMF
+    if len(stock_aligned) > 0 and len(gmf_aligned) > 0:
+        stock_cum = (1 + stock_aligned/100).cumprod().iloc[-1] - 1
+        gmf_cum = (1 + gmf_aligned/100).cumprod().iloc[-1] - 1
+        relative_perf = (stock_cum - gmf_cum) * 100
+        st.metric("Relative Performance", f"{relative_perf:.1f}%")
+
+# Plot correlation over time
+if not rolling_corr.empty and rolling_corr.notna().any():
+    corr_plot_df = pd.DataFrame({
+        'Date': rolling_corr.index,
+        'Correlation': rolling_corr
     }).dropna()
+    
+    corr_chart = alt.Chart(corr_plot_df).mark_line(color='purple').encode(
+        x='Date:T',
+        y=alt.Y('Correlation:Q', scale=alt.Scale(domain=[-1, 1])),
+        tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.2f')]
+    ).properties(
+        title=f"{user_ticker} - {corr_window}D Rolling Correlation with GMF",
+        height=200
+    )
+    
+    corr_zero = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray').encode(y='y')
+    st.altair_chart(corr_chart + corr_zero, use_container_width=True)
 
-# Create dual-axis chart
-combined_df = pd.DataFrame({
-    "Date": gf_single.index,
-    "Global Money Flow": gf_single,
-    "Stock Price": normalize_and_index_100(pd.DataFrame({'price': stk_single}))['price']
-})
-
-combined_long_df = combined_df.melt(
-    id_vars='Date',
-    value_vars=['Global Money Flow', 'Stock Price'],
-    var_name='Series',
-    value_name='Value'
-)
-
-# Shared X-axis scale
-shared_x_scale = alt.Scale(domain=[gf_single.index.min(), gf_single.index.max()])
-
-# Top chart (Correlation)
-if 'rolling_corr_df' in locals() and not rolling_corr_df.empty:
-    corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
-        x=alt.X('Date:T', scale=shared_x_scale, title=None),
-        y=alt.Y('Correlation:Q', title=f'{user_ticker} - Correlation (%)', scale=alt.Scale(domain=[-100, 100])),
-        tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
-    ).properties(height=150)
-else:
-    corr_chart = alt.Chart(pd.DataFrame({'x': [], 'y': []})).mark_text(text="Insufficient data for correlation").properties(height=150)
-
-# Bottom chart (Price vs Flow)
-base = alt.Chart(combined_long_df).encode(
-    x=alt.X('Date:T', scale=shared_x_scale)
-)
-
-color_scale = alt.Scale(domain=['Global Money Flow', 'Stock Price'], range=['#1f77b4', 'gray'])
-
-money_flow_line = base.mark_line(color='#1f77b4', opacity=0.4).encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
-    color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left', title=None))
-).transform_filter(alt.datum.Series == 'Global Money Flow')
-
-stock_price_line = base.mark_line(opacity=0.4).encode(
-    y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
-    color=alt.Color('Series:N', scale=color_scale, legend=None)
-).transform_filter(alt.datum.Series == 'Stock Price')
-
-# Add correlation text
-correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
-    align='left', baseline='top', fontSize=12, color='gray'
-).encode(
-    x=alt.value(750), 
-    y=alt.value(10), 
-    text=alt.value(f'{cw_}D Corr: {latest_corr:.1f}%' if not pd.isna(latest_corr) else f'{cw_}D Corr: N/A')
-)
-
-combined_price_chart = (alt.layer(
-    money_flow_line, 
-    stock_price_line
-).resolve_scale(
-    y='independent'
-) + correlation_text).properties(height=300)
-
-# Combine charts
-final_stacked_chart = alt.vconcat(
-    corr_chart,
-    combined_price_chart
-).resolve_scale(
-    x='shared'
-).properties(
-    title=f"{user_ticker} Correlation & Price Analysis"
-)
-
-st.altair_chart(final_stacked_chart, use_container_width=True)
-
-# Multi-ticker Analysis
-st.markdown("""
-### 📊 Multi-Stock Correlation Analysis
-Enter multiple tickers to compare their correlation with Global Money Flow.
-""")
-
-tickers_input = st.text_input("Enter tickers separated by commas (min 5 required):", value="COIN, MSTR, CRM, QCOM, AMD, SMCI, BABA, XPEV, NIO, INTC, SNAP, UNH")
-
-ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
-
-if len(ticker_list) < 5:
-    st.error("Please enter at least 5 tickers.")
-    st.stop()
-
-# Load multi-ticker data
-all_tickers_dict = {t: t for t in ticker_list}
-try:
-    all_data = load_data(all_tickers_dict, start_date, end_date)
-except Exception as e:
-    st.error(f"Failed to load data for tickers: {e}")
-    st.stop()
-
-# Calculate correlations
-corr_results = []
-for ticker in ticker_list:
-    try:
-        if ticker not in all_data.columns:
-            corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
-            continue
-
-        series = all_data[ticker].fillna(method='ffill')
-        smoothed_multi = series.rolling(window=5, min_periods=1).mean()
-        smoothed_multi.iloc[-1] = series.iloc[-1] 
-        
-        gf, stk = money_flow_s.align(smoothed_multi.squeeze(), join='inner')
-        if len(gf) >= cw_ and gf.count() > 0 and stk.count() > 0:
-            rolling_corr = gf.rolling(cw_, min_periods=cw_//2).corr(stk)
-            rolling_corr = rolling_corr.dropna()
-            if not rolling_corr.empty:
-                latest_corr = round(rolling_corr.iloc[-1] * 100, 1)
-                corr_results.append({'Ticker': ticker, 'Correlation %': latest_corr})
-                continue
-        corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
-
-    except Exception:
-        corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
-
-# Display correlation table
-corr_df = pd.DataFrame(corr_results)
-corr_df = corr_df.sort_values('Correlation %', na_position='last', ascending=False)
-
-if corr_df.empty:
-    st.warning("No correlation data available. Check ticker validity and date range.")
-else:
-    st.markdown(f"### {cw_}D - Correlation with Global Money Flow")
+# Interpretation Guide
+with st.expander("📖 How to Use This Tool"):
     st.markdown("""
-    - **60–100% correlation — Same direction** - When the overall market is bullish, align with the strongest assets and follow the trend.
-    - **10–50% correlation — Weak or sideways relationship** - Often indicates consolidation or range‑bound phases.  
-        - Useful when global money flow is bearish, as these patterns are easier to trade (rectangles, triangles, flags, etc.).
-    - **Below 0 (negative correlation) — Opposite direction** - These assets move against global money flow.  
-        - Favor them when the broader market is declining, since they tend to gain in such conditions.
+    ### GMF Index Interpretation Guide
+    
+    **Index Values:**
+    - **Positive Values**: Net capital flow into risk-on assets
+    - **Negative Values**: Net capital flow into risk-off assets
+    - **Rising Trend**: Increasing risk appetite
+    - **Falling Trend**: Decreasing risk appetite
+    
+    **Z-Score (Climax Indicator):**
+    - **Above +1.5**: Overbought/Euphoric conditions
+    - **Below -1.5**: Oversold/Panic conditions
+    - **Between ±0.8**: Normal range
+    
+    **Momentum (30-Day Rate of Change):**
+    - **Above +0.5%/day**: Strong risk-on acceleration
+    - **Below -0.5%/day**: Strong risk-off acceleration
+    
+    **Trading Signals:**
+    1. **Buy Signal**: Z-Score < -1.5 + Momentum turning positive
+    2. **Sell Signal**: Z-Score > +1.5 + Momentum turning negative
+    3. **Trend Following**: High momentum in direction of trend
+    4. **Mean Reversion**: Extreme Z-Score with fading momentum
+    
+    **Asset Correlation:**
+    - **High Positive Correlation**: Stock moves with risk appetite
+    - **Negative Correlation**: Stock acts as hedge/defensive
+    - **Changing Correlation**: Can signal regime shifts
     """)
-    
-    # Style the dataframe
-    def color_corr(val):
-        if pd.isna(val):
-            return 'color: gray'
-        elif val >= 60:
-            return 'color: green; font-weight: bold'
-        elif val <= 0:
-            return 'color: red; font-weight: bold'
-        elif val <= 10:
-            return 'color: orange'
-        else:
-            return 'color: black'
-    
-    styled_df = corr_df.style.map(color_corr, subset=['Correlation %'])
-    st.dataframe(styled_df, use_container_width=True, height=500)
