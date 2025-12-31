@@ -56,11 +56,11 @@ default_weights = {
     "Bitcoin (BTC)": 0.25,      # Strong risk-on
     "S&P 500 (SPX)": 0.25,      # Strong risk-on  
     "Emerging Markets (EEM)": 0.20,  # Risk-on
-    "Crude Oil (CL)": 0.10,     # Risk-on
+    "Crude Oil (CL)": 0.20,     # Risk-on
     "Gold (XAU)": -0.20,        # Risk-off
     "US Dollar Index (DXY)": -0.20,  # Risk-off
     "US 10Y Treasury (IEF)": -0.20,  # Risk-off
-    "Volatility Index (VIX)": -0.20  # Risk-off (inverse)
+    "Volatility Index (VIX)": -0.07  # Risk-off (inverse)
 }
 
 weights = {}
