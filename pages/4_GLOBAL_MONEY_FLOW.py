@@ -473,13 +473,13 @@ with st.expander("🧠 Asset Correlation Matrix"):
     
     st.altair_chart(heatmap + text, use_container_width=True)
 
-# ... [All previous code remains the same until Single Stock Analysis section] ...
-
 # Single Stock Analysis
 st.markdown("""
-### 💹 Stock Correlation Analysis
+### 💹 Single Stock Correlation Analysis
 Enter a stock ticker to analyze its correlation with Global Money Flow.
 """)
+
+# Get user ticker from sidebar
 user_ticker = st.sidebar.text_input("Enter Stock Ticker to Analyze", value="TSLA")
 
 # Load single stock data
@@ -510,165 +510,186 @@ except Exception as e:
     st.error(f"Failed to load data for {user_ticker}: {e}")
     st.stop()
 
-# Calculate correlation with GMF
-stock_returns = user_stock_data.pct_change().fillna(0) * 100
-gmf_returns = money_flow_raw.diff().fillna(0)  # Daily GMF changes
+# Smooth the stock data (5-day smoothing)
+user_stock_smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
+user_stock_smoothed.iloc[-1] = user_stock_data.iloc[-1]  # Keep latest value actual
 
-# Ensure both are Series
-stock_returns = stock_returns.squeeze() if isinstance(stock_returns, pd.DataFrame) else stock_returns
-gmf_returns = gmf_returns.squeeze() if isinstance(gmf_returns, pd.DataFrame) else gmf_returns
+# Align GMF and stock data
+# Use the smoothed GMF (money_flow_s) for correlation calculations
+gf_single = money_flow_s  # This is the 3-day smoothed GMF
+stk_single = user_stock_smoothed
 
-# Align data
-common_index = stock_returns.index.intersection(gmf_returns.index)
-if len(common_index) == 0:
-    st.warning(f"No overlapping data between {user_ticker} and GMF index")
-    stock_aligned = pd.Series(dtype=float)
-    gmf_aligned = pd.Series(dtype=float)
-else:
-    stock_aligned = stock_returns.loc[common_index]
-    gmf_aligned = gmf_returns.loc[common_index]
+# Align the series
+gf_aligned, stk_aligned = gf_single.align(stk_single, join='inner')
 
-# Calculate rolling correlation
-corr_window = 60
-if len(stock_aligned) >= corr_window and len(gmf_aligned) >= corr_window:
-    # Ensure we have enough non-NaN data
-    valid_data = pd.DataFrame({
-        'stock': stock_aligned,
-        'gmf': gmf_aligned
-    }).dropna()
+# Calculate 60-day rolling correlation
+cw_ = 60  # Correlation window (60 days)
+latest_corr = float('nan')
+
+if len(gf_aligned) >= cw_:
+    rolling_corr_single = gf_aligned.rolling(cw_, min_periods=cw_//2).corr(stk_aligned)
+    if not rolling_corr_single.empty:
+        latest_corr = rolling_corr_single.iloc[-1]
+        if pd.notna(latest_corr):
+            latest_corr = round(latest_corr * 100, 1)
+        else:
+            latest_corr = float('nan')
     
-    if len(valid_data) >= corr_window:
-        rolling_corr = valid_data['stock'].rolling(corr_window).corr(valid_data['gmf'])
-        latest_corr = rolling_corr.iloc[-1] if not rolling_corr.empty and not pd.isna(rolling_corr.iloc[-1]) else 0
-    else:
-        rolling_corr = pd.Series(dtype=float, index=stock_aligned.index)
-        latest_corr = 0
-else:
-    rolling_corr = pd.Series(dtype=float, index=stock_aligned.index)
-    latest_corr = 0
-
-# Display correlation info
-col1, col2 = st.columns(2)
-with col1:
-    corr_display = f"{latest_corr:.2f}" if not pd.isna(latest_corr) else "N/A"
-    corr_label = "Strong" if abs(latest_corr) > 0.5 else "Weak" if not pd.isna(latest_corr) else "Insufficient Data"
-    st.metric(f"{user_ticker} - GMF Correlation", 
-              corr_display,
-              delta=corr_label)
-
-with col2:
-    # Calculate performance relative to GMF
-    if len(stock_aligned) > 0 and len(gmf_aligned) > 0 and not stock_aligned.empty and not gmf_aligned.empty:
-        # Calculate cumulative returns
-        stock_cum = (1 + stock_aligned/100).cumprod()
-        gmf_cum = (1 + gmf_aligned/100).cumprod()
-        
-        # Get the last valid values
-        if not stock_cum.empty and not gmf_cum.empty:
-            stock_final = stock_cum.iloc[-1] - 1
-            gmf_final = gmf_cum.iloc[-1] - 1
-            relative_perf = (stock_final - gmf_final) * 100
-            st.metric("Relative Performance", f"{relative_perf:.1f}%")
-        else:
-            st.metric("Relative Performance", "N/A")
-    else:
-        st.metric("Relative Performance", "N/A")
-
-# Create a unified chart showing correlation and price comparison
-st.markdown(f"### 📊 {user_ticker} vs GMF Analysis")
-
-if len(stock_aligned) >= corr_window and not rolling_corr.empty and rolling_corr.notna().any():
-    # Create DataFrame for correlation plot
-    corr_plot_df = pd.DataFrame({
-        'Date': rolling_corr.index,
-        'Correlation': rolling_corr
+    rolling_corr_df = pd.DataFrame({
+        "Date": rolling_corr_single.index,
+        "Correlation": rolling_corr_single * 100  # Convert to percentage
     }).dropna()
-    
-    # Create DataFrame for price comparison
-    # Normalize stock price to start at 100 for comparison
-    if len(user_stock_data) > 0:
-        stock_normalized = (user_stock_data / user_stock_data.iloc[0] * 100)
-        gmf_normalized = (money_flow_smooth / money_flow_smooth.iloc[0] * 100)
-        
-        # Align normalized data
-        common_idx_norm = stock_normalized.index.intersection(gmf_normalized.index)
-        if len(common_idx_norm) > 0:
-            price_comparison_df = pd.DataFrame({
-                'Date': common_idx_norm,
-                f'{user_ticker}': stock_normalized.loc[common_idx_norm],
-                'GMF Index': gmf_normalized.loc[common_idx_norm]
-            })
-            
-            # Melt for Altair
-            price_melted = price_comparison_df.melt('Date', var_name='Series', value_name='Value')
-            
-            # Create correlation chart (top)
-            correlation_chart = alt.Chart(corr_plot_df).mark_line(color='purple', strokeWidth=2).encode(
-                x=alt.X('Date:T', title=None),  # Hide x-axis title for top chart
-                y=alt.Y('Correlation:Q', title='Correlation', scale=alt.Scale(domain=[-1, 1])),
-                tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.2f')]
-            ).properties(
-                height=150,
-                title=f"{user_ticker} - {corr_window}D Rolling Correlation with GMF"
-            )
-            
-            # Add correlation zero line
-            corr_zero = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
-            correlation_chart = correlation_chart + corr_zero
-            
-            # Create price comparison chart (bottom)
-            price_chart = alt.Chart(price_melted).mark_line().encode(
-                x='Date:T',
-                y=alt.Y('Value:Q', title='Normalized Price (Starting at 100)'),
-                color=alt.Color('Series:N', scale=alt.Scale(
-                    domain=[f'{user_ticker}', 'GMF Index'],
-                    range=['#2E86AB', '#A23B72']
-                )),
-                strokeDash=alt.condition(
-                    alt.datum.Series == 'GMF Index',
-                    alt.value([5, 5]),  # Dashed line for GMF
-                    alt.value([0])      # Solid line for stock
-                ),
-                tooltip=['Date:T', 'Series:N', alt.Tooltip('Value:Q', format='.1f')]
-            ).properties(
-                height=250,
-                title=f"{user_ticker} Price vs GMF Index (Normalized)"
-            )
-            
-            # Combine charts vertically
-            combined_chart = alt.vconcat(correlation_chart, price_chart).resolve_scale(x='shared')
-            st.altair_chart(combined_chart, use_container_width=True)
-        else:
-            st.info("Cannot create price comparison chart - insufficient overlapping data.")
-    else:
-        # Just show correlation chart if we can't create price comparison
-        if not corr_plot_df.empty:
-            corr_chart = alt.Chart(corr_plot_df).mark_line(color='purple').encode(
-                x='Date:T',
-                y=alt.Y('Correlation:Q', scale=alt.Scale(domain=[-1, 1])),
-                tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.2f')]
-            ).properties(
-                title=f"{user_ticker} - {corr_window}D Rolling Correlation with GMF",
-                height=200
-            )
-            
-            corr_zero = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray').encode(y='y')
-            st.altair_chart(corr_chart + corr_zero, use_container_width=True)
-        else:
-            st.info("Insufficient data to plot correlation history.")
 else:
-    st.info(f"Need at least {corr_window} days of overlapping data to calculate and plot correlation.")
+    rolling_corr_df = pd.DataFrame({"Date": [], "Correlation": []})
 
-# Multi-ticker Analysis
+# 1. Create DataFrames for the dual-axis chart 
+# Normalize both series to start at 100 for comparison
+if not gf_aligned.empty and not stk_aligned.empty:
+    gf_normalized = (gf_aligned / gf_aligned.iloc[0]) * 100
+    stk_normalized = (stk_aligned / stk_aligned.iloc[0]) * 100
+    
+    combined_df = pd.DataFrame({
+        "Date": gf_normalized.index,
+        "Global Money Flow": gf_normalized,
+        "Stock Price": stk_normalized
+    })
+    
+    combined_long_df = combined_df.melt(
+        id_vars='Date',
+        value_vars=['Global Money Flow', 'Stock Price'],
+        var_name='Series',
+        value_name='Value'
+    )
+    
+    # 2. Define the Shared X-Axis Scale to ensure perfect alignment
+    shared_x_scale = alt.Scale(domain=[gf_normalized.index.min(), gf_normalized.index.max()])
+    
+    # 3. Create Top Chart (Correlation)
+    if not rolling_corr_df.empty:
+        corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
+            x=alt.X('Date:T', scale=shared_x_scale, title=None), # Hide title on top chart for cleaner look
+            y=alt.Y('Correlation:Q', title=f'{user_ticker} - Correlation (%)', 
+                   scale=alt.Scale(domain=[-100, 100])),
+            tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
+        ).properties(height=150)
+        
+        # Add correlation zero line
+        corr_zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
+        corr_chart = corr_chart + corr_zero_line
+    else:
+        # Create empty chart if no correlation data
+        corr_chart = alt.Chart(pd.DataFrame({'x': [], 'y': []})).mark_text(
+            text="Insufficient data for correlation calculation"
+        ).properties(height=150)
+    
+    # 4. Create Bottom Chart (Price vs Flow)
+    base = alt.Chart(combined_long_df).encode(
+        x=alt.X('Date:T', scale=shared_x_scale)
+    )
+    
+    # Color scale for the two lines
+    color_scale = alt.Scale(domain=['Global Money Flow', 'Stock Price'], 
+                           range=['#1f77b4', '#d62728'])  # Blue for GMF, Red for Stock
+    
+    # GMF line
+    money_flow_line = base.mark_line(color='#1f77b4', opacity=0.8).encode(
+        y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
+        color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left', title=None))
+    ).transform_filter(alt.datum.Series == 'Global Money Flow')
+    
+    # Stock price line
+    stock_price_line = base.mark_line(opacity=0.8).encode(
+        y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
+        color=alt.Color('Series:N', scale=color_scale, legend=None)
+    ).transform_filter(alt.datum.Series == 'Stock Price')
+    
+    # Add the correlation text overlay in top-right corner
+    if pd.notna(latest_corr):
+        correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
+            align='right', baseline='top', fontSize=14, fontWeight='bold', color='gray'
+        ).encode(
+            x=alt.value(700),  # Position from left
+            y=alt.value(10),   # Position from top
+            text=alt.value(f'{cw_}D Corr: {latest_corr:.1f}%')
+        )
+    else:
+        correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
+            align='right', baseline='top', fontSize=12, color='gray'
+        ).encode(
+            x=alt.value(700),
+            y=alt.value(10),
+            text=alt.value(f'{cw_}D Corr: N/A')
+        )
+    
+    # Combine the two price lines with independent y-axes
+    combined_price_chart = alt.layer(
+        money_flow_line, 
+        stock_price_line
+    ).resolve_scale(
+        y='independent'
+    ).properties(height=300)
+    
+    # Add the correlation text to the price chart
+    combined_price_chart = combined_price_chart + correlation_text
+    
+    # 5. Combine Top and Bottom charts
+    final_stacked_chart = alt.vconcat(
+        corr_chart,
+        combined_price_chart
+    ).resolve_scale(
+        x='shared'  # Share the x-axis between charts
+    ).properties(
+        title=f"{user_ticker} Correlation & Price Analysis"
+    )
+    
+    # 6. Display the final unified chart
+    st.altair_chart(final_stacked_chart, use_container_width=True)
+    
+    # Display correlation interpretation
+    if pd.notna(latest_corr):
+        st.markdown(f"""
+        **Interpretation for {user_ticker}:**
+        - **{cw_}-Day Correlation with GMF: {latest_corr:.1f}%**
+        - {get_correlation_interpretation(latest_corr)}
+        """)
+else:
+    st.warning(f"Insufficient overlapping data between {user_ticker} and GMF index for analysis.")
+
+# Helper function for correlation interpretation
+def get_correlation_interpretation(corr_value):
+    """Provide interpretation of correlation value"""
+    if pd.isna(corr_value):
+        return "Insufficient data for correlation analysis."
+    
+    corr_value = corr_value  # Already in percentage
+    
+    if corr_value >= 70:
+        return "**Strong Positive Correlation**: Stock moves strongly with global risk appetite. When GMF rises, this stock tends to rise even more."
+    elif corr_value >= 40:
+        return "**Moderate Positive Correlation**: Stock generally moves with global risk flows but may diverge at times."
+    elif corr_value >= 10:
+        return "**Weak Positive Correlation**: Some relationship with global risk flows, but other factors dominate."
+    elif corr_value > -10:
+        return "**No Significant Correlation**: Stock price movements are largely independent of global risk flows."
+    elif corr_value >= -40:
+        return "**Weak Negative Correlation**: Stock shows some tendency to move opposite to risk flows."
+    elif corr_value >= -70:
+        return "**Moderate Negative Correlation**: Stock acts as partial hedge - tends to rise when risk appetite falls."
+    else:
+        return "**Strong Negative Correlation**: Stock is a strong hedge/defensive asset. Tends to rise significantly when risk appetite falls."
+
+# Multi-ticker Correlation Analysis (keep your original style)
 st.markdown("""
 ### 📊 Multi-Stock Correlation Analysis
 Enter multiple tickers to compare their correlation with Global Money Flow.
 """)
 
-tickers_input = st.text_input("Enter tickers separated by commas (min 3 required):", 
-                             value="AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA, JPM, JNJ, V, PG")
+# Use a text input in the main area for tickers
+tickers_input_main = st.text_input("Enter tickers separated by commas (min 3 required):", 
+                                  value="AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA, JPM, JNJ, V, PG",
+                                  key="multi_ticker_input")
 
-ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
+ticker_list = [t.strip().upper() for t in tickers_input_main.split(",") if t.strip()]
 
 if len(ticker_list) >= 3:
     # Load multi-ticker data
@@ -676,7 +697,7 @@ if len(ticker_list) >= 3:
     try:
         all_data = load_data(all_tickers_dict, start_date, end_date)
         
-        # Calculate correlations
+        # Calculate correlations for each ticker
         corr_results = []
         for ticker in ticker_list:
             try:
@@ -684,94 +705,113 @@ if len(ticker_list) >= 3:
                     corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
                     continue
 
-                # Get stock returns
+                # Get stock data and smooth it
                 stock_data = all_data[ticker].fillna(method='ffill')
-                stock_ret = stock_data.pct_change().fillna(0) * 100
+                stock_smoothed = stock_data.rolling(window=5, min_periods=1).mean()
+                stock_smoothed.iloc[-1] = stock_data.iloc[-1]
                 
-                # Align with GMF returns
-                common_idx = stock_ret.index.intersection(gmf_returns.index)
-                if len(common_idx) >= corr_window:
-                    stock_aligned_multi = stock_ret.loc[common_idx]
-                    gmf_aligned_multi = gmf_returns.loc[common_idx]
-                    
+                # Align with GMF
+                stock_aligned, gmf_aligned = stock_smoothed.align(gf_single, join='inner')
+                
+                if len(stock_aligned) >= cw_ and len(gmf_aligned) >= cw_:
                     # Calculate rolling correlation
-                    valid_data = pd.DataFrame({
-                        'stock': stock_aligned_multi,
-                        'gmf': gmf_aligned_multi
-                    }).dropna()
-                    
-                    if len(valid_data) >= corr_window:
-                        rolling_corr_multi = valid_data['stock'].rolling(corr_window).corr(valid_data['gmf'])
-                        if not rolling_corr_multi.empty:
-                            latest_corr_multi = rolling_corr_multi.iloc[-1]
-                            if not pd.isna(latest_corr_multi):
-                                corr_results.append({
-                                    'Ticker': ticker, 
-                                    'Correlation %': round(latest_corr_multi * 100, 1)
-                                })
-                                continue
+                    rolling_corr = stock_aligned.rolling(cw_, min_periods=cw_//2).corr(gmf_aligned)
+                    if not rolling_corr.empty:
+                        latest_corr_val = rolling_corr.iloc[-1]
+                        if pd.notna(latest_corr_val):
+                            corr_results.append({
+                                'Ticker': ticker, 
+                                'Correlation %': round(latest_corr_val * 100, 1)
+                            })
+                            continue
                 
                 corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
-            except Exception:
+            except Exception as e:
                 corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
-        # Display correlation table
+        # Create and display correlation table
         corr_df = pd.DataFrame(corr_results)
         corr_df = corr_df.sort_values('Correlation %', na_position='last', ascending=False)
 
         if not corr_df.empty:
-            st.markdown(f"### {corr_window}D - Correlation with Global Money Flow")
+            st.markdown(f"### {cw_}D Rolling Correlation with Global Money Flow")
             
             # Color coding function
             def color_corr(val):
                 if pd.isna(val):
-                    return 'color: gray'
-                elif val >= 50:
-                    return 'color: green; font-weight: bold'
-                elif val <= -50:
-                    return 'color: red; font-weight: bold'
-                elif val >= 20:
-                    return 'color: lightgreen'
-                elif val <= -20:
-                    return 'color: lightcoral'
+                    return 'color: gray; font-style: italic'
+                elif val >= 60:
+                    return 'color: #006400; font-weight: bold; background-color: #e6ffe6'  # Dark green
+                elif val >= 30:
+                    return 'color: #228B22;'  # Forest green
+                elif val >= 10:
+                    return 'color: #32CD32;'  # Lime green
+                elif val <= -60:
+                    return 'color: #8B0000; font-weight: bold; background-color: #ffe6e6'  # Dark red
+                elif val <= -30:
+                    return 'color: #B22222;'  # Firebrick
+                elif val <= -10:
+                    return 'color: #DC143C;'  # Crimson
                 else:
-                    return 'color: black'
+                    return 'color: #696969;'  # Dim gray
             
             # Display with styling
             styled_df = corr_df.style.map(color_corr, subset=['Correlation %'])
             st.dataframe(styled_df, use_container_width=True, height=400)
             
-            # Interpretation
-            st.markdown("""
-            **Correlation Interpretation:**
-            - **> 50%**: Strong positive correlation with risk flows
-            - **20-50%**: Moderate positive correlation  
-            - **-20 to 20%**: Weak or no correlation
-            - **-50 to -20%**: Moderate negative correlation
-            - **< -50%**: Strong negative correlation (hedge/defensive)
-            """)
-            
-            # Optional: Create a bar chart of correlations
-            bar_chart_df = corr_df.dropna()
-            if not bar_chart_df.empty:
-                bar_chart = alt.Chart(bar_chart_df).mark_bar().encode(
-                    x=alt.X('Ticker:N', sort='-y'),
-                    y=alt.Y('Correlation %:Q'),
-                    color=alt.condition(
-                        alt.datum['Correlation %'] > 0,
-                        alt.value('green'),
-                        alt.value('red')
-                    ),
-                    tooltip=['Ticker:N', alt.Tooltip('Correlation %:Q', format='.1f')]
-                ).properties(
-                    title=f"Correlation with GMF (Last {corr_window} Days)",
-                    height=300
-                )
+            # Add interpretation guide
+            with st.expander("📈 Correlation Interpretation Guide"):
+                st.markdown("""
+                ### How to interpret correlation values:
                 
-                # Add zero line
-                bar_zero = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray').encode(y='y')
-                st.altair_chart(bar_chart + bar_zero, use_container_width=True)
+                **Positive Correlation (Stock moves WITH risk appetite):**
+                - **60-100%**: Very strong correlation with global risk flows
+                - **30-60%**: Strong correlation - tends to move with market sentiment
+                - **10-30%**: Moderate correlation - influenced by but not dictated by risk flows
+                
+                **Negative Correlation (Stock moves AGAINST risk appetite - defensive/haven):**
+                - **(-60)-(-100)%**: Very strong inverse correlation - acts as strong hedge
+                - **(-30)-(-60)%**: Strong inverse correlation - defensive characteristics
+                - **(-10)-(-30)%**: Moderate inverse correlation - some hedging properties
+                
+                **Near Zero (±0-10%):**
+                - Stock movements are largely independent of global risk flows
+                - Company-specific or sector-specific factors dominate
+                
+                ### Trading Implications:
+                - **High positive correlation**: Buy when GMF is rising, sell when falling
+                - **High negative correlation**: Buy when GMF is falling (hedge), sell when rising
+                - **Low correlation**: Focus on stock-specific fundamentals
+                """)
+                
+            # Optional: Create bar chart visualization
+            if st.checkbox("Show Bar Chart Visualization", value=False):
+                bar_df = corr_df.dropna()
+                if not bar_df.empty:
+                    # Sort for bar chart
+                    bar_df = bar_df.sort_values('Correlation %', ascending=True)
+                    
+                    bar_chart = alt.Chart(bar_df).mark_bar().encode(
+                        x=alt.X('Correlation %:Q', title='Correlation %'),
+                        y=alt.Y('Ticker:N', sort='-x', title='Ticker'),
+                        color=alt.condition(
+                            alt.datum['Correlation %'] > 0,
+                            alt.value('#2E8B57'),  # Sea green for positive
+                            alt.value('#CD5C5C')   # Indian red for negative
+                        ),
+                        tooltip=['Ticker:N', alt.Tooltip('Correlation %:Q', format='.1f')]
+                    ).properties(
+                        title=f"{cw_}D Correlation with Global Money Flow",
+                        height=400
+                    )
+                    
+                    # Add vertical line at zero
+                    zero_line = alt.Chart(pd.DataFrame({'x': [0]})).mark_rule(
+                        color='gray', strokeDash=[3, 3]
+                    ).encode(x='x')
+                    
+                    st.altair_chart(bar_chart + zero_line, use_container_width=True)
         else:
             st.warning("No correlation data available. Check ticker validity and date range.")
             
@@ -781,38 +821,76 @@ else:
     st.info("Enter at least 3 tickers separated by commas to analyze.")
 
 # Interpretation Guide
-with st.expander("📖 How to Use This Tool"):
+with st.expander("📖 Complete GMF Interpretation Guide"):
     st.markdown("""
-    ### GMF Index Interpretation Guide
+    ## Complete Global Money Flow (GMF) Interpretation Guide
     
-    **Index Values:**
-    - **Positive Values**: Net capital flow into risk-on assets
-    - **Negative Values**: Net capital flow into risk-off assets
-    - **Rising Trend**: Increasing risk appetite
-    - **Falling Trend**: Decreasing risk appetite
+    ### **GMF Index Construction:**
+    ```
+    Daily GMF Change = Σ (Asset_Daily_Return × Weight)
+    GMF Index = Cumulative Sum of Daily GMF Changes × 100
+    ```
     
-    **Z-Score (Climax Indicator):**
-    - **Above +1.5**: Overbought/Euphoric conditions
-    - **Below -1.5**: Oversold/Panic conditions
-    - **Between ±0.8**: Normal range
+    ### **Index Values Interpretation:**
+    - **Positive Values**: Net capital flowing INTO risk-on assets (bullish sentiment)
+    - **Negative Values**: Net capital flowing INTO risk-off assets (bearish/defensive)
+    - **Rising Trend**: Increasing risk appetite, bullish for equities
+    - **Falling Trend**: Decreasing risk appetite, bearish for equities
     
-    **Momentum (30-Day Rate of Change):**
-    - **Above +0.5%/day**: Strong risk-on acceleration
-    - **Below -0.5%/day**: Strong risk-off acceleration
+    ### **Z-Score (Climax Indicator):**
+    - **Above +1.5**: Overbought/Euphoric conditions → Potential reversal point
+    - **Below -1.5**: Oversold/Panic conditions → Potential bounce opportunity
+    - **Between ±0.8**: Normal trading range
     
-    **Trading Signals:**
-    1. **Buy Signal**: Z-Score < -1.5 + Momentum turning positive
-    2. **Sell Signal**: Z-Score > +1.5 + Momentum turning negative
-    3. **Trend Following**: High momentum in direction of trend
-    4. **Mean Reversion**: Extreme Z-Score with fading momentum
+    ### **Momentum (30-Day Rate of Change):**
+    - **Above +0.5%/day**: Strong risk-on acceleration → Trend continuation likely
+    - **Below -0.5%/day**: Strong risk-off acceleration → Trend continuation likely
     
-    **Asset Correlation:**
-    - **High Positive Correlation**: Stock moves with risk appetite
-    - **Negative Correlation**: Stock acts as hedge/defensive
-    - **Changing Correlation**: Can signal regime shifts
+    ### **Trading Signals Framework:**
     
-    **Weight Configuration Tips:**
-    - Total weight sum should be positive for bullish bias, negative for bearish bias
-    - Adjust weights based on your market view
-    - Higher absolute weights give more influence to that asset
+    1. **BUY SIGNALS (Risk-On):**
+       - Z-Score < -1.5 (oversold) AND Momentum turning positive
+       - Z-Score rising from negative to positive territory
+       - Strong positive momentum (> +0.5%/day) in neutral zone
+    
+    2. **SELL SIGNALS (Risk-Off):**
+       - Z-Score > +1.5 (overbought) AND Momentum turning negative
+       - Z-Score falling from positive to negative territory
+       - Strong negative momentum (< -0.5%/day) in neutral zone
+    
+    3. **TREND FOLLOWING:**
+       - High momentum (> ±0.5%/day) in direction of trend
+       - Z-Score between ±0.8 with consistent momentum
+    
+    4. **MEAN REVERSION:**
+       - Extreme Z-Score (> ±1.5) with fading momentum
+       - Divergence between price and momentum
+    
+    ### **Asset Correlation Strategy:**
+    
+    **High Positive Correlation (> 60%):**
+    - Trade WITH the GMF trend
+    - Use GMF signals for entry/exit timing
+    - Good for momentum strategies
+    
+    **Negative Correlation (< -30%):**
+    - Trade AGAINST the GMF trend (hedge)
+    - Buy when GMF is falling, sell when rising
+    - Portfolio diversification/defensive allocation
+    
+    **Low Correlation (±0-30%):**
+    - Focus on stock-specific factors
+    - Less influenced by macro sentiment
+    - Good for alpha generation through stock picking
+    
+    ### **Weight Configuration Strategy:**
+    - **Total weight > 0**: Bullish bias in index construction
+    - **Total weight < 0**: Bearish bias in index construction
+    - Adjust individual weights based on conviction
+    - Higher absolute weights = more influence from that asset
+    
+    ### **Timeframe Considerations:**
+    - **Short-term (days)**: Focus on momentum and recent Z-Score
+    - **Medium-term (weeks)**: Focus on Z-Score extremes and trend
+    - **Long-term (months)**: Focus on overall index direction and correlations
     """)
