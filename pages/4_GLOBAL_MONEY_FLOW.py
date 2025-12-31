@@ -657,6 +657,80 @@ if len(ticker_list) >= 3:
             except Exception:
                 corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
 
+        # 1. Create DataFrames for the dual-axis chart 
+        combined_df = pd.DataFrame({
+            "Date": gf_single.index,
+            "Global Money Flow": gf_single,
+            "Stock Price": stk_single
+        })
+        
+        combined_long_df = combined_df.melt(
+            id_vars='Date',
+            value_vars=['Global Money Flow', 'Stock Price'],
+            var_name='Series',
+            value_name='Value'
+        )
+        
+        # 2. Define the Shared X-Axis Scale to ensure perfect alignment
+        shared_x_scale = alt.Scale(domain=[gf_single.index.min(), gf_single.index.max()])
+        
+        # 3. Redefine Top Chart (Correlation)
+        corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
+            x=alt.X('Date:T', scale=shared_x_scale, title=None), # Hide title on top chart for cleaner look
+            y=alt.Y('Correlation:Q', title=f'{user_ticker} - Correlation (%)', scale=alt.Scale(domain=[-100, 100])),
+            tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
+        ).properties(height=150)
+        
+        # 4. Redefine Bottom Chart (Price vs Flow)
+        base = alt.Chart(combined_long_df).encode(
+            x=alt.X('Date:T', scale=shared_x_scale)
+        )
+        
+        color_scale = alt.Scale(domain=['Global Money Flow', 'Stock Price'], range=['#1f77b4', 'gray'])
+        
+        money_flow_line = base.mark_line(color='#1f77b4', opacity=0.4).encode(
+            y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
+            color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left', title=None))
+        ).transform_filter(alt.datum.Series == 'Global Money Flow')
+        
+        stock_price_line = base.mark_line(opacity=0.4).encode(
+            y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
+            color=alt.Color('Series:N', scale=color_scale, legend=None)
+        ).transform_filter(alt.datum.Series == 'Stock Price')
+        
+        # Add the correlation text overlay
+        correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
+            align='left', baseline='top', fontSize=12, color='gray'
+        ).encode(x=alt.value(750), y=alt.value(10), text=alt.value(f'{cw_}D Corr: {latest_corr:.1f}%'))
+        
+        combined_price_chart = (alt.layer(
+            money_flow_line, 
+            stock_price_line
+        ).resolve_scale(
+            y='independent'
+        ) + correlation_text).properties(height=300)
+        
+        # 5. THE VCONCAT LINE: Combine them here
+        final_stacked_chart = alt.vconcat(
+            corr_chart,
+            combined_price_chart
+        ).resolve_scale(
+            x='shared'
+        ).properties(
+            title=f"{user_ticker} Correlation & Price Analysis"
+        )
+        
+        # 6. Display the final unified chart
+        st.altair_chart(final_stacked_chart, use_container_width=True)
+        
+        tickers_input = st.text_input("Enter tickers separated by commas (min 5 required):", value="COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, BABA, XPEV, NIO, U, INTC, SNAP, UNH")
+        
+        ticker_list = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
+        
+        if len(ticker_list) < 5:
+            st.error("Please enter at least 5 tickers.")
+            st.stop()
+            
         # Display correlation table
         corr_df = pd.DataFrame(corr_results)
         corr_df = corr_df.sort_values('Correlation %', na_position='last', ascending=False)
