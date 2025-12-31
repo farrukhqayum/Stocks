@@ -162,7 +162,7 @@ first_valid = gmf_index.dropna().iloc[0] if not gmf_index.dropna().empty else 10
 gmf_index_100 = (gmf_index / first_valid) * 100.0
 gmf_index_100 = gmf_index_100.fillna(100.0)
     
-money_flow = gmf_index_100 
+money_flow = gmf_index
 
 # --- Smooth the curve ---
 money_flow_s = money_flow.rolling(3, min_periods=1).mean()
