@@ -129,15 +129,20 @@ if use_business_days:
     spx_data = spx_data.asfreq('B')
     spx_data = spx_data.fillna(method='ffill')
 
-returns = data.pct_change().dropna()
-asset_mean = returns.rolling(30).mean()
-asset_std = returns.rolling(30).std()
+returns = data.pct_change()
+returns = returns.replace([np.inf, -np.inf], np.nan)
+returns = returns.fillna(0)
+
+z_win = 30
+asset_mean = returns.rolling(z_win, min_periods=z_win//2).mean()
+asset_std  = returns.rolling(z_win, min_periods=z_win//2).std(ddof=0)
 returns_z = (returns - asset_mean) / asset_std
-returns_z = returns_z.fillna(0)
+returns_z = returns_z.replace([np.inf, -np.inf], np.nan).fillna(0)
 
 asset_mean = returns.rolling(30).mean()
 asset_std = returns.rolling(30).std()
-w = pd.Series(weights).reindex(returns_z.columns).fillna(0)
+w = pd.Series(weights)
+w = w.reindex(returns_z.columns).fillna(0)
 gmf_flow = (returns_z * w).sum(axis=1)
 money_flow = gmf_flow.cumsum()
 
