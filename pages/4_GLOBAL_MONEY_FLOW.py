@@ -1,8 +1,10 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
 import altair as alt
 from datetime import datetime, timedelta
+
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
