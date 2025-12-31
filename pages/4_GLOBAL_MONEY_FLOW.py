@@ -131,30 +131,25 @@ if use_business_days:
     spx_data = spx_data.asfreq('B')
     spx_data = spx_data.fillna(method='ffill')
 
-data_indexed = normalize_and_index_100(data)
-weights_series = pd.Series(weights).reindex(data_indexed.columns).fillna(0.0)
+returns = data.pct_change().dropna()
+
+vol_window = 60
+rolling_vol = returns.rolling(vol_window).std()
+rolling_vol = rolling_vol.replace(0, np.nan).ffill()
+
+risk_adj_returns = returns / rolling_vol
+weights_series = pd.Series(weights).reindex(risk_adj_returns.columns).fillna(0.0)
 abs_sum = weights_series.abs().sum()
 if abs_sum != 0:
     weights_series = weights_series / abs_sum
 
-gmf_index = (data_indexed * weights_series).sum(axis=1)
-gmf_index.name = "GMF Index"
+gmf_daily = (risk_adj_returns * weights_series).sum(axis=1)
+gmf_daily.name = "GMF Daily Return"
 
-if not gmf_index.empty:
-    first_valid = gmf_index.iloc[0]
-    if pd.notna(first_valid) and first_valid != 0:
-        money_flow = (gmf_index / first_valid) * 100.0
-    else:
-        money_flow = gmf_index.fillna(100.0)  # fallback
-else:
-    st.error("No valid GMF data after processing")
-    st.stop()
-
-first_valid = gmf_index.dropna().iloc[0] if not gmf_index.dropna().empty else 100.0
-gmf_index_100 = (gmf_index / first_valid) * 100.0
-gmf_index_100 = gmf_index_100.fillna(100.0)
-    
-money_flow = gmf_index
+gmf_nav = (1 + gmf_daily.fillna(0)).cumprod()
+gmf_index_100 = (gmf_nav / gmf_nav.iloc[0]) * 100
+gmf_index_100 = gmf_index_100.fillna(100)
+money_flow = gmf_index_100
 
 # --- Smooth the curve ---
 money_flow_s = money_flow.rolling(3, min_periods=1).mean()
