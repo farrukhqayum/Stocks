@@ -81,7 +81,6 @@ for asset in selected_assets:
         format="%.2f"
     )
     
-weights_series = pd.Series(weights).reindex(data_indexed.columns).fillna(0.0)
 abs_sum = weights_series.abs().sum()
 if abs_sum != 0:
     weights_series = weights_series / abs_sum
@@ -137,6 +136,8 @@ if use_business_days:
     spx_data = spx_data.fillna(method='ffill')
 
 data_indexed = normalize_and_index_100(data)
+weights_series = pd.Series(weights).reindex(data_indexed.columns).fillna(0.0)
+
 gmf_index = (data_indexed * weights_series).sum(axis=1)
 gmf_index.name = "GMF Index"
 
