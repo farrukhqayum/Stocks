@@ -131,6 +131,7 @@ except Exception:
     st.warning("⚠️ Error loading data. Please check ticker availability and date range.")
     st.stop()
 
+    
 if use_business_days:
     data = data.asfreq('B')
     data = data.fillna(method='ffill')
@@ -145,9 +146,21 @@ if abs_sum != 0:
 
 gmf_index = (data_indexed * weights_series).sum(axis=1)
 gmf_index.name = "GMF Index"
+
+if not gmf_index.empty:
+    first_valid = gmf_index.iloc[0]
+    if pd.notna(first_valid) and first_valid != 0:
+        money_flow = (gmf_index / first_valid) * 100.0
+    else:
+        money_flow = gmf_index.fillna(100.0)  # fallback
+else:
+    st.error("No valid GMF data after processing")
+    st.stop()
+
 first_valid = gmf_index.dropna().iloc[0] if not gmf_index.dropna().empty else 100.0
 gmf_index_100 = (gmf_index / first_valid) * 100.0
 gmf_index_100 = gmf_index_100.fillna(100.0)
+    
 money_flow = gmf_index_100 
 
 # --- Smooth the curve ---
