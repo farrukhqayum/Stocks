@@ -146,7 +146,7 @@ asset_std = returns.rolling(30).std()
 w = pd.Series(weights)
 w = w.reindex(returns_z.columns).fillna(0)
 gmf_flow = (returns_z * w).sum(axis=1)
-money_flow = gmf_flow.cumsum()
+money_flow = gmf_flow
 
 # --- Smooth the curve ---
 money_flow_s = money_flow.rolling(3).mean()
