@@ -1,7 +1,6 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import numpy as np
 import altair as alt
 from datetime import datetime, timedelta
 
@@ -130,17 +129,8 @@ if use_business_days:
     spx_data = spx_data.asfreq('B')
     spx_data = spx_data.fillna(method='ffill')
 
-log_returns = np.log(data / data.shift(1))
-log_returns = log_returns.fillna(0)
-
-z_window = 60
-z_scores = (log_returns - log_returns.rolling(z_window).mean()) / \
-           log_returns.rolling(z_window).std()
-
-z_scores = z_scores.fillna(0)
-weights_series = pd.Series(weights)
-money_flow = (z_scores * weights_series).sum(axis=1)
-#money_flow = (data_norm * pd.Series(weights)).sum(axis=1)
+data_norm = (data / data.iloc[0]) * 100
+money_flow = (data_norm * pd.Series(weights)).sum(axis=1)
 
 # --- Smooth the curve ---
 money_flow_s = money_flow.rolling(3).mean()
@@ -375,7 +365,7 @@ with st.expander("⚠️ Divergence Check: S&P 500 vs. Money Flow Momentum"):
     st.altair_chart(divergence_chart, use_container_width=True)
 
 with st.expander("📊 Show Underlying Assets"):
-    data_melted = data_norm.reset_index().melt("Date", var_name="Asset", value_name="Value")
+    data_melted = data.reset_index().melt("Date", var_name="Asset", value_name="Value")
     asset_chart = (
         alt.Chart(data_melted)
         .mark_line()
