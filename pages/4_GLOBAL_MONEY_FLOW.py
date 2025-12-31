@@ -145,7 +145,9 @@ if abs_sum != 0:
 
 gmf_index = (data_indexed * weights_series).sum(axis=1)
 gmf_index.name = "GMF Index"
-gmf_index_100 = (gmf_index / gmf_index.iloc[0]) * 100.0
+first_valid = gmf_index.dropna().iloc[0] if not gmf_index.dropna().empty else 100.0
+gmf_index_100 = (gmf_index / first_valid) * 100.0
+gmf_index_100 = gmf_index_100.fillna(100.0)
 money_flow = gmf_index_100 
 
 # --- Smooth the curve ---
@@ -160,7 +162,6 @@ money_flow_zscore = money_flow_zscore.replace([np.inf, -np.inf], 0).fillna(0)
 
 cw_ = 60 # Using 60 days (approx. 3 months) for correlation lookback
 money_flow_s = money_flow_s.squeeze()
-money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
 money_flow_momentum = money_flow_smooth.pct_change(periods=10) * 100
 money_flow_momentum = money_flow_momentum.replace([np.inf, -np.inf], 0).fillna(0)
 
