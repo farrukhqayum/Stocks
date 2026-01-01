@@ -1134,52 +1134,26 @@ WMT, DIS, NFLX, MA, HD, MCD""",
                     screener_df = pd.DataFrame(screener_results)
                     screener_df = screener_df.sort_values('Signal Score', ascending=False)
                     
-                    # Display metrics
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        high_corr = len([x for x in screener_results if x['60D Corr %'] > 60])
-                        st.metric("High Correlation (>60%)", high_corr)
-                    with col2:
-                        neg_corr = len([x for x in screener_results if x['60D Corr %'] < -30])
-                        st.metric("Negative Correlation (<-30%)", neg_corr)
-                    with col3:
-                        low_corr = len([x for x in screener_results if -30 <= x['60D Corr %'] <= 60])
-                        st.metric("Low/Moderate Correlation", low_corr)
-                    with col4:
-                        current_gmf_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
-                        st.metric("GMF Momentum", f"{current_gmf_momentum:+.3f}/day")
+                    # Display metrics...
                     
-                    # Create display dataframe
-                    display_df = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum']].copy()
+                    # Create display dataframe with Signal Score for gradient
+                    display_df_with_score = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum', 'Signal Score']].copy()
                     
-                    # Create a color mapping based on Signal Score for row coloring
-                    row_colors = []
-                    for score in screener_df['Signal Score']:
-                        if score >= 8:
-                            row_colors.append('#000000')  # Black for top signals
-                        elif score == 7:
-                            row_colors.append('#333333')  # Dark gray for good signals
-                        elif 3 <= score <= 6:
-                            row_colors.append('#666666')  # Medium gray for neutral
-                        else:
-                            row_colors.append('#999999')  # Light gray for poor signals
+                    # Apply gradient based on Signal Score
+                    styled_df = display_df_with_score.style.background_gradient(
+                        subset=['Signal Score'], 
+                        cmap='Greys',  # Black to white gradient
+                        vmin=1, vmax=9  # Signal Score range
+                    )
                     
-                    # Apply row coloring
-                    styled_df = display_df.style
+                    # Hide the Signal Score column after applying gradient
+                    styled_df = styled_df.hide(axis='columns', subset=['Signal Score'])
                     
-                    # Apply black/gray row background colors
-                    for i, color in enumerate(row_colors):
-                        styled_df = styled_df.apply(
-                            lambda x: [f'background-color: {color}; color: white' if color else ''],
-                            axis=1, 
-                            subset=pd.IndexSlice[i:i+1]
-                        )
-                    
-                    # Apply individual column styling on top of row colors
+                    # Apply individual column styling
                     styled_df = styled_df.map(style_screener_corr, subset=['60D Corr %'])
                     styled_df = styled_df.map(style_screener_signal, subset=['Signal'])
                     
-                    st.markdown(f"### 📋 Screening Results ({len(display_df)} stocks)")
+                    st.markdown(f"### 📋 Screening Results ({len(display_df_with_score)} stocks)")
                     st.dataframe(styled_df, use_container_width=True, height=400)
                     
                     # Download option
