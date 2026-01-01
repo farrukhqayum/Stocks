@@ -982,10 +982,9 @@ with st.expander("Run Correlation-Based Screener"):
     
     screener_tickers = st.text_area(
         "Enter tickers to screen (one per line or comma separated):",
-        value="""AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA, 
-        COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, 
-        BABA, XPEV, NIO, U, INTC, SNAP, UNH
-        """,
+        value="""AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA
+JPM, JNJ, V, PG, XOM, BAC
+WMT, DIS, NFLX, MA, HD, MCD""",
         height=150
     )
     
@@ -1005,6 +1004,37 @@ with st.expander("Run Correlation-Based Screener"):
     if len(tickers_list) > 50:
         st.warning(f"Limiting to first 50 tickers (you entered {len(tickers_list)})")
         tickers_list = tickers_list[:50]
+    
+    # Define styling functions FIRST
+    def style_screener_corr(val):
+        """Style the correlation percentage column"""
+        if pd.isna(val):
+            return 'color: gray; font-style: italic'
+        elif val > 60:
+            return 'background-color: #006400; color: white; font-weight: bold'
+        elif val > 30:
+            return 'background-color: #228B22; color: white'
+        elif val > 10:
+            return 'background-color: #32CD32; color: black'
+        elif val < -60:
+            return 'background-color: #8B0000; color: white; font-weight: bold'
+        elif val < -30:
+            return 'background-color: #B22222; color: white'
+        elif val < -10:
+            return 'background-color: #DC143C; color: white'
+        else:
+            return 'background-color: #696969; color: white'
+    
+    def style_screener_signal(val):
+        """Style the Signal emoji column"""
+        if "🟢" in val:
+            return 'background-color: #155724; color: white; font-weight: bold'
+        elif "🔴" in val:
+            return 'background-color: #721c24; color: white; font-weight: bold'
+        elif "🟡" in val:
+            return 'background-color: #856404; color: white'
+        else:
+            return 'background-color: #6c757d; color: white'
     
     if tickers_list and st.button("Run 60-Day Correlation Screening"):
         with st.spinner("Analyzing 60-day correlations with GMF..."):
@@ -1104,42 +1134,53 @@ with st.expander("Run Correlation-Based Screener"):
                     screener_df = pd.DataFrame(screener_results)
                     screener_df = screener_df.sort_values('Signal Score', ascending=False)
                     
-                    # Display metrics...
+                    # Display metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        high_corr = len([x for x in screener_results if x['60D Corr %'] > 60])
+                        st.metric("High Correlation (>60%)", high_corr)
+                    with col2:
+                        neg_corr = len([x for x in screener_results if x['60D Corr %'] < -30])
+                        st.metric("Negative Correlation (<-30%)", neg_corr)
+                    with col3:
+                        low_corr = len([x for x in screener_results if -30 <= x['60D Corr %'] <= 60])
+                        st.metric("Low/Moderate Correlation", low_corr)
+                    with col4:
+                        current_gmf_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
+                        st.metric("GMF Momentum", f"{current_gmf_momentum:+.3f}/day")
                     
-                    # Create a copy for display with Signal Score included for styling
-                    display_df_full = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum', 'Signal Score']].copy()
+                    # Create display dataframe
+                    display_df = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum']].copy()
                     
-                    # Define black row coloring function
-                    def color_rows_black(row):
-                        signal_score = row['Signal Score']
-                        
-                        # Black for top signals (Score 8-9)
-                        if signal_score >= 8:
-                            return ['background-color: #000000; color: white'] * 6
-                        # Dark gray for good signals (Score 7)
-                        elif signal_score == 7:
-                            return ['background-color: #333333; color: white'] * 6
-                        # Medium gray for neutral/hedge signals (Score 3-6)
-                        elif 3 <= signal_score <= 6:
-                            return ['background-color: #666666; color: white'] * 6
-                        # Light gray for poor signals (Score 1-2)
+                    # Create a color mapping based on Signal Score for row coloring
+                    row_colors = []
+                    for score in screener_df['Signal Score']:
+                        if score >= 8:
+                            row_colors.append('#000000')  # Black for top signals
+                        elif score == 7:
+                            row_colors.append('#333333')  # Dark gray for good signals
+                        elif 3 <= score <= 6:
+                            row_colors.append('#666666')  # Medium gray for neutral
                         else:
-                            return ['background-color: #999999; color: white'] * 6
-                    
-                    st.markdown(f"### 📋 Screening Results ({len(display_df_full)} stocks)")
+                            row_colors.append('#999999')  # Light gray for poor signals
                     
                     # Apply row coloring
-                    styled_df = display_df_full.style.apply(color_rows_black, axis=1)
+                    styled_df = display_df.style
                     
-                    # Add individual column styling
+                    # Apply black/gray row background colors
+                    for i, color in enumerate(row_colors):
+                        styled_df = styled_df.apply(
+                            lambda x: [f'background-color: {color}; color: white' if color else ''],
+                            axis=1, 
+                            subset=pd.IndexSlice[i:i+1]
+                        )
+                    
+                    # Apply individual column styling on top of row colors
                     styled_df = styled_df.map(style_screener_corr, subset=['60D Corr %'])
                     styled_df = styled_df.map(style_screener_signal, subset=['Signal'])
                     
-                    # Display without Signal Score column
-                    display_columns = ['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum']
-                    styled_display_df = styled_df.format(precision=1).hide(axis='columns', subset=['Signal Score'])
-                    
-                    st.dataframe(styled_display_df, use_container_width=True, height=400)
+                    st.markdown(f"### 📋 Screening Results ({len(display_df)} stocks)")
+                    st.dataframe(styled_df, use_container_width=True, height=400)
                     
                     # Download option
                     csv = screener_df.to_csv(index=False)
@@ -1157,6 +1198,8 @@ with st.expander("Run Correlation-Based Screener"):
                 
             except Exception as e:
                 st.error(f"Error in screener: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
 # ========== HELP & GUIDES ==========
 st.markdown("---")
