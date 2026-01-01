@@ -5,6 +5,8 @@ import numpy as np
 import altair as alt
 from datetime import datetime, timedelta
 
+st.caption("Data sourced via Yahoo Finance • Updated dynamically")
+
 st.set_page_config(
     page_title="Global Money Flow Curve (GMF)",
     layout="wide",
@@ -19,8 +21,6 @@ to estimate global risk appetite.
 - **Risk-Off Assets**: Gold, US Dollar, Treasury Bonds, VIX (inverse)
 - **GMF Index**: Composite of weighted asset returns showing capital rotation
 """)
-
-st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
 st.sidebar.header("⚙️ Settings")
 start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=365*3))
@@ -684,7 +684,7 @@ Enter multiple tickers to compare their correlation with Global Money Flow.
 
 # Use a text input in the main area for tickers
 tickers_input_main = st.text_input("Enter tickers separated by commas (min 3 required):", 
-                                  value="AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA, JPM, JNJ, V, PG",
+                                  value="COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, BABA, XPEV, NIO, U, INTC, SNAP, UNH",
                                   key="multi_ticker_input")
 
 ticker_list = [t.strip().upper() for t in tickers_input_main.split(",") if t.strip()]
