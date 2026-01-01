@@ -85,6 +85,20 @@ st.sidebar.markdown("---")
 st.sidebar.header("💹 Stock Analysis")
 user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
+def color_rows(row):
+    if row['Signal Score'] >= 8:
+        return ['background-color: #006400; color: white'] * len(row)  # Dark green for strong buy
+    elif row['Signal Score'] >= 7:
+        return ['background-color: #228B22; color: white'] * len(row)  # Green for buy
+    elif row['Signal Score'] <= 2:
+        return ['background-color: #8B0000; color: white'] * len(row)  # Dark red for strong sell
+    elif row['Signal Score'] <= 3:
+        return ['background-color: #B22222; color: white'] * len(row)  # Red for sell
+    elif 4 <= row['Signal Score'] <= 6:
+        return ['background-color: #696969; color: white'] * len(row)  # Gray for neutral
+    else:
+        return [''] * len(row)
+        
 # ========== DATA LOADING FUNCTIONS ==========
 def load_data(tickers, start, end):
     """Load data from Yahoo Finance"""
@@ -914,27 +928,27 @@ if len(ticker_list) >= 3:
         if not corr_df.empty:
             st.markdown(f"### {cw_}D Rolling Correlation with Global Money Flow")
             
-            # FIXED: Color coding function that returns correct number of elements
-            def color_corr(val):
+            # FIXED: Simplified styling - only style the Correlation % column
+            def style_correlation(val):
                 if pd.isna(val):
-                    return ['color: gray; font-style: italic'] * 5  # Return list for all columns
+                    return 'color: gray; font-style: italic'
                 elif val >= 60:
-                    return ['color: #006400; font-weight: bold; background-color: #e6ffe6'] * 5
+                    return 'color: #006400; font-weight: bold; background-color: #e6ffe6'
                 elif val >= 30:
-                    return ['color: #228B22'] * 5
+                    return 'color: #228B22;'
                 elif val >= 10:
-                    return ['color: #32CD32'] * 5
+                    return 'color: #32CD32;'
                 elif val <= -60:
-                    return ['color: #8B0000; font-weight: bold; background-color: #ffe6e6'] * 5
+                    return 'color: #8B0000; font-weight: bold; background-color: #ffe6e6'
                 elif val <= -30:
-                    return ['color: #B22222'] * 5
+                    return 'color: #B22222;'
                 elif val <= -10:
-                    return ['color: #DC143C'] * 5
+                    return 'color: #DC143C;'
                 else:
-                    return ['color: #696969'] * 5
+                    return 'color: #696969;'
             
-            # Apply styling
-            styled_df = corr_df.style.apply(lambda x: color_corr(x['Correlation %']), axis=1, subset=['Ticker', 'Correlation %'])
+            # Apply styling only to the Correlation % column
+            styled_df = corr_df.style.map(style_correlation, subset=['Correlation %'])
             st.dataframe(styled_df, use_container_width=True, height=400)
             
     except Exception as e:
@@ -968,9 +982,10 @@ with st.expander("Run Correlation-Based Screener"):
     
     screener_tickers = st.text_area(
         "Enter tickers to screen (one per line or comma separated):",
-        value="""AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA
-JPM, JNJ, V, PG, XOM, BAC
-WMT, DIS, NFLX, MA, HD, MCD""",
+        value="""AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA, 
+        COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, 
+        BABA, XPEV, NIO, U, INTC, SNAP, UNH
+        """,
         height=150
     )
     
@@ -1104,23 +1119,35 @@ WMT, DIS, NFLX, MA, HD, MCD""",
                         current_gmf_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
                         st.metric("GMF Momentum", f"{current_gmf_momentum:+.3f}/day")
                     
-                    # FIXED: Color function that returns correct number of elements
-                    def color_screener(row):
-                        corr = row['60D Corr %']
-                        if corr > 60:
-                            return ['background-color: #d4edda'] * 5  # Match number of columns
-                        elif corr < -30:
-                            return ['background-color: #f8d7da'] * 5
+                    # FIXED: Use map for single column styling
+                    def style_screener_corr(val):
+                        if val > 60:
+                            return 'background-color: #d4edda; color: #155724; font-weight: bold'
+                        elif val < -30:
+                            return 'background-color: #f8d7da; color: #721c24; font-weight: bold'
                         else:
-                            return ['background-color: #fff3cd'] * 5
+                            return 'background-color: #fff3cd; color: #856404'
                     
-                    # Display DataFrame - FIXED: Only pass the columns we want to display
+                    def style_screener_signal(val):
+                        if "🟢" in val:
+                            return 'background-color: #d4edda; color: #155724; font-weight: bold'
+                        elif "🔴" in val:
+                            return 'background-color: #f8d7da; color: #721c24; font-weight: bold'
+                        elif "🟡" in val:
+                            return 'background-color: #fff3cd; color: #856404'
+                        else:
+                            return 'background-color: #f8f9fa; color: #6c757d'
+                    
+                    # Display DataFrame with proper styling
                     display_df = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum']]
                     st.markdown(f"### 📋 Screening Results ({len(display_df)} stocks)")
                     
-                    # Apply styling to specific columns
-                    styled_display_df = display_df.style.apply(color_screener, axis=1, 
-                                                              subset=['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum'])
+                    # Style each column individually
+                    styled_display_df = display_df.style
+                    styled_display_df = display_df.style.apply(color_rows, axis=1)
+                    styled_display_df = styled_display_df.map(style_screener_corr, subset=['60D Corr %'])
+                    styled_display_df = styled_display_df.map(style_screener_signal, subset=['Signal'])
+                    
                     st.dataframe(styled_display_df, use_container_width=True, height=400)
                     
                     # Download option
