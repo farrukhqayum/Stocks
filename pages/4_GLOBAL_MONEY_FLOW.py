@@ -291,7 +291,9 @@ df_plot['Above'] = df_plot['Money Flow Curve'] > df_plot['Smoothed Curve']
 
 # Create GMF Chart
 st.subheader("🌊 GMF Curves")
-base = alt.Chart(df_plot).encode(x='Date:T')
+base = alt.Chart(df_plot).encode(
+    x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date'))
+)
 zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
 
 curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
@@ -323,7 +325,7 @@ momentum_chart = (
     alt.Chart(df_plot)
     .mark_bar(opacity=0.5)
     .encode(
-        x='Date:T',
+        x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
         y=alt.Y('Momentum:Q', title='Daily Rate of Change (%)'),
         color=alt.condition(
             alt.datum.Momentum > 0,
@@ -334,6 +336,7 @@ momentum_chart = (
     )
 )
 
+# Add momentum threshold lines
 mom_threshold_lines = alt.Chart(pd.DataFrame({'y': [MOM_LOW, 0, MOM_HIGH]})).mark_rule(
     color='gray', strokeDash=[3, 3]
 ).encode(y='y')
@@ -347,7 +350,7 @@ zscore_chart = (
     alt.Chart(df_plot)
     .mark_area(opacity=0.6)
     .encode(
-        x='Date:T',
+        x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
         y=alt.Y('Z-Score:Q', title='Z-Score'),
         color=alt.condition(
             alt.datum['Z-Score'] > 0,
@@ -358,6 +361,7 @@ zscore_chart = (
     )
 )
 
+# Add Z-Score threshold lines
 z_threshold_lines = alt.Chart(pd.DataFrame({'y': [-Z_EXTREME, -0.5, 0, 0.5, Z_EXTREME]})).mark_rule(
     color='gray', strokeDash=[3, 3]
 ).encode(y='y')
@@ -382,7 +386,7 @@ with st.expander("📊 Show Underlying Asset Returns"):
         alt.Chart(cumulative_melted)
         .mark_area(opacity=0.6)
         .encode(
-            x='Date:T',
+            x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
             y='Cumulative Contribution:Q',
             color='Asset:N',
             tooltip=['Date:T', 'Asset:N', alt.Tooltip('Cumulative Contribution:Q', format='.2f')]
@@ -631,10 +635,10 @@ with st.expander("⚠️ Divergence Check: S&P 500 vs. GMF Momentum"):
             'Date': rolling_corr.index,
             'Correlation': rolling_corr
         }).dropna()
-        
+                
         if not corr_plot_df.empty:
             corr_chart = alt.Chart(corr_plot_df).mark_line().encode(
-                x='Date:T',
+                x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
                 y=alt.Y('Correlation:Q', scale=alt.Scale(domain=[-1, 1])),
                 tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.2f')]
             ).properties(title=f"{lookback}-Day Rolling Correlation")
@@ -794,11 +798,16 @@ if not gf_aligned.empty and not stk_aligned.empty:
     # Correlation chart
     if not rolling_corr_df.empty:
         corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
-            x=alt.X('Date:T', scale=shared_x_scale, title=None),
+            x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
             y=alt.Y('Correlation:Q', title=f'{user_ticker} - Correlation (%)', 
                    scale=alt.Scale(domain=[-100, 100])),
             tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
         ).properties(height=150)
+
+# Price vs Flow chart
+base = alt.Chart(combined_long_df).encode(
+    x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date'))
+)
         
         corr_zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
         corr_chart = corr_chart + corr_zero_line
@@ -879,82 +888,6 @@ if not gf_aligned.empty and not stk_aligned.empty:
         """)
 else:
     st.warning(f"Insufficient overlapping data between {user_ticker} and GMF index for analysis.")
-
-# Multi-Stock Analysis
-st.subheader("Multi-Stock Correlation Analysis")
-tickers_input_main = st.text_input("Enter tickers separated by commas:", 
-                                  value="AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA",
-                                  key="multi_ticker_input")
-
-ticker_list = [t.strip().upper() for t in tickers_input_main.split(",") if t.strip()]
-
-if len(ticker_list) >= 3:
-    all_tickers_dict = {t: t for t in ticker_list}
-    try:
-        all_data = load_data(all_tickers_dict, start_date, end_date)
-        
-        corr_results = []
-        for ticker in ticker_list:
-            try:
-                if ticker not in all_data.columns:
-                    corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
-                    continue
-
-                stock_data = all_data[ticker].fillna(method='ffill')
-                stock_smoothed = stock_data.rolling(window=5, min_periods=1).mean()
-                stock_smoothed.iloc[-1] = stock_data.iloc[-1]
-                
-                stock_aligned, gmf_aligned = stock_smoothed.align(gf_single, join='inner')
-                
-                if len(stock_aligned) >= cw_ and len(gmf_aligned) >= cw_:
-                    rolling_corr = stock_aligned.rolling(cw_, min_periods=cw_//2).corr(gmf_aligned)
-                    if not rolling_corr.empty:
-                        latest_corr_val = rolling_corr.iloc[-1]
-                        if pd.notna(latest_corr_val):
-                            corr_results.append({
-                                'Ticker': ticker, 
-                                'Correlation %': round(latest_corr_val * 100, 1)
-                            })
-                            continue
-                
-                corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
-
-            except Exception as e:
-                corr_results.append({'Ticker': ticker, 'Correlation %': float('nan')})
-
-        corr_df = pd.DataFrame(corr_results)
-        corr_df = corr_df.sort_values('Correlation %', na_position='last', ascending=False)
-
-        if not corr_df.empty:
-            st.markdown(f"### {cw_}D Rolling Correlation with Global Money Flow")
-            
-            # FIXED: Simplified styling - only style the Correlation % column
-            def style_correlation(val):
-                if pd.isna(val):
-                    return 'color: gray; font-style: italic'
-                elif val >= 60:
-                    return 'color: #006400; font-weight: bold; background-color: #e6ffe6'
-                elif val >= 30:
-                    return 'color: #228B22;'
-                elif val >= 10:
-                    return 'color: #32CD32;'
-                elif val <= -60:
-                    return 'color: #8B0000; font-weight: bold; background-color: #ffe6e6'
-                elif val <= -30:
-                    return 'color: #B22222;'
-                elif val <= -10:
-                    return 'color: #DC143C;'
-                else:
-                    return 'color: #696969;'
-            
-            # Apply styling only to the Correlation % column
-            styled_df = corr_df.style.map(style_correlation, subset=['Correlation %'])
-            st.dataframe(styled_df, use_container_width=True, height=400)
-            
-    except Exception as e:
-        st.error(f"Failed to load data for tickers: {e}")
-else:
-    st.info("Enter at least 3 tickers separated by commas to analyze.")
 
 # ========== STOCK SCREENER ==========
 st.markdown("---")
