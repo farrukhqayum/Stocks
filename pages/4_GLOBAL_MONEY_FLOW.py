@@ -268,6 +268,228 @@ with col3:
     st.metric("30-Day Momentum", f"{latest_momentum:+.0f}%/day",
               delta="Accelerating" if abs(latest_momentum) > MOM_HIGH else "Stable")
 
+# ASSETS POSITIONING
+with st.expander("📈 Cross-Asset Relative Strength & Stock Positioning"):
+    
+    st.markdown("""
+    ### How to Position Based on Cross-Asset Relationships
+    
+    1. **Commodities vs. Emerging Markets (Risk-On Hierarchy):**
+       - Commodities ↑ + EM ↑ = **Maximum Risk-On** → Buy cyclical, materials, industrials
+       - Commodities ↑ + EM ↓ = **Stagflation Risk** → Buy energy, materials, avoid EM stocks
+       - Commodities ↓ + EM ↑ = **Growth Recovery** → Buy tech, consumer discretionary
+       - Commodities ↓ + EM ↓ = **Risk-Off** → Defensive sectors only
+    
+    2. **Treasuries vs. Dollar (Liquidity Signals):**
+       - Treasuries ↑ (yields ↓) + Dollar ↓ = **Liquidity Expansion** → Growth stocks
+       - Treasuries ↑ (yields ↓) + Dollar ↑ = **Flight to Quality** → Defensive/quality
+       - Treasuries ↓ (yields ↑) + Dollar ↓ = **Reflation Trade** → Value/cyclicals
+       - Treasuries ↓ (yields ↑) + Dollar ↑ = **Tightening Risk** → Reduce leverage
+    """)
+    
+    # Calculate relative strength ratios
+    try:
+        # Commodity to EM ratio
+        if 'Crude Oil (CL)' in data.columns and 'Emerging Markets (EEM)' in data.columns:
+            commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
+            commod_em_norm = (commod_em_ratio / commod_em_ratio.iloc[0] * 100)
+            
+            # Treasury to Dollar ratio
+        if 'US 10Y Treasury (IEF)' in data.columns and 'US Dollar Index (DXY)' in data.columns:
+            # Inverse relationship: Lower yields (higher IEF) vs stronger dollar
+            treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
+            treas_dxy_norm = (treasury_dollar_ratio / treasury_dollar_ratio.iloc[0] * 100)
+            
+            # Create positioning signals
+            positioning_df = pd.DataFrame({
+                'Date': data.index,
+                'GMF_Index': money_flow_smooth,
+                'GMF_Momentum': money_flow_momentum,
+                'Commodity/EM_Ratio': commod_em_norm if 'commod_em_norm' in locals() else pd.Series(index=data.index),
+                'Treasury/Dollar_Ratio': treas_dxy_norm if 'treas_dxy_norm' in locals() else pd.Series(index=data.index)
+            }).dropna()
+            
+            # Calculate positioning score
+            if not positioning_df.empty:
+                # Recent values (last 20 days average)
+                recent_gmf = positioning_df['GMF_Index'].iloc[-20:].mean()
+                recent_mom = positioning_df['GMF_Momentum'].iloc[-20:].mean()
+                recent_commod_em = positioning_df['Commodity/EM_Ratio'].iloc[-1] if 'Commodity/EM_Ratio' in positioning_df.columns else 100
+                recent_treas_dxy = positioning_df['Treasury/Dollar_Ratio'].iloc[-1] if 'Treasury/Dollar_Ratio' in positioning_df.columns else 100
+                
+                # Determine positioning
+                equity_allocation = 50  # Start neutral at 50%
+                
+                # GMF adjustment
+                if recent_gmf > 20:
+                    equity_allocation += 20  # Strong risk-on
+                elif recent_gmf > 0:
+                    equity_allocation += 10   # Mild risk-on
+                elif recent_gmf < -20:
+                    equity_allocation -= 20   # Strong risk-off
+                elif recent_gmf < 0:
+                    equity_allocation -= 10   # Mild risk-off
+                
+                # Momentum adjustment
+                if recent_mom > 0.3:
+                    equity_allocation += 15   # Accelerating up
+                elif recent_mom > 0.1:
+                    equity_allocation += 5    # Mildly positive
+                elif recent_mom < -0.3:
+                    equity_allocation -= 15   # Accelerating down
+                elif recent_mom < -0.1:
+                    equity_allocation -= 5    # Mildly negative
+                
+                # Commodity/EM adjustment
+                if 'commod_em_norm' in locals():
+                    if recent_commod_em > 110:
+                        equity_allocation -= 10  # Commodities outperforming EM (caution)
+                    elif recent_commod_em < 90:
+                        equity_allocation += 5   # EM outperforming commodities (growth positive)
+                
+                # Clamp between 0 and 100
+                equity_allocation = max(0, min(100, equity_allocation))
+                
+                # Determine positioning strategy
+                if equity_allocation >= 70:
+                    positioning = "**MAXIMUM RISK-ON** - Full equity allocation"
+                    pos_color = "#4caf50"
+                    sectors = "Cyclicals, Tech, Small Caps, High Beta"
+                elif equity_allocation >= 60:
+                    positioning = "**RISK-ON** - Above average equity"
+                    pos_color = "#81c784"
+                    sectors = "Tech, Consumer Discretionary, Industrials"
+                elif equity_allocation >= 40:
+                    positioning = "**NEUTRAL** - Balanced allocation"
+                    pos_color = "#ffb74d"
+                    sectors = "Balanced mix, Quality growth"
+                elif equity_allocation >= 30:
+                    positioning = "**RISK-OFF** - Below average equity"
+                    pos_color = "#ef5350"
+                    sectors = "Defensive, Healthcare, Utilities, Consumer Staples"
+                else:
+                    positioning = "**MAXIMUM RISK-OFF** - Minimal equity"
+                    pos_color = "#d32f2f"
+                    sectors = "Cash, Bonds, Defensive sectors only"
+                
+                st.markdown(f"""
+                <div style="padding:1.2em; border-radius:12px; text-align:center; background-color:{pos_color}; color:white; font-size:1.3em; font-weight:bold;">
+                Recommended Equity Allocation: {equity_allocation:.0f}%<br>
+                {positioning}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown(f"""
+                **Recommended Sectors:** {sectors}
+                
+                **Current Readings:**
+                - GMF Index: {recent_gmf:+.1f}
+                - GMF Momentum: {recent_mom:+.3f}/day
+                - Commodity/EM Ratio: {recent_commod_em:.1f}
+                - Treasury/Dollar Ratio: {recent_treas_dxy:.1f}
+                """)
+                
+                # Plot positioning over time
+                st.markdown("### 📊 Positioning Score Over Time")
+                
+                # Create a simple positioning score history
+                positioning_history = []
+                for i in range(len(positioning_df)):
+                    row = positioning_df.iloc[i]
+                    score = 50
+                    if row['GMF_Index'] > 20: score += 20
+                    elif row['GMF_Index'] > 0: score += 10
+                    elif row['GMF_Index'] < -20: score -= 20
+                    elif row['GMF_Index'] < 0: score -= 10
+                    
+                    if 'GMF_Momentum' in row:
+                        if row['GMF_Momentum'] > 0.3: score += 15
+                        elif row['GMF_Momentum'] > 0.1: score += 5
+                        elif row['GMF_Momentum'] < -0.3: score -= 15
+                        elif row['GMF_Momentum'] < -0.1: score -= 5
+                    
+                    positioning_history.append(score)
+                
+                positioning_df['Positioning_Score'] = positioning_history
+                
+                pos_chart = alt.Chart(positioning_df.reset_index()).mark_line(color='blue', strokeWidth=2).encode(
+                    x='Date:T',
+                    y=alt.Y('Positioning_Score:Q', title='Positioning Score', scale=alt.Scale(domain=[0, 100])),
+                    tooltip=['Date:T', alt.Tooltip('Positioning_Score:Q', format='.0f')]
+                ).properties(height=300)
+                
+                # Add threshold regions
+                max_risk_on = alt.Chart(pd.DataFrame({'y': [70]})).mark_area(opacity=0.1, color='green').encode(y='y', y2=alt.value(100))
+                risk_on = alt.Chart(pd.DataFrame({'y': [60]})).mark_area(opacity=0.1, color='lightgreen').encode(y='y', y2=alt.value(70))
+                neutral = alt.Chart(pd.DataFrame({'y': [40]})).mark_area(opacity=0.1, color='yellow').encode(y='y', y2=alt.value(60))
+                risk_off = alt.Chart(pd.DataFrame({'y': [30]})).mark_area(opacity=0.1, color='orange').encode(y='y', y2=alt.value(40))
+                max_risk_off = alt.Chart(pd.DataFrame({'y': [0]})).mark_area(opacity=0.1, color='red').encode(y='y', y2=alt.value(30))
+                
+                st.altair_chart(pos_chart + max_risk_on + risk_on + neutral + risk_off + max_risk_off, use_container_width=True)
+    
+    except Exception as e:
+        st.warning(f"Could not calculate positioning: {e}")
+
+# Add this as another expander
+with st.expander("🏗️ Sector Rotation Matrix"):
+
+    st.markdown("""
+    ### Sector Rotation Based on GMF Phase
+    
+    | GMF Phase | Z-Score Range | Momentum | Recommended Sectors | Avoid |
+    |-----------|---------------|----------|---------------------|-------|
+    | **Early Bull** | -1.5 to 0 | Turning positive | Cyclicals, Financials, Small Caps | Defensives |
+    | **Mid Bull** | 0 to 1.0 | Positive | Tech, Industrials, Materials | Early cyclicals |
+    | **Late Bull** | 1.0 to 1.5 | High but peaking | Energy, Staples, Healthcare | High-beta tech |
+    | **Early Bear** | 1.5 to 0.5 | Turning negative | Defensives, Utilities, Bonds | Cyclicals |
+    | **Mid Bear** | 0.5 to -1.0 | Negative | Consumer Staples, Healthcare, Gold | Growth stocks |
+    | **Late Bear** | -1.5 to -1.0 | Negative but slowing | Early cyclicals, Banks | Defensives at highs |
+    """)
+    
+    # Current sector recommendations based on GMF
+    if 'latest_zscore' in locals() and 'latest_momentum' in locals():
+        if latest_zscore < -1.0 and latest_momentum > 0:
+            stage = "**LATE BEAR / EARLY BULL TRANSITION**"
+            sectors = "Banks, Homebuilders, Consumer Discretionary, Small Caps"
+            rationale = "Oversold bounce + improving momentum"
+        elif latest_zscore < 0 and latest_momentum > 0.2:
+            stage = "**EARLY BULL**"
+            sectors = "Financials, Industrials, Materials, Consumer Discretionary"
+            rationale = "Risk appetite returning, early cyclicals lead"
+        elif 0 <= latest_zscore < 1.0 and latest_momentum > 0.1:
+            stage = "**MID BULL**"
+            sectors = "Technology, Communications, Healthcare, Industrials"
+            rationale = "Sustainable uptrend, growth sectors outperform"
+        elif latest_zscore >= 1.0 and latest_momentum > 0:
+            stage = "**LATE BULL**"
+            sectors = "Energy, Materials, Staples, Utilities"
+            rationale = "Late cycle, inflationary pressures, defensive rotation"
+        elif latest_zscore >= 0.5 and latest_momentum < 0:
+            stage = "**EARLY BEAR**"
+            sectors = "Consumer Staples, Utilities, Healthcare, Gold"
+            rationale = "Risk-off beginning, defensive positioning"
+        elif latest_zscore < 0.5 and latest_momentum < -0.1:
+            stage = "**MID BEAR**"
+            sectors = "Staples, Utilities, Bonds, Gold Miners"
+            rationale = "Full risk-off, capital preservation"
+        else:
+            stage = "**TRANSITION / CONSOLIDATION**"
+            sectors = "Quality Growth, Dividend Payers, Balanced"
+            rationale = "Unclear trend, focus on quality"
+        
+        st.markdown(f"""
+        **Current Market Stage:** {stage}
+        
+        **Recommended Sectors:** {sectors}
+        
+        **Rationale:** {rationale}
+        
+        **Key Levels:**
+        - Z-Score: {latest_zscore:.2f} {'(Overbought)' if latest_zscore > 1.5 else '(Oversold)' if latest_zscore < -1.5 else '(Neutral)'}
+        - Momentum: {latest_momentum:.3f}/day {'(Accelerating)' if abs(latest_momentum) > 0.3 else '(Moderate)' if abs(latest_momentum) > 0.1 else '(Slowing)'}
+        """)
+
+
 # Prepare data for plotting
 df_plot = pd.DataFrame({
     "Date": money_flow_raw.index,
@@ -818,6 +1040,130 @@ if len(ticker_list) >= 3:
 else:
     st.info("Enter at least 3 tickers separated by commas to analyze.")
 
+# Add this expander for correlation-based screening
+with st.expander("🔍 Correlation-Based Stock Screener"):
+    
+    st.markdown("""
+    ### How to Use Correlation for Stock Selection
+    
+    **High Correlation (>60%) with GMF:**
+    - **When GMF is rising**: Buy these stocks first
+    - **When GMF is falling**: Sell/avoid these stocks
+    - **Best for**: Trend following, momentum strategies
+    
+    **Negative Correlation (<-30%) with GMF:**
+    - **When GMF is falling**: Buy these as hedges
+    - **When GMF is rising**: Reduce exposure
+    - **Best for**: Portfolio protection, defensive allocation
+    
+    **Low Correlation (±0-30%) with GMF:**
+    - **Always**: Focus on stock-specific factors
+    - **Best for**: Alpha generation, diversification
+    """)
+    
+    # Create a simple correlation-based screener
+    screener_tickers = st.text_area(
+        "Enter tickers to screen (one per line or comma separated):",
+        value="AAPL\nMSFT\nGOOGL\nAMZN\nTSLA\nNVDA\nJPM\nJNJ\nV\nPG\nXOM\nBAC\nWMT\nDIS\nNFLX",
+        height=100
+    )
+    
+    # Parse tickers
+    tickers_list = []
+    for line in screener_tickers.split('\n'):
+        if ',' in line:
+            tickers_list.extend([t.strip().upper() for t in line.split(',') if t.strip()])
+        else:
+            if line.strip():
+                tickers_list.append(line.strip().upper())
+    
+    if tickers_list and st.button("Run Correlation Screening"):
+        with st.spinner("Analyzing correlations..."):
+            try:
+                # Load data for screener
+                screener_data = {}
+                for ticker in tickers_list[:20]:  # Limit to 20 for performance
+                    try:
+                        raw = yf.download(ticker, start=start_date, end=end_date, progress=False)
+                        if isinstance(raw.columns, pd.MultiIndex):
+                            if 'Adj Close' in raw.columns.get_level_values(0):
+                                screener_data[ticker] = raw['Adj Close'].squeeze()
+                        else:
+                            if 'Adj Close' in raw.columns:
+                                screener_data[ticker] = raw['Adj Close']
+                    except:
+                        continue
+                
+                if screener_data:
+                    # Calculate correlations
+                    screener_results = []
+                    for ticker, prices in screener_data.items():
+                        if isinstance(prices, pd.Series) and not prices.empty:
+                            # Smooth and align
+                            stock_smooth = prices.rolling(5, min_periods=1).mean()
+                            stock_smooth.iloc[-1] = prices.iloc[-1]
+                            
+                            stock_aligned, gmf_aligned = stock_smooth.align(gf_single, join='inner')
+                            
+                            if len(stock_aligned) >= 60:
+                                corr = stock_aligned.rolling(60, min_periods=30).corr(gmf_aligned)
+                                if not corr.empty:
+                                    latest_corr = corr.iloc[-1]
+                                    if pd.notna(latest_corr):
+                                        # Determine recommendation
+                                        if latest_corr > 0.6:
+                                            rec = "BUY (GMF Rising) / SELL (GMF Falling)"
+                                            rec_color = "🟢" if money_flow_momentum.iloc[-1] > 0 else "🔴"
+                                        elif latest_corr < -0.3:
+                                            rec = "BUY (GMF Falling) / SELL (GMF Rising)"
+                                            rec_color = "🟢" if money_flow_momentum.iloc[-1] < 0 else "🔴"
+                                        else:
+                                            rec = "NEUTRAL (Stock Specific)"
+                                            rec_color = "⚪"
+                                        
+                                        screener_results.append({
+                                            'Ticker': ticker,
+                                            'Correlation %': round(latest_corr * 100, 1),
+                                            'Recommendation': rec,
+                                            'Signal': rec_color
+                                        })
+                    
+                    if screener_results:
+                        screener_df = pd.DataFrame(screener_results)
+                        screener_df = screener_df.sort_values('Correlation %', ascending=False)
+                        
+                        # Color function
+                        def color_screener(row):
+                            corr = row['Correlation %']
+                            if corr > 60:
+                                return ['background-color: #e6ffe6'] * len(row)
+                            elif corr < -30:
+                                return ['background-color: #ffe6e6'] * len(row)
+                            else:
+                                return ['background-color: #f5f5f5'] * len(row)
+                        
+                        st.dataframe(screener_df.style.apply(color_screener, axis=1), use_container_width=True)
+                        
+                        # Summary statistics
+                        high_corr = len([x for x in screener_results if x['Correlation %'] > 60])
+                        neg_corr = len([x for x in screener_results if x['Correlation %'] < -30])
+                        low_corr = len(screener_results) - high_corr - neg_corr
+                        
+                        st.markdown(f"""
+                        **Screener Summary:**
+                        - High Correlation (>60%): {high_corr} stocks
+                        - Negative Correlation (<-30%): {neg_corr} stocks  
+                        - Low Correlation: {low_corr} stocks
+                        
+                        **Current GMF Momentum:** {money_flow_momentum.iloc[-1]:+.3f}/day
+                        **Action:** {'Focus on high correlation stocks' if money_flow_momentum.iloc[-1] > 0 else 'Focus on negative correlation stocks'}
+                        """)
+                    else:
+                        st.warning("No correlation data could be calculated for the entered tickers.")
+            
+            except Exception as e:
+                st.error(f"Error in screener: {e}")
+                
 # Interpretation Guide
 with st.expander("📖 Complete GMF Interpretation Guide"):
     st.markdown("""
