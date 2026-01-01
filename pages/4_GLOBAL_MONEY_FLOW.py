@@ -894,11 +894,11 @@ with st.expander("Run Correlation-Based Screener"):
     - **Best for**: Alpha generation, diversification, range-bound markets
     """)
     
-    screener_tickers = st.text_area(
-        "Enter tickers to screen (one per line or comma separated):",
-        value="""COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, BABA, XPEV, NIO, U, INTC, SNAP, UNH""",
-        height=150
-    )
+screener_tickers = st.text_area(
+    "Enter tickers to screen (one per line or comma separated):",
+    value="""COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, BABA, XPEV, NIO, U, INTC, SNAP, UNH""",
+    height=150
+)
     
 # Parse tickers
 tickers_list = []
