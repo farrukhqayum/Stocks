@@ -52,6 +52,54 @@ tickers = {asset: default_tickers[asset] for asset in selected_assets}
 
 st.sidebar.markdown("### Set Asset Weights (Positive=Risk-On, Negative=Risk-Off)")
 
+def get_trading_strategy(correlation, gmf_momentum):
+    """Generate trading strategy based on correlation and GMF momentum"""
+    if pd.isna(correlation) or pd.isna(gmf_momentum):
+        return "Insufficient data for strategy generation."
+    
+    if correlation > 0.6:
+        if gmf_momentum > 0:
+            return """
+            **Strategy:** Strong momentum play
+            - Enter on pullbacks to GMF support
+            - Use trailing stops (e.g., 10-15% below highs)
+            - Consider options for leverage (calls or bull spreads)
+            - Target: Ride the trend until correlation breaks below 50%
+            """
+        else:
+            return """
+            **Strategy:** Avoid or short
+            - High correlation + falling GMF = high risk
+            - Consider puts or bear spreads if trend confirms
+            - Wait for GMF to stabilize before considering longs
+            """
+    
+    elif correlation < -0.3:
+        if gmf_momentum < 0:
+            return """
+            **Strategy:** Defensive hedge
+            - Buy as portfolio protection
+            - Size appropriately (10-20% of portfolio for hedging)
+            - Hold until GMF shows signs of bottoming
+            - Consider covered calls for income
+            """
+        else:
+            return """
+            **Strategy:** Reduce hedge exposure
+            - Negative correlation + rising GMF = hedge underperforming
+            - Trim hedge positions
+            - Consider switching to cash or low-correlation assets
+            """
+    
+    else:  # Low/moderate correlation
+        return """
+        **Strategy:** Stock-specific focus
+        - Ignore GMF signals for this stock
+        - Focus on company fundamentals
+        - Technical analysis on stock chart
+        - Options strategies based on volatility
+        - Good for pairs trading or relative value
+        """
 default_weights = {
     "Bitcoin (BTC)": 0.25,      # Strong risk-on
     "S&P 500 (SPX)": 0.25,      # Strong risk-on  
@@ -1061,11 +1109,37 @@ with st.expander("🔍 Correlation-Based Stock Screener"):
     - **Best for**: Alpha generation, diversification
     """)
     
+# Add this expander for correlation-based screening (REVISED)
+with st.expander("🔍 Correlation-Based Stock Screener (60D)"):
+    
+    st.markdown("""
+    ### How to Use 60-Day Correlation for Stock Selection
+    
+    **High Correlation (>60%) with GMF:**
+    - **When GMF is rising**: Buy these stocks first (momentum plays)
+    - **When GMF is falling**: Sell/avoid these stocks
+    - **Best for**: Trend following, momentum strategies
+    
+    **Negative Correlation (<-30%) with GMF:**
+    - **When GMF is falling**: Buy these as hedges (defensive plays)
+    - **When GMF is rising**: Reduce exposure
+    - **Best for**: Portfolio protection, defensive allocation
+    
+    **Low Correlation (±0-30%) with GMF:**
+    - **Always**: Focus on stock-specific factors
+    - **Best for**: Alpha generation, diversification, range-bound markets
+    """)
+    
     # Create a simple correlation-based screener
     screener_tickers = st.text_area(
         "Enter tickers to screen (one per line or comma separated):",
-        value="AAPL\nMSFT\nGOOGL\nAMZN\nTSLA\nNVDA\nJPM\nJNJ\nV\nPG\nXOM\nBAC\nWMT\nDIS\nNFLX",
-        height=100
+        value="""AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA, JPM, JNJ, V, PG
+XOM, BAC, WMT, DIS, NFLX, MA, HD, MCD, COST, PEP
+IBM, INTC, CSCO, ORCL, ADBE, CRM, NKE, MMM, CAT, BA
+GS, MS, C, USB, AXP, BLK, SPGI, SCHW, BK, COF
+UNH, CVS, MRK, PFE, ABT, TMO, DHR, BDX, GILD, AMGN
+JPM, WFC, C, BAC, GS, MS, AXP, USB, BK, COF""",
+        height=150
     )
     
     # Parse tickers
@@ -1077,92 +1151,335 @@ with st.expander("🔍 Correlation-Based Stock Screener"):
             if line.strip():
                 tickers_list.append(line.strip().upper())
     
-    if tickers_list and st.button("Run Correlation Screening"):
-        with st.spinner("Analyzing correlations..."):
+    # Remove duplicates while preserving order
+    seen = set()
+    tickers_list = [x for x in tickers_list if not (x in seen or seen.add(x))]
+    
+    # Limit to reasonable number
+    if len(tickers_list) > 50:
+        st.warning(f"Limiting to first 50 tickers (you entered {len(tickers_list)})")
+        tickers_list = tickers_list[:50]
+    
+    if tickers_list and st.button("Run 60-Day Correlation Screening"):
+        with st.spinner("Analyzing 60-day correlations with GMF..."):
             try:
+                # Create progress bar
+                progress_bar = st.progress(0)
+                
                 # Load data for screener
                 screener_data = {}
-                for ticker in tickers_list[:20]:  # Limit to 20 for performance
+                for idx, ticker in enumerate(tickers_list):
                     try:
                         raw = yf.download(ticker, start=start_date, end=end_date, progress=False)
-                        if isinstance(raw.columns, pd.MultiIndex):
-                            if 'Adj Close' in raw.columns.get_level_values(0):
-                                screener_data[ticker] = raw['Adj Close'].squeeze()
-                        else:
-                            if 'Adj Close' in raw.columns:
-                                screener_data[ticker] = raw['Adj Close']
-                    except:
+                        if not raw.empty:
+                            if isinstance(raw.columns, pd.MultiIndex):
+                                if 'Adj Close' in raw.columns.get_level_values(0):
+                                    screener_data[ticker] = raw['Adj Close'].squeeze()
+                                elif 'Close' in raw.columns.get_level_values(0):
+                                    screener_data[ticker] = raw['Close'].squeeze()
+                            else:
+                                if 'Adj Close' in raw.columns:
+                                    screener_data[ticker] = raw['Adj Close']
+                                elif 'Close' in raw.columns:
+                                    screener_data[ticker] = raw['Close']
+                    except Exception as e:
+                        st.write(f"Error loading {ticker}: {e}")
                         continue
+                    
+                    # Update progress
+                    progress_bar.progress((idx + 1) / len(tickers_list))
+                
+                # Calculate correlations
+                screener_results = []
+                correlation_history = {}  # Store rolling correlation for plotting
                 
                 if screener_data:
-                    # Calculate correlations
-                    screener_results = []
-                    for ticker, prices in screener_data.items():
-                        if isinstance(prices, pd.Series) and not prices.empty:
-                            # Smooth and align
-                            stock_smooth = prices.rolling(5, min_periods=1).mean()
-                            stock_smooth.iloc[-1] = prices.iloc[-1]
-                            
-                            stock_aligned, gmf_aligned = stock_smooth.align(gf_single, join='inner')
-                            
-                            if len(stock_aligned) >= 60:
-                                corr = stock_aligned.rolling(60, min_periods=30).corr(gmf_aligned)
-                                if not corr.empty:
-                                    latest_corr = corr.iloc[-1]
-                                    if pd.notna(latest_corr):
-                                        # Determine recommendation
-                                        if latest_corr > 0.6:
-                                            rec = "BUY (GMF Rising) / SELL (GMF Falling)"
-                                            rec_color = "🟢" if money_flow_momentum.iloc[-1] > 0 else "🔴"
-                                        elif latest_corr < -0.3:
-                                            rec = "BUY (GMF Falling) / SELL (GMF Rising)"
-                                            rec_color = "🟢" if money_flow_momentum.iloc[-1] < 0 else "🔴"
-                                        else:
-                                            rec = "NEUTRAL (Stock Specific)"
-                                            rec_color = "⚪"
-                                        
-                                        screener_results.append({
-                                            'Ticker': ticker,
-                                            'Correlation %': round(latest_corr * 100, 1),
-                                            'Recommendation': rec,
-                                            'Signal': rec_color
-                                        })
+                    for idx, (ticker, prices) in enumerate(screener_data.items()):
+                        try:
+                            if isinstance(prices, pd.Series) and not prices.empty:
+                                # Clean and smooth data
+                                prices_clean = prices.fillna(method='ffill').dropna()
+                                if len(prices_clean) < 60:
+                                    continue  # Skip if not enough data
+                                
+                                # Smooth (5-day)
+                                stock_smooth = prices_clean.rolling(5, min_periods=1).mean()
+                                stock_smooth.iloc[-1] = prices_clean.iloc[-1]
+                                
+                                # Align with GMF
+                                stock_aligned, gmf_aligned = stock_smooth.align(gf_single, join='inner')
+                                
+                                if len(stock_aligned) >= 60:
+                                    # Calculate 60-day rolling correlation
+                                    corr_series = stock_aligned.rolling(60, min_periods=30).corr(gmf_aligned)
+                                    
+                                    if not corr_series.empty:
+                                        latest_corr = corr_series.iloc[-1]
+                                        if pd.notna(latest_corr):
+                                            # Store correlation history for plotting
+                                            correlation_history[ticker] = corr_series
+                                            
+                                            # Determine recommendation based on correlation AND current GMF momentum
+                                            gmf_momentum_current = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
+                                            
+                                            if latest_corr > 0.6:
+                                                if gmf_momentum_current > 0:
+                                                    rec = "STRONG BUY (High Correlation + GMF Rising)"
+                                                    rec_color = "🟢"
+                                                    signal_score = 9
+                                                else:
+                                                    rec = "SELL/AVOID (High Correlation + GMF Falling)"
+                                                    rec_color = "🔴"
+                                                    signal_score = 1
+                                            elif latest_corr > 0.3:
+                                                if gmf_momentum_current > 0:
+                                                    rec = "BUY (Moderate Correlation + GMF Rising)"
+                                                    rec_color = "🟢"
+                                                    signal_score = 7
+                                                else:
+                                                    rec = "NEUTRAL (Moderate Correlation + GMF Falling)"
+                                                    rec_color = "⚪"
+                                                    signal_score = 4
+                                            elif latest_corr < -0.3:
+                                                if gmf_momentum_current < 0:
+                                                    rec = "BUY HEDGE (Negative Correlation + GMF Falling)"
+                                                    rec_color = "🟢"
+                                                    signal_score = 8
+                                                else:
+                                                    rec = "REDUCE HEDGE (Negative Correlation + GMF Rising)"
+                                                    rec_color = "🟡"
+                                                    signal_score = 3
+                                            else:
+                                                rec = "NEUTRAL (Low Correlation)"
+                                                rec_color = "⚪"
+                                                signal_score = 5
+                                            
+                                            screener_results.append({
+                                                'Ticker': ticker,
+                                                '60D Corr %': round(latest_corr * 100, 1),
+                                                'Signal': rec_color,
+                                                'Recommendation': rec,
+                                                'Signal Score': signal_score,
+                                                'GMF Momentum': f"{gmf_momentum_current:+.3f}"
+                                            })
+                        except Exception as e:
+                            st.write(f"Error processing {ticker}: {e}")
+                            continue
+                
+                if screener_results:
+                    # Convert to DataFrame and sort
+                    screener_df = pd.DataFrame(screener_results)
+                    screener_df = screener_df.sort_values('Signal Score', ascending=False)
                     
-                    if screener_results:
-                        screener_df = pd.DataFrame(screener_results)
-                        screener_df = screener_df.sort_values('Correlation %', ascending=False)
+                    # Display metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        high_corr = len([x for x in screener_results if x['60D Corr %'] > 60])
+                        st.metric("High Correlation (>60%)", high_corr)
+                    with col2:
+                        neg_corr = len([x for x in screener_results if x['60D Corr %'] < -30])
+                        st.metric("Negative Correlation (<-30%)", neg_corr)
+                    with col3:
+                        low_corr = len([x for x in screener_results if -30 <= x['60D Corr %'] <= 60])
+                        st.metric("Low/Moderate Correlation", low_corr)
+                    with col4:
+                        current_gmf_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
+                        st.metric("GMF Momentum", f"{current_gmf_momentum:+.3f}/day")
+                    
+                    # Color function for DataFrame
+                    def color_screener(row):
+                        corr = row['60D Corr %']
+                        if corr > 60:
+                            return ['background-color: #d4edda', 'background-color: #d4edda', 'background-color: #d4edda', 'background-color: #d4edda', 'background-color: #d4edda', 'background-color: #d4edda']
+                        elif corr < -30:
+                            return ['background-color: #f8d7da', 'background-color: #f8d7da', 'background-color: #f8d7da', 'background-color: #f8d7da', 'background-color: #f8d7da', 'background-color: #f8d7da']
+                        else:
+                            return ['background-color: #fff3cd', 'background-color: #fff3cd', 'background-color: #fff3cd', 'background-color: #fff3cd', 'background-color: #fff3cd', 'background-color: #fff3cd']
+                    
+                    # Display DataFrame
+                    st.markdown(f"### 📋 Screening Results ({len(screener_df)} stocks)")
+                    st.dataframe(
+                        screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum']]
+                        .style.apply(color_screener, axis=1),
+                        use_container_width=True,
+                        height=400
+                    )
+                    
+                    # Plot top 10 correlations over time
+                    st.markdown("### 📈 60-Day Correlation History (Top 10 by Signal Score)")
+                    
+                    # Prepare data for plotting
+                    plot_data = []
+                    top_tickers = screener_df.head(10)['Ticker'].tolist()
+                    
+                    for ticker in top_tickers:
+                        if ticker in correlation_history:
+                            corr_series = correlation_history[ticker]
+                            latest_corr_val = screener_df[screener_df['Ticker'] == ticker]['60D Corr %'].iloc[0]
+                            
+                            # Create DataFrame for this ticker
+                            temp_df = pd.DataFrame({
+                                'Date': corr_series.index,
+                                'Correlation': corr_series * 100,  # Convert to percentage
+                                'Ticker': f"{ticker} ({latest_corr_val:.1f}%)"
+                            }).dropna()
+                            
+                            if not temp_df.empty:
+                                plot_data.append(temp_df)
+                    
+                    if plot_data:
+                        # Combine all data
+                        combined_plot_data = pd.concat(plot_data, ignore_index=True)
                         
-                        # Color function
-                        def color_screener(row):
-                            corr = row['Correlation %']
-                            if corr > 60:
-                                return ['background-color: #e6ffe6'] * len(row)
-                            elif corr < -30:
-                                return ['background-color: #ffe6e6'] * len(row)
-                            else:
-                                return ['background-color: #f5f5f5'] * len(row)
+                        # Create the correlation history chart
+                        corr_history_chart = alt.Chart(combined_plot_data).mark_line().encode(
+                            x='Date:T',
+                            y=alt.Y('Correlation:Q', title='60-Day Correlation %', scale=alt.Scale(domain=[-100, 100])),
+                            color=alt.Color('Ticker:N', legend=alt.Legend(
+                                title="Ticker (Latest Corr)",
+                                orient='right',
+                                labelLimit=200
+                            )),
+                            tooltip=['Date:T', 'Ticker:N', alt.Tooltip('Correlation:Q', format='.1f')]
+                        ).properties(
+                            height=400,
+                            title="60-Day Rolling Correlation with GMF"
+                        )
                         
-                        st.dataframe(screener_df.style.apply(color_screener, axis=1), use_container_width=True)
+                        # Add zero line
+                        zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(
+                            color='gray', strokeDash=[3, 3]
+                        ).encode(y='y')
                         
-                        # Summary statistics
-                        high_corr = len([x for x in screener_results if x['Correlation %'] > 60])
-                        neg_corr = len([x for x in screener_results if x['Correlation %'] < -30])
-                        low_corr = len(screener_results) - high_corr - neg_corr
+                        # Add correlation threshold lines
+                        threshold_lines = alt.Chart(pd.DataFrame({'y': [-30, 30, 60, -60]})).mark_rule(
+                            color='lightgray', strokeDash=[2, 2], opacity=0.5
+                        ).encode(y='y')
                         
-                        st.markdown(f"""
-                        **Screener Summary:**
-                        - High Correlation (>60%): {high_corr} stocks
-                        - Negative Correlation (<-30%): {neg_corr} stocks  
-                        - Low Correlation: {low_corr} stocks
+                        st.altair_chart(corr_history_chart + zero_line + threshold_lines, use_container_width=True)
                         
-                        **Current GMF Momentum:** {money_flow_momentum.iloc[-1]:+.3f}/day
-                        **Action:** {'Focus on high correlation stocks' if money_flow_momentum.iloc[-1] > 0 else 'Focus on negative correlation stocks'}
-                        """)
-                    else:
-                        st.warning("No correlation data could be calculated for the entered tickers.")
-            
+                        # Individual correlation charts for top 3
+                        st.markdown("### 🔍 Detailed Analysis (Top 3 Recommendations)")
+                        
+                        top_3_tickers = screener_df.head(3)['Ticker'].tolist()
+                        
+                        for i, ticker in enumerate(top_3_tickers):
+                            if ticker in correlation_history and ticker in screener_data:
+                                corr_series = correlation_history[ticker]
+                                latest_corr_val = screener_df[screener_df['Ticker'] == ticker]['60D Corr %'].iloc[0]
+                                recommendation = screener_df[screener_df['Ticker'] == ticker]['Recommendation'].iloc[0]
+                                
+                                # Create individual chart
+                                with st.expander(f"{i+1}. {ticker} - {latest_corr_val:.1f}% Correlation - {recommendation}", expanded=(i==0)):
+                                    # Get stock data
+                                    stock_prices = screener_data[ticker]
+                                    
+                                    # Normalize for comparison
+                                    stock_normalized = (stock_prices / stock_prices.iloc[0] * 100).fillna(method='ffill')
+                                    gmf_normalized = (gf_single / gf_single.iloc[0] * 100)
+                                    
+                                    # Align
+                                    stock_aligned, gmf_aligned = stock_normalized.align(gmf_normalized, join='inner')
+                                    
+                                    # Create comparison DataFrame
+                                    comp_df = pd.DataFrame({
+                                        'Date': stock_aligned.index,
+                                        f'{ticker}': stock_aligned,
+                                        'GMF Index': gmf_aligned
+                                    }).dropna()
+                                    
+                                    # Melt for Altair
+                                    comp_melted = comp_df.melt('Date', var_name='Series', value_name='Value')
+                                    
+                                    # Create dual-axis chart
+                                    base = alt.Chart(comp_melted).encode(x='Date:T')
+                                    
+                                    stock_line = base.mark_line(color='#d62728', opacity=0.8).encode(
+                                        y=alt.Y('Value:Q', axis=alt.Axis(title=f'{ticker} Price (Normalized)', orient='left')),
+                                        color=alt.value('#d62728')
+                                    ).transform_filter(alt.datum.Series == ticker)
+                                    
+                                    gmf_line = base.mark_line(color='#1f77b4', opacity=0.8).encode(
+                                        y=alt.Y('Value:Q', axis=alt.Axis(title='GMF Index (Normalized)', orient='right')),
+                                        color=alt.value('#1f77b4')
+                                    ).transform_filter(alt.datum.Series == 'GMF Index')
+                                    
+                                    # Create correlation history for this ticker
+                                    corr_df_ticker = pd.DataFrame({
+                                        'Date': corr_series.index,
+                                        'Correlation': corr_series * 100
+                                    }).dropna()
+                                    
+                                    corr_chart_ticker = alt.Chart(corr_df_ticker).mark_line(color='purple').encode(
+                                        x='Date:T',
+                                        y=alt.Y('Correlation:Q', title='Correlation %', scale=alt.Scale(domain=[-100, 100])),
+                                        tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
+                                    ).properties(height=150)
+                                    
+                                    corr_zero = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray').encode(y='y')
+                                    
+                                    # Combine charts
+                                    combined_ticker_chart = alt.vconcat(
+                                        corr_chart_ticker + corr_zero,
+                                        (stock_line + gmf_line).resolve_scale(y='independent').properties(height=200)
+                                    ).resolve_scale(x='shared')
+                                    
+                                    st.altair_chart(combined_ticker_chart, use_container_width=True)
+                                    
+                                    # Display analysis
+                                    st.markdown(f"""
+                                    **Analysis for {ticker}:**
+                                    - **Current 60D Correlation:** {latest_corr_val:.1f}%
+                                    - **Current GMF Momentum:** {current_gmf_momentum:+.3f}/day
+                                    - **Recommendation:** {recommendation}
+                                    
+                                    **Trading Strategy:**
+                                    {get_trading_strategy(latest_corr_val/100, current_gmf_momentum)}
+                                    """)
+                    
+                    # Download option
+                    csv = screener_df.to_csv(index=False)
+                    st.download_button(
+                        label="Download Screening Results (CSV)",
+                        data=csv,
+                        file_name=f"gmf_screener_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv"
+                    )
+                    
+                else:
+                    st.warning("No correlation data could be calculated for the entered tickers.")
+                    
+                progress_bar.empty()
+                
             except Exception as e:
-                st.error(f"Error in screener: {e}")
+                st.error(f"Error in screener: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
+
+
+# Add summary of correlation strategy
+st.markdown("""
+---
+### 🎯 **Correlation-Based Trading Rules**
+
+**For High Correlation Stocks (>60%):**
+1. **Entry:** Wait for GMF > 0 AND rising momentum
+2. **Exit:** GMF < 0 OR correlation drops below 50%
+3. **Position Sizing:** Full size when conditions align
+4. **Stop Loss:** Below recent GMF support levels
+
+**For Negative Correlation Stocks (<-30%):**
+1. **Entry:** When GMF < 0 AND falling (portfolio hedge)
+2. **Exit:** When GMF > 0 AND rising (remove hedge)
+3. **Position Sizing:** 10-20% of portfolio as hedge
+4. **Stop Loss:** Use wider stops (hedges can be volatile)
+
+**For Low Correlation Stocks (±0-30%):**
+1. **Ignore GMF** for these stocks
+2. **Focus on:** Fundamentals, technicals, sector trends
+3. **Use for:** Diversification, alpha generation
+4. **Best in:** Range-bound or uncertain markets
+""")
                 
 # Interpretation Guide
 with st.expander("📖 Complete GMF Interpretation Guide"):
