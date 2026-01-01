@@ -85,20 +85,6 @@ st.sidebar.markdown("---")
 st.sidebar.header("💹 Stock Analysis")
 user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
-def color_rows(row):
-    if row['Signal Score'] >= 8:
-        return ['background-color: #006400; color: white'] * len(row)  # Dark green for strong buy
-    elif row['Signal Score'] >= 7:
-        return ['background-color: #228B22; color: white'] * len(row)  # Green for buy
-    elif row['Signal Score'] <= 2:
-        return ['background-color: #8B0000; color: white'] * len(row)  # Dark red for strong sell
-    elif row['Signal Score'] <= 3:
-        return ['background-color: #B22222; color: white'] * len(row)  # Red for sell
-    elif 4 <= row['Signal Score'] <= 6:
-        return ['background-color: #696969; color: white'] * len(row)  # Gray for neutral
-    else:
-        return [''] * len(row)
-        
 # ========== DATA LOADING FUNCTIONS ==========
 def load_data(tickers, start, end):
     """Load data from Yahoo Finance"""
@@ -803,11 +789,6 @@ if not gf_aligned.empty and not stk_aligned.empty:
                    scale=alt.Scale(domain=[-100, 100])),
             tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
         ).properties(height=150)
-
-# Price vs Flow chart
-base = alt.Chart(combined_long_df).encode(
-    x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date'))
-)
         
         corr_zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
         corr_chart = corr_chart + corr_zero_line
@@ -938,7 +919,7 @@ WMT, DIS, NFLX, MA, HD, MCD""",
         st.warning(f"Limiting to first 50 tickers (you entered {len(tickers_list)})")
         tickers_list = tickers_list[:50]
     
-    # Define styling functions FIRST
+    # Define styling functions
     def style_screener_corr(val):
         """Style the correlation percentage column"""
         if pd.isna(val):
@@ -1067,7 +1048,20 @@ WMT, DIS, NFLX, MA, HD, MCD""",
                     screener_df = pd.DataFrame(screener_results)
                     screener_df = screener_df.sort_values('Signal Score', ascending=False)
                     
-                    # Display metrics...
+                    # Display metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        high_corr = len([x for x in screener_results if x['60D Corr %'] > 60])
+                        st.metric("High Correlation (>60%)", high_corr)
+                    with col2:
+                        neg_corr = len([x for x in screener_results if x['60D Corr %'] < -30])
+                        st.metric("Negative Correlation (<-30%)", neg_corr)
+                    with col3:
+                        low_corr = len([x for x in screener_results if -30 <= x['60D Corr %'] <= 60])
+                        st.metric("Low/Moderate Correlation", low_corr)
+                    with col4:
+                        current_gmf_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
+                        st.metric("GMF Momentum", f"{current_gmf_momentum:+.3f}/day")
                     
                     # Create display dataframe with Signal Score for gradient
                     display_df_with_score = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum', 'Signal Score']].copy()
@@ -1105,8 +1099,6 @@ WMT, DIS, NFLX, MA, HD, MCD""",
                 
             except Exception as e:
                 st.error(f"Error in screener: {str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
 
 # ========== HELP & GUIDES ==========
 st.markdown("---")
