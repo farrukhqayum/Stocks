@@ -896,209 +896,207 @@ with st.expander("Run Correlation-Based Screener"):
     
     screener_tickers = st.text_area(
         "Enter tickers to screen (one per line or comma separated):",
-        value="""AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA
-JPM, JNJ, V, PG, XOM, BAC
-WMT, DIS, NFLX, MA, HD, MCD""",
+        value="""COIN, MSTR, XYZ, CRM, QCOM, AMD, SMCI, BABA, XPEV, NIO, U, INTC, SNAP, UNH""",
         height=150
     )
     
-    # Parse tickers
-    tickers_list = []
-    for line in screener_tickers.split('\n'):
-        if ',' in line:
-            tickers_list.extend([t.strip().upper() for t in line.split(',') if t.strip()])
-        else:
-            if line.strip():
-                tickers_list.append(line.strip().upper())
-    
-    # Remove duplicates
-    seen = set()
-    tickers_list = [x for x in tickers_list if not (x in seen or seen.add(x))]
-    
-    if len(tickers_list) > 50:
-        st.warning(f"Limiting to first 50 tickers (you entered {len(tickers_list)})")
-        tickers_list = tickers_list[:50]
-    
-    # Define styling functions
-    def style_screener_corr(val):
-        """Style the correlation percentage column"""
-        if pd.isna(val):
-            return 'color: gray; font-style: italic'
-        elif val > 60:
-            return 'background-color: #006400; color: white; font-weight: bold'
-        elif val > 30:
-            return 'background-color: #228B22; color: white'
-        elif val > 10:
-            return 'background-color: #32CD32; color: black'
-        elif val < -60:
-            return 'background-color: #8B0000; color: white; font-weight: bold'
-        elif val < -30:
-            return 'background-color: #B22222; color: white'
-        elif val < -10:
-            return 'background-color: #DC143C; color: white'
-        else:
-            return 'background-color: #696969; color: white'
-    
-    def style_screener_signal(val):
-        """Style the Signal emoji column"""
-        if "🟢" in val:
-            return 'background-color: #155724; color: white; font-weight: bold'
-        elif "🔴" in val:
-            return 'background-color: #721c24; color: white; font-weight: bold'
-        elif "🟡" in val:
-            return 'background-color: #856404; color: white'
-        else:
-            return 'background-color: #6c757d; color: white'
-    
-    if tickers_list and st.button("Run 60-Day Correlation Screening"):
-        with st.spinner("Analyzing 60-day correlations with GMF..."):
-            try:
-                progress_bar = st.progress(0)
+# Parse tickers
+tickers_list = []
+for line in screener_tickers.split('\n'):
+    if ',' in line:
+        tickers_list.extend([t.strip().upper() for t in line.split(',') if t.strip()])
+    else:
+        if line.strip():
+            tickers_list.append(line.strip().upper())
+
+# Remove duplicates
+seen = set()
+tickers_list = [x for x in tickers_list if not (x in seen or seen.add(x))]
+
+if len(tickers_list) > 50:
+    st.warning(f"Limiting to first 50 tickers (you entered {len(tickers_list)})")
+    tickers_list = tickers_list[:50]
+
+# Define styling functions
+def style_screener_corr(val):
+    """Style the correlation percentage column"""
+    if pd.isna(val):
+        return 'color: gray; font-style: italic'
+    elif val > 60:
+        return 'background-color: #006400; color: white; font-weight: bold'
+    elif val > 30:
+        return 'background-color: #228B22; color: white'
+    elif val > 10:
+        return 'background-color: #32CD32; color: black'
+    elif val < -60:
+        return 'background-color: #8B0000; color: white; font-weight: bold'
+    elif val < -30:
+        return 'background-color: #B22222; color: white'
+    elif val < -10:
+        return 'background-color: #DC143C; color: white'
+    else:
+        return 'background-color: #696969; color: white'
+
+def style_screener_signal(val):
+    """Style the Signal emoji column"""
+    if "🟢" in val:
+        return 'background-color: #155724; color: white; font-weight: bold'
+    elif "🔴" in val:
+        return 'background-color: #721c24; color: white; font-weight: bold'
+    elif "🟡" in val:
+        return 'background-color: #856404; color: white'
+    else:
+        return 'background-color: #6c757d; color: white'
+
+if tickers_list and st.button("Run 60-Day Correlation Screening"):
+    with st.spinner("Analyzing 60-day correlations with GMF..."):
+        try:
+            progress_bar = st.progress(0)
+            
+            screener_data = {}
+            for idx, ticker in enumerate(tickers_list):
+                try:
+                    raw = yf.download(ticker, start=start_date, end=end_date, progress=False)
+                    if not raw.empty:
+                        if isinstance(raw.columns, pd.MultiIndex):
+                            if 'Adj Close' in raw.columns.get_level_values(0):
+                                screener_data[ticker] = raw['Adj Close'].squeeze()
+                            elif 'Close' in raw.columns.get_level_values(0):
+                                screener_data[ticker] = raw['Close'].squeeze()
+                        else:
+                            if 'Adj Close' in raw.columns:
+                                screener_data[ticker] = raw['Adj Close']
+                            elif 'Close' in raw.columns:
+                                screener_data[ticker] = raw['Close']
+                except:
+                    continue
                 
-                screener_data = {}
-                for idx, ticker in enumerate(tickers_list):
+                progress_bar.progress((idx + 1) / len(tickers_list))
+            
+            screener_results = []
+            correlation_history = {}
+            
+            if screener_data:
+                for idx, (ticker, prices) in enumerate(screener_data.items()):
                     try:
-                        raw = yf.download(ticker, start=start_date, end=end_date, progress=False)
-                        if not raw.empty:
-                            if isinstance(raw.columns, pd.MultiIndex):
-                                if 'Adj Close' in raw.columns.get_level_values(0):
-                                    screener_data[ticker] = raw['Adj Close'].squeeze()
-                                elif 'Close' in raw.columns.get_level_values(0):
-                                    screener_data[ticker] = raw['Close'].squeeze()
-                            else:
-                                if 'Adj Close' in raw.columns:
-                                    screener_data[ticker] = raw['Adj Close']
-                                elif 'Close' in raw.columns:
-                                    screener_data[ticker] = raw['Close']
+                        if isinstance(prices, pd.Series) and not prices.empty:
+                            prices_clean = prices.fillna(method='ffill').dropna()
+                            if len(prices_clean) < 60:
+                                continue
+                            
+                            stock_smooth = prices_clean.rolling(5, min_periods=1).mean()
+                            stock_smooth.iloc[-1] = prices_clean.iloc[-1]
+                            
+                            stock_aligned, gmf_aligned = stock_smooth.align(gf_single, join='inner')
+                            
+                            if len(stock_aligned) >= 60:
+                                corr_series = stock_aligned.rolling(60, min_periods=30).corr(gmf_aligned)
+                                
+                                if not corr_series.empty:
+                                    latest_corr = corr_series.iloc[-1]
+                                    if pd.notna(latest_corr):
+                                        correlation_history[ticker] = corr_series
+                                        
+                                        gmf_momentum_current = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
+                                        
+                                        if latest_corr > 0.6:
+                                            if gmf_momentum_current > 0:
+                                                rec = "STRONG BUY (High Correlation + GMF Rising)"
+                                                rec_color = "🟢"
+                                                signal_score = 9
+                                            else:
+                                                rec = "SELL/AVOID (High Correlation + GMF Falling)"
+                                                rec_color = "🔴"
+                                                signal_score = 1
+                                        elif latest_corr > 0.3:
+                                            if gmf_momentum_current > 0:
+                                                rec = "BUY (Moderate Correlation + GMF Rising)"
+                                                rec_color = "🟢"
+                                                signal_score = 7
+                                            else:
+                                                rec = "NEUTRAL (Moderate Correlation + GMF Falling)"
+                                                rec_color = "⚪"
+                                                signal_score = 4
+                                        elif latest_corr < -0.3:
+                                            if gmf_momentum_current < 0:
+                                                rec = "BUY HEDGE (Negative Correlation + GMF Falling)"
+                                                rec_color = "🟢"
+                                                signal_score = 8
+                                            else:
+                                                rec = "REDUCE HEDGE (Negative Correlation + GMF Rising)"
+                                                rec_color = "🟡"
+                                                signal_score = 3
+                                        else:
+                                            rec = "NEUTRAL (Low Correlation)"
+                                            rec_color = "⚪"
+                                            signal_score = 5
+                                        
+                                        screener_results.append({
+                                            'Ticker': ticker,
+                                            '60D Corr %': round(latest_corr * 100, 1),
+                                            'Signal': rec_color,
+                                            'Recommendation': rec,
+                                            'Signal Score': signal_score,
+                                            'GMF Momentum': f"{gmf_momentum_current:+.3f}"
+                                        })
                     except:
                         continue
-                    
-                    progress_bar.progress((idx + 1) / len(tickers_list))
+            
+            if screener_results:
+                screener_df = pd.DataFrame(screener_results)
+                screener_df = screener_df.sort_values('Signal Score', ascending=False)
                 
-                screener_results = []
-                correlation_history = {}
+                # Display metrics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    high_corr = len([x for x in screener_results if x['60D Corr %'] > 60])
+                    st.metric("High Correlation (>60%)", high_corr)
+                with col2:
+                    neg_corr = len([x for x in screener_results if x['60D Corr %'] < -30])
+                    st.metric("Negative Correlation (<-30%)", neg_corr)
+                with col3:
+                    low_corr = len([x for x in screener_results if -30 <= x['60D Corr %'] <= 60])
+                    st.metric("Low/Moderate Correlation", low_corr)
+                with col4:
+                    current_gmf_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
+                    st.metric("GMF Momentum", f"{current_gmf_momentum:+.3f}/day")
                 
-                if screener_data:
-                    for idx, (ticker, prices) in enumerate(screener_data.items()):
-                        try:
-                            if isinstance(prices, pd.Series) and not prices.empty:
-                                prices_clean = prices.fillna(method='ffill').dropna()
-                                if len(prices_clean) < 60:
-                                    continue
-                                
-                                stock_smooth = prices_clean.rolling(5, min_periods=1).mean()
-                                stock_smooth.iloc[-1] = prices_clean.iloc[-1]
-                                
-                                stock_aligned, gmf_aligned = stock_smooth.align(gf_single, join='inner')
-                                
-                                if len(stock_aligned) >= 60:
-                                    corr_series = stock_aligned.rolling(60, min_periods=30).corr(gmf_aligned)
-                                    
-                                    if not corr_series.empty:
-                                        latest_corr = corr_series.iloc[-1]
-                                        if pd.notna(latest_corr):
-                                            correlation_history[ticker] = corr_series
-                                            
-                                            gmf_momentum_current = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
-                                            
-                                            if latest_corr > 0.6:
-                                                if gmf_momentum_current > 0:
-                                                    rec = "STRONG BUY (High Correlation + GMF Rising)"
-                                                    rec_color = "🟢"
-                                                    signal_score = 9
-                                                else:
-                                                    rec = "SELL/AVOID (High Correlation + GMF Falling)"
-                                                    rec_color = "🔴"
-                                                    signal_score = 1
-                                            elif latest_corr > 0.3:
-                                                if gmf_momentum_current > 0:
-                                                    rec = "BUY (Moderate Correlation + GMF Rising)"
-                                                    rec_color = "🟢"
-                                                    signal_score = 7
-                                                else:
-                                                    rec = "NEUTRAL (Moderate Correlation + GMF Falling)"
-                                                    rec_color = "⚪"
-                                                    signal_score = 4
-                                            elif latest_corr < -0.3:
-                                                if gmf_momentum_current < 0:
-                                                    rec = "BUY HEDGE (Negative Correlation + GMF Falling)"
-                                                    rec_color = "🟢"
-                                                    signal_score = 8
-                                                else:
-                                                    rec = "REDUCE HEDGE (Negative Correlation + GMF Rising)"
-                                                    rec_color = "🟡"
-                                                    signal_score = 3
-                                            else:
-                                                rec = "NEUTRAL (Low Correlation)"
-                                                rec_color = "⚪"
-                                                signal_score = 5
-                                            
-                                            screener_results.append({
-                                                'Ticker': ticker,
-                                                '60D Corr %': round(latest_corr * 100, 1),
-                                                'Signal': rec_color,
-                                                'Recommendation': rec,
-                                                'Signal Score': signal_score,
-                                                'GMF Momentum': f"{gmf_momentum_current:+.3f}"
-                                            })
-                        except:
-                            continue
+                # Create display dataframe with Signal Score for gradient
+                display_df_with_score = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum', 'Signal Score']].copy()
                 
-                if screener_results:
-                    screener_df = pd.DataFrame(screener_results)
-                    screener_df = screener_df.sort_values('Signal Score', ascending=False)
-                    
-                    # Display metrics
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        high_corr = len([x for x in screener_results if x['60D Corr %'] > 60])
-                        st.metric("High Correlation (>60%)", high_corr)
-                    with col2:
-                        neg_corr = len([x for x in screener_results if x['60D Corr %'] < -30])
-                        st.metric("Negative Correlation (<-30%)", neg_corr)
-                    with col3:
-                        low_corr = len([x for x in screener_results if -30 <= x['60D Corr %'] <= 60])
-                        st.metric("Low/Moderate Correlation", low_corr)
-                    with col4:
-                        current_gmf_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
-                        st.metric("GMF Momentum", f"{current_gmf_momentum:+.3f}/day")
-                    
-                    # Create display dataframe with Signal Score for gradient
-                    display_df_with_score = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum', 'Signal Score']].copy()
-                    
-                    # Apply gradient based on Signal Score
-                    styled_df = display_df_with_score.style.background_gradient(
-                        subset=['Signal Score'], 
-                        cmap='Greys',  # Black to white gradient
-                        vmin=1, vmax=9  # Signal Score range
-                    )
-                    
-                    # Hide the Signal Score column after applying gradient
-                    styled_df = styled_df.hide(axis='columns', subset=['Signal Score'])
-                    
-                    # Apply individual column styling
-                    styled_df = styled_df.map(style_screener_corr, subset=['60D Corr %'])
-                    styled_df = styled_df.map(style_screener_signal, subset=['Signal'])
-                    
-                    st.markdown(f"### 📋 Screening Results ({len(display_df_with_score)} stocks)")
-                    st.dataframe(styled_df, use_container_width=True, height=400)
-                    
-                    # Download option
-                    csv = screener_df.to_csv(index=False)
-                    st.download_button(
-                        label="Download Screening Results (CSV)",
-                        data=csv,
-                        file_name=f"gmf_screener_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                        mime="text/csv"
-                    )
-                    
-                else:
-                    st.warning("No correlation data could be calculated for the entered tickers.")
-                    
-                progress_bar.empty()
+                # Apply gradient based on Signal Score
+                styled_df = display_df_with_score.style.background_gradient(
+                    subset=['Signal Score'], 
+                    cmap='Greys',  # Black to white gradient
+                    vmin=1, vmax=9  # Signal Score range
+                )
                 
-            except Exception as e:
-                st.error(f"Error in screener: {str(e)}")
+                # Hide the Signal Score column after applying gradient
+                styled_df = styled_df.hide(axis='columns', subset=['Signal Score'])
+                
+                # Apply individual column styling
+                styled_df = styled_df.map(style_screener_corr, subset=['60D Corr %'])
+                styled_df = styled_df.map(style_screener_signal, subset=['Signal'])
+                
+                st.markdown(f"### 📋 Screening Results ({len(display_df_with_score)} stocks)")
+                st.dataframe(styled_df, use_container_width=True, height=400)
+                
+                # Download option
+                csv = screener_df.to_csv(index=False)
+                st.download_button(
+                    label="Download Screening Results (CSV)",
+                    data=csv,
+                    file_name=f"gmf_screener_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv"
+                )
+                
+            else:
+                st.warning("No correlation data could be calculated for the entered tickers.")
+                
+            progress_bar.empty()
+            
+        except Exception as e:
+            st.error(f"Error in screener: {str(e)}")
 
 # ========== HELP & GUIDES ==========
 st.markdown("---")
