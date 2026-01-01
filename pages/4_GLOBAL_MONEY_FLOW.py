@@ -1104,49 +1104,40 @@ with st.expander("Run Correlation-Based Screener"):
                     screener_df = pd.DataFrame(screener_results)
                     screener_df = screener_df.sort_values('Signal Score', ascending=False)
                     
-                    # Display metrics
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        high_corr = len([x for x in screener_results if x['60D Corr %'] > 60])
-                        st.metric("High Correlation (>60%)", high_corr)
-                    with col2:
-                        neg_corr = len([x for x in screener_results if x['60D Corr %'] < -30])
-                        st.metric("Negative Correlation (<-30%)", neg_corr)
-                    with col3:
-                        low_corr = len([x for x in screener_results if -30 <= x['60D Corr %'] <= 60])
-                        st.metric("Low/Moderate Correlation", low_corr)
-                    with col4:
-                        current_gmf_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
-                        st.metric("GMF Momentum", f"{current_gmf_momentum:+.3f}/day")
+                    # Display metrics...
                     
-                    # FIXED: Use map for single column styling
-                    def style_screener_corr(val):
-                        if val > 60:
-                            return 'background-color: #d4edda; color: #155724; font-weight: bold'
-                        elif val < -30:
-                            return 'background-color: #f8d7da; color: #721c24; font-weight: bold'
+                    # Create a copy for display with Signal Score included for styling
+                    display_df_full = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum', 'Signal Score']].copy()
+                    
+                    # Define black row coloring function
+                    def color_rows_black(row):
+                        signal_score = row['Signal Score']
+                        
+                        # Black for top signals (Score 8-9)
+                        if signal_score >= 8:
+                            return ['background-color: #000000; color: white'] * 6
+                        # Dark gray for good signals (Score 7)
+                        elif signal_score == 7:
+                            return ['background-color: #333333; color: white'] * 6
+                        # Medium gray for neutral/hedge signals (Score 3-6)
+                        elif 3 <= signal_score <= 6:
+                            return ['background-color: #666666; color: white'] * 6
+                        # Light gray for poor signals (Score 1-2)
                         else:
-                            return 'background-color: #fff3cd; color: #856404'
+                            return ['background-color: #999999; color: white'] * 6
                     
-                    def style_screener_signal(val):
-                        if "🟢" in val:
-                            return 'background-color: #d4edda; color: #155724; font-weight: bold'
-                        elif "🔴" in val:
-                            return 'background-color: #f8d7da; color: #721c24; font-weight: bold'
-                        elif "🟡" in val:
-                            return 'background-color: #fff3cd; color: #856404'
-                        else:
-                            return 'background-color: #f8f9fa; color: #6c757d'
+                    st.markdown(f"### 📋 Screening Results ({len(display_df_full)} stocks)")
                     
-                    # Display DataFrame with proper styling
-                    display_df = screener_df[['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum']]
-                    st.markdown(f"### 📋 Screening Results ({len(display_df)} stocks)")
+                    # Apply row coloring
+                    styled_df = display_df_full.style.apply(color_rows_black, axis=1)
                     
-                    # Style each column individually
-                    styled_display_df = display_df.style
-                    styled_display_df = display_df.style.apply(color_rows, axis=1)
-                    styled_display_df = styled_display_df.map(style_screener_corr, subset=['60D Corr %'])
-                    styled_display_df = styled_display_df.map(style_screener_signal, subset=['Signal'])
+                    # Add individual column styling
+                    styled_df = styled_df.map(style_screener_corr, subset=['60D Corr %'])
+                    styled_df = styled_df.map(style_screener_signal, subset=['Signal'])
+                    
+                    # Display without Signal Score column
+                    display_columns = ['Ticker', '60D Corr %', 'Signal', 'Recommendation', 'GMF Momentum']
+                    styled_display_df = styled_df.format(precision=1).hide(axis='columns', subset=['Signal Score'])
                     
                     st.dataframe(styled_display_df, use_container_width=True, height=400)
                     
