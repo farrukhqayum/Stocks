@@ -17,9 +17,6 @@ warnings.filterwarnings('ignore')
 
 
 # Configuration
-# Removed aggressive cache clearing for better performance
-# st.cache_data.clear()
-# st.cache_resource.clear()
 st.set_page_config(page_title="📊 Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
@@ -169,8 +166,6 @@ def add_technical_indicators(df, timeframe='1D'):
     """Add essential technical indicators to dataframe with timeframe-specific adjustments"""
     try:
         close = df.Close
-        # NOTE: df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(3).mean() requires a defined 'imports'
-        # Assuming the imported ta library handles the mean/rolling correctly, proceed with existing logic.
         df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(3).mean()
         
         # Adjust parameters based on timeframe
@@ -197,7 +192,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2 * sma_multiplier), adjust=False).mean()
 
         df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
-        # Requires ta to be defined
         df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
         df = ta.scaled_volatility(df)
         df = ta.add_candlestickpatterns(df)
@@ -236,7 +230,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
         df[['VI+', 'VI-']] = ta.calculate_vortex(df)
         df[['STu', 'STl']] = ta.calculate_supertrend(df)
-        #df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
         df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
 
         # Adjust return periods based on timeframe
@@ -638,7 +631,7 @@ def train_models(df, timeframe):
         X_all = df_model[FEATURES]
         y_all = df_model['Hit_Label'].astype(int)
         
-        # --- START FIX 1: Filter to ensure only expected_classes are used for all steps ---
+        # Filter to ensure only expected_classes are used for all steps
         valid_mask = y_all.isin(expected_classes)
         X_filtered = X_all[valid_mask]
         y_filtered = y_all[valid_mask]
@@ -646,7 +639,6 @@ def train_models(df, timeframe):
         if y_filtered.empty or len(y_filtered) < MIN_TRAIN_ROWS.get(timeframe, _Nr):
             st.warning(f"Insufficient valid data points ({len(y_filtered)}) for {timeframe} modeling after label filtering.")
             return None, None, None, None, None, None
-        # --- END FIX 1 ---
         
         X_train_cls, X_test_cls, y_train_cls, y_test_cls = train_test_split(
             X_filtered, y_filtered, test_size=0.2, random_state=42
@@ -654,7 +646,6 @@ def train_models(df, timeframe):
         
         scaler_cls = StandardScaler()
         X_train_scaled_cls = scaler_cls.fit_transform(X_train_cls)
-        # X_test_scaled_cls = scaler_cls.transform(X_test_cls) # Not strictly needed for final prediction logic
         progress_bar.progress(25)
         
         # Train classification model on training set only
@@ -670,24 +661,18 @@ def train_models(df, timeframe):
         model_class.fit(X_train_scaled_cls, y_train_cls)
         progress_bar.progress(50)
         
-        # --- START FIX 2: Prediction probabilities on the full filtered set and safe mapping ---
-        # Predict probabilities on ALL filtered data (X_filtered)
+        # Prediction probabilities on the full filtered set and safe mapping
         X_filtered_scaled = scaler_cls.transform(X_filtered)
         cls_probs = model_class.predict_proba(X_filtered_scaled)
         
-        # Create a DataFrame with a fixed number of columns for ALL expected classes (0-4)
         prob_df = pd.DataFrame(0.0, index=X_filtered.index, 
                               columns=[f'Prob_Class_{c}' for c in expected_classes])
         
-        # Fill the DataFrame using the model's prediction results. 
-        # The indices i correspond to the classes in model_class.classes_.
         for i, c in enumerate(model_class.classes_):
             if c in expected_classes:
                 prob_df[f'Prob_Class_{c}'] = cls_probs[:, i] 
-        # --- END FIX 2 ---
 
         FEATURES_with_probs = FEATURES + [f'Prob_Class_{c}' for c in expected_classes]
-        # X_reg must be concatenated using the filtered features and the new prob_df
         X_reg = pd.concat([X_filtered[FEATURES], prob_df], axis=1) 
         
         # Prepare data for regression (Expected_Return) - using filtered data
@@ -745,21 +730,16 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
     try:
         # Check for missing features
         if latest_data[FEATURES].isnull().values.any():
-            missing_features = latest_data[FEATURES].columns[latest_data[FEATURES].isnull().any()].tolist()
-            st.warning(f"Missing features: {missing_features}")
-            # Instead of returning None, try to fill NaNs for prediction if possible
             latest_data_filled = latest_data[FEATURES].fillna(0) # Simple fill for safety
         else:
             latest_data_filled = latest_data[FEATURES]
 
-        
         # Class prediction
         latest_scaled_cls = scaler_cls.transform(latest_data_filled)
         latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
         
-        # --- FIX 3: Robust probability feature extraction for prediction ---
+        # Robust probability feature extraction for prediction
         latest_prob_features = {}
-        # Ensure the model's output is mapped correctly to the fixed 5 expected columns
         for c in expected_classes:
             if c in model_class.classes_:
                 idx = model_class.classes_.tolist().index(c)
@@ -772,7 +752,6 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         pred_class = expected_classes[max_prob_index]
         will_hit = label2str.get(pred_class, "None")
         hit_prob = latest_prob_features[f'Prob_Class_{pred_class}'] * 100
-        # --- END FIX 3 ---
         
         # Prepare features with probabilities for regression
         latest_prob_df = pd.DataFrame([latest_prob_features])
@@ -805,7 +784,7 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
 
         bullish_prob = p_tp + p_hold
         bearish_prob = p_sl + p_short
-    	
+        
         if predicted_loss != 0:
             rr_ratio = predicted_return / abs(predicted_loss)
         else:
@@ -831,8 +810,8 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
             'predicted_sl': predicted_sl,
             'predicted_return': predicted_return * 100,
             'predicted_loss': predicted_loss * 100,
-            'tp_percentage': tp_percentage,  # NEW: Percentage from current price
-            'sl_percentage': sl_percentage,  # NEW: Percentage from current price
+            'tp_percentage': tp_percentage,
+            'sl_percentage': sl_percentage,
             'confidence': confidence_score,
             'current_price': current_price
         }
@@ -898,7 +877,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.legend(loc='upper left', fontsize='x-small')
         ax1.grid(True, alpha=0.5)
 
-        from matplotlib.offsetbox import AnchoredText # Assuming AnchoredText is available from imports
+        from matplotlib.offsetbox import AnchoredText
         hint = AnchoredText(
         "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
         loc='lower left',
@@ -947,7 +926,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.annotate(
             f'Assessment: {assessment}', 
             xy=(0.5, 0.95), xycoords='axes fraction',
-            ha='center',  # horizontal alignment center
+            ha='center',
             fontsize=12,
             weight='bold',
             bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.4)
@@ -990,7 +969,6 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
 
         # 3. Lower Most Plot
-        
         if ind in df.columns:
             ax3.plot(df.index, df[ind], label= ind, color='gray', alpha=0.4, linewidth=1.2)
             ax3.yaxis.set_label_position("right")
@@ -1015,7 +993,6 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         
     except Exception as e:
         st.error(f"Error creating plot: {str(e)}")
-        # Return empty figure
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f'Plot error: {str(e)}', ha='center', va='center', transform=ax.transAxes)
         return fig
@@ -1174,16 +1151,182 @@ def initialize_session_state():
         st.session_state.entry_price_input = None
     if "initial_prices_set" not in st.session_state:
         st.session_state.initial_prices_set = False
+    if "patience_score" not in st.session_state:
+        st.session_state.patience_score = 0
+    if "entry_journal" not in st.session_state:
+        st.session_state.entry_journal = []
+    if "last_analysis_time" not in st.session_state:
+        st.session_state.last_analysis_time = None
 
-            
+def calculate_entry_score(prediction, df, timeframe):
+    """Calculate an overall entry score from 0-100"""
+    
+    score_components = {}
+    
+    # 1. ML Confidence (max 30 points)
+    score_components['ML Confidence'] = min(prediction['confidence'] * 0.3, 30)
+    
+    # 2. Risk/Reward Ratio (max 25 points)
+    rr = abs(prediction['tp_percentage'] / prediction['sl_percentage']) if prediction['sl_percentage'] != 0 else 0
+    if rr >= 2.0:
+        score_components['Risk/Reward'] = 25
+    elif rr >= 1.5:
+        score_components['Risk/Reward'] = 20
+    elif rr >= 1.2:
+        score_components['Risk/Reward'] = 15
+    else:
+        score_components['Risk/Reward'] = 5
+    
+    # 3. Technical alignment (max 20 points)
+    latest = df.iloc[-1]
+    tech_score = 0
+    if latest['Bull'] == 1 or latest['Hold'] == 1:
+        tech_score += 10
+    if latest.get('RSI', 50) > 50:
+        tech_score += 5
+    if latest.get('EMA1', 0) > latest.get('EMA2', 1):
+        tech_score += 5
+    score_components['Technical Setup'] = tech_score
+    
+    # 4. Volume confirmation (max 10 points)
+    if 'Volume_MA20' in df.columns and 'Volume' in df.columns:
+        volume_ratio = df['Volume'].iloc[-1] / df['Volume_MA20'].iloc[-1]
+        if volume_ratio > 1.2:
+            score_components['Volume'] = 10
+        elif volume_ratio > 1.0:
+            score_components['Volume'] = 7
+        else:
+            score_components['Volume'] = 3
+    else:
+        score_components['Volume'] = 5  # Default if no volume data
+    
+    # 5. Trend alignment (max 15 points)
+    if timeframe == '1W':
+        # Weekly trend is most important
+        if latest.get('EMA1', 0) > latest.get('EMA2', 1):
+            score_components['Trend'] = 15
+        else:
+            score_components['Trend'] = 5
+    else:
+        score_components['Trend'] = 10  # Default for lower timeframes
+    
+    total_score = sum(score_components.values())
+    
+    return total_score, score_components
+
+def display_entry_warnings(current_price, entry_price, prediction=None):
+    """Display warnings about early/desperate entries"""
+    
+    warnings = []
+    
+    # Price chasing warning
+    price_diff_pct = abs(current_price - entry_price) / current_price * 100
+    if price_diff_pct > 5:
+        warnings.append(f"⚠️ **Chasing Price**: Entry is {price_diff_pct:.1f}% away from current. Consider waiting for pullback.")
+    
+    # Add RSI warning if available
+    if prediction and 'will_hit' in prediction:
+        if prediction['will_hit'] == 'TP' and prediction['hit_prob'] < 40:
+            warnings.append("📉 **Low Hit Probability**: TP probability below 40% - weak signal")
+    
+    # Display warnings
+    if warnings:
+        with st.container():
+            st.markdown("### 🚨 **ENTRY WARNINGS**")
+            for warning in warnings:
+                st.markdown(f"- {warning}")
+            st.markdown("---")
+    
+    return len(warnings)
+
+def display_patience_meter():
+    """Show a patience meter visualization"""
+    
+    st.markdown("### 🧘 **Patience Meter**")
+    
+    col_m1, col_m2, col_m3 = st.columns(3)
+    
+    with col_m1:
+        if st.button("⏸️ I'll wait 1 more candle", 
+                    help="Good discipline!", key="patience_wait"):
+            st.session_state.patience_score += 10
+    
+    with col_m2:
+        if st.button("🔍 Check smaller timeframe", 
+                    help="Instead of entering, analyze lower TF", key="patience_check"):
+            st.session_state.patience_score += 5
+    
+    with col_m3:
+        if st.button("🏃 Enter now (FOMO)", 
+                    help="High risk - you're probably chasing", key="patience_fomo"):
+            st.session_state.patience_score = max(0, st.session_state.patience_score - 20)
+    
+    # Display meter
+    patience_level = min(100, st.session_state.patience_score)
+    
+    if patience_level < 30:
+        st.error(f"**IMPULSIVE** ({patience_level}/100)")
+        st.write("🐇 You're acting on emotion, not analysis")
+    elif patience_level < 60:
+        st.warning(f"**NEEDS WORK** ({patience_level}/100)")
+        st.write("🚶 You're improving but still impulsive")
+    elif patience_level < 80:
+        st.info(f"**PATIENT** ({patience_level}/100)")
+        st.write("🚶‍♂️ Good discipline - waiting for confirmations")
+    else:
+        st.success(f"**MASTER TRADER** ({patience_level}/100)")
+        st.write("🐢 Excellent patience - you wait for perfect setups")
+    
+    st.progress(patience_level / 100)
+    st.markdown("---")
+
 def main():
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
     with st.expander("Disciplined Entry and Exit Strategy (Expand and learn)", expanded=False):
         st.write(desc)
+    
+    # ========== NEW: PATIENCE & CONFIRMATION CHECKLIST ==========
+    st.markdown("### ⏳ **Entry Discipline Checklist**")
+    
+    with st.expander("✅ Complete this checklist BEFORE entering (expand)", expanded=True):
+        col1, col2 = st.columns(2)
         
+        with col1:
+            st.markdown("**Technical Confirmations**")
+            conf_rsi = st.checkbox("RSI > 50 & above its SMA", key="conf_rsi")
+            conf_ema = st.checkbox("Price above EMA1 & EMA2 (for long)", key="conf_ema")
+            conf_volume = st.checkbox("Volume above 20-day average", key="conf_volume")
+            conf_adx = st.checkbox("ADX > 20 (trend strength)", key="conf_adx")
+            
+        with col2:
+            st.markdown("**Multi-Timeframe Alignment**")
+            conf_multitf = st.checkbox("All timeframes show 'Valid' or 'Risky'", key="conf_multitf")
+            conf_bullish = st.checkbox("Weekly trend is bullish", key="conf_bullish")
+            conf_pullback = st.checkbox("Entering on pullback, NOT chasing", key="conf_pullback")
+            conf_patience = st.checkbox("Waited at least 2 candles after signal", key="conf_patience")
+        
+        # Calculate confirmation score
+        checks = [conf_rsi, conf_ema, conf_volume, conf_adx, 
+                 conf_multitf, conf_bullish, conf_pullback, conf_patience]
+        confirmation_score = sum(checks) / len(checks) * 100
+        
+        st.progress(confirmation_score / 100)
+        
+        if confirmation_score >= 75:
+            st.success(f"✅ **{confirmation_score:.0f}% Confirmed** - Entry conditions met")
+        elif confirmation_score >= 50:
+            st.warning(f"⚠️ **{confirmation_score:.0f}% Partial Confirmation** - Consider waiting")
+        else:
+            st.error(f"❌ **{confirmation_score:.0f}% Low Confirmation** - DO NOT ENTER")
+            
+        st.caption("💡 **Rule**: Only enter when score > 70% and ALL timeframe analyses are complete")
+    # ========== END CHECKLIST ==========
+    
     initialize_session_state()
+    
+    # Main input columns
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -1205,35 +1348,35 @@ def main():
         else:
             st.error(f"{ticker} is invalid ❌ ({result['reason']})")
             st.stop()
-            
-        with col2:
-            if result["valid"] and not st.session_state.initial_prices_set:
-                current_price = get_current_price(ticker)
-                if current_price is not None:
-                    st.session_state.current_price = current_price
-                    st.session_state.entry_price = current_price
-                    st.session_state.entry_price_input = current_price
-                    st.session_state.initial_prices_set = True
-                    st.session_state.previous_ticker = ticker
+    
+    with col2:
+        if result["valid"] and not st.session_state.initial_prices_set:
+            current_price = get_current_price(ticker)
+            if current_price is not None:
+                st.session_state.current_price = current_price
+                st.session_state.entry_price = current_price
+                st.session_state.entry_price_input = current_price
+                st.session_state.initial_prices_set = True
+                st.session_state.previous_ticker = ticker
         
-            # Fallback for display, in case something is still None
-            current_display = st.session_state.current_price or 0.0
-            st.metric("Current Price", f"${current_display:.2f}")
+        # Fallback for display
+        current_display = st.session_state.current_price or 0.0
+        st.metric("Current Price", f"${current_display:.2f}")
         
-            default_entry = (
-                st.session_state.entry_price_input
-                if st.session_state.entry_price_input is not None
-                else current_display
-            )
+        default_entry = (
+            st.session_state.entry_price_input
+            if st.session_state.entry_price_input is not None
+            else current_display
+        )
         
-            entry_price = st.number_input(
-                "Entry Price (... $)",
-                min_value=0.0,
-                value=float(default_entry),
-                step=0.1,
-                key="entry_price_input",
-                on_change=update_entry_price,
-            )
+        entry_price = st.number_input(
+            "Entry Price (... $)",
+            min_value=0.0,
+            value=float(default_entry),
+            step=0.1,
+            key="entry_price_input",
+            on_change=update_entry_price,
+        )
 
     with col3:
         user_gain = st.number_input(
@@ -1254,6 +1397,26 @@ def main():
             key="user_loss",
             help="Tip: Realistic training needs modest/realistic repeatable gains like 2-7%. 10-15% gains results in less data and unrealistic results."             
         )
+        
+        # NEW: Entry delay/timer widget
+        st.markdown("---")
+        st.markdown("**⏱️ Entry Timing**")
+        
+        entry_delay = st.selectbox(
+            "Wait for confirmation candles:",
+            ["Immediate (risky)", "1 candle close", "2 candle close", "3+ candles"],
+            index=2,
+            help="Waiting for candle closes reduces false signals",
+            key="entry_delay"
+        )
+        
+        # Visual reminder
+        if entry_delay == "Immediate (risky)":
+            st.error("⚠️ FOMO Alert: You're chasing!")
+        elif entry_delay == "1 candle close":
+            st.warning("Minimal confirmation - still risky")
+        else:
+            st.success("✅ Patient approach - higher success rate")
 
     opt = ['OBV', 'CCI', 'CMF', 'MFI', 'ADX']
     default_option_index = 0 
@@ -1261,19 +1424,19 @@ def main():
     ind = st.selectbox(
         "Choose 3rd indicator:",
         opt,
-        index=default_option_index
+        index=default_option_index,
+        key="indicator_select"
     )
 
+    # Monte Carlo settings
     if "mc_days" not in st.session_state: 
         st.session_state.mc_days = 90 
-        
     if "mc_sims" not in st.session_state: 
         st.session_state.mc_sims = 10000
-        
     if "mc_method" not in st.session_state:
         st.session_state.mc_method = 1
     
-    # ✅ SLIDERS with session state
+    # Sliders with session state
     days = st.slider(
         "Forecast Days", 
         min_value=30, max_value=365, 
@@ -1288,7 +1451,7 @@ def main():
         key="mc_sims_slider"
     )
     
-    # ✅ RADIO with session state
+    # Radio with session state
     mc_method = st.radio(
         "Monte Carlo Method",
         ["Random Statistical Simulation", "Historical Paths Simulation"],
@@ -1296,14 +1459,78 @@ def main():
         key="mc_method_radio"
     )
     
-    # ✅ UPDATE session state AFTER widgets (critical!)
+    # Update session state
     st.session_state.mc_days = days
     st.session_state.mc_sims = num_sims
     st.session_state.mc_method = ["Random Statistical Simulation", "Historical Paths Simulation"].index(mc_method)
-
-    if st.button("Analyze Entry Position"):
+    
+    # ========== PATIENCE METER ==========
+    display_patience_meter()
+    
+    # ========== COOLING OFF PERIOD & ANALYSIS BUTTONS ==========
+    st.markdown("---")
+    
+    # Cooling off period
+    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 1])
+    
+    analyze_enabled = True
+    
+    with col_btn1:
+        analyze_button = st.button("📊 Analyze Entry Position", 
+                                 key="analyze_main",
+                                 use_container_width=True,
+                                 disabled=False)
+    
+    with col_btn2:
+        if st.session_state.last_analysis_time:
+            time_since = (datetime.now() - st.session_state.last_analysis_time).seconds / 60
+            if time_since < 15:  # 15 minute cooldown
+                remaining = 15 - time_since
+                st.warning(f"⏳ Cool down: {remaining:.0f} min")
+                analyze_enabled = False
+        
+        reset_btn = st.button("🔄 Reset Analysis", 
+                            help="Clear previous analysis to start fresh",
+                            use_container_width=True,
+                            key="reset_analysis")
+    
+    with col_btn3:
+        # Entry Journal button
+        if st.button("📖 View Entry Journal",
+                    help="Review your past entry decisions",
+                    use_container_width=True,
+                    key="view_journal"):
+            st.session_state.show_journal = True
+    
+    if reset_btn:
+        st.session_state.last_analysis_time = None
+        st.session_state.patience_score = 0
+        st.rerun()
+    
+    # ========== ENTRY JOURNAL ==========
+    if st.session_state.get("show_journal", False):
+        with st.sidebar.expander("📖 Entry Journal", expanded=True):
+            st.write("**Your Entry Decisions:**")
+            
+            if st.session_state.entry_journal:
+                for i, entry in enumerate(reversed(st.session_state.entry_journal[-10:]), 1):
+                    with st.expander(f"{i}. {entry['timestamp']}: {entry['ticker']} @ ${entry['entry_price']:.2f}"):
+                        st.write(f"**Notes:** {entry['notes']}")
+                        if entry['score']:
+                            st.write(f"**Score:** {entry['score']:.0f}/100")
+            else:
+                st.write("No entries logged yet.")
+            
+            if st.button("Close Journal", key="close_journal"):
+                st.session_state.show_journal = False
+                st.rerun()
+    
+    if analyze_button and analyze_enabled:
         with st.spinner("Training models and analyzing..."):
             try:
+                # Update last analysis time
+                st.session_state.last_analysis_time = datetime.now()
+                
                 # Get current date/time
                 end_date = datetime.now()
 
@@ -1385,13 +1612,38 @@ def main():
                     if prediction:
                         current_price = prediction['current_price']
                         assessment, reasons = assess_entry(prediction, user_gain, user_loss, entry_price, current_price)
-
+                        
+                        # Display warnings
+                        warning_count = display_entry_warnings(current_price, entry_price, prediction)
+                        
+                        # Calculate entry score
+                        entry_score, score_details = calculate_entry_score(prediction, df, timeframe)
+                        
                         results[timeframe] = {
                             "prediction": prediction,
                             "assessment": assessment,
                             "reasons": reasons,
                             "df": df,
+                            "score": entry_score,
+                            "score_details": score_details
                         }
+
+                        # Display scorecard
+                        with st.expander(f"📈 Entry Score: {entry_score:.0f}/100", expanded=True):
+                            for component, points in score_details.items():
+                                col_a, col_b = st.columns([3, 1])
+                                col_a.write(component)
+                                col_b.progress(points / 100)
+                                col_b.write(f"{points:.0f}")
+                            
+                            st.markdown("---")
+                            
+                            if entry_score >= 70:
+                                st.success(f"**GOOD ENTRY** ({entry_score:.0f}/100)")
+                            elif entry_score >= 50:
+                                st.warning(f"**CAUTIOUS ENTRY** ({entry_score:.0f}/100)")
+                            else:
+                                st.error(f"**POOR ENTRY** ({entry_score:.0f}/100) - Wait for better setup")
 
                         col1, col2 = st.columns(2)
 
@@ -1439,6 +1691,20 @@ def main():
                 
                         fig = plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction, ind=ind)
                         st.pyplot(fig)
+                        
+                        # Log this analysis to journal
+                        journal_entry = {
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                            "ticker": ticker,
+                            "timeframe": timeframe,
+                            "entry_price": entry_price,
+                            "current_price": current_price,
+                            "assessment": assessment,
+                            "score": entry_score,
+                            "notes": f"{will_hit} signal with {hit_prob:.1f}% probability"
+                        }
+                        st.session_state.entry_journal.append(journal_entry)
+                        
                     else:
                         st.warning(f"Could not generate prediction for {timeframe}")
 
@@ -1482,8 +1748,8 @@ def main():
                     emoji_map = {
                         "Valid": "🟢 Valid",
                         "Risky": "🟡 Risky",
-                        "Avoid": "🔴 Avoid",
                         "Wait and See": "🔴 Wait and See",
+                        "Not Recommended": "🔴 Not Recommended"
                     }
                     
                     summary_data = []
@@ -1500,11 +1766,12 @@ def main():
                             "Conf (%)": round(pred['confidence'], 1),
                             "Hits": pred['will_hit'],
                             "R/R": round(rr, 2),
+                            "Score": round(res['score'], 0),
                             "Assessment": display_assessment
                         })
                     
                     summary_df = pd.DataFrame(summary_data)
-                    summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "Hits", "R/R", "Assessment"]]
+                    summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "Hits", "R/R", "Score", "Assessment"]]
                                                
                     st.write(f"**Timeframe Summary ({ticker}):**")
                     st.dataframe(summary_df)
@@ -1573,7 +1840,7 @@ def main():
                             num_sims=st.session_state.mc_sims
                         )
 
-                    # --- START OF NEW PATH CALCULATION ---
+                    # Path calculation
                     final_prices = paths[-1]
                     
                     mask_profit = final_prices > entry_price
@@ -1597,7 +1864,7 @@ def main():
                     for i in range(sample_paths):
                         ax3.plot(range(days + 1), paths[:, i], color="gray", alpha=0.3, linewidth=0.5)
     
-                    # --- NEW PLOTTING OF MEAN PATHS ---
+                    # Plotting of mean paths
                     ax3.plot(range(days + 1), mean_path_all, color="red", linewidth=2, linestyle='--', label="Overall Mean Path (Expected Value)")
                     
                     if mean_path_profit is not None:
@@ -1605,7 +1872,6 @@ def main():
                         
                     if mean_path_loss is not None:
                         ax3.plot(range(days + 1), mean_path_loss, color="orangered", linewidth=2, label=f"Mean Loss Path ({mask_loss.sum()} sims)")
-                    # --- END NEW PLOTTING ---
                         
                     percentiles = np.percentile(paths[-1], [5, 25, 50, 75, 95])
                     
@@ -1630,11 +1896,10 @@ def main():
                     st.pyplot(fig3)
                     plt.close(fig3)
                     
-                    #### --------------------------------####
+                    # Final probability calculations
                     final_prices = paths[-1]
                     prob_profit = np.mean(final_prices > entry_price) * 100
                     prob_loss = np.mean(final_prices < entry_price) * 100
-                    prob_uncertain = 100 - prob_profit - prob_loss
 
                     st.subheader("Final Price Probability vs. Entry Price")
                     
@@ -1658,14 +1923,16 @@ def main():
                 st.error(f"Error analyzing {ticker}: {str(e)}")
                 st.info("Try with a different ticker or check if market is open")
 
-
     with st.expander("How to use this analyzer"):
         st.write(
             """
-        1. **Enter Ticker Symbol**: Stock symbol (e.g., AAPL, TSLA, NVDA) or crypto (BTC-USD)
-        2. **Set Entry Price**: Your intended entry price
-        3. **Define Expectations**: Your target gain and maximum acceptable loss (Conservative 2-5%, aggressive 5-12%, unrealistic 20% or higher
-        4. **Click Analyze**: The system will train ML models and evaluate your entry
+        1. **Complete the Checklist**: Go through all confirmation checks before considering entry
+        2. **Enter Ticker Symbol**: Stock symbol (e.g., AAPL, TSLA, NVDA) or crypto (BTC-USD)
+        3. **Set Entry Price**: Your intended entry price
+        4. **Define Expectations**: Your target gain and maximum acceptable loss (Conservative 2-5%, aggressive 5-12%, unrealistic 20% or higher)
+        5. **Wait for Confirmations**: Use the patience meter and wait for multiple timeframe confirmations
+        6. **Check Entry Score**: Only enter when score > 70/100
+        7. **Review Warnings**: Pay attention to any entry warnings displayed
 
         **Timeframe Data Requirements:**
         - **4H**: 1 year of historical data (~2000+ data points)
@@ -1677,12 +1944,11 @@ def main():
         - 🟡 **Risky**: Moderate signals, proceed with caution  
         - 🔴 **Wait and See**: Poor risk-reward or bearish signals
 
-        **The analysis considers:**
-        - ML predictions for TP/SL hits
-        - Risk-reward ratios
-        - Technical indicator alignment
-        - Price proximity to current levels
-        - Confidence scores from ensemble models
+        **Patience Rules:**
+        - Wait for ALL timeframe analyses to complete
+        - Only enter when checklist score > 70%
+        - Use the 15-minute cooldown between analyses
+        - Log your decisions to learn from past mistakes
 
         **Note**: 4H data may not be available for all tickers outside market hours.
         1W data requires at least 5 years of history for sufficient data points.
