@@ -260,161 +260,6 @@ with col3:
     st.metric("30-Day Momentum", f"{latest_momentum:+.0f}%/day",
               delta="Accelerating" if abs(latest_momentum) > MOM_HIGH else "Stable")
 
-# ========== GMF CHARTS ==========
-st.markdown("---")
-st.header("📊 GMF Visualization")
-
-# Prepare data for plotting
-df_plot = pd.DataFrame({
-    "Date": money_flow_raw.index,
-    "Money Flow Curve": money_flow_s,
-    "Smoothed Curve": money_flow_smooth,
-    "Momentum": money_flow_momentum,
-    "Z-Score": money_flow_zscore
-}).dropna()
-
-df_plot['Above'] = df_plot['Money Flow Curve'] > df_plot['Smoothed Curve']
-
-# Create GMF Chart
-st.subheader("🌊 GMF Curves")
-base = alt.Chart(df_plot).encode(
-    x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date'))
-)
-zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
-
-curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
-    y=alt.Y('Money Flow Curve:Q', title='GMF Index'),
-    tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
-)
-
-smooth_chart = base.mark_line(color='#d62728', size=2).encode(
-    y=alt.Y('Smoothed Curve:Q', title='GMF Index'),
-    tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
-)
-
-fill_area = base.mark_area(opacity=0.17).encode(
-    y='Money Flow Curve:Q',
-    y2='Smoothed Curve:Q',
-    color=alt.Color(
-        'Above:N',
-        scale=alt.Scale(domain=[True, False], range=['green', 'red']),
-        legend=None
-    )
-)
-
-final_chart = alt.layer(zero_line, fill_area, curve_chart, smooth_chart)
-st.altair_chart(final_chart, use_container_width=True)
-
-# Momentum Chart
-st.subheader("📈 GMF Momentum (30-Day Rate of Change)")
-momentum_chart = (
-    alt.Chart(df_plot)
-    .mark_bar(opacity=0.5)
-    .encode(
-        x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
-        y=alt.Y('Momentum:Q', title='Daily Rate of Change (%)'),
-        color=alt.condition(
-            alt.datum.Momentum > 0,
-            alt.value('#2ca02c'),
-            alt.value('#d62728')
-        ),
-        tooltip=['Date:T', alt.Tooltip('Momentum:Q', format='.3f')]
-    )
-)
-
-# Add momentum threshold lines
-mom_threshold_lines = alt.Chart(pd.DataFrame({'y': [MOM_LOW, 0, MOM_HIGH]})).mark_rule(
-    color='gray', strokeDash=[3, 3]
-).encode(y='y')
-
-final_momentum_chart = (momentum_chart + mom_threshold_lines)
-st.altair_chart(final_momentum_chart, use_container_width=True)
-
-# Z-Score Chart
-st.subheader("📊 Climax Zone Indicator (Z-Score)")
-zscore_chart = (
-    alt.Chart(df_plot)
-    .mark_area(opacity=0.6)
-    .encode(
-        x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
-        y=alt.Y('Z-Score:Q', title='Z-Score'),
-        color=alt.condition(
-            alt.datum['Z-Score'] > 0,
-            alt.value('#1f77b4'), 
-            alt.value('#d62728')  
-        ),
-        tooltip=['Date:T', alt.Tooltip('Z-Score:Q', format='.2f')]
-    )
-)
-
-# Add Z-Score threshold lines
-z_threshold_lines = alt.Chart(pd.DataFrame({'y': [-Z_EXTREME, -0.5, 0, 0.5, Z_EXTREME]})).mark_rule(
-    color='gray', strokeDash=[3, 3]
-).encode(y='y')
-
-final_zscore_chart = (zscore_chart + z_threshold_lines).properties(height=300)
-st.altair_chart(final_zscore_chart, use_container_width=True)
-
-# ========== ASSET ANALYSIS ==========
-st.markdown("---")
-st.header("📈 Asset Analysis")
-
-# Underlying Assets
-with st.expander("📊 Show Underlying Asset Returns"):
-    asset_returns = data.pct_change().fillna(0) * 100
-    weights_series = pd.Series(weights).reindex(asset_returns.columns).fillna(0)
-    weighted_returns = asset_returns.multiply(weights_series, axis=1)
-    cumulative_contrib = weighted_returns.cumsum()
-    
-    cumulative_melted = cumulative_contrib.reset_index().melt("Date", var_name="Asset", value_name="Cumulative Contribution")
-    
-    asset_chart = (
-        alt.Chart(cumulative_melted)
-        .mark_area(opacity=0.6)
-        .encode(
-            x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
-            y='Cumulative Contribution:Q',
-            color='Asset:N',
-            tooltip=['Date:T', 'Asset:N', alt.Tooltip('Cumulative Contribution:Q', format='.2f')]
-        )
-        .properties(
-            title="Cumulative Contribution of Each Asset to GMF Index",
-            width='container',
-            height=400
-        )
-    )
-    st.altair_chart(asset_chart, use_container_width=True)
-
-# Correlation Matrix
-with st.expander("🧠 Asset Correlation Matrix"):
-    returns_corr = data.pct_change().corr()
-    returns_corr.index.name = 'Asset1'    
-    corr_melt = returns_corr.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
-    corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
-    
-    heatmap = (
-        alt.Chart(corr_melt)
-        .mark_rect()
-        .encode(
-            x=alt.X('Asset1:N', title=None),
-            y=alt.Y('Asset2:N', title=None),
-            color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1))),
-            tooltip=['Asset1', 'Asset2', alt.Tooltip('Correlation:Q', format='.2f')]
-        )
-        .properties(title="Daily Return Correlation Heatmap")
-    )
-    
-    text = (
-        alt.Chart(corr_melt)
-        .mark_text(baseline='middle', align='center', fontSize=10, color='black')
-        .encode(
-            x='Asset1:N',
-            y='Asset2:N',
-            text=alt.Text('Correlation:Q', format=".2f")
-        )
-    )
-    
-    st.altair_chart(heatmap + text, use_container_width=True)
 
 # ========== MARKET POSITIONING ==========
 st.markdown("---")
@@ -589,6 +434,163 @@ with st.expander("🏗️ Sector Rotation Matrix"):
         
         **Rationale:** {rationale}
         """)
+
+
+# ========== GMF CHARTS ==========
+st.markdown("---")
+st.header("📊 GMF Visualization")
+
+# Prepare data for plotting
+df_plot = pd.DataFrame({
+    "Date": money_flow_raw.index,
+    "Money Flow Curve": money_flow_s,
+    "Smoothed Curve": money_flow_smooth,
+    "Momentum": money_flow_momentum,
+    "Z-Score": money_flow_zscore
+}).dropna()
+
+df_plot['Above'] = df_plot['Money Flow Curve'] > df_plot['Smoothed Curve']
+
+# Create GMF Chart
+st.subheader("🌊 GMF Curves")
+base = alt.Chart(df_plot).encode(
+    x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date'))
+)
+zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
+
+curve_chart = base.mark_line(color='#1f77b4', opacity=0.6).encode(
+    y=alt.Y('Money Flow Curve:Q', title='GMF Index'),
+    tooltip=['Date:T', alt.Tooltip('Money Flow Curve:Q', format='.2f')]
+)
+
+smooth_chart = base.mark_line(color='#d62728', size=2).encode(
+    y=alt.Y('Smoothed Curve:Q', title='GMF Index'),
+    tooltip=['Date:T', alt.Tooltip('Smoothed Curve:Q', format='.2f')]
+)
+
+fill_area = base.mark_area(opacity=0.17).encode(
+    y='Money Flow Curve:Q',
+    y2='Smoothed Curve:Q',
+    color=alt.Color(
+        'Above:N',
+        scale=alt.Scale(domain=[True, False], range=['green', 'red']),
+        legend=None
+    )
+)
+
+final_chart = alt.layer(zero_line, fill_area, curve_chart, smooth_chart)
+st.altair_chart(final_chart, use_container_width=True)
+
+# Momentum Chart
+st.subheader("📈 GMF Momentum (30-Day Rate of Change)")
+momentum_chart = (
+    alt.Chart(df_plot)
+    .mark_bar(opacity=0.5)
+    .encode(
+        x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
+        y=alt.Y('Momentum:Q', title='Daily Rate of Change (%)'),
+        color=alt.condition(
+            alt.datum.Momentum > 0,
+            alt.value('#2ca02c'),
+            alt.value('#d62728')
+        ),
+        tooltip=['Date:T', alt.Tooltip('Momentum:Q', format='.3f')]
+    )
+)
+
+# Add momentum threshold lines
+mom_threshold_lines = alt.Chart(pd.DataFrame({'y': [MOM_LOW, 0, MOM_HIGH]})).mark_rule(
+    color='gray', strokeDash=[3, 3]
+).encode(y='y')
+
+final_momentum_chart = (momentum_chart + mom_threshold_lines)
+st.altair_chart(final_momentum_chart, use_container_width=True)
+
+# Z-Score Chart
+st.subheader("📊 Climax Zone Indicator (Z-Score)")
+zscore_chart = (
+    alt.Chart(df_plot)
+    .mark_area(opacity=0.6)
+    .encode(
+        x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
+        y=alt.Y('Z-Score:Q', title='Z-Score'),
+        color=alt.condition(
+            alt.datum['Z-Score'] > 0,
+            alt.value('#1f77b4'), 
+            alt.value('#d62728')  
+        ),
+        tooltip=['Date:T', alt.Tooltip('Z-Score:Q', format='.2f')]
+    )
+)
+
+# Add Z-Score threshold lines
+z_threshold_lines = alt.Chart(pd.DataFrame({'y': [-Z_EXTREME, -0.5, 0, 0.5, Z_EXTREME]})).mark_rule(
+    color='gray', strokeDash=[3, 3]
+).encode(y='y')
+
+final_zscore_chart = (zscore_chart + z_threshold_lines).properties(height=300)
+st.altair_chart(final_zscore_chart, use_container_width=True)
+
+# ========== ASSET ANALYSIS ==========
+st.markdown("---")
+st.header("📈 Asset Analysis")
+
+# Underlying Assets
+with st.expander("📊 Show Underlying Asset Returns"):
+    asset_returns = data.pct_change().fillna(0) * 100
+    weights_series = pd.Series(weights).reindex(asset_returns.columns).fillna(0)
+    weighted_returns = asset_returns.multiply(weights_series, axis=1)
+    cumulative_contrib = weighted_returns.cumsum()
+    
+    cumulative_melted = cumulative_contrib.reset_index().melt("Date", var_name="Asset", value_name="Cumulative Contribution")
+    
+    asset_chart = (
+        alt.Chart(cumulative_melted)
+        .mark_area(opacity=0.6)
+        .encode(
+            x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
+            y='Cumulative Contribution:Q',
+            color='Asset:N',
+            tooltip=['Date:T', 'Asset:N', alt.Tooltip('Cumulative Contribution:Q', format='.2f')]
+        )
+        .properties(
+            title="Cumulative Contribution of Each Asset to GMF Index",
+            width='container',
+            height=400
+        )
+    )
+    st.altair_chart(asset_chart, use_container_width=True)
+
+# Correlation Matrix
+with st.expander("🧠 Asset Correlation Matrix"):
+    returns_corr = data.pct_change().corr()
+    returns_corr.index.name = 'Asset1'    
+    corr_melt = returns_corr.reset_index().melt(id_vars='Asset1', var_name='Asset2', value_name='Correlation')
+    corr_melt = corr_melt[corr_melt['Asset1'] != corr_melt['Asset2']]
+    
+    heatmap = (
+        alt.Chart(corr_melt)
+        .mark_rect()
+        .encode(
+            x=alt.X('Asset1:N', title=None),
+            y=alt.Y('Asset2:N', title=None),
+            color=alt.Color('Correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1))),
+            tooltip=['Asset1', 'Asset2', alt.Tooltip('Correlation:Q', format='.2f')]
+        )
+        .properties(title="Daily Return Correlation Heatmap")
+    )
+    
+    text = (
+        alt.Chart(corr_melt)
+        .mark_text(baseline='middle', align='center', fontSize=10, color='black')
+        .encode(
+            x='Asset1:N',
+            y='Asset2:N',
+            text=alt.Text('Correlation:Q', format=".2f")
+        )
+    )
+    
+    st.altair_chart(heatmap + text, use_container_width=True)
 
 # Divergence Check
 with st.expander("⚠️ Divergence Check: S&P 500 vs. GMF Momentum"):
