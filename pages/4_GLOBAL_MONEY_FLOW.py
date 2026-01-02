@@ -260,6 +260,137 @@ with col3:
     st.metric("30-Day Momentum", f"{latest_momentum:+.0f}%/day",
               delta="Accelerating" if abs(latest_momentum) > MOM_HIGH else "Stable")
 
+# ===== 2nd ROW: POSITIONING & ROTATION SNAPSHOT =====
+pos_col1, pos_col2, pos_col3 = st.columns(3)
+
+# 1) Equity allocation snapshot (reusing logic later in expander)
+with pos_col1:
+    st.subheader("Equity Bias")
+    try:
+        # Compute positioning_df once, to reuse in expander as well
+        positioning_data = {}
+
+        if 'Crude Oil (CL)' in data.columns and 'Emerging Markets (EEM)' in data.columns:
+            commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
+            positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / commod_em_ratio.iloc[0] * 100)
+
+        if 'US 10Y Treasury (IEF)' in data.columns and 'US Dollar Index (DXY)' in data.columns:
+            treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
+            positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / treasury_dollar_ratio.iloc[0] * 100)
+
+        positioning_df = pd.DataFrame({
+            'Date': data.index,
+            'GMF_Index': money_flow_smooth,
+            'GMF_Momentum': money_flow_momentum,
+            **positioning_data
+        }).dropna()
+
+        equity_allocation = None
+        positioning_label = "N/A"
+        sectors_label = "N/A"
+
+        if not positioning_df.empty:
+            recent_gmf = positioning_df['GMF_Index'].iloc[-20:].mean()
+            recent_mom = positioning_df['GMF_Momentum'].iloc[-20:].mean()
+
+            equity_allocation = 50
+
+            # GMF adjustment
+            if recent_gmf > 20:
+                equity_allocation += 20
+            elif recent_gmf > 0:
+                equity_allocation += 10
+            elif recent_gmf < -20:
+                equity_allocation -= 20
+            elif recent_gmf < 0:
+                equity_allocation -= 10
+
+            # Momentum adjustment
+            if recent_mom > 0.3:
+                equity_allocation += 15
+            elif recent_mom > 0.1:
+                equity_allocation += 5
+            elif recent_mom < -0.3:
+                equity_allocation -= 15
+            elif recent_mom < -0.1:
+                equity_allocation -= 5
+
+            # Commodity/EM adjustment
+            if 'Commodity/EM_Ratio' in positioning_df.columns:
+                recent_commod_em = positioning_df['Commodity/EM_Ratio'].iloc[-1]
+                if recent_commod_em > 110:
+                    equity_allocation -= 10
+                elif recent_commod_em < 90:
+                    equity_allocation += 5
+
+            equity_allocation = max(0, min(100, equity_allocation))
+
+            if equity_allocation >= 70:
+                positioning_label = "Max Risk-On"
+                sectors_label = "Cyclicals, Tech, Small Caps"
+            elif equity_allocation >= 60:
+                positioning_label = "Risk-On"
+                sectors_label = "Tech, Discretionary, Industrials"
+            elif equity_allocation >= 40:
+                positioning_label = "Neutral"
+                sectors_label = "Balanced, Quality Growth"
+            elif equity_allocation >= 30:
+                positioning_label = "Risk-Off"
+                sectors_label = "Defensives, Healthcare"
+            else:
+                positioning_label = "Max Risk-Off"
+                sectors_label = "Cash, Bonds, Defensives"
+
+        st.metric("Equity Allocation", f"{equity_allocation or 0:.0f}%", positioning_label)
+
+    except Exception:
+        st.metric("Equity Allocation", "N/A", "Error")
+
+# 2) Sector rotation snapshot
+with pos_col2:
+    st.subheader("Sector Tilt")
+    if 'latest_zscore' in locals() and 'latest_momentum' in locals():
+        if latest_zscore < -1.0 and latest_momentum > 0:
+            stage = "Late Bear → Early Bull"
+            sectors = "Banks, Homebuilders, Small Caps"
+        elif latest_zscore < 0 and latest_momentum > 0.2:
+            stage = "Early Bull"
+            sectors = "Financials, Industrials, Materials"
+        elif 0 <= latest_zscore < 1.0 and latest_momentum > 0.1:
+            stage = "Mid Bull"
+            sectors = "Tech, Comm, Healthcare"
+        elif latest_zscore >= 1.0 and latest_momentum > 0:
+            stage = "Late Bull"
+            sectors = "Energy, Staples, Utilities"
+        elif latest_zscore >= 0.5 and latest_momentum < 0:
+            stage = "Early Bear"
+            sectors = "Staples, Utilities, Gold"
+        elif latest_zscore < 0.5 and latest_momentum < -0.1:
+            stage = "Mid Bear"
+            sectors = "Staples, Bonds, Gold"
+        else:
+            stage = "Transition"
+            sectors = "Quality, Dividends"
+
+        st.metric("Market Stage", stage, sectors)
+    else:
+        st.metric("Market Stage", "N/A", "")
+
+
+# 3) Cross-asset quick view
+with pos_col3:
+    st.subheader("Cross-Asset RS")
+    commod_em_text = "N/A"
+    treas_dxy_text = "N/A"
+    if 'Commodity/EM_Ratio' in positioning_df.columns:
+        commod_em_latest = positioning_df['Commodity/EM_Ratio'].iloc[-1]
+        commod_em_text = f"{commod_em_latest:.1f}"
+    if 'Treasury/Dollar_Ratio' in positioning_df.columns:
+        treas_dxy_latest = positioning_df['Treasury/Dollar_Ratio'].iloc[-1]
+        treas_dxy_text = f"{treas_dxy_latest:.1f}"
+
+    st.metric("Commodity / EM", commod_em_text)
+    st.metric("Treasury / DXY", treas_dxy_text)
 
 # ========== MARKET POSITIONING ==========
 st.markdown("---")
