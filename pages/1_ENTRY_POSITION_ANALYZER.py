@@ -17,9 +17,6 @@ warnings.filterwarnings('ignore')
 
 
 # Configuration
-# Removed aggressive cache clearing for better performance
-# st.cache_data.clear()
-# st.cache_resource.clear()
 st.set_page_config(page_title="📊 Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
@@ -169,8 +166,6 @@ def add_technical_indicators(df, timeframe='1D'):
     """Add essential technical indicators to dataframe with timeframe-specific adjustments"""
     try:
         close = df.Close
-        # NOTE: df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(3).mean() requires a defined 'imports'
-        # Assuming the imported ta library handles the mean/rolling correctly, proceed with existing logic.
         df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(3).mean()
         
         # Adjust parameters based on timeframe
@@ -197,7 +192,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2 * sma_multiplier), adjust=False).mean()
 
         df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
-        # Requires ta to be defined
         df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
         df = ta.scaled_volatility(df)
         df = ta.add_candlestickpatterns(df)
@@ -236,7 +230,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
         df[['VI+', 'VI-']] = ta.calculate_vortex(df)
         df[['STu', 'STl']] = ta.calculate_supertrend(df)
-        #df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
         df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
 
         # Adjust return periods based on timeframe
@@ -638,7 +631,7 @@ def train_models(df, timeframe):
         X_all = df_model[FEATURES]
         y_all = df_model['Hit_Label'].astype(int)
         
-        # --- START FIX 1: Filter to ensure only expected_classes are used for all steps ---
+        # Filter to ensure only expected_classes are used for all steps
         valid_mask = y_all.isin(expected_classes)
         X_filtered = X_all[valid_mask]
         y_filtered = y_all[valid_mask]
@@ -646,7 +639,6 @@ def train_models(df, timeframe):
         if y_filtered.empty or len(y_filtered) < MIN_TRAIN_ROWS.get(timeframe, _Nr):
             st.warning(f"Insufficient valid data points ({len(y_filtered)}) for {timeframe} modeling after label filtering.")
             return None, None, None, None, None, None
-        # --- END FIX 1 ---
         
         X_train_cls, X_test_cls, y_train_cls, y_test_cls = train_test_split(
             X_filtered, y_filtered, test_size=0.2, random_state=42
@@ -654,7 +646,6 @@ def train_models(df, timeframe):
         
         scaler_cls = StandardScaler()
         X_train_scaled_cls = scaler_cls.fit_transform(X_train_cls)
-        # X_test_scaled_cls = scaler_cls.transform(X_test_cls) # Not strictly needed for final prediction logic
         progress_bar.progress(25)
         
         # Train classification model on training set only
@@ -670,24 +661,18 @@ def train_models(df, timeframe):
         model_class.fit(X_train_scaled_cls, y_train_cls)
         progress_bar.progress(50)
         
-        # --- START FIX 2: Prediction probabilities on the full filtered set and safe mapping ---
-        # Predict probabilities on ALL filtered data (X_filtered)
+        # Prediction probabilities on the full filtered set and safe mapping
         X_filtered_scaled = scaler_cls.transform(X_filtered)
         cls_probs = model_class.predict_proba(X_filtered_scaled)
         
-        # Create a DataFrame with a fixed number of columns for ALL expected classes (0-4)
         prob_df = pd.DataFrame(0.0, index=X_filtered.index, 
                               columns=[f'Prob_Class_{c}' for c in expected_classes])
         
-        # Fill the DataFrame using the model's prediction results. 
-        # The indices i correspond to the classes in model_class.classes_.
         for i, c in enumerate(model_class.classes_):
             if c in expected_classes:
                 prob_df[f'Prob_Class_{c}'] = cls_probs[:, i] 
-        # --- END FIX 2 ---
 
         FEATURES_with_probs = FEATURES + [f'Prob_Class_{c}' for c in expected_classes]
-        # X_reg must be concatenated using the filtered features and the new prob_df
         X_reg = pd.concat([X_filtered[FEATURES], prob_df], axis=1) 
         
         # Prepare data for regression (Expected_Return) - using filtered data
@@ -745,21 +730,16 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
     try:
         # Check for missing features
         if latest_data[FEATURES].isnull().values.any():
-            missing_features = latest_data[FEATURES].columns[latest_data[FEATURES].isnull().any()].tolist()
-            st.warning(f"Missing features: {missing_features}")
-            # Instead of returning None, try to fill NaNs for prediction if possible
             latest_data_filled = latest_data[FEATURES].fillna(0) # Simple fill for safety
         else:
             latest_data_filled = latest_data[FEATURES]
 
-        
         # Class prediction
         latest_scaled_cls = scaler_cls.transform(latest_data_filled)
         latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
         
-        # --- FIX 3: Robust probability feature extraction for prediction ---
+        # Robust probability feature extraction for prediction
         latest_prob_features = {}
-        # Ensure the model's output is mapped correctly to the fixed 5 expected columns
         for c in expected_classes:
             if c in model_class.classes_:
                 idx = model_class.classes_.tolist().index(c)
@@ -772,7 +752,6 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
         pred_class = expected_classes[max_prob_index]
         will_hit = label2str.get(pred_class, "None")
         hit_prob = latest_prob_features[f'Prob_Class_{pred_class}'] * 100
-        # --- END FIX 3 ---
         
         # Prepare features with probabilities for regression
         latest_prob_df = pd.DataFrame([latest_prob_features])
@@ -805,7 +784,7 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
 
         bullish_prob = p_tp + p_hold
         bearish_prob = p_sl + p_short
-    	
+        
         if predicted_loss != 0:
             rr_ratio = predicted_return / abs(predicted_loss)
         else:
@@ -831,8 +810,8 @@ def make_prediction(model_class, model_return, model_loss, scaler_cls, scaler_re
             'predicted_sl': predicted_sl,
             'predicted_return': predicted_return * 100,
             'predicted_loss': predicted_loss * 100,
-            'tp_percentage': tp_percentage,  # NEW: Percentage from current price
-            'sl_percentage': sl_percentage,  # NEW: Percentage from current price
+            'tp_percentage': tp_percentage,
+            'sl_percentage': sl_percentage,
             'confidence': confidence_score,
             'current_price': current_price
         }
@@ -898,7 +877,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.legend(loc='upper left', fontsize='x-small')
         ax1.grid(True, alpha=0.5)
 
-        from matplotlib.offsetbox import AnchoredText # Assuming AnchoredText is available from imports
+        from matplotlib.offsetbox import AnchoredText
         hint = AnchoredText(
         "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
         loc='lower left',
@@ -947,7 +926,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         ax1.annotate(
             f'Assessment: {assessment}', 
             xy=(0.5, 0.95), xycoords='axes fraction',
-            ha='center',  # horizontal alignment center
+            ha='center',
             fontsize=12,
             weight='bold',
             bbox=dict(boxstyle='round', facecolor=assessment_color, alpha=0.4)
@@ -990,7 +969,6 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
             ax2.text(0.5, 0.5, 'RSI data not available', ha='center', va='center', transform=ax2.transAxes)
 
         # 3. Lower Most Plot
-        
         if ind in df.columns:
             ax3.plot(df.index, df[ind], label= ind, color='gray', alpha=0.4, linewidth=1.2)
             ax3.yaxis.set_label_position("right")
@@ -1015,7 +993,6 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         
     except Exception as e:
         st.error(f"Error creating plot: {str(e)}")
-        # Return empty figure
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f'Plot error: {str(e)}', ha='center', va='center', transform=ax.transAxes)
         return fig
@@ -1070,7 +1047,7 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
         reasons.append("Entry price close to current")
     
     # Overall assessment
-    bullish_conditions = (will_hit in ['TP', 'Hold',  'None'] and confidence > 60 and pred_rr > 1.2)
+    bullish_conditions = (will_hit in ['TP', 'Hold'] and hit_prob > 40 and confidence > 60 and pred_rr > 1.4)
     risky_conditions = (will_hit in ['TP', 'Hold', 'None'] and confidence > 50 and pred_rr > 1.2)
     
     if bullish_conditions and price_diff_pct <= 10:
@@ -1174,16 +1151,442 @@ def initialize_session_state():
         st.session_state.entry_price_input = None
     if "initial_prices_set" not in st.session_state:
         st.session_state.initial_prices_set = False
+    if "patience_score" not in st.session_state:
+        st.session_state.patience_score = 0
+    if "entry_journal" not in st.session_state:
+        st.session_state.entry_journal = []
+    if "last_analysis_time" not in st.session_state:
+        st.session_state.last_analysis_time = None
 
-            
+def calculate_entry_score(prediction, df, timeframe):
+    """Calculate an overall entry score from 0-100"""
+    
+    score_components = {}
+    
+    # 1. ML Confidence (max 30 points)
+    score_components['ML Confidence'] = min(prediction['confidence'] * 0.3, 30)
+    
+    # 2. Risk/Reward Ratio (max 25 points)
+    rr = abs(prediction['tp_percentage'] / prediction['sl_percentage']) if prediction['sl_percentage'] != 0 else 0
+    if rr >= 2.0:
+        score_components['Risk/Reward'] = 25
+    elif rr >= 1.5:
+        score_components['Risk/Reward'] = 20
+    elif rr >= 1.2:
+        score_components['Risk/Reward'] = 15
+    else:
+        score_components['Risk/Reward'] = 5
+    
+    # 3. Technical alignment (max 20 points)
+    latest = df.iloc[-1]
+    tech_score = 0
+    if latest['Bull'] == 1 or latest['Hold'] == 1:
+        tech_score += 10
+    if latest.get('RSI', 50) > 50:
+        tech_score += 5
+    if latest.get('EMA1', 0) > latest.get('EMA2', 1):
+        tech_score += 5
+    score_components['Technical Setup'] = tech_score
+    
+    # 4. Volume confirmation (max 10 points)
+    if 'Volume_MA20' in df.columns and 'Volume' in df.columns:
+        volume_ratio = df['Volume'].iloc[-1] / df['Volume_MA20'].iloc[-1]
+        if volume_ratio > 1.2:
+            score_components['Volume'] = 10
+        elif volume_ratio > 1.0:
+            score_components['Volume'] = 7
+        else:
+            score_components['Volume'] = 3
+    else:
+        score_components['Volume'] = 5  # Default if no volume data
+    
+    # 5. Trend alignment (max 15 points)
+    if timeframe == '1W':
+        # Weekly trend is most important
+        if latest.get('EMA1', 0) > latest.get('EMA2', 1):
+            score_components['Trend'] = 15
+        else:
+            score_components['Trend'] = 5
+    else:
+        score_components['Trend'] = 10  # Default for lower timeframes
+    
+    total_score = sum(score_components.values())
+    
+    return total_score, score_components
+
+def display_entry_warnings(current_price, entry_price, prediction=None):
+    """Display warnings about early/desperate entries"""
+    
+    warnings = []
+    
+    # Price chasing warning
+    price_diff_pct = abs(current_price - entry_price) / current_price * 100
+    if price_diff_pct > 5:
+        warnings.append(f"⚠️ **Chasing Price**: Entry is {price_diff_pct:.1f}% away from current. Consider waiting for pullback.")
+    
+    # Add RSI warning if available
+    if prediction and 'will_hit' in prediction:
+        if prediction['will_hit'] == 'TP' and prediction['hit_prob'] < 40:
+            warnings.append("📉 **Low Hit Probability**: TP probability below 40% - weak signal")
+    
+    # Display warnings
+    if warnings:
+        with st.container():
+            st.markdown("### 🚨 **ENTRY WARNINGS**")
+            for warning in warnings:
+                st.markdown(f"- {warning}")
+            st.markdown("---")
+    
+    return len(warnings)
+
+def display_patience_meter():
+    """Show a patience meter visualization"""
+    
+    st.markdown("### 🧘 **Patience Meter**")
+    
+    col_m1, col_m2, col_m3 = st.columns(3)
+    
+    with col_m1:
+        if st.button("⏸️ I'll wait 1 more candle", 
+                    help="Good discipline!", key="patience_wait"):
+            st.session_state.patience_score += 10
+    
+    with col_m2:
+        if st.button("🔍 Check smaller timeframe", 
+                    help="Instead of entering, analyze lower TF", key="patience_check"):
+            st.session_state.patience_score += 5
+    
+    with col_m3:
+        if st.button("🏃 Enter now (FOMO)", 
+                    help="High risk - you're probably chasing", key="patience_fomo"):
+            st.session_state.patience_score = max(0, st.session_state.patience_score - 20)
+    
+    # Display meter
+    patience_level = min(100, st.session_state.patience_score)
+    
+    if patience_level < 30:
+        st.error(f"**IMPULSIVE** ({patience_level}/100)")
+        st.write("🐇 You're acting on emotion, not analysis")
+    elif patience_level < 60:
+        st.warning(f"**NEEDS WORK** ({patience_level}/100)")
+        st.write("🚶 You're improving but still impulsive")
+    elif patience_level < 80:
+        st.info(f"**PATIENT** ({patience_level}/100)")
+        st.write("🚶‍♂️ Good discipline - waiting for confirmations")
+    else:
+        st.success(f"**MASTER TRADER** ({patience_level}/100)")
+        st.write("🐢 Excellent patience - you wait for perfect setups")
+    
+    st.progress(patience_level / 100)
+    st.markdown("---")
+
+def calculate_technical_confirmation(df, timeframe, entry_price):
+    """Calculate automatic technical confirmation score based on current price"""
+    
+    if df is None or len(df) < 2:
+        return 0, {}
+    
+    latest = df.iloc[-1]
+    prev = df.iloc[-2]
+    
+    confirmation_items = []
+    scores = {}
+    
+    # 1. Price vs Moving Averages (25 points)
+    price_ma_score = 0
+    if 'EMA1' in latest and 'EMA2' in latest:
+        above_ema1 = entry_price > latest['EMA1']
+        above_ema2 = entry_price > latest['EMA2']
+        ema_bullish = latest['EMA1'] > latest['EMA2']
+        
+        if above_ema1 and above_ema2 and ema_bullish:
+            price_ma_score = 25
+            confirmation_items.append("✅ Price above both EMAs & EMA1 > EMA2")
+        elif above_ema1 and above_ema2:
+            price_ma_score = 20
+            confirmation_items.append("✅ Price above both EMAs")
+        elif above_ema1:
+            price_ma_score = 15
+            confirmation_items.append("⚠️ Price above EMA1 only")
+        else:
+            price_ma_score = 5
+            confirmation_items.append("❌ Price below EMAs - Bearish")
+    scores['MA Alignment'] = price_ma_score
+    
+    # 2. RSI Conditions (20 points)
+    rsi_score = 0
+    if 'RSI' in latest and 'RSI_SMA' in latest:
+        rsi = latest['RSI']
+        rsi_sma = latest['RSI_SMA']
+        
+        if 50 < rsi < 70 and rsi > rsi_sma:
+            rsi_score = 20
+            confirmation_items.append("✅ RSI 50-70 & above SMA - Ideal")
+        elif 40 < rsi < 80 and rsi > rsi_sma:
+            rsi_score = 15
+            confirmation_items.append("⚠️ RSI 40-80 & above SMA - Acceptable")
+        elif rsi > 70:
+            rsi_score = 5
+            confirmation_items.append("❌ RSI > 70 - Overbought")
+        elif rsi < 40:
+            rsi_score = 0
+            confirmation_items.append("❌ RSI < 40 - Oversold")
+        else:
+            rsi_score = 10
+            confirmation_items.append("⚠️ RSI neutral")
+    scores['RSI Condition'] = rsi_score
+    
+    # 3. Volume Confirmation (15 points)
+    volume_score = 0
+    if 'Volume' in latest and 'Volume_MA20' in latest:
+        volume_ratio = latest['Volume'] / latest['Volume_MA20']
+        if volume_ratio > 1.5:
+            volume_score = 15
+            confirmation_items.append("✅ Strong volume (>1.5x avg)")
+        elif volume_ratio > 1.2:
+            volume_score = 12
+            confirmation_items.append("⚠️ Good volume (>1.2x avg)")
+        elif volume_ratio > 1.0:
+            volume_score = 8
+            confirmation_items.append("⚠️ Average volume")
+        else:
+            volume_score = 3
+            confirmation_items.append("❌ Low volume (< avg)")
+    else:
+        volume_score = 7
+        confirmation_items.append("⚠️ Volume data not available")
+    scores['Volume'] = volume_score
+    
+    # 4. Trend Strength (ADX) (15 points)
+    adx_score = 0
+    if 'ADX' in latest:
+        adx = latest['ADX']
+        if adx > 25:
+            adx_score = 15
+            confirmation_items.append(f"✅ Strong trend (ADX: {adx:.1f})")
+        elif adx > 20:
+            adx_score = 12
+            confirmation_items.append(f"⚠️ Moderate trend (ADX: {adx:.1f})")
+        else:
+            adx_score = 5
+            confirmation_items.append(f"❌ Weak/no trend (ADX: {adx:.1f})")
+    scores['Trend Strength'] = adx_score
+    
+    # 5. Directional Indicators (15 points)
+    di_score = 0
+    if '+DI' in latest and '-DI' in latest:
+        if latest['+DI'] > latest['-DI']:
+            di_score = 15
+            confirmation_items.append("✅ +DI > -DI (Bullish momentum)")
+        else:
+            di_score = 5
+            confirmation_items.append("❌ -DI > +DI (Bearish momentum)")
+    scores['Momentum'] = di_score
+    
+    # 6. Price Action (10 points)
+    price_action_score = 0
+    if 'Close' in latest and 'Open' in latest and 'High' in latest and 'Low' in latest:
+        is_bullish_candle = latest['Close'] > latest['Open']
+        body_size = abs(latest['Close'] - latest['Open'])
+        candle_range = latest['High'] - latest['Low']
+        body_ratio = body_size / candle_range if candle_range > 0 else 0
+        
+        if is_bullish_candle and body_ratio > 0.6:
+            price_action_score = 10
+            confirmation_items.append("✅ Strong bullish candle")
+        elif is_bullish_candle:
+            price_action_score = 7
+            confirmation_items.append("⚠️ Bullish candle")
+        elif body_ratio > 0.6:
+            price_action_score = 3
+            confirmation_items.append("❌ Strong bearish candle")
+        else:
+            price_action_score = 5
+            confirmation_items.append("⚠️ Neutral/Doji candle")
+    scores['Price Action'] = price_action_score
+    
+    total_score = sum(scores.values())
+    
+    return total_score, scores, confirmation_items
+
+def display_technical_confirmation_metric(all_timeframes_data, entry_price, ticker):
+    """Display the Technical Analysis Confirmation metric after all timeframes are plotted"""
+    
+    if not all_timeframes_data:
+        return
+    
+    st.markdown("---")
+    st.subheader("📊 Technical Analysis Confirmation")
+    
+    # Calculate confirmation for each timeframe
+    timeframe_scores = {}
+    all_confirmation_items = []
+    
+    for timeframe, data in all_timeframes_data.items():
+        if 'df' in data:
+            df = data['df']
+            score, score_details, items = calculate_technical_confirmation(df, timeframe, entry_price)
+            timeframe_scores[timeframe] = {
+                'score': score,
+                'details': score_details,
+                'items': items
+            }
+            all_confirmation_items.extend([f"{timeframe}: {item}" for item in items])
+    
+    # Calculate weighted average (weekly gets more weight)
+    weights = {'1W': 0.4, '1D': 0.35, '4H': 0.25}
+    weighted_sum = 0
+    weight_total = 0
+    
+    for tf, weight in weights.items():
+        if tf in timeframe_scores:
+            weighted_sum += timeframe_scores[tf]['score'] * weight
+            weight_total += weight
+    
+    if weight_total > 0:
+        final_ta_score = weighted_sum / weight_total
+    else:
+        final_ta_score = 0
+    
+    # Display the main metric
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Color code based on score
+        if final_ta_score >= 70:
+            color = "green"
+            delta_color = "normal"
+            label = "STRONG CONFIRMATION"
+        elif final_ta_score >= 50:
+            color = "orange"
+            delta_color = "off"
+            label = "MODERATE CONFIRMATION"
+        else:
+            color = "red"
+            delta_color = "inverse"
+            label = "WEAK CONFIRMATION"
+        
+        st.metric(
+            label=label,
+            value=f"{final_ta_score:.0f}/100",
+            delta=f"{'Bullish' if final_ta_score >= 60 else 'Neutral' if final_ta_score >= 40 else 'Bearish'}",
+            delta_color=delta_color
+        )
+    
+    with col2:
+        # Score breakdown by timeframe
+        st.markdown("**Timeframe Scores:**")
+        for tf in ['1W', '1D', '4H']:
+            if tf in timeframe_scores:
+                score = timeframe_scores[tf]['score']
+                color = "🟢" if score >= 70 else "🟡" if score >= 50 else "🔴"
+                st.write(f"{color} {tf}: {score:.0f}/100")
+    
+    with col3:
+        # Quick summary
+        bull_count = sum(1 for item in all_confirmation_items if "✅" in item)
+        warning_count = sum(1 for item in all_confirmation_items if "⚠️" in item)
+        bear_count = sum(1 for item in all_confirmation_items if "❌" in item)
+        
+        st.markdown("**Signal Summary:**")
+        st.write(f"✅ Bullish: {bull_count}")
+        st.write(f"⚠️ Warning: {warning_count}")
+        st.write(f"❌ Bearish: {bear_count}")
+    
+    # Progress bar
+    st.progress(final_ta_score / 100)
+    
+    # Detailed breakdown in expander
+    with st.expander("📋 Detailed Technical Confirmation Breakdown", expanded=False):
+        for timeframe in ['1W', '1D', '4H']:
+            if timeframe in timeframe_scores:
+                st.markdown(f"### **{timeframe} Timeframe**")
+                st.write(f"**Overall Score: {timeframe_scores[timeframe]['score']:.0f}/100**")
+                
+                # Display score details
+                for category, score in timeframe_scores[timeframe]['details'].items():
+                    col_a, col_b = st.columns([3, 1])
+                    col_a.write(category)
+                    col_b.progress(score / 100)
+                    col_b.write(f"{score:.0f}")
+                
+                # Display confirmation items
+                st.markdown("**Confirmation Items:**")
+                for item in timeframe_scores[timeframe]['items']:
+                    st.write(f"- {item}")
+                
+                st.markdown("---")
+    
+    # Interpretation
+    st.markdown("### 🎯 Interpretation")
+    
+    if final_ta_score >= 75:
+        st.success("""
+        **STRONG TECHNICAL CONFIRMATION** - The current price shows excellent alignment with technical indicators across all timeframes.
+        - ✅ Multiple bullish confirmations
+        - ✅ Strong trend alignment
+        - ✅ Good risk/reward setup
+        """)
+    elif final_ta_score >= 60:
+        st.warning("""
+        **MODERATE TECHNICAL CONFIRMATION** - Technical alignment is acceptable but has some concerns.
+        - ⚠️ Mixed signals across timeframes
+        - ⚠️ Some indicators need improvement
+        - ✅ Overall setup is workable
+        """)
+    elif final_ta_score >= 40:
+        st.error("""
+        **WEAK TECHNICAL CONFIRMATION** - Significant technical concerns exist.
+        - ❌ Multiple bearish signals
+        - ❌ Poor alignment with key indicators
+        - ⚠️ Consider waiting for better setup
+        """)
+    else:
+        st.error("""
+        **POOR TECHNICAL CONFIRMATION** - Strong technical warnings.
+        - ❌ Most indicators are bearish
+        - ❌ Price action is weak
+        - ❌ Avoid entry at current price
+        """)
+
+def increase_patience_15():
+    st.session_state.patience_score = min(100, st.session_state.patience_score + 15)
+
+def increase_patience_10():
+    st.session_state.patience_score = min(100, st.session_state.patience_score + 10)
+
 def main():
     st.title("📊 Entry Position Analyzer")
     st.write("Analyze your entry position using ML models trained on 4H, 1D, and 1W timeframes. Type ticker: e.g. TSLA or BTC-USD. Or find ticker name on yahoo finance.")
 
     with st.expander("Disciplined Entry and Exit Strategy (Expand and learn)", expanded=False):
         st.write(desc)
+    
+    # ========== AUTOMATIC TECHNICAL CHECKLIST ==========
+    st.markdown("### ⚙️ **Automatic Technical Analysis Checklist**")
+    
+    with st.expander("✅ Technical conditions will be automatically evaluated after analysis", expanded=False):
+        st.info("""
+        **The system will automatically check:**
+        1. **Price vs Moving Averages** - Is price above key EMAs?
+        2. **RSI Conditions** - Is RSI in optimal range and above its SMA?
+        3. **Volume Confirmation** - Is volume supporting the move?
+        4. **Trend Strength (ADX)** - Is there a clear trend?
+        5. **Directional Indicators** - Is +DI > -DI for bullish momentum?
+        6. **Price Action** - Is the current candle bullish?
         
+        **Scoring:**
+        - 🟢 **70+**: Strong technical confirmation
+        - 🟡 **50-70**: Moderate confirmation  
+        - 🔴 **<50**: Weak technical setup
+        """)
+        
+        st.caption("💡 **Note**: This is an AUTOMATIC analysis based on current price as entry price. Manual checklist removed for objectivity.")
+    # ========== END AUTOMATIC CHECKLIST ==========
+    
     initialize_session_state()
+    
+    # Main input columns
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -1205,35 +1608,33 @@ def main():
         else:
             st.error(f"{ticker} is invalid ❌ ({result['reason']})")
             st.stop()
-            
-        with col2:
-            if result["valid"] and not st.session_state.initial_prices_set:
-                current_price = get_current_price(ticker)
-                if current_price is not None:
-                    st.session_state.current_price = current_price
-                    st.session_state.entry_price = current_price
-                    st.session_state.entry_price_input = current_price
-                    st.session_state.initial_prices_set = True
-                    st.session_state.previous_ticker = ticker
+    
+    with col2:
+        if result["valid"] and not st.session_state.initial_prices_set:
+            current_price = get_current_price(ticker)
+            if current_price is not None:
+                st.session_state.current_price = current_price
+                st.session_state.entry_price = current_price
+                st.session_state.entry_price_input = current_price
+                st.session_state.initial_prices_set = True
+                st.session_state.previous_ticker = ticker
         
-            # Fallback for display, in case something is still None
-            current_display = st.session_state.current_price or 0.0
-            st.metric("Current Price", f"${current_display:.2f}")
+        # Fallback for display
+        current_display = st.session_state.current_price or 0.0
+        st.metric("Current Price", f"${current_display:.2f}")
         
-            default_entry = (
-                st.session_state.entry_price_input
-                if st.session_state.entry_price_input is not None
-                else current_display
-            )
+        # Auto-set entry price to current price
+        default_entry = current_display
         
-            entry_price = st.number_input(
-                "Entry Price (... $)",
-                min_value=0.0,
-                value=float(default_entry),
-                step=0.1,
-                key="entry_price_input",
-                on_change=update_entry_price,
-            )
+        entry_price = st.number_input(
+            "Entry Price (Auto-set to current)",
+            min_value=0.0,
+            value=float(default_entry),
+            step=0.1,
+            key="entry_price_input",
+            on_change=update_entry_price,
+            help="Automatically set to current price for technical analysis"
+        )
 
     with col3:
         user_gain = st.number_input(
@@ -1254,6 +1655,11 @@ def main():
             key="user_loss",
             help="Tip: Realistic training needs modest/realistic repeatable gains like 2-7%. 10-15% gains results in less data and unrealistic results."             
         )
+        
+        # Entry delay reminder
+        st.markdown("---")
+        st.markdown("**⏱️ Patience Reminder**")
+        st.info("Wait for Technical Analysis Confirmation score before entering")
 
     opt = ['OBV', 'CCI', 'CMF', 'MFI', 'ADX']
     default_option_index = 0 
@@ -1261,19 +1667,19 @@ def main():
     ind = st.selectbox(
         "Choose 3rd indicator:",
         opt,
-        index=default_option_index
+        index=default_option_index,
+        key="indicator_select"
     )
 
+    # Monte Carlo settings
     if "mc_days" not in st.session_state: 
         st.session_state.mc_days = 90 
-        
     if "mc_sims" not in st.session_state: 
         st.session_state.mc_sims = 10000
-        
     if "mc_method" not in st.session_state:
         st.session_state.mc_method = 1
     
-    # ✅ SLIDERS with session state
+    # Sliders with session state
     days = st.slider(
         "Forecast Days", 
         min_value=30, max_value=365, 
@@ -1288,7 +1694,7 @@ def main():
         key="mc_sims_slider"
     )
     
-    # ✅ RADIO with session state
+    # Radio with session state
     mc_method = st.radio(
         "Monte Carlo Method",
         ["Random Statistical Simulation", "Historical Paths Simulation"],
@@ -1296,18 +1702,87 @@ def main():
         key="mc_method_radio"
     )
     
-    # ✅ UPDATE session state AFTER widgets (critical!)
+    # Update session state
     st.session_state.mc_days = days
     st.session_state.mc_sims = num_sims
     st.session_state.mc_method = ["Random Statistical Simulation", "Historical Paths Simulation"].index(mc_method)
+    
+    # ========== SIMPLIFIED PATIENCE METER ==========
+    st.markdown("---")
+    st.markdown("### 🧘 **Trading Discipline**")
+    
+    if "patience_score" not in st.session_state:
+        st.session_state.patience_score = 50  # Start at neutral
+    
+    patience_level = st.session_state.patience_score
+    
+    # Simple patience indicator
+    if patience_level < 40:
+        st.error(f"**Impulsive Tendency Detected** ({patience_level}/100)")
+        st.write("Consider waiting for Technical Analysis Confirmation before entering")
+    elif patience_level < 70:
+        st.warning(f"**Moderate Discipline** ({patience_level}/100)")
+        st.write("Good, but wait for all confirmations")
+    else:
+        st.success(f"**Patient Trader** ({patience_level}/100)")
+        st.write("Excellent discipline - follow the Technical Analysis Confirmation")
+    
+    st.progress(patience_level / 100)
+    
+    # Quick discipline buttons
+    col_d1, col_d2 = st.columns(2)
 
-    if st.button("Analyze Entry Position"):
+    with col_d1:
+        st.button(
+            "⏸️ I'll wait for confirmation", 
+            key="wait_btn",
+            on_click=increase_patience_15,
+            use_container_width=True
+        )
+    
+    with col_d2:
+        st.button(
+            "📊 Analyze first, decide later", 
+            key="analyze_first",
+            on_click=increase_patience_10,
+            use_container_width=True
+        )
+    
+    # ========== ANALYSIS BUTTON ==========
+    st.markdown("---")
+    
+    col_btn1, col_btn2 = st.columns([2, 1])
+    
+    with col_btn1:
+        analyze_button = st.button("📊 Analyze Entry Position", 
+                                 key="analyze_main",
+                                 use_container_width=True)
+    
+    with col_btn2:
+        reset_btn = st.button("🔄 Reset Analysis", 
+                            help="Clear previous analysis to start fresh",
+                            use_container_width=True,
+                            key="reset_analysis")
+    
+    if reset_btn:
+        st.session_state.last_analysis_time = None
+        st.session_state.patience_score = 50
+        st.rerun()
+    
+    if analyze_button:
         with st.spinner("Training models and analyzing..."):
             try:
+                # Update last analysis time
+                st.session_state.last_analysis_time = datetime.now()
+                
+                # Update patience score positively for analyzing
+                st.session_state.patience_score = min(100, st.session_state.patience_score + 5)
+                
                 # Get current date/time
                 end_date = datetime.now()
 
                 results = {}
+                all_timeframes_data = {}  # Store data for technical confirmation
 
                 timeframes = [
                     ("1W", "1W"),
@@ -1385,14 +1860,30 @@ def main():
                     if prediction:
                         current_price = prediction['current_price']
                         assessment, reasons = assess_entry(prediction, user_gain, user_loss, entry_price, current_price)
-
+                        
+                        # Display warnings
+                        warning_count = display_entry_warnings(current_price, entry_price, prediction)
+                        
+                        # Calculate entry score
+                        entry_score, score_details = calculate_entry_score(prediction, df, timeframe)
+                        
                         results[timeframe] = {
                             "prediction": prediction,
                             "assessment": assessment,
                             "reasons": reasons,
                             "df": df,
+                            "score": entry_score,
+                            "score_details": score_details
+                        }
+                        
+                        # Store for technical confirmation
+                        all_timeframes_data[timeframe] = {
+                            "df": df,
+                            "prediction": prediction,
+                            "assessment": assessment
                         }
 
+                        # Display ML results
                         col1, col2 = st.columns(2)
 
                         with col1:
@@ -1424,14 +1915,14 @@ def main():
                             st.metric(label="Risk/Reward", value=f"{rrr:.1f}")
                             color = "green" if rrr > 1.5 else "red"
                             st.markdown(f"<p style='color:{color};'>R/R is {'GOOD' if rrr > 1.5 else 'POOR'}</p>", unsafe_allow_html=True)
-                            st.metric("CONFIDENCE", f"{prediction['confidence']:.1f}%")
+                            st.metric("ML Confidence", f"{prediction['confidence']:.1f}%")
 
                         if assessment == "Valid":
-                            st.success(f"**Assessment**: {assessment}")
+                            st.success(f"**ML Assessment**: {assessment}")
                         elif assessment == "Risky":
-                            st.warning(f"**Assessment**: {assessment}")
+                            st.warning(f"**ML Assessment**: {assessment}")
                         else:
-                            st.error(f"**Assessment**: {assessment}")
+                            st.error(f"**ML Assessment**: {assessment}")
 
                         st.write(f"**Reasons**: {reasons}")
                         avg_bull, avg_bear = avg_bull_bear_lengths(df)
@@ -1439,14 +1930,19 @@ def main():
                 
                         fig = plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction, ind=ind)
                         st.pyplot(fig)
+                        
                     else:
                         st.warning(f"Could not generate prediction for {timeframe}")
 
                     st.write("---")
 
+                # ========== DISPLAY TECHNICAL ANALYSIS CONFIRMATION METRIC ==========
+                if all_timeframes_data:
+                    display_technical_confirmation_metric(all_timeframes_data, entry_price, ticker)
+                
                 # Overall recommendation
                 if results:
-                    st.subheader("🎯 Overall Recommendation")
+                    st.subheader("🎯 Overall ML Recommendation")
 
                     assessments = [results[tf]['assessment'] for tf in results.keys()]
                     valid_count = assessments.count("Valid")
@@ -1467,7 +1963,7 @@ def main():
                     avg_rr = np.mean(rr_values) if rr_values else 0
                     avg_conf = np.mean(conf_values) if conf_values else 0
                 
-                    annotation = f"(Avg R/R: {avg_rr:.2f}, Avg Conf: {avg_conf:.1f}%)"
+                    annotation = f"(Avg R/R: {avg_rr:.2f}, Avg ML Conf: {avg_conf:.1f}%)"
                 
                     if valid_count == total_timeframes:
                         st.success(f"**STRONG BUY** - All timeframes show valid entry {annotation}")
@@ -1482,8 +1978,8 @@ def main():
                     emoji_map = {
                         "Valid": "🟢 Valid",
                         "Risky": "🟡 Risky",
-                        "Avoid": "🔴 Avoid",
                         "Wait and See": "🔴 Wait and See",
+                        "Not Recommended": "🔴 Not Recommended"
                     }
                     
                     summary_data = []
@@ -1497,28 +1993,23 @@ def main():
                             "Price ($)": round(pred['current_price'], 2),
                             "TP ($)": round(pred['predicted_tp'], 2),
                             "SL ($)": round(pred['predicted_sl'], 2),
-                            "Conf (%)": round(pred['confidence'], 1),
+                            "ML Conf (%)": round(pred['confidence'], 1),
                             "Hits": pred['will_hit'],
                             "R/R": round(rr, 2),
+                            "Score": round(res['score'], 0),
                             "Assessment": display_assessment
                         })
                     
                     summary_df = pd.DataFrame(summary_data)
-                    summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "Conf (%)", "Hits", "R/R", "Assessment"]]
+                    summary_df = summary_df[["Timeframe", "Price ($)", "TP ($)", "SL ($)", "ML Conf (%)", "Hits", "R/R", "Score", "Assessment"]]
                                                
-                    st.write(f"**Timeframe Summary ({ticker}):**")
+                    st.write(f"**ML Timeframe Summary ({ticker}):**")
                     st.dataframe(summary_df)
                     
                     # ------------------------
-                    # Monte Carlo: historical (GBM) and block bootstrap
+                    # Monte Carlo Simulation
                     # ------------------------
-                    st.header("Monte Carlo Simulation of Entry & Breakeven Chance")
-                    
-                    # Initialize ALL session state variables once
-                    defaults = {"mc_days": 90, "mc_sims": 5000, "mc_method": 1}
-                    for key, default in defaults.items():
-                        if key not in st.session_state:
-                            st.session_state[key] = default
+                    st.header("📈 Monte Carlo Simulation of Entry")
                     
                     returns = daily_df["Close"].pct_change().dropna()
                     mu = returns.mean() * 252
@@ -1527,7 +2018,6 @@ def main():
                     c1, c2 = st.columns(2)
                     c1.metric("Annualized Return (Statistical)", f"{mu*100:.1f}%")
                     c2.metric("Annualized Volatility", f"{sigma*100:.1f}%")
-                    paths = None
                     
                     # Cache the path generation
                     @st.cache_data(show_spinner=False)
@@ -1547,11 +2037,8 @@ def main():
                         paths = np.zeros((days + 1, num_sims))
                         paths[0] = current_price
                         for i in range(num_sims):
-                            # Resample 'days' number of returns
                             resampled_returns = np.random.choice(returns.values, size=days)
-                            # Convert returns back to price factors (1 + returns)
                             price_factors = 1 + resampled_returns
-                            # Generate price path
                             paths[1:, i] = current_price * price_factors.cumprod()
                         return paths
                     
@@ -1573,22 +2060,8 @@ def main():
                             num_sims=st.session_state.mc_sims
                         )
 
-                    # --- START OF NEW PATH CALCULATION ---
+                    # Path calculation
                     final_prices = paths[-1]
-                    
-                    mask_profit = final_prices > entry_price
-                    if mask_profit.sum() > 0:
-                        mean_path_profit = paths[:, mask_profit].mean(axis=1)
-                    else:
-                        mean_path_profit = None
-                    
-                    mean_path_all = paths.mean(axis=1) 
-                    
-                    mask_loss = final_prices < entry_price
-                    if mask_loss.sum() > 0:
-                        mean_path_loss = paths[:, mask_loss].mean(axis=1)
-                    else:
-                        mean_path_loss = None
                     
                     # Plot paths and distribution
                     fig3, (ax3, ax4) = plt.subplots(2, 1, figsize=(12, 9), height_ratios=[3, 1])
@@ -1597,21 +2070,13 @@ def main():
                     for i in range(sample_paths):
                         ax3.plot(range(days + 1), paths[:, i], color="gray", alpha=0.3, linewidth=0.5)
     
-                    # --- NEW PLOTTING OF MEAN PATHS ---
-                    ax3.plot(range(days + 1), mean_path_all, color="red", linewidth=2, linestyle='--', label="Overall Mean Path (Expected Value)")
-                    
-                    if mean_path_profit is not None:
-                        ax3.plot(range(days + 1), mean_path_profit, color="green", linewidth=2, label=f"Mean Profitable Path ({mask_profit.sum()} sims)")
-                        
-                    if mean_path_loss is not None:
-                        ax3.plot(range(days + 1), mean_path_loss, color="orangered", linewidth=2, label=f"Mean Loss Path ({mask_loss.sum()} sims)")
-                    # --- END NEW PLOTTING ---
+                    mean_path_all = paths.mean(axis=1) 
+                    ax3.plot(range(days + 1), mean_path_all, color="red", linewidth=2, linestyle='--', label="Expected Path")
                         
                     percentiles = np.percentile(paths[-1], [5, 25, 50, 75, 95])
                     
-                    # The Median line now uses the overall median (50th percentile)
-                    ax3.axhline(percentiles[2], color="red", linestyle=":", linewidth=1, label=f"Final Median Price: ${percentiles[2]:.2f}")
-                    ax3.axhline(entry_price, color="black", linestyle="-.", linewidth=2, label= "Entry Price (Breakeven)")
+                    ax3.axhline(percentiles[2], color="red", linestyle=":", linewidth=1, label=f"Final Median: ${percentiles[2]:.2f}")
+                    ax3.axhline(entry_price, color="black", linestyle="-.", linewidth=2, label= f"Entry: ${entry_price:.2f}")
                     ax3.set_title(f"Monte Carlo Price Simulation ({mc_method})", fontsize=14, fontweight="bold")
                     ax3.set_xlabel("Days")
                     ax3.set_ylabel("Price ($)")
@@ -1620,7 +2085,7 @@ def main():
                     
                     ax4.hist(paths[-1], bins=50, alpha=0.7, color="skyblue", edgecolor="black", density=True)
                     ax4.axvline(percentiles[2], color="red", linestyle="--", linewidth=2, label=f"Median: ${percentiles[2]:.2f}")
-                    ax4.axvline(entry_price, color="black", linestyle="-.", linewidth=2, label= "Entry Price")
+                    ax4.axvline(entry_price, color="black", linestyle="-.", linewidth=2, label= f"Entry: ${entry_price:.2f}")
                     
                     ax4.set_title("Final Price Distribution (Density)")
                     ax4.set_xlabel("Price ($)")
@@ -1630,23 +2095,22 @@ def main():
                     st.pyplot(fig3)
                     plt.close(fig3)
                     
-                    #### --------------------------------####
+                    # Final probability calculations
                     final_prices = paths[-1]
                     prob_profit = np.mean(final_prices > entry_price) * 100
                     prob_loss = np.mean(final_prices < entry_price) * 100
-                    prob_uncertain = 100 - prob_profit - prob_loss
 
-                    st.subheader("Final Price Probability vs. Entry Price")
+                    st.subheader("Probability vs. Entry Price")
                     
                     col_p1, col_p2 = st.columns(2)
                     
                     col_p1.metric(
-                        "Chance to Make Money (Profit)", 
+                        "Chance of Profit", 
                         f"{prob_profit:.1f}%",
                         delta_color="normal"
                     )
                     col_p2.metric(
-                        "Chance of Losses", 
+                        "Chance of Loss", 
                         f"{prob_loss:.1f}%",
                         delta_color="inverse"
                     )
@@ -1658,34 +2122,34 @@ def main():
                 st.error(f"Error analyzing {ticker}: {str(e)}")
                 st.info("Try with a different ticker or check if market is open")
 
-
     with st.expander("How to use this analyzer"):
         st.write(
             """
         1. **Enter Ticker Symbol**: Stock symbol (e.g., AAPL, TSLA, NVDA) or crypto (BTC-USD)
-        2. **Set Entry Price**: Your intended entry price
-        3. **Define Expectations**: Your target gain and maximum acceptable loss (Conservative 2-5%, aggressive 5-12%, unrealistic 20% or higher
+        2. **Entry Price is Auto-set**: System automatically uses current price for technical analysis
+        3. **Define Expectations**: Your target gain and maximum acceptable loss (Conservative 2-5%, aggressive 5-12%)
         4. **Click Analyze**: The system will train ML models and evaluate your entry
+        5. **Check Technical Analysis Confirmation**: Wait for the automatic technical confirmation score after all timeframes are plotted
+        6. **Follow the Signals**: 
+           - 🟢 **70+ TA Score + 🟢 ML Valid** = Strong entry signal
+           - 🟡 **50-70 TA Score + 🟡 ML Risky** = Cautious entry
+           - 🔴 **<50 TA Score + 🔴 ML Wait** = Avoid entry
 
-        **Timeframe Data Requirements:**
-        - **4H**: 1 year of historical data (~2000+ data points)
-        - **1D**: 2 years of historical data (~500+ data points)
-        - **1W**: 5 years of historical data (~250+ data points)
+        **Technical Analysis Confirmation Checks:**
+        - **Price vs Moving Averages**: Is price above key EMAs?
+        - **RSI Conditions**: Is RSI in optimal range (50-70)?
+        - **Volume Confirmation**: Is volume supporting the move?
+        - **Trend Strength (ADX)**: Is there a clear trend (>25)?
+        - **Directional Indicators**: Is +DI > -DI for bullish momentum?
+        - **Price Action**: Is the current candle bullish?
 
-        **Assessment Colors:**
-        - 🟢 **Valid**: Good entry with strong bullish signals
-        - 🟡 **Risky**: Moderate signals, proceed with caution  
-        - 🔴 **Wait and See**: Poor risk-reward or bearish signals
+        **Key Metrics to Watch:**
+        - **ML Confidence**: Machine learning model's confidence in prediction
+        - **Technical Analysis Confirmation**: Automated technical indicator alignment
+        - **Risk/Reward Ratio**: Should be >1.5 for good trades
+        - **Probability of Profit**: From Monte Carlo simulation
 
-        **The analysis considers:**
-        - ML predictions for TP/SL hits
-        - Risk-reward ratios
-        - Technical indicator alignment
-        - Price proximity to current levels
-        - Confidence scores from ensemble models
-
-        **Note**: 4H data may not be available for all tickers outside market hours.
-        1W data requires at least 5 years of history for sufficient data points.
+        **Golden Rule**: Only enter when **BOTH** ML Assessment is "Valid" **AND** Technical Analysis Confirmation is "Strong" (>70).
         """
         )
 
