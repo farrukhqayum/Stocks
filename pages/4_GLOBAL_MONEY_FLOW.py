@@ -379,7 +379,7 @@ with pos_col2:
 
 # 3) Cross-asset quick view
 with pos_col3:
-    st.subheader("Cross-Asset RS")
+    st.subheader("Cross-Asset Strength")
     commod_em_text = "N/A"
     treas_dxy_text = "N/A"
     if 'Commodity/EM_Ratio' in positioning_df.columns:
@@ -389,8 +389,8 @@ with pos_col3:
         treas_dxy_latest = positioning_df['Treasury/Dollar_Ratio'].iloc[-1]
         treas_dxy_text = f"{treas_dxy_latest:.1f}"
 
-    st.metric("Commodity / EM", commod_em_text)
-    st.metric("Treasury / DXY", treas_dxy_text)
+    st.metric("Commodity/Emerging Markets", commod_em_text)
+    st.metric("Bond/Dollar Strength", treas_dxy_text)
 
 # ========== MARKET POSITIONING ==========
 st.markdown("---")
