@@ -193,7 +193,7 @@ with col4:
     ml_confidence_threshold = st.number_input(
         "ML Confidence",
         min_value=0,
-        max_value=100,
+        max_value=150,
         value=63,
         step=5,
         key="ml_conf"
