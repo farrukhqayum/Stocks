@@ -996,7 +996,7 @@ if st.button("Run ML Strategy Backtest"):
                 predicted_return = ml_prediction['predicted_return']
                 predicted_loss = ml_prediction['predicted_loss']
                 
-                if tp_given > predicted_return:
+                if predicted_return > tp_given:
                     TP_price = entry_price * (1 + predicted_return)
                     used_ml_tp = True
                 else:
