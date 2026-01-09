@@ -1003,10 +1003,10 @@ if st.button("Run ML Strategy Backtest"):
                     TP_price = entry_price * (1 + tp_given)
                     used_ml_tp = False
                 
-                if np.abs(sl_given) > np.abs(predicted_loss):
-                    SL_price = entry_price * (1 + sl_given)
-                else:
+                if np.abs(predicted_loss) > np.abs(sl_given):
                     SL_price = entry_price * (1 + predicted_loss)
+                else:
+                    SL_price = entry_price * (1 + sl_given)
     
                 current_trade = {
                     'entry_date': current_date,
