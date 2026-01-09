@@ -1293,6 +1293,7 @@ if st.button("Run ML Strategy Backtest"):
 
     st.success("Backtest complete!")
 
+'''
     ############################## MULTIPLE % TEST #################################
     st.write(f"Running multiple TP/SL scenarios for {ticker}")
     
@@ -1450,3 +1451,4 @@ if st.button("Run ML Strategy Backtest"):
         - Beat the trend by consistently booking profits.
         """)
     st.dataframe(perf_table)
+'''
