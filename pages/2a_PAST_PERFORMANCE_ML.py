@@ -980,7 +980,7 @@ if st.button("Run ML Strategy Backtest"):
             # ENTRY LOGIC
             ema1 = current_data.loc[current_date, 'SMA10']
             close = current_data.loc[current_date, 'Close']
-            emacheck = (ema1 * 0.98 <= close <= ema1 * 1.02)
+            emacheck = (ema1 * 0.95 <= close <= ema1 * 1.05)
           
             if (
                 emacheck
