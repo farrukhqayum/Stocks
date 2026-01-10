@@ -19,46 +19,86 @@ st.set_page_config(page_title="ML - Stock Past Performance", layout="wide")
 st.title("🤖 Backtest: Study Prior to Real-world Trading")
 with st.expander("Strategy Overview"):
     st.markdown("""
-- **Daily Trend Filter:** 1D Time-frame data only to learn if the given stock is profitable.
-- **ML Entry Signals:** Entries occur at daily close when the ML model predicts a bullish move ("TP", "Hold", or "None") with confidence above the threshold (Try 60%).
-- **Trade Entry:** Opens a single position if not already holding a trade and entry signal conditions are met.
-- **Trade Exit:** Closes a position when price reaches (TP) or (SL), or after maximum allowed holding days.
-- **Sequential Trading:** The strategy waits for the current trade to close before opening a new one—no overlapping trades.
+- **Timeframe:** Daily candles only.
+- **Sequential Trading:** Only one trade can be open at a time. No overlapping trades.
+- **ML-Guided Entries:** Trades are entered at the **daily close** when:
+  - ML confidence is above the user-defined threshold
+  - ML signal is not bearish (SL / Short)
+  - Price is within ±5% of SMA10
+- **Dynamic Risk Management:** Take-profit and stop-loss levels are chosen dynamically using ML-predicted return/loss or user-defined values (whichever is more conservative).
+- **Realistic Exits:** Trades exit intraday when TP or SL is touched, on gap opens, or after a maximum holding period.
     """)
 
 with st.expander("Backtest and ML Workflow"):
     st.markdown("""
-- **Feature Engineering:** Daily OHLCV data is enriched with technical indicators and pivot points.
-- **Labeling:** Each daily row is labeled as TP (take profit), SL (stop loss), or neutral based on future price moves over a lookahead window.
-- **Model Training:** Random Forest classifiers and regressors predict the likelihood of TP/SL and expected returns/losses.
-- **Prediction:** At each day, the ML model provides a prediction and confidence score that guide trade entries.
-- **Performance:** The app tracks trade results, return distributions, and equity growth over the backtest period.
+- **Feature Engineering:** Daily OHLCV data is enriched with technical indicators, volume metrics, trend states, and averaged pivot levels.
+- **Labeling:** Past data is labeled using forward-looking TP/SL logic over a fixed window to create classification and regression targets.
+- **Model Training:** 
+  - A Random Forest Classifier predicts trade outcome classes (TP, SL, Hold, Short, None).
+  - Two Random Forest Regressors estimate expected return and expected loss.
+- **Walk-Forward Safety:** 
+  - Models are trained only on data available up to the current day.
+  - No future candles are used for training or prediction.
+- **Prediction:** At each potential entry point, ML outputs:
+  - Signal class
+  - Confidence score
+  - Expected return and loss
+- **Execution:** Trades are executed strictly according to these predictions and price-location filters.
     """)
 
 with st.expander("Example Entry Using Daily Data"):
     st.markdown("""
-- Suppose the stock closes at $100.
-- If the ML model predicts a bullish move with confidence above the threshold, and no open trade exists, entry happens at the daily close ($100).
-- For TP: If the given TP% is higher than the ML predicted return, meaning ML expects the stock to gain less, it uses the ML target, else it retains given TP.
-- Next trades only occur after closing the current trade.
+A trade entry occurs at the **daily close** only when all conditions below are met:
+
+1. No open trade exists.
+2. At least 100 historical candles are available.
+3. ML confidence score ≥ user-defined threshold.
+4. ML signal ∈ {None, TP, Hold}.
+   - Bearish signals (SL, Short) block entries.
+5. Price is within ±5% of SMA10 (mean-reversion filter).
+
+Once triggered:
+- Entry price = current day’s closing price.
+- The ML model becomes frozen until the trade is closed.
+
     """)
 
 with st.expander("Example Exit Conditions"):
     st.markdown("""
-Trades are exited if:
-- Intraday price reaches TP or SL levels.
-- The gap open price exceeds TP or SL boundaries (gap exit).
-- If the given SL is higher than the predicted ML loss, it assumes higher risks are taken and uses the higher given SL else it adopts predicted SL.
-- The trade has reached maximum holding days.
-Exits simulate realistic intraday stop-loss and take-profit triggers.
+- **Take Profit (TP):**
+  - If ML-predicted return > user-defined TP → use ML TP.
+  - Otherwise → use user-defined TP.
+
+- **Stop Loss (SL):**
+  - If ML-predicted loss is larger than user-defined SL → use ML SL.
+  - Otherwise → use user-defined SL.
+
+This ensures:
+- Upside is not capped prematurely.
+- Stop-loss adapts to expected volatility and risk.
+
     """)
 
-with st.expander("Intraday SL/TP Trigger Logic"):
+with st.expander("Exit Conditions"):
     st.markdown("""
-- Each day's high and low prices are checked to model intraday SL/TP triggers.
-- Exit occurs immediately on a day when price touches SL or TP, even if closing price differs.
-- Gap openings beyond SL or TP are detected and trigger immediate exit at gap price or SL/TP levels.
-This prevents unrealistic trade closing at end-of-day prices only.
+Trades are monitored daily and exited immediately when any of the following occur
+(in strict priority order):
+
+1. **Stop Loss Hit:** Intraday low reaches SL.
+2. **Take Profit Hit:** Intraday high reaches TP.
+3. **Gap Stop Loss:** Open price gaps below SL.
+4. **Gap Take Profit:** Open price gaps above TP.
+5. **Maximum Holding Period:** Trade closes at the current close after exceeding allowed days.
+
+Exits are based on real OHLC data, not end-of-day assumptions.
+    """)
+    
+with st.expander("Intra-day Exits (if)"):
+    st.markdown("""
+- Each trading day checks High, Low, and Open prices.
+- SL and TP are triggered intraday when levels are touched.
+- Gap openings beyond SL or TP result in immediate exit.
+- This avoids unrealistic end-of-day-only exits.
     """)
 
 with st.expander("What are the biggest enemies?"):
@@ -75,25 +115,31 @@ with st.expander("What are the biggest enemies?"):
 
 with st.expander("How often does the model retrain?"):
     st.markdown("""
-    A common concern is whether the model skips data or uses less information when retraining less frequently.  
-    **It does NOT.**
+- The ML model is retrained every 7 days while no trade is open.
+- During an active trade:
+  - The model is frozen.
+  - No retraining or signal changes occur.
+- After a trade exits:
+  - Retraining resumes using all historical data up to that point.
+
+This mimics real-world discipline and avoids hindsight bias.
+""")
     
-    Here's what actually happens:
-    
-    - The model is always trained using **all historical data available up to that date**
-    - No candles are skipped
-    - No rows are removed
-    - No future data is used
-    
-    The only thing that changes is **how often the model is retrained**, not **how much data it sees**.
-    
-    For example:
-    - Day 100 → model sees Days 1–100
-    - Day 120 → model sees Days 1–120
-    - Day 140 → model sees Days 1–140
-    
-    This mimics real trading behavior where strategies are updated periodically (weekly or monthly) instead of every single day, improving stability and performance while keeping full historical context.
-    """)
+with st.expander("What This Strategy Explicitly Avoids?"):
+    st.markdown("""
+- Overtrading
+- Signal flipping mid-trade
+- Overlapping positions
+- Chasing extended price moves
+- Using future information
+
+# Realistic trades:
+- Entries at daily close
+- Intraday TP/SL execution
+- One decision per trade
+- Risk-adjusted position holding
+- ML used as a probabilistic filter, not a prediction oracle
+""")
 
 with st.expander("What happens to the model after a trade is opened?"):
     st.markdown("""
