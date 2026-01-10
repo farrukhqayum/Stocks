@@ -1269,13 +1269,12 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 f"${current_price:>7.2f} | "
                 f"${tp_str:>7} | "
                 f"${sl_str:>7} | "
-                f"{atr_str:>10} | "
+                f"${atr_str:>10} | "
                 f"{action:<12} | "
                 f"Conf: {confidence_score:>4.0f}% | " 
                 f"{_Extremes}"
             )
 
-            
             st.code(strip_ansi_codes(row_text))
             
             # Append results with formatted Will_Hit string
@@ -1565,11 +1564,11 @@ def run_app():
             f'{"#":<2} | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
-            f'{"TP":>7} | '
-            f'{"SL":>7} | '
-            f'{"ATR":>10} | '
+            f'{"TP":>8} | '
+            f'{"SL":>8} | '
+            f'{"ATR":>7} | '
             f'{"Action":<12} | '
-            f'{"ML(%)":>7} | '
+            f'{"ML(%)":>10} | '
             f'{"Extremes":<10}'
         )
 
@@ -1614,6 +1613,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
