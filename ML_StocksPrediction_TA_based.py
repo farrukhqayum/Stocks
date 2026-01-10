@@ -45,23 +45,87 @@ desc = """
 - **USE DIVERGENCE**: Identifies market swing highs/lows for 4-6 month holds
 """ 
 
-HowTo = """ 
-- **WAIT** for days/weeks until ML signals "TP", "Hold", or "None" with high confidence
-- Higher confidence = higher probability of success
-- **SL** (stop-loss) should be distant; **TP** (take-profit) small/logical (3-7%)
+HowTo = """
+## 📘 Real-Life ML Stock Trading Rules (Simple & Proven)
 
-- **Entry criteria** (test in Past Performance tab):
-    - Define max holding period, SL below key averages
-    - Wait for next signal confirmation
-    - **Never trade bullishly in bear markets**
+### 🎯 Objective
+Use ML as a **risk filter**, not a prediction engine.  
+Trade **few, high-quality setups** with patience and discipline.
 
-- **Prefer stocks with**:
-    - Strong market cap (≥$10B)
-    - Higher price levels (avoid penny stocks; prefer $100+ shares)
-    - Low correlation to global money flows
-    - Beta 2-3 (solid volatility)
-    - Reasonable P/E (avoid 50+ or illiquid names)
-"""  
+---
+
+### 1️⃣ Before You Trade
+- Trade only liquid, well-known stocks
+- Avoid hype, penny stocks, and thin volume
+- Use **daily timeframe only**
+- One open trade at a time
+
+---
+
+### 2️⃣ ML Entry Conditions (Must ALL Be True)
+- ML confidence **≥ 60%**
+- ML signal is **NOT bearish**
+  - Allowed: `Neutral`, `TP`, `Hold`
+- Expected reward > expected risk
+- No existing open trade
+
+---
+
+### 3️⃣ Price Location Filter
+- Price is **near its short-term average**
+- Avoid extended or parabolic moves
+- Enter near balance, not emotional extremes
+
+---
+
+### 4️⃣ Entry Execution
+- Enter at **daily close**
+- No averaging down
+- No adding mid-trade
+- One decision per trade
+
+---
+
+### 5️⃣ Take-Profit (TP) Planning
+- Default TP: **3–7%** (best for compounding)
+- Allow higher TP only if ML supports it
+- Do not force large targets on slow stocks
+
+---
+
+### 6️⃣ Stop-Loss (SL) Planning
+- SL must reflect volatility
+- Wider SL for strong stocks
+- Tighter SL for weak or fast stocks
+- If SL feels painful → position is too large
+
+---
+
+### 7️⃣ Exit Rules (No Emotions)
+Exit immediately if:
+- Stop-loss is hit
+- Take-profit is hit
+- Maximum holding time is reached
+
+---
+
+### 8️⃣ Time Discipline
+- Exit trades that go nowhere
+- Capital must stay productive
+- Dead money kills compounding
+
+---
+
+### 🔑 Core Principles
+- ML filters risk, it does not guarantee outcomes
+- Discipline > accuracy
+- Protect capital first
+- Let winners work, cut losers fast
+
+> “I am not here to predict.  
+> I am here to manage probability and risk.”
+"""
+
 
 mistakes = """
 - Review **Psychology Tab** for common pitfalls
@@ -1481,6 +1545,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
