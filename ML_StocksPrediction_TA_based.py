@@ -80,8 +80,7 @@ Trade **few, high-quality setups** with patience and discipline.
 
 ### 4️⃣ Entry Execution
 - Enter at **daily close**
-- No averaging down
-- No adding mid-trade
+- No adding mid-trade unless weekly confidence
 - One decision per trade
 
 ---
@@ -1545,6 +1544,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
