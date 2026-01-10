@@ -1535,8 +1535,8 @@ def run_app():
             f'{"#":<2} | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
-            f'{"TP":>7} | '
-            f'{"SL":>7} | '
+            f'{"TP":>12} | '
+            f'{"SL":>12} | '
             f'{"ATR":>5} | '
             f'{"Action":<11} | '
             f'{"Extremes":<20}'
@@ -1582,6 +1582,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
