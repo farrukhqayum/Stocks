@@ -1239,11 +1239,11 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 f"{extract_emojis(signal):<2} "
                 f"{ticker:<7} | "
                 f"${current_price:>7.2f} | "
-                f"${tp_str:>4} | "
-                f"${sl_str:>4} | "
-                f"{atr_str:>5} | "
-                f"{action:<11} | "
-                f"{confidence_score:>6.0f}% | " 
+                f"${tp_str:>7} | "
+                f"${sl_str:>7} | "
+                f"{atr_str:>10} | "
+                f"{action:<12} | "
+                f"Conf: {confidence_score:>4.0f}% | " 
                 f"{_Extremes}"
             )
 
@@ -1537,11 +1537,11 @@ def run_app():
             f'{"#":<2} | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
-            f'{"TP":>10} | '
-            f'{"SL":>10} | '
-            f'{"ATR":>7} | '
+            f'{"TP":>7} | '
+            f'{"SL":>7} | '
+            f'{"ATR":>10} | '
             f'{"Action":<12} | '
-            f'{"ML(%)":>10} | '
+            f'{"ML(%)":>7} | '
             f'{"Extremes":<10}'
         )
 
@@ -1586,6 +1586,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
