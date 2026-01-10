@@ -1239,12 +1239,14 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 f"{extract_emojis(signal):<2} "
                 f"{ticker:<7} | "
                 f"${current_price:>7.2f} | "
-                f"TP:${tp_str:>4} | "
-                f"SL:${sl_str:>4} | "
-                f"ATR:{atr_str:>5} | "
+                f"${tp_str:>4} | "
+                f"${sl_str:>4} | "
+                f"{atr_str:>5} | "
                 f"{action:<11} | "
+                f"{confidence_score:>6.0f}% | " 
                 f"{_Extremes}"
             )
+
             
             st.code(strip_ansi_codes(row_text))
             
@@ -1539,8 +1541,10 @@ def run_app():
             f'{"SL":>10} | '
             f'{"ATR":>7} | '
             f'{"Action":<12} | '
+            f'{"ML(%)":>10} | '
             f'{"Extremes":<10}'
         )
+
         st.code(row_text)
         dfs, df_results = MakePredictions(TICKERS)
         
@@ -1582,6 +1586,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
