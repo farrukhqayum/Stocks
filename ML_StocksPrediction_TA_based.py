@@ -924,7 +924,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         'yellow' if 'Hold' in predictions['Signal'] else
         'gray'
     )
-    _sigConf = f'{predictions.Signal}, ML Signal: {predictions.Will_Hit} [Chance: {int(predictions.Hit_Prob)}%]'
+    _sigConf = f'ML Action: {predictions.action}'
     ax1.annotate(
         _sigConf,
         xy=(0.7, 0.95),
@@ -1310,6 +1310,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 "Hit_Prob": round(latest_prob_features[f'Prob_Class_{pred_class}'] * 100, 1),
                 "Confidence": round(confidence_score, 1),
                 "_Extremes": _Extremes
+                "Action" : action
             })
         except Exception as e:
             st.text(f"Error processing {ticker}: {e}")
@@ -1613,6 +1614,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
