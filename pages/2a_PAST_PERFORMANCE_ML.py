@@ -1059,7 +1059,7 @@ if st.button("Run ML Strategy Backtest"):
                     'entry_price': entry_price,
                     'tp_price': TP_price,
                     'sl_price': SL_price,
-                    'ml_return': predicted_return,
+                    'ml_return': predicted_return*100,
                     'ml_confidence': current_ml_confidence,
                     'ml_signal': current_ml_signal,
                     'used_ml_tp': used_ml_tp
