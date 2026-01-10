@@ -1118,6 +1118,7 @@ if st.button("Run ML Strategy Backtest"):
                     'EntryPrice': entry_price,
                     'ExitPrice': exit_price,
                     'Outcome': exit_reason,
+                    'ML (%): float(ml_prediction['predicted_return']),
                     'Return_%': return_pct,
                     'HoldingDays': days_in_trade,
                     'ML_Confidence': current_trade['ml_confidence'],
