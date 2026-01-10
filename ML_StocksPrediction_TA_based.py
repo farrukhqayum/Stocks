@@ -773,6 +773,41 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
 
     return action, colour
 
+def get_action_label(confidence, will_hit_raw):
+    """
+    Map (confidence, will_hit) → textual action.
+    will_hit_raw can be like 'TP ($123.4)' or 'TP' or None.
+    """
+    if will_hit_raw is None or str(will_hit_raw).lower() == "nan":
+        base = "None"
+    else:
+        base = str(will_hit_raw).split()[0]
+
+    c = float(confidence)  # 0–100
+
+    # 1️⃣ High confidence ≥ 63 and will_hit in (None, TP, Hold) → Buy
+    if c >= 63 and base in ("None", "TP", "Hold"):
+        return "Buy"
+
+    # 2️⃣ will_hit in (SL, Short) → Short/AVOID
+    if base in ("SL", "Short"):
+        return "Short/AVOID"
+
+    # 3️⃣ 40 ≤ confidence < 63 → Wait regardless of will_hit
+    if 40 <= c < 63:
+        return "Wait"
+
+    # 4️⃣ confidence < 40 and will_hit Bear/Short → Short
+    if c < 40 and base in ("Bear", "Short"):
+        return "Short"
+
+    # 5️⃣ confidence < 20 & will_hit None → mention risky
+    if c < 20 and base == "None":
+        return "Risky"
+
+    # Fallback
+    return "Wait"
+
     
 #  🟡 PLOT TA
 def plot_single_ticker(ticker, df, df_results, _window=14):
@@ -1192,17 +1227,23 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             else:
                 hit_price_str = "None"
             
+            # Derive cleaned will_hit base for logic
+            will_hit_base = will_hit if will_hit is not None else "None"
+            if isinstance(will_hit_base, str):
+                will_hit_base = will_hit_base.split()[0]
+            
+            # Compute action
+            action = get_action_label(confidence_score, will_hit_base)
+                        
             row_text = (
                 f"{extract_emojis(signal):<2} "
                 f"{ticker:<7} | "
                 f"${current_price:>7.2f} | "
-                f"TP:${tp_str:>4}({predicted_return*100:5.2f}%) | "
-                f"SL:${sl_str:>4}({predicted_loss*100:5.2f}%) | "
-                f"{will_hit:<5} "
-                f"({int(latest_prob_features[f'Prob_Class_{pred_class}']*100):>3}%) | "
-                f"ATR: ${atr_str:>5} | "
-                f"{signal[4:]:<6} | "
-                f"{_Extremes}{end}"
+                f"TP:${tp_str:>4} | "
+                f"SL:${sl_str:>4} | "
+                f"ATR:{atr_str:>5} | "
+                f"{action:<11} | "
+                f"{_Extremes}"
             )
             
             st.code(strip_ansi_codes(row_text))
@@ -1489,20 +1530,17 @@ def run_app():
                     st.warning(f"Ignoring invalid tickers: {', '.join(invalid_tickers)}")
                 st.code(f"Valid tickers to process ({len(valid_tickers)}): {', '.join(valid_tickers)}")
                 st.code(f"The indicators use OHLC with a mean of 2-days to suppress noise/spikes")
-
+                
         row_text = (
-            f'{"#" } | '
+            f'{"#":<2} | '
             f'{"Ticker":<7} | '
             f'{"Price":>7} | '
-            f'{"Take-profit (%)":>18} | '
-            f'{"Stop-loss (%)":>18} | '
-            f'{"Will Hit":>8} '
-            f'{"(%)":<3} | '
-            f'{"Volatility":<9} | '
-            f'{"Signal (TI)":<8} | '
-            f'{"Is High":<7}'
+            f'{"TP":>7} | '
+            f'{"SL":>7} | '
+            f'{"ATR":>5} | '
+            f'{"Action":<11} | '
+            f'{"Extremes":<20}'
         )
-
         st.code(row_text)
         dfs, df_results = MakePredictions(TICKERS)
         
@@ -1544,6 +1582,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
