@@ -924,7 +924,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         'yellow' if 'Hold' in predictions['Signal'] else
         'gray'
     )
-    _sigConf = f'{predictions['Signal']} & ML Action: {predictions.Action}'
+    _sigConf = f'{predictions['Signal']} & ML Action: {predictions.Action}, Conf ({conf:.0f}%)'
     ax1.annotate(
         _sigConf,
         xy=(0.7, 0.95),
@@ -1614,6 +1614,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
