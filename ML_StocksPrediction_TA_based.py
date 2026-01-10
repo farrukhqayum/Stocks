@@ -775,8 +775,7 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
 
 def get_action_label(confidence, will_hit_raw):
     """
-    Map (confidence, will_hit) → textual action.
-    will_hit_raw can be like 'TP ($123.4)' or 'TP' or None.
+    Map (confidence, will_hit) → textual action. PRIORITIZED ORDER.
     """
     if will_hit_raw is None or str(will_hit_raw).lower() == "nan":
         base = "None"
@@ -785,24 +784,24 @@ def get_action_label(confidence, will_hit_raw):
 
     c = float(confidence)  # 0–100
 
-    # 1️⃣ High confidence ≥ 63 and will_hit in (None, TP, Hold) → Buy
-    if c >= 63 and base in ("None", "TP", "Hold"):
-        return "Buy"
-
-    # 2️⃣ will_hit in (SL, Short) → Short/AVOID
+    # PRIORITY 1: SL/Short ALWAYS → Short/AVOID (highest priority)
     if base in ("SL", "Short"):
         return "Short/AVOID"
 
-    # 3️⃣ 40 ≤ confidence < 63 → Wait regardless of will_hit
-    if 40 <= c < 63:
+    # PRIORITY 2: High confidence + good signals → Buy
+    elif c >= 63 and base in ("None", "TP", "Hold"):
+        return "Buy"
+
+    # PRIORITY 3: Medium confidence → Wait (regardless of will_hit)
+    elif 40 <= c < 63:
         return "Wait"
 
-    # 4️⃣ confidence < 40 and will_hit Bear/Short → Short
-    if c < 40 and c >= 20 and base in ("Bear", "Short"):
+    # PRIORITY 4: Low confidence + bearish → Short
+    elif c < 40 and c >= 20 and base in ("Bear", "Short"):
         return "Short"
 
-    # 5️⃣ confidence < 20 & will_hit None → mention risky
-    if c < 20 and base in ("None", "SL", "Short"):
+    # PRIORITY 5: Very low confidence → Risky
+    elif c < 20:
         return "Risky"
 
     # Fallback
@@ -1586,6 +1585,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
