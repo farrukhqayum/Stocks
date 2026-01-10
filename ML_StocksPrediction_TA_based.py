@@ -773,39 +773,58 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
 
     return action, colour
 
-def get_action_label(confidence, will_hit_raw):
+def get_action_label(confidence, will_hit_raw, current_price, ema1, rsi, ti_signal, predicted_return, predicted_loss):
     """
-    Map (confidence, will_hit) → textual action. PRIORITIZED ORDER.
+    ENHANCED ACTION LOGIC from backtest proven rules:
+    1. SL/Short OVERRIDES everything (immediate exit risk)
+    2. EMA proximity filter (avoid extended moves) 
+    3. ML confidence threshold (63% backtest default)
+    4. TI trend alignment (Bull/Hold context)
+    5. R/R ratio validation
     """
     if will_hit_raw is None or str(will_hit_raw).lower() == "nan":
         base = "None"
     else:
         base = str(will_hit_raw).split()[0]
 
-    c = float(confidence)  # 0–100
-
-    # PRIORITY 1: SL/Short ALWAYS → Short/AVOID (highest priority)
+    c = float(confidence)
+    
+    # 🔴 PRIORITY 1: DANGER SIGNALS (Backtest shows SL/Short = immediate exit)
     if base in ("SL", "Short"):
         return "Short/AVOID"
 
-    # PRIORITY 2: High confidence + good signals → Buy
-    elif c >= 63 and base in ("None", "TP", "Hold"):
+    # 🟢 PRIORITY 2: IDEAL BUY ZONE (Backtest sweet spot)
+    ema_proximity = 0.95 <= current_price / ema1 <= 1.05  # Price near EMA1 (±5%)
+    good_signal = base in ("None", "TP", "Hold")
+    strong_trend = ti_signal in ("Bull", "Hold", "StrongBull")
+    
+    if (c >= 63 and good_signal and ema_proximity and strong_trend):
+        # Bonus: Validate R/R > 1.0 (backtest uses predicted returns)
+        rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
+        if rr_ratio >= 1.0:
+            return "STRONG BUY"
         return "Buy"
 
-    # PRIORITY 3: Medium confidence → Wait (regardless of will_hit)
+    # 🟡 PRIORITY 3: Medium confidence → Wait (backtest avoids weak signals)
     elif 40 <= c < 63:
         return "Wait"
 
-    # PRIORITY 4: Low confidence + bearish → Short
+    # 🔴 PRIORITY 4: Low confidence bearish → Short (backtest filters these out)
     elif c < 40 and c >= 20 and base in ("Bear", "Short"):
         return "Short"
 
-    # PRIORITY 5: Very low confidence → Risky
+    # ⚠️ PRIORITY 5: Very low confidence → Risky (backtest shows poor performance)
     elif c < 20:
-        return "Risky"
+        return "RISKY"
 
-    # Fallback
+    # Backtest fallback: TI-driven decision
+    if ti_signal == "StrongBull":
+        return "Monitor"
+    elif ti_signal in ("Bull", "Hold"):
+        return "Watch"
+    
     return "Wait"
+
 
     
 #  🟡 PLOT TA
@@ -1232,7 +1251,17 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 will_hit_base = will_hit_base.split()[0]
             
             # Compute action
-            action = get_action_label(confidence_score, will_hit_base)
+            ema1_val = latest['EMA1'].iloc[0]
+            rsi_val = latest['RSI'].iloc[0]
+            ti_signal = df['TI'].iloc[-1]
+            #rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
+            
+            # Enhanced action with backtest-proven filters
+            action = get_action_label(
+                confidence_score, will_hit_base, 
+                current_price, ema1_val, rsi_val, ti_signal,
+                predicted_return, predicted_loss
+            )
                         
             row_text = (
                 f"{extract_emojis(signal):<2} "
@@ -1585,6 +1614,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
