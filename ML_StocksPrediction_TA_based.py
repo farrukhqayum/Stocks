@@ -798,11 +798,11 @@ def get_action_label(confidence, will_hit_raw):
         return "Wait"
 
     # 4️⃣ confidence < 40 and will_hit Bear/Short → Short
-    if c < 40 and base in ("Bear", "Short"):
+    if c < 40 and c >= 20 and base in ("Bear", "Short"):
         return "Short"
 
     # 5️⃣ confidence < 20 & will_hit None → mention risky
-    if c < 20 and base == "None":
+    if c < 20 and base in ("None", "SL", "Short"):
         return "Risky"
 
     # Fallback
@@ -1586,6 +1586,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
