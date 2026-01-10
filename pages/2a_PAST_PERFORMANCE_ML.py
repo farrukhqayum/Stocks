@@ -133,7 +133,7 @@ with st.expander("What This Strategy Explicitly Avoids?"):
 - Chasing extended price moves
 - Using future information
 
-# Realistic trades:
+### Realistic trades:
 - Entries at daily close
 - Intraday TP/SL execution
 - One decision per trade
