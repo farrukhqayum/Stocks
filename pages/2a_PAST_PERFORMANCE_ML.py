@@ -792,7 +792,7 @@ def prepare_features(df, current_idx=None):
 def prepare_all_features(df):
     """Cached master function - call ONCE before backtest"""
     df = prepare_indicators(df)     # Backward features
-    df = prepare_features(df)       # Your causal labels
+    #df = prepare_features(df)       # Your causal labels
     return df
 
 # -------------------------
@@ -1003,6 +1003,7 @@ if st.button("Run ML Strategy Backtest"):
                 continue
 
             if i % RETRAIN_EVERY == 0 or i < 120:
+                current_data = prepare_features(current_data)
                 models = train_ml_models(current_data)
     
             if models[0] is None:
