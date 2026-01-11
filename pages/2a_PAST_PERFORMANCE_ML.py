@@ -182,6 +182,7 @@ MIN_DATA_FOR_TRAINING = 100
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
 _DAYS = 22
+RETRAIN_EVERY = 3
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
 confidence_data = [] 
 will_hit_history = []
@@ -923,7 +924,6 @@ if st.button("Run ML Strategy Backtest"):
     current_trade = {}
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
-    RETRAIN_EVERY = 7
     ml_tp_success_counter = 0
     used_ml_tp = False
     
