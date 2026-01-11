@@ -914,8 +914,8 @@ def train_ml_models(df, current_index):
     df_filled = df.iloc[:current_index + 1].copy()
     
     # Fill target columns
-    df = compute_expected_return (df_filled)
-    df = compute_expected_loss (df_filled)
+    df_filled = compute_expected_return (df_filled)
+    df_filled = compute_expected_loss (df_filled)
     for col in ['Hit_Label', 'Expected_Return', 'Expected_Loss']:
         if col in df_filled.columns:
             if col == 'Hit_Label':
