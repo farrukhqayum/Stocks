@@ -546,8 +546,6 @@ def compute_expected_return(df, forward_window=14):
     
     for i in range(len(df)):
         current_price = close_prices[i]
-        
-        # Check how much future data is available
         available_future = len(df) - i - 1
         lookahead = min(forward_window, available_future)
         
@@ -557,7 +555,6 @@ def compute_expected_return(df, forward_window=14):
                 max_future = np.nanmax(future_prices)
                 if current_price > 0:  # Avoid division by zero
                     df.iloc[i, df.columns.get_loc('Expected_Return')] = (max_future - current_price) / current_price
-        # For the last forward_window days, leave as 0.0
     
     return df
 
@@ -805,8 +802,8 @@ def prepare_features(df, current_idx=None):
 @st.cache_data
 def prepare_all_features(df):
     """Cached master function - call ONCE before backtest"""
-    df = prepare_indicators(df)     # Backward features
-    #df = prepare_features(df)       # Your causal labels
+    df = prepare_indicators(df)
+    df = prepare_features(df)
     return df
 
 # -------------------------
@@ -1017,7 +1014,6 @@ if st.button("Run ML Strategy Backtest"):
                 continue
 
             if i % RETRAIN_EVERY == 0 or i < 120:
-                current_data = prepare_features(current_data)
                 models = train_ml_models(current_data)
     
             if models[0] is None:
