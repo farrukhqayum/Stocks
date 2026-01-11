@@ -186,6 +186,12 @@ windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
 confidence_data = [] 
 will_hit_history = []
 
+ml_nest = 50
+ml_depth = 20
+min_samples_leaf= 5
+random_state= 42
+njobs = 1
+
 FEATURES = [
     'High', 'Low', 'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 
     'KCu', 'KCl', 'KCu_outer', 'KCl_outer', 'Kasym', 'Kcount', 'STu', 'STl',
@@ -329,10 +335,9 @@ st.info(f"📊 ACTIVE SETTINGS → TP={TP_pct}%, SL={SL_pct}%, Hold={max_holding
 # -------------------------
 # Technical Analysis Functions (Simplified)
 # -------------------------
-@st.cache_data(max_entries=1, ttl=3600)  # Reduce cache entries
+@st.cache_data(max_entries=1, ttl=3600, show_spinner=False)
 def get_stock_data(ticker, start_date, end_date):
-    """Get stock data with memory optimization"""
-    # Download only essential columns
+    """Get minimal raw data only once"""
     df = yf.download(
         ticker, 
         start=start_date, 
@@ -341,19 +346,15 @@ def get_stock_data(ticker, start_date, end_date):
         auto_adjust=True,
         actions=False
     )
-    
     if df.empty:
         return None
     
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = [col[0] for col in df.columns]
-
-    essential_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
-    df = df[essential_cols]
-
-    df = df.astype('float32')
-    df.index = pd.to_datetime(df.index)
     
+    essential_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+    df = df[essential_cols].astype('float32')
+    df.index = pd.to_datetime(df.index)
     return df
 
 def calculate_rsi(df, period=14):
@@ -374,6 +375,7 @@ def calculate_atr(df, period=14):
     atr = true_range.rolling(window=period).mean()
     return atr
 
+@st.cache_data(max_entries=1, ttl=3600, show_spinner=False)
 def add_technical_indicators(df):
     close = df.Close
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
@@ -410,14 +412,11 @@ def add_technical_indicators(df):
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
     df['DD'] = df['Close'].where(df['Close'] < df['Close'].shift(1)).std()
-    #df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
+
     df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
     df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-     # fill nans
-    #cols = ['SMA10', 'SMA50', 'RSI', '-DI', 'Close']
-    #df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     df = df.fillna(method='ffill')
     df = df.fillna(method='bfill')
     numeric_cols = df.select_dtypes(include=[np.number]).columns
@@ -433,7 +432,7 @@ def add_technical_indicators(df):
             (df['RSI'].between(50, 90)) &
             (df['ADX'] > 40) &
             (df['+DI'] > df['-DI']) &
-            (df['Close'] > df['Close'].shift(5) * 1.02)  # ✅ Rally proof!
+            (df['Close'] > df['Close'].shift(5) * 1.02)
         ),
         
         # 2️⃣ BULL (Entry signals)
@@ -602,175 +601,6 @@ def compute_expected_loss(df, window=14, s_cols=['S1', 'S2']):
                 df.iloc[i, df.columns.get_loc('Expected_Loss')] = np.nan
     return df
 
-def compute_expected_return_past(df, lookback_window=60, r_cols=['R1_Avg', 'R2_Avg']):
-    """
-    Calculate expected return based ONLY on historical patterns, not future prices.
-    Looks back at what happened after similar historical pivot levels were reached.
-    """
-    df = df.copy()
-    df['Expected_Return'] = np.nan
-    close_prices = df['Close'].values
-    
-    # We need pivot data arrays
-    pivot_arrays = []
-    for col in r_cols:
-        if col in df.columns:
-            pivot_arrays.append(df[col].values)
-        else:
-            pivot_arrays.append(np.full(len(df), np.nan))
-    
-    for i in range(lookback_window, len(df)):
-        current_price = close_prices[i]
-        current_pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
-        
-        if not current_pivots:
-            df.iloc[i, df.columns.get_loc('Expected_Return')] = 0.02  # Default
-            continue
-        
-        # Find nearest resistance pivot above current price
-        resistances = [p for p in current_pivots if p > current_price]
-        if resistances:
-            nearest_resistance = min(resistances, key=lambda x: x - current_price)
-            target_return = (nearest_resistance - current_price) / current_price
-        else:
-            # If all pivots are below, use highest pivot as target
-            highest_pivot = max(current_pivots)
-            target_return = (highest_pivot - current_price) / current_price
-        
-        # Now look back in history for similar situations
-        similar_returns = []
-        
-        for j in range(max(14, i - lookback_window), i - 14):  # Need room for analysis
-            hist_price = close_prices[j]
-            
-            # Check if historical point had similar conditions
-            hist_pivots = [arr[j] for arr in pivot_arrays if not np.isnan(arr[j])]
-            if not hist_pivots:
-                continue
-            
-            # Find similar pivot configuration
-            hist_resistances = [p for p in hist_pivots if p > hist_price]
-            if hist_resistances:
-                hist_nearest = min(hist_resistances, key=lambda x: x - hist_price)
-                hist_target_return = (hist_nearest - hist_price) / hist_price
-            else:
-                continue
-            
-            # Check if historical target return is within ±50% of current target
-            if abs(hist_target_return - target_return) / (abs(target_return) + 1e-10) < 0.5:
-                # What actually happened after this historical point?
-                future_window_size = min(14, len(close_prices) - j - 1)
-                if future_window_size > 0:
-                    hist_future = close_prices[j+1:j+1+future_window_size]
-                    hist_actual_max = np.nanmax(hist_future)
-                    hist_actual_return = (hist_actual_max - hist_price) / hist_price
-                    similar_returns.append(hist_actual_return)
-        
-        # Calculate expected return based on historical patterns
-        if similar_returns:
-            # Use median to be robust to outliers
-            expected_return = np.median(similar_returns)
-        else:
-            # Fallback: Use target return adjusted by historical success rate
-            # Assume 60% chance of reaching target, with average 80% achievement
-            expected_return = target_return * 0.6 * 0.8
-        
-        # Cap extreme values
-        expected_return = min(expected_return, 0.20)  # Max 20% expected return
-        expected_return = max(expected_return, -0.05)  # Min -5% expected return
-        
-        df.iloc[i, df.columns.get_loc('Expected_Return')] = expected_return
-    
-    # Forward fill for early rows
-    df['Expected_Return'] = df['Expected_Return'].fillna(method='ffill').fillna(0.02)
-    
-    return df
-
-
-def compute_expected_loss_past(df, lookback_window=60, s_cols=['S1_Avg', 'S2_Avg']):
-    """
-    Calculate expected loss based ONLY on historical patterns, not future prices.
-    Looks back at what happened after similar historical support levels were tested.
-    """
-    df = df.copy()
-    df['Expected_Loss'] = np.nan
-    close_prices = df['Close'].values
-    
-    # We need pivot data arrays
-    pivot_arrays = []
-    for col in s_cols:
-        if col in df.columns:
-            pivot_arrays.append(df[col].values)
-        else:
-            pivot_arrays.append(np.full(len(df), np.nan))
-    
-    for i in range(lookback_window, len(df)):
-        current_price = close_prices[i]
-        current_pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
-        
-        if not current_pivots:
-            df.iloc[i, df.columns.get_loc('Expected_Loss')] = -0.02  # Default
-            continue
-        
-        # Find nearest support pivot below current price
-        supports = [p for p in current_pivots if p < current_price]
-        if supports:
-            nearest_support = max(supports, key=lambda x: current_price - x)
-            target_loss = (nearest_support - current_price) / current_price
-        else:
-            # If all pivots are above, use lowest pivot as target
-            lowest_pivot = min(current_pivots)
-            target_loss = (lowest_pivot - current_price) / current_price
-        
-        # Now look back in history for similar situations
-        similar_losses = []
-        
-        for j in range(max(14, i - lookback_window), i - 14):  # Need room for analysis
-            hist_price = close_prices[j]
-            
-            # Check if historical point had similar conditions
-            hist_pivots = [arr[j] for arr in pivot_arrays if not np.isnan(arr[j])]
-            if not hist_pivots:
-                continue
-            
-            # Find similar pivot configuration
-            hist_supports = [p for p in hist_pivots if p < hist_price]
-            if hist_supports:
-                hist_nearest = max(hist_supports, key=lambda x: hist_price - x)
-                hist_target_loss = (hist_nearest - hist_price) / hist_price
-            else:
-                continue
-            
-            # Check if historical target loss is within ±50% of current target
-            if abs(hist_target_loss - target_loss) / (abs(target_loss) + 1e-10) < 0.5:
-                # What actually happened after this historical point?
-                future_window_size = min(14, len(close_prices) - j - 1)
-                if future_window_size > 0:
-                    hist_future = close_prices[j+1:j+1+future_window_size]
-                    hist_actual_min = np.nanmin(hist_future)
-                    hist_actual_loss = (hist_actual_min - hist_price) / hist_price
-                    similar_losses.append(hist_actual_loss)
-        
-        # Calculate expected loss based on historical patterns
-        if similar_losses:
-            # Use median to be robust to outliers, take the more negative (worse) value
-            expected_loss = np.median(similar_losses)
-        else:
-            # Fallback: Use target loss adjusted by historical breach rate
-            # Assume 40% chance of hitting support, with average 120% overshoot
-            expected_loss = target_loss * 0.4 * 1.2
-        
-        # Cap extreme values (more negative = bigger loss)
-        expected_loss = max(expected_loss, -0.15)  # Max 15% loss
-        expected_loss = min(expected_loss, 0.01)   # Min -1% "loss" (could be gain)
-        
-        df.iloc[i, df.columns.get_loc('Expected_Loss')] = expected_loss
-    
-    # Forward fill for early rows
-    df['Expected_Loss'] = df['Expected_Loss'].fillna(method='ffill').fillna(-0.02)
-    
-    return df
-    
 def label_hit_prob_past(
     df,
     window=14,
@@ -854,7 +684,7 @@ def label_hit_prob_past(
                 labels.append(0)
     
     for i in range(N):
-        if labels[i] in [2, 3]:  # TP or Hold bars
+        if labels[i] in [2, 3]:
             current_close = close_prices[i]
             EMA1_now = EMA1[i]
             atr_now = atr[i]
@@ -890,45 +720,39 @@ def prepare_indicators(df):
         df[col] = df[col].fillna(0)
     return df
 
-@st.cache_data
-def prepare_all_features(df):
-    """Cached master function - call ONCE before backtest"""
-    df = prepare_indicators(df)
-    df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
-    return df
-
 # -------------------------
 # ML Model Functions
 # -------------------------
-
+@st.cache_resource(ttl=3600, max_entries=3, show_spinner=False)
 def train_ml_models(df, current_index):
-    """Train ML models using the feature set"""
-    # Select available features
     available_features = [f for f in FEATURES if f in df.columns]
 
-    
     if len(available_features) < 10:
         st.warning(f"Only {len(available_features)} features available.")
         return None, None, None, None, None, None
 
     df_filled = df.iloc[:current_index + 1].copy()
+    df_filled = compute_expected_return (df_filled, window=14, r_cols=['R1_Avg', 'R2_Avg'])
+    df_filled = compute_expected_loss (df_filled, window=14, s_cols=['S1_Avg', 'S2_Avg'])
+    df_filled = label_hit_prob_past(df_filled, 
+                                    window=30, 
+                                    profit_target=PROFIT_TARGET, 
+                                    stop_loss=STOP_LOSS, 
+                                    lookback=120, 
+                                    tp_thresh=0.35, 
+                                    sl_thresh=0.35)
     
-    # Fill target columns
-    df_filled = compute_expected_return (df_filled)
-    df_filled = compute_expected_loss (df_filled)
     for col in ['Hit_Label', 'Expected_Return', 'Expected_Loss']:
         if col in df_filled.columns:
             if col == 'Hit_Label':
                 df_filled[col] = df_filled[col].fillna(0).astype(int)
             else:
                 df_filled[col] = df_filled[col].fillna(0.0)
-    
-    # Fill feature columns
+
     for col in available_features:
         if col in df_filled.columns:
             df_filled[col] = df_filled[col].fillna(0)
-    
-    # Now use df_filled for training
+
     df_model = df_filled
     
     if len(df_model) < 50:
@@ -940,58 +764,120 @@ def train_ml_models(df, current_index):
     
     scaler_cls = StandardScaler()
     X_scaled_cls = scaler_cls.fit_transform(X_cls)
-    
+
     model_class = RandomForestClassifier(
-        n_estimators=30, 
-        max_depth=10, 
+        n_estimators=ml_nest, 
+        max_depth=ml_depth, 
         min_samples_leaf=5, 
         random_state=42,
-        n_jobs=1
+        n_jobs=njobs
     )
     model_class.fit(X_scaled_cls, y_cls)
-    
-    # Train return model
+
     y_return = df_model['Expected_Return']
     scaler_return = StandardScaler()
     X_scaled_return = scaler_return.fit_transform(X_cls)
     
     model_return = RandomForestRegressor(
-        n_estimators=30, 
-        max_depth=10, 
+        n_estimators=ml_nest, 
+        max_depth=ml_depth, 
         min_samples_leaf=5, 
         random_state=42,
-        n_jobs=1
+        n_jobs=njobs
     )
     model_return.fit(X_scaled_return, y_return)
     
-    # Train loss model
     y_loss = df_model['Expected_Loss']
     scaler_loss = StandardScaler()
     X_scaled_loss = scaler_loss.fit_transform(X_cls)
     
     model_loss = RandomForestRegressor(
-        n_estimators=30, 
-        max_depth=10, 
+        n_estimators=ml_nest, 
+        max_depth=ml_depth, 
         min_samples_leaf=5, 
         random_state=42,
-        n_jobs=1
+        n_jobs=njobs
     )
     model_loss.fit(X_scaled_loss, y_loss)
     
     return model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss
 
-def get_ml_prediction(df, models):
-    """Get ML prediction for the latest data point"""
-    model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss = models
+@st.cache_resource(ttl=3600, max_entries=3, show_spinner=False)
+def train_ml_models_optimized(df, current_index):
+    available_features = [f for f in FEATURES if f in df.columns]
     
-    # Select available features
+    if len(available_features) < 10:
+        return (None, None, None, None, None, None)
+    
+    df_filled = df.iloc[:current_index + 1].copy()
+    
+    if 'Expected_Return' not in df_filled.columns:
+        df_filled = compute_expected_return(df_filled, window=14, r_cols=['R1_Avg', 'R2_Avg'])
+    if 'Expected_Loss' not in df_filled.columns:
+        df_filled = compute_expected_loss(df_filled, window=14, s_cols=['S1_Avg', 'S2_Avg'])
+    
+    if 'Hit_Label' not in df_filled.columns:
+        df_filled = label_hit_prob_past(df_filled, window=30, 
+                                       profit_target=PROFIT_TARGET, 
+                                       stop_loss=STOP_LOSS, 
+                                       lookback=120, 
+                                       tp_thresh=0.35, sl_thresh=0.35)
+    
+    X = df_filled[available_features].fillna(0).values  # Use numpy array
+    y_cls = df_filled['Hit_Label'].fillna(0).astype(int).values
+    
+    if len(X) < 50:
+        return (None, None, None, None, None, None)
+    
+    scaler_cls = StandardScaler()
+    X_scaled_cls = scaler_cls.fit_transform(X)
+    
+    model_class = RandomForestClassifier(
+        n_estimators=ml_nest, 
+        max_depth=ml_depth, 
+        min_samples_leaf=5, 
+        random_state=42,
+        n_jobs=-1  # Use all cores
+    )
+    model_class.fit(X_scaled_cls, y_cls)
+
+    y_return = df_filled['Expected_Return'].fillna(0).values
+    scaler_return = StandardScaler()
+    X_scaled_return = scaler_return.fit_transform(X)
+    
+    model_return = RandomForestRegressor(
+        n_estimators=ml_nest, 
+        max_depth=ml_depth, 
+        min_samples_leaf=5, 
+        random_state=42,
+        n_jobs=-1
+    )
+    model_return.fit(X_scaled_return, y_return)
+    
+    y_loss = df_filled['Expected_Loss'].fillna(0).values
+    scaler_loss = StandardScaler()
+    X_scaled_loss = scaler_loss.fit_transform(X)
+    
+    model_loss = RandomForestRegressor(
+        n_estimators=ml_nest, 
+        max_depth=ml_depth, 
+        min_samples_leaf=5, 
+        random_state=42,
+        n_jobs=-1
+    )
+    model_loss.fit(X_scaled_loss, y_loss)
+    
+    return (model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss)
+    
+def get_ml_prediction(df, models):
+    model_class, model_return, model_loss, scaler_cls, scaler_return, scaler_loss = models
+
     available_features = [f for f in FEATURES if f in df.columns]
     latest = df[available_features].iloc[[-1]]
     
     if latest.isnull().values.any():
         return None
-    
-    # Class prediction
+
     latest_scaled_cls = scaler_cls.transform(latest)
     class_probs = model_class.predict_proba(latest_scaled_cls)[0]
     predicted_class = model_class.predict(latest_scaled_cls)[0]
@@ -1009,15 +895,13 @@ def get_ml_prediction(df, models):
     p_hold  = class_probs[3] if len(class_probs) > 3 else 0
     p_short = class_probs[4] if len(class_probs) > 4 else 0
 
-    
     bullish_prob = p_tp + p_hold
     bearish_prob = p_sl + p_short
 
     label_map = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
     will_hit = label_map.get(predicted_class, 'None')
     hit_prob = class_probs[predicted_class]
-    
-    # Regression predictions
+
     latest_scaled_return = scaler_return.transform(latest)
     latest_scaled_loss = scaler_loss.transform(latest)
     
@@ -1030,8 +914,8 @@ def get_ml_prediction(df, models):
     else:
         rr_ratio = 0
 
-    max_ratio = 10  # cap at 10:1
-    log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
+    max_ratio = 10 
+    log_ratio = np.log1p(rr_ratio)
     max_log_ratio = np.log1p(max_ratio)
     normalized_rr = log_ratio / max_log_ratio
 
@@ -1063,7 +947,6 @@ if st.button("Run ML Strategy Backtest"):
     gc.collect()
 
     end_date = datetime.now()
-    #start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)  # Full years as days lookback
     if period == "1y":
         start_date = end_date - timedelta(days=365*1.5)
     elif period == "2y":
@@ -1082,7 +965,7 @@ if st.button("Run ML Strategy Backtest"):
             st.stop()
 
     with st.spinner('Calculating technical indicators (for speed & plotting)...'):
-        df_daily = prepare_all_features(df_daily)
+        df_daily = prepare_indicators(df_daily)
 
     st.write("Running backtest...")
     trades = []
@@ -1114,7 +997,7 @@ if st.button("Run ML Strategy Backtest"):
                 continue
 
             if i % RETRAIN_EVERY == 0 or i < 120:
-                models = train_ml_models(current_data, i)
+                models = train_ml_models_optimized(current_data, i)
     
             if models[0] is None:
                 continue
@@ -1137,7 +1020,6 @@ if st.button("Run ML Strategy Backtest"):
             # ENTRY LOGIC
             ema1 = current_data.loc[current_date, 'SMA10']
             close = current_data.loc[current_date, 'Close']
-            emacheck = (ema1 * 0.95 <= close <= ema1 * 1.05)
           
             if (
                 current_ml_signal in ['None', 'TP', 'Hold']
@@ -1187,8 +1069,7 @@ if st.button("Run ML Strategy Backtest"):
             TP_price = current_trade['tp_price']
             SL_price = current_trade['sl_price']
             days_in_trade = (current_date - entry_date).days
-            
-            # ✅ For exit logic, we only need current day's OHLC from raw data
+
             current_open = float(df_daily.loc[current_date, 'Open'])
             current_high = float(df_daily.loc[current_date, 'High'])
             current_low = float(df_daily.loc[current_date, 'Low'])
@@ -1456,4 +1337,3 @@ if st.button("Run ML Strategy Backtest"):
 
     gc.collect()
     st.success("Backtest complete!")
-    
