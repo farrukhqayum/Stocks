@@ -1200,13 +1200,13 @@ if st.button("Run ML Strategy Backtest"):
     # -------------------
     
     st.subheader("Backtest and Equity")
-    df_daily = label_hit_prob_past(df_daily, 
-                                  window=30, 
-                                  profit_target=PROFIT_TARGET, 
-                                  stop_loss=STOP_LOSS, 
-                                  lookback=120, 
-                                  tp_thresh=0.35, 
-                                  sl_thresh=0.35)
+    df_daily = label_hit_prob_past(df_daily,
+                                   window=30,
+                                   profit_target=PROFIT_TARGET, 
+                                   stop_loss=STOP_LOSS,
+                                   lookback=120, 
+                                   tp_thresh=0.35, 
+                                   sl_thresh=0.35)
     
     fig, (ax, ax1, bx, cx) = plt.subplots(4, 1, figsize=(12, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1.5, 1, 1]})
     
