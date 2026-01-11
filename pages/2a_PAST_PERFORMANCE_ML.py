@@ -602,7 +602,7 @@ def label_hit_prob_past_vectorized(df, window=14, profit_target=0.05, stop_loss=
     return df
 
 
-def label_hit_prob_past_fixed(
+def label_hit_prob_past(
     df,
     window=14,
     profit_target=0.05,
@@ -778,32 +778,13 @@ def prepare_indicators(df):
         df[col] = df[col].fillna(0)
     return df
 
-def prepare_features(df, current_idx=None):
-    forward_window = 14
-    df = df.copy()
-    df['Expected_Return'] = 0.0
-    df['Expected_Loss'] = 0.0
-    df['Hit_Label'] = 0
-    close_prices = df['Close'].values
-    for i in range(100, len(df)):
-        future_start = i + 1
-        future_end = min(i + 1 + forward_window, len(df))
-        if future_end > future_start:
-            future_prices = close_prices[future_start:future_end]
-            current_price = close_prices[i]
-            df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_prices) - current_price) / current_price
-            df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_prices) - current_price) / current_price
-            df.iloc[i, df.columns.get_loc('Hit_Label')] = 2 if np.nanmax(future_prices) >= current_price * 1.0375 else 1
-    for col in ['Expected_Return', 'Expected_Loss', 'Hit_Label']:
-        if col in df.columns:
-            df[col] = df[col].fillna(0)
-    return df
-
 @st.cache_data
 def prepare_all_features(df):
     """Cached master function - call ONCE before backtest"""
     df = prepare_indicators(df)
-    df = prepare_features(df)
+    df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
+    df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
+    df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
     return df
 
 # -------------------------
