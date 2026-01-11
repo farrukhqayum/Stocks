@@ -1346,9 +1346,5 @@ if st.button("Run ML Strategy Backtest"):
         signal_stats.columns = ['Trades', 'Avg Return %', 'Return Std %', 'Total Return %', 'Avg Conf', 'Avg Hold Days']
         st.dataframe(signal_stats)
 
-    
-    cache_data.clear()
-    cache_resource.clear()
-
     gc.collect()
     st.success("Backtest complete!")
