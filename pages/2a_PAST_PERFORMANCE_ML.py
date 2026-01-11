@@ -998,14 +998,11 @@ if st.button("Run ML Strategy Backtest"):
 
         if not in_trade:
             current_data = df_daily.iloc[:i+1]
-
-            max_lookahead = 14
-            valid_cutoff = len(current_data) - max_lookahead
             
-            if valid_cutoff < 100:
+            if len(current_data) < 100:
                 continue
             
-            training_data = current_data.iloc[:valid_cutoff]           
+            training_data = current_data.iloc[:current_data]           
 
             if i % RETRAIN_EVERY == 0 or i < 120:
                 models = train_ml_models(current_data)
