@@ -895,8 +895,6 @@ def prepare_all_features(df):
     """Cached master function - call ONCE before backtest"""
     df = prepare_indicators(df)
     df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
-    df = compute_expected_return_past(df)
-    df = compute_expected_loss_past(df)
     return df
 
 # -------------------------
@@ -916,6 +914,8 @@ def train_ml_models(df, current_index):
     df_filled = df.iloc[:current_index + 1].copy()
     
     # Fill target columns
+    df = compute_expected_return (df_filled)
+    df = compute_expected_loss (df_filled)
     for col in ['Hit_Label', 'Expected_Return', 'Expected_Loss']:
         if col in df_filled.columns:
             if col == 'Hit_Label':
