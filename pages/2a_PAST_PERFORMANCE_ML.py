@@ -186,11 +186,12 @@ windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
 confidence_data = [] 
 will_hit_history = []
 
-ml_nest = 50
-ml_depth = 20
-min_samples_leaf= 5
+ml_nest = 100
+ml_depth = 14
+min_samples_leaf= 3
 random_state= 42
-njobs = 1
+njobs = -1
+
 
 FEATURES = [
     'High', 'Low', 'RSI', 'RSI_SMA', 'CCI', '+DI', '-DI', 'ADX', 'ATR', 'VI+', 
@@ -716,6 +717,7 @@ def prepare_indicators(df):
     df = average_pivots(df, windows)
     df['TI'] = df['TI'].astype(object)
     numeric_cols = df.select_dtypes(include=[np.number]).columns
+    
     for col in numeric_cols:
             if df[col].dtype in ['bool', 'boolean']:
                 continue
@@ -727,6 +729,7 @@ def prepare_indicators(df):
     for col in numeric_cols:
         if col in df.columns and df[col].dtype == 'float32':
             df[col] = df[col].fillna(0.0) 
+            
     return df
 
 # -------------------------
@@ -844,10 +847,13 @@ def train_ml_models_optimized(df, current_index):
     model_class = RandomForestClassifier(
         n_estimators=ml_nest, 
         max_depth=ml_depth, 
-        min_samples_leaf=5, 
+        min_samples_leaf=3, 
+        max_features='sqrt',
+        class_weight='balanced',
         random_state=42,
-        n_jobs=-1  # Use all cores
+        n_jobs=-1
     )
+
     model_class.fit(X_scaled_cls, y_cls)
 
     y_return = df_filled['Expected_Return'].fillna(0).values
@@ -857,7 +863,9 @@ def train_ml_models_optimized(df, current_index):
     model_return = RandomForestRegressor(
         n_estimators=ml_nest, 
         max_depth=ml_depth, 
-        min_samples_leaf=5, 
+        min_samples_leaf=3, 
+        max_features='sqrt',
+        ccp_alpha=0.001,
         random_state=42,
         n_jobs=-1
     )
@@ -871,6 +879,8 @@ def train_ml_models_optimized(df, current_index):
         n_estimators=ml_nest, 
         max_depth=ml_depth, 
         min_samples_leaf=5, 
+        max_features='sqrt',
+        ccp_alpha=0.001,
         random_state=42,
         n_jobs=-1
     )
@@ -1043,7 +1053,7 @@ if st.button("Run ML Strategy Backtest"):
                 predicted_return = ml_prediction['predicted_return']
                 predicted_loss = ml_prediction['predicted_loss']
                 
-                if predicted_return > tp_given:
+                if tp_given > predicted_return:
                     TP_price = entry_price * (1 + predicted_return)
                     used_ml_tp = True
                 else:
