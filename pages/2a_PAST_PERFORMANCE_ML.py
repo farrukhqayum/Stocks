@@ -972,8 +972,7 @@ if st.button("Run ML Strategy Backtest"):
             emacheck = (ema1 * 0.95 <= close <= ema1 * 1.05)
           
             if (
-                emacheck
-                and current_ml_signal in ['None', 'TP', 'Hold']
+                current_ml_signal in ['None', 'TP', 'Hold']
                 and current_ml_confidence >= ml_confidence_threshold
                 ):
     
