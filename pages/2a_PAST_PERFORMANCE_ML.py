@@ -602,7 +602,175 @@ def compute_expected_loss(df, window=14, s_cols=['S1', 'S2']):
                 df.iloc[i, df.columns.get_loc('Expected_Loss')] = np.nan
     return df
 
+def compute_expected_return_past(df, lookback_window=60, r_cols=['R1_Avg', 'R2_Avg']):
+    """
+    Calculate expected return based ONLY on historical patterns, not future prices.
+    Looks back at what happened after similar historical pivot levels were reached.
+    """
+    df = df.copy()
+    df['Expected_Return'] = np.nan
+    close_prices = df['Close'].values
+    
+    # We need pivot data arrays
+    pivot_arrays = []
+    for col in r_cols:
+        if col in df.columns:
+            pivot_arrays.append(df[col].values)
+        else:
+            pivot_arrays.append(np.full(len(df), np.nan))
+    
+    for i in range(lookback_window, len(df)):
+        current_price = close_prices[i]
+        current_pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
+        
+        if not current_pivots:
+            df.iloc[i, df.columns.get_loc('Expected_Return')] = 0.02  # Default
+            continue
+        
+        # Find nearest resistance pivot above current price
+        resistances = [p for p in current_pivots if p > current_price]
+        if resistances:
+            nearest_resistance = min(resistances, key=lambda x: x - current_price)
+            target_return = (nearest_resistance - current_price) / current_price
+        else:
+            # If all pivots are below, use highest pivot as target
+            highest_pivot = max(current_pivots)
+            target_return = (highest_pivot - current_price) / current_price
+        
+        # Now look back in history for similar situations
+        similar_returns = []
+        
+        for j in range(max(14, i - lookback_window), i - 14):  # Need room for analysis
+            hist_price = close_prices[j]
+            
+            # Check if historical point had similar conditions
+            hist_pivots = [arr[j] for arr in pivot_arrays if not np.isnan(arr[j])]
+            if not hist_pivots:
+                continue
+            
+            # Find similar pivot configuration
+            hist_resistances = [p for p in hist_pivots if p > hist_price]
+            if hist_resistances:
+                hist_nearest = min(hist_resistances, key=lambda x: x - hist_price)
+                hist_target_return = (hist_nearest - hist_price) / hist_price
+            else:
+                continue
+            
+            # Check if historical target return is within ±50% of current target
+            if abs(hist_target_return - target_return) / (abs(target_return) + 1e-10) < 0.5:
+                # What actually happened after this historical point?
+                future_window_size = min(14, len(close_prices) - j - 1)
+                if future_window_size > 0:
+                    hist_future = close_prices[j+1:j+1+future_window_size]
+                    hist_actual_max = np.nanmax(hist_future)
+                    hist_actual_return = (hist_actual_max - hist_price) / hist_price
+                    similar_returns.append(hist_actual_return)
+        
+        # Calculate expected return based on historical patterns
+        if similar_returns:
+            # Use median to be robust to outliers
+            expected_return = np.median(similar_returns)
+        else:
+            # Fallback: Use target return adjusted by historical success rate
+            # Assume 60% chance of reaching target, with average 80% achievement
+            expected_return = target_return * 0.6 * 0.8
+        
+        # Cap extreme values
+        expected_return = min(expected_return, 0.20)  # Max 20% expected return
+        expected_return = max(expected_return, -0.05)  # Min -5% expected return
+        
+        df.iloc[i, df.columns.get_loc('Expected_Return')] = expected_return
+    
+    # Forward fill for early rows
+    df['Expected_Return'] = df['Expected_Return'].fillna(method='ffill').fillna(0.02)
+    
+    return df
 
+
+def compute_expected_loss_past(df, lookback_window=60, s_cols=['S1_Avg', 'S2_Avg']):
+    """
+    Calculate expected loss based ONLY on historical patterns, not future prices.
+    Looks back at what happened after similar historical support levels were tested.
+    """
+    df = df.copy()
+    df['Expected_Loss'] = np.nan
+    close_prices = df['Close'].values
+    
+    # We need pivot data arrays
+    pivot_arrays = []
+    for col in s_cols:
+        if col in df.columns:
+            pivot_arrays.append(df[col].values)
+        else:
+            pivot_arrays.append(np.full(len(df), np.nan))
+    
+    for i in range(lookback_window, len(df)):
+        current_price = close_prices[i]
+        current_pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
+        
+        if not current_pivots:
+            df.iloc[i, df.columns.get_loc('Expected_Loss')] = -0.02  # Default
+            continue
+        
+        # Find nearest support pivot below current price
+        supports = [p for p in current_pivots if p < current_price]
+        if supports:
+            nearest_support = max(supports, key=lambda x: current_price - x)
+            target_loss = (nearest_support - current_price) / current_price
+        else:
+            # If all pivots are above, use lowest pivot as target
+            lowest_pivot = min(current_pivots)
+            target_loss = (lowest_pivot - current_price) / current_price
+        
+        # Now look back in history for similar situations
+        similar_losses = []
+        
+        for j in range(max(14, i - lookback_window), i - 14):  # Need room for analysis
+            hist_price = close_prices[j]
+            
+            # Check if historical point had similar conditions
+            hist_pivots = [arr[j] for arr in pivot_arrays if not np.isnan(arr[j])]
+            if not hist_pivots:
+                continue
+            
+            # Find similar pivot configuration
+            hist_supports = [p for p in hist_pivots if p < hist_price]
+            if hist_supports:
+                hist_nearest = max(hist_supports, key=lambda x: hist_price - x)
+                hist_target_loss = (hist_nearest - hist_price) / hist_price
+            else:
+                continue
+            
+            # Check if historical target loss is within ±50% of current target
+            if abs(hist_target_loss - target_loss) / (abs(target_loss) + 1e-10) < 0.5:
+                # What actually happened after this historical point?
+                future_window_size = min(14, len(close_prices) - j - 1)
+                if future_window_size > 0:
+                    hist_future = close_prices[j+1:j+1+future_window_size]
+                    hist_actual_min = np.nanmin(hist_future)
+                    hist_actual_loss = (hist_actual_min - hist_price) / hist_price
+                    similar_losses.append(hist_actual_loss)
+        
+        # Calculate expected loss based on historical patterns
+        if similar_losses:
+            # Use median to be robust to outliers, take the more negative (worse) value
+            expected_loss = np.median(similar_losses)
+        else:
+            # Fallback: Use target loss adjusted by historical breach rate
+            # Assume 40% chance of hitting support, with average 120% overshoot
+            expected_loss = target_loss * 0.4 * 1.2
+        
+        # Cap extreme values (more negative = bigger loss)
+        expected_loss = max(expected_loss, -0.15)  # Max 15% loss
+        expected_loss = min(expected_loss, 0.01)   # Min -1% "loss" (could be gain)
+        
+        df.iloc[i, df.columns.get_loc('Expected_Loss')] = expected_loss
+    
+    # Forward fill for early rows
+    df['Expected_Loss'] = df['Expected_Loss'].fillna(method='ffill').fillna(-0.02)
+    
+    return df
+    
 def label_hit_prob_past(
     df,
     window=14,
@@ -727,8 +895,8 @@ def prepare_all_features(df):
     """Cached master function - call ONCE before backtest"""
     df = prepare_indicators(df)
     df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
-    df = compute_expected_return(df, window=20, r_cols=['R1_Avg', 'R2_Avg'])
-    df = compute_expected_loss(df, window=20, s_cols=['S1_Avg', 'S2_Avg'])
+    df = compute_expected_return_past(df)
+    df = compute_expected_loss_past(df)
     return df
 
 # -------------------------
