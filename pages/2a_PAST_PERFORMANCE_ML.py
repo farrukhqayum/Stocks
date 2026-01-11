@@ -182,7 +182,6 @@ MIN_DATA_FOR_TRAINING = 100
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
 _DAYS = 22
-RETRAIN_EVERY = 3
 windows = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29]
 confidence_data = [] 
 will_hit_history = []
@@ -543,7 +542,7 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
         df[f'{level}_Avg'] = df[cols].mean(axis=1)
     return df
 
-def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
+def compute_expected_return(df, window=14, r_cols=['R1', 'R2']):
     df['Expected_Return'] = np.nan
     close_prices = df['Close'].values
     pivot_arrays = []
@@ -552,11 +551,11 @@ def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
             pivot_arrays.append(df[col].values)
         else:
             pivot_arrays.append(np.full(len(df), np.nan))
-    for i in range(len(df) - forward_window):
+    for i in range(len(df) - window):
         current_price = close_prices[i]
         pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
         target_level = max(pivots) if pivots else None
-        future_window = close_prices[i+1:i+1+forward_window]
+        future_window = close_prices[i+1:i+1+window]
         if target_level is not None:
             hit = False
             for future_price in future_window:
@@ -573,7 +572,7 @@ def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
                 df.iloc[i, df.columns.get_loc('Expected_Return')] = np.nan
     return df
 
-def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
+def compute_expected_loss(df, window=14, s_cols=['S1', 'S2']):
     df['Expected_Loss'] = np.nan
     close_prices = df['Close'].values
     pivot_arrays = []
@@ -582,11 +581,11 @@ def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
             pivot_arrays.append(df[col].values)
         else:
             pivot_arrays.append(np.full(len(df), np.nan))
-    for i in range(len(df) - forward_window):
+    for i in range(len(df) - window):
         current_price = close_prices[i]
         pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
         target_level = min(pivots) if pivots else None
-        future_window = close_prices[i+1:i+1+forward_window]
+        future_window = close_prices[i+1:i+1+window]
         if target_level is not None:
             hit = False
             for future_price in future_window:
@@ -686,7 +685,6 @@ def label_hit_prob_past(
             else:
                 labels.append(0)
     
-    # Post-process: Trigger SL immediately on price dip below EMA1 or EMA1-ATR buffer with momentum checks for Hold/TP
     for i in range(N):
         if labels[i] in [2, 3]:  # TP or Hold bars
             current_close = close_prices[i]
@@ -729,8 +727,8 @@ def prepare_all_features(df):
     """Cached master function - call ONCE before backtest"""
     df = prepare_indicators(df)
     df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
-    df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
-    df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
+    df = compute_expected_return(df, window=20, r_cols=['R1_Avg', 'R2_Avg'])
+    df = compute_expected_loss(df, window=20, s_cols=['S1_Avg', 'S2_Avg'])
     return df
 
 # -------------------------
@@ -924,6 +922,7 @@ if st.button("Run ML Strategy Backtest"):
     current_trade = {}
     daily_dates = df_daily.index
     progress_bar = st.progress(0)
+    RETRAIN_EVERY = 3
     ml_tp_success_counter = 0
     used_ml_tp = False
     
