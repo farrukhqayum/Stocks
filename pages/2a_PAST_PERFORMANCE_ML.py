@@ -755,7 +755,6 @@ def label_hit_prob_past_fixed(
     df['Hit_Label'] = labels
     return df
     
-@st.cache_data
 def prepare_indicators(df):
     df = df.copy()
     df = add_technical_indicators(df)
