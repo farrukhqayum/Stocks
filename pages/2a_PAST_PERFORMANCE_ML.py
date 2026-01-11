@@ -178,6 +178,7 @@ with st.expander("🤖 Example Backtest Results"):
 # Strategy Parameters
 # -------------------------
 YEARS_OF_DATA = 3
+MIN_DATA_FOR_TRAINING = 100
 PROFIT_TARGET = 0.0375
 STOP_LOSS = 0.0375
 _DAYS = 22
@@ -195,16 +196,6 @@ FEATURES = [
     'Candlesticks', 'gapStrength', 'Bear', 'Bull', 'Short', 'Hold', 'Neutral', 
     'StrongBull', 'StrongBear', 'Exhaustion', 'PP_Avg', 'R1_Avg', 'S1_Avg', 'R2_Avg', 'S2_Avg'
 ]
-
-def optimize_dataframe(df):
-    for col in df.select_dtypes(include=['float64']).columns:
-        df[col] = df[col].astype('float32')
-    for col in df.select_dtypes(include=['int64']).columns:
-        df[col] = df[col].astype('int32')
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'])
-
-    return df
 
 def validate_ticker(ticker: str) -> dict:
     try:
@@ -338,21 +329,32 @@ st.info(f"📊 ACTIVE SETTINGS → TP={TP_pct}%, SL={SL_pct}%, Hold={max_holding
 # -------------------------
 # Technical Analysis Functions (Simplified)
 # -------------------------
+@st.cache_data(max_entries=1, ttl=3600)  # Reduce cache entries
 def get_stock_data(ticker, start_date, end_date):
-    """Get stock data from Yahoo Finance"""
-    df = yf.download(ticker, start=start_date, end=end_date + timedelta(days=1), 
-                     progress=False)
+    """Get stock data with memory optimization"""
+    # Download only essential columns
+    df = yf.download(
+        ticker, 
+        start=start_date, 
+        end=end_date + timedelta(days=1),
+        progress=False,
+        auto_adjust=True,
+        actions=False
+    )
+    
     if df.empty:
         return None
     
-    # Clean column names
     if isinstance(df.columns, pd.MultiIndex):
-        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    
+        df.columns = [col[0] for col in df.columns]
+
+    essential_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+    df = df[essential_cols]
+
+    df = df.astype('float32')
     df.index = pd.to_datetime(df.index)
-    df = df.dropna()
-    df_a = optimize_dataframe(df)
-    return df_a
+    
+    return df
 
 def calculate_rsi(df, period=14):
     """Calculate RSI"""
@@ -500,6 +502,7 @@ def add_technical_indicators(df):
     df.Close = close
     
     return df
+    
 def add_pivot_levels(df, window=_DAYS):
     high = df['High'].rolling(window)
     low = df['Low'].rolling(window)
@@ -539,66 +542,64 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
         df[f'{level}_Avg'] = df[cols].mean(axis=1)
     return df
 
-def compute_expected_return(df, forward_window=14):
-    """Compute expected return - FIXED to handle edge cases"""
-    df['Expected_Return'] = 0.0
+def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
+    df['Expected_Return'] = np.nan
     close_prices = df['Close'].values
-    
-    for i in range(len(df)):
+    pivot_arrays = []
+    for col in r_cols:
+        if col in df.columns:
+            pivot_arrays.append(df[col].values)
+        else:
+            pivot_arrays.append(np.full(len(df), np.nan))
+    for i in range(len(df) - forward_window):
         current_price = close_prices[i]
-        available_future = len(df) - i - 1
-        lookahead = min(forward_window, available_future)
-        
-        if lookahead > 0:
-            future_prices = close_prices[i+1:i+1+lookahead]
-            if len(future_prices) > 0:
-                max_future = np.nanmax(future_prices)
-                if current_price > 0:  # Avoid division by zero
-                    df.iloc[i, df.columns.get_loc('Expected_Return')] = (max_future - current_price) / current_price
-    
+        pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
+        target_level = max(pivots) if pivots else None
+        future_window = close_prices[i+1:i+1+forward_window]
+        if target_level is not None:
+            hit = False
+            for future_price in future_window:
+                if future_price >= target_level:
+                    df.iloc[i, df.columns.get_loc('Expected_Return')] = (target_level - current_price) / current_price
+                    hit = True
+                    break
+            if not hit and future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_window) - current_price) / current_price
+        else:
+            if future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = (np.nanmax(future_window) - current_price) / current_price
+            else:
+                df.iloc[i, df.columns.get_loc('Expected_Return')] = np.nan
     return df
 
-def compute_expected_loss(df, forward_window=14):
-    """Compute expected loss - FIXED to handle edge cases"""
-    df['Expected_Loss'] = 0.0
+def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
+    df['Expected_Loss'] = np.nan
     close_prices = df['Close'].values
-    
-    for i in range(len(df)):
+    pivot_arrays = []
+    for col in s_cols:
+        if col in df.columns:
+            pivot_arrays.append(df[col].values)
+        else:
+            pivot_arrays.append(np.full(len(df), np.nan))
+    for i in range(len(df) - forward_window):
         current_price = close_prices[i]
-        
-        available_future = len(df) - i - 1
-        lookahead = min(forward_window, available_future)
-        
-        if lookahead > 0:
-            future_prices = close_prices[i+1:i+1+lookahead]
-            if len(future_prices) > 0:
-                min_future = np.nanmin(future_prices)
-                if current_price > 0:
-                    df.iloc[i, df.columns.get_loc('Expected_Loss')] = (min_future - current_price) / current_price
-    
-    return df
-
-def label_hit_prob_past_vectorized(df, window=14, profit_target=0.05, stop_loss=0.05):
-    close = df['Close'].values
-    N = len(close)
-    
-    # Vectorized TP/SL hit detection
-    tp_levels = close[:-window] * (1 + profit_target)
-    sl_levels = close[:-window] * (1 - stop_loss)
-    
-    future_highs = pd.Series(close).rolling(window).max().shift(-window).values[:-window]
-    future_lows = pd.Series(close).rolling(window).min().shift(-window).values[:-window]
-    
-    tp_hit = future_highs >= tp_levels
-    sl_hit = future_lows <= sl_levels
-    
-    # Simplified labels (expand as needed)
-    df.loc[df.index[:-window], 'Hit_Label'] = np.where(
-        tp_hit & ~sl_hit, 2,  # TP
-        np.where(sl_hit, 1, 0)  # SL or Neutral
-    )
-    
-    df['Hit_Label'] = df['Hit_Label'].fillna(0)
+        pivots = [arr[i] for arr in pivot_arrays if not np.isnan(arr[i])]
+        target_level = min(pivots) if pivots else None
+        future_window = close_prices[i+1:i+1+forward_window]
+        if target_level is not None:
+            hit = False
+            for future_price in future_window:
+                if future_price <= target_level:
+                    df.iloc[i, df.columns.get_loc('Expected_Loss')] = (target_level - current_price) / current_price
+                    hit = True
+                    break
+            if not hit and future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_window) - current_price) / current_price
+        else:
+            if future_window.size > 0:
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = (np.nanmin(future_window) - current_price) / current_price
+            else:
+                df.iloc[i, df.columns.get_loc('Expected_Loss')] = np.nan
     return df
 
 
@@ -609,8 +610,7 @@ def label_hit_prob_past(
     stop_loss=0.05,
     lookback=60,
     tp_thresh=0.35,
-    sl_thresh=0.4,
-    current_time_idx=None
+    sl_thresh=0.4
 ):
     import numpy as np
     
@@ -622,139 +622,84 @@ def label_hit_prob_past(
     short = (df['TI'] == 'Short')
     neutral = (df['TI'] == 'Neutral')
 
-    sma1 = df['SMA10'].values
+    EMA1 = df['SMA10'].values
     atr = df['ATR'].values
     rsi = df['RSI'].values
     adx = df['ADX'].values
 
     N = len(close_prices)
-    
-    # Determine the current time index for walk-forward
-    if current_time_idx is None:
-        current_time_idx = N - 1
-    else:
-        # Ensure current_time_idx is within bounds
-        current_time_idx = min(current_time_idx, N - 1)
-    
     labels = []
     
     for i in range(N):
         current_price = close_prices[i]
         tp = current_price * (1 + profit_target)
         sl = current_price * (1 - stop_loss)
-    
-        max_available_future = current_time_idx - i
-        
-        if max_available_future > 0:
-            lookahead = min(window, max_available_future)
-            future_prices = close_prices[i + 1 : i + 1 + lookahead]        
-
-            tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
-            sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
-        else:
-            tp_hit_idx = None
-            sl_hit_idx = None
-            future_prices = []
+        future_prices = close_prices[i + 1 : min(i + 1 + window, N)]
+        tp_hit_idx = next((j for j, price in enumerate(future_prices) if price >= tp), None)
+        sl_hit_idx = next((j for j, price in enumerate(future_prices) if price <= sl), None)
         
         lookback_start = max(0, i - lookback)
         history_tp, history_sl = [], []
-        
         for j in range(lookback_start, i):
             hist_price = close_prices[j]
             hist_tp = hist_price * (1 + profit_target)
             hist_sl = hist_price * (1 - stop_loss)
-      
-            max_hist_future = current_time_idx - j
-            if max_hist_future > 0:
-                hist_lookahead = min(window, max_hist_future)
-                hist_future = close_prices[j + 1: j + 1 + hist_lookahead]
-            else:
-                hist_future = []
+            hist_future = close_prices[j + 1: j + 1 + window]
             
-            if bull[j] and len(hist_future) > 0:
+            if bull[j]:
                 hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
                 hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
                 hit = hist_tp_hit_idx is not None and (hist_sl_hit_idx is None or hist_tp_hit_idx < hist_sl_hit_idx)
                 history_tp.append(int(hit))
                 
-            if bear[j] and len(hist_future) > 0:
+            if bear[j]:
                 hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
                 hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
                 hit = hist_sl_hit_idx is not None and (hist_tp_hit_idx is None or hist_sl_hit_idx < hist_tp_hit_idx)
                 history_sl.append(int(hit))
         
-        if len(history_tp) >= 3:
-            tp_prob = np.mean(history_tp)
-        elif len(history_tp) > 0:
-            tp_prob = min(np.mean(history_tp), tp_thresh)
-        else:
-            tp_prob = 0.5 
-            
-        if len(history_sl) >= 3:
-            sl_prob = np.mean(history_sl)
-        elif len(history_sl) > 0:
-            sl_prob = min(np.mean(history_sl), sl_thresh)
-        else:
-            sl_prob = 0.5 
+        tp_prob = np.mean(history_tp) if len(history_tp) >= 3 else min(np.mean(history_tp) if history_tp else 0.5, tp_thresh)
+        sl_prob = np.mean(history_sl) if len(history_sl) >= 3 else min(np.mean(history_sl) if history_sl else 0.5, sl_thresh)
         
-
-        if len(future_prices) == 0:
-            if bull[i] and tp_prob >= tp_thresh:
-                labels.append(2)  
-            elif bear[i] and sl_prob >= sl_thresh:
-                labels.append(1)  
-            elif hold[i]:
-                labels.append(3)  # Hold
-            elif short[i]:
-                labels.append(4)  # Short
+        # Initial label assignment priority: TP > SL > Hold > Short > Neutral
+        if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bull[i] and tp_prob >= tp_thresh:
+            labels.append(2)  # TP (bull)
+        elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and bear[i] and sl_prob >= sl_thresh:
+            labels.append(1)  # SL (bear)
+        elif hold[i]:
+            # Upgrade Hold to TP if breakout early within window
+            if any(p >= tp for p in future_prices):
+                labels.append(2)
             else:
-                labels.append(0)  # Neutral
+                labels.append(3)
+        elif short[i]:
+            labels.append(4)
         else:
-            if tp_hit_idx is not None and (sl_hit_idx is None or tp_hit_idx < sl_hit_idx) and bull[i] and tp_prob >= tp_thresh:
-                labels.append(2)  # TP (bull)
-            elif sl_hit_idx is not None and (tp_hit_idx is None or sl_hit_idx < tp_hit_idx) and bear[i] and sl_prob >= sl_thresh:
-                labels.append(1)  # SL (bear)
-            elif hold[i]:
-                if any(p >= tp for p in future_prices):
+            if i >= N - window:
+                if bull[i]:
                     labels.append(2)
-                else:
-                    labels.append(3)
-            elif short[i]:
-                labels.append(4)
-            else:
-                if i >= N - window:
-                    if bull[i]:
-                        labels.append(2)
-                    elif bear[i]:
-                        labels.append(1)
-                    else:
-                        labels.append(0)
+                elif bear[i]:
+                    labels.append(1)
                 else:
                     labels.append(0)
+            else:
+                labels.append(0)
     
+    # Post-process: Trigger SL immediately on price dip below EMA1 or EMA1-ATR buffer with momentum checks for Hold/TP
     for i in range(N):
-        if labels[i] in [2, 3]: 
+        if labels[i] in [2, 3]:  # TP or Hold bars
             current_close = close_prices[i]
-            sma1_now = sma1[i]
+            EMA1_now = EMA1[i]
             atr_now = atr[i]
             rsi_now = rsi[i]
             adx_now = adx[i]
 
-            future_available = current_time_idx - i
-            if future_available > 0:
-                future_end = min(i + 1 + window, i + 1 + future_available)
-                future_closes = close_prices[i + 1 : future_end]
-                future_sma1 = sma1[i + 1 : future_end]
-            else:
-                future_closes = []
-                future_sma1 = []
+            future_end = min(i + 1 + window, N)
+            future_closes = close_prices[i + 1 : future_end]
+            future_EMA1 = EMA1[i + 1 : future_end]
 
-            current_dip = current_close < sma1_now or current_close < (sma1_now - 0.5 * atr_now)
-    
-            if len(future_closes) > 0:
-                future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_sma1))
-            else:
-                future_dips = False
+            current_dip = current_close < EMA1_now or current_close < (EMA1_now - 0.5 * atr_now)
+            future_dips = any((p < s) or (p < s - 0.5 * atr_now) for p, s in zip(future_closes, future_EMA1))
 
             bearish_momentum = (rsi_now < 40) and (adx_now > 22)
             fading_bullish = (rsi_now < 50) or (adx_now < 20)
@@ -791,17 +736,17 @@ def prepare_all_features(df):
 # ML Model Functions
 # -------------------------
 
-def train_ml_models(df):
+def train_ml_models(df, current_index):
     """Train ML models using the feature set"""
     # Select available features
     available_features = [f for f in FEATURES if f in df.columns]
+
     
     if len(available_features) < 10:
         st.warning(f"Only {len(available_features)} features available.")
         return None, None, None, None, None, None
-    
-    # FILL NaN instead of dropping!
-    df_filled = df.copy()
+
+    df_filled = df.iloc[:current_index + 1].copy()
     
     # Fill target columns
     for col in ['Hit_Label', 'Expected_Return', 'Expected_Loss']:
@@ -830,10 +775,11 @@ def train_ml_models(df):
     X_scaled_cls = scaler_cls.fit_transform(X_cls)
     
     model_class = RandomForestClassifier(
-        n_estimators=50, 
+        n_estimators=30, 
         max_depth=10, 
         min_samples_leaf=5, 
-        random_state=42
+        random_state=42,
+        n_jobs=1
     )
     model_class.fit(X_scaled_cls, y_cls)
     
@@ -843,10 +789,11 @@ def train_ml_models(df):
     X_scaled_return = scaler_return.fit_transform(X_cls)
     
     model_return = RandomForestRegressor(
-        n_estimators=50, 
+        n_estimators=30, 
         max_depth=10, 
         min_samples_leaf=5, 
-        random_state=42
+        random_state=42,
+        n_jobs=1
     )
     model_return.fit(X_scaled_return, y_return)
     
@@ -856,10 +803,11 @@ def train_ml_models(df):
     X_scaled_loss = scaler_loss.fit_transform(X_cls)
     
     model_loss = RandomForestRegressor(
-        n_estimators=50, 
+        n_estimators=30, 
         max_depth=10, 
         min_samples_leaf=5, 
-        random_state=42
+        random_state=42,
+        n_jobs=1
     )
     model_loss.fit(X_scaled_loss, y_loss)
     
@@ -943,6 +891,10 @@ def get_ml_prediction(df, models):
 if st.button("Run ML Strategy Backtest"):
     st.write(f"Downloading daily data for {ticker} and running ML strategy...")
 
+    if 'results' in st.session_state:
+        del st.session_state.results
+    gc.collect()
+
     end_date = datetime.now()
     #start_date = end_date - timedelta(days=365 * YEARS_OF_DATA)  # Full years as days lookback
     if period == "1y":
@@ -991,11 +943,11 @@ if st.button("Run ML Strategy Backtest"):
         if not in_trade:
             current_data = df_daily.iloc[:i+1]
            
-            if len(current_data) < 100:
+            if len(current_data) < MIN_DATA_FOR_TRAINING:
                 continue
 
             if i % RETRAIN_EVERY == 0 or i < 120:
-                models = train_ml_models(current_data)
+                models = train_ml_models(current_data, i)
     
             if models[0] is None:
                 continue
