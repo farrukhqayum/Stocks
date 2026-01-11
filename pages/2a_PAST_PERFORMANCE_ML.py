@@ -12,6 +12,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import warnings, math
 warnings.filterwarnings('ignore')
+import gc
+from streamlit.runtime.caching import cache_resource, cache_dat
+if st.sidebar.button("Clear Cache"):
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    st.rerun()
 
 # Set page config first
 st.set_page_config(page_title="ML - Stock Past Performance", layout="wide")
@@ -192,6 +198,16 @@ FEATURES = [
     'StrongBull', 'StrongBear', 'Exhaustion', 'PP_Avg', 'R1_Avg', 'S1_Avg', 'R2_Avg', 'S2_Avg'
 ]
 
+def optimize_dataframe(df):
+    for col in df.select_dtypes(include=['float64']).columns:
+        df[col] = df[col].astype('float32')
+    for col in df.select_dtypes(include=['int64']).columns:
+        df[col] = df[col].astype('int32')
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
+
+    return df
+
 def validate_ticker(ticker: str) -> dict:
     try:
         stock = yf.Ticker(ticker)
@@ -337,7 +353,8 @@ def get_stock_data(ticker, start_date, end_date):
     
     df.index = pd.to_datetime(df.index)
     df = df.dropna()
-    return df
+    df_a = optimize_dataframe(df)
+    return df_a
 
 def calculate_rsi(df, period=14):
     """Calculate RSI"""
@@ -1340,4 +1357,6 @@ if st.button("Run ML Strategy Backtest"):
         signal_stats.columns = ['Trades', 'Avg Return %', 'Return Std %', 'Total Return %', 'Avg Conf', 'Avg Hold Days']
         st.dataframe(signal_stats)
 
+    gc.collect()
     st.success("Backtest complete!")
+    
