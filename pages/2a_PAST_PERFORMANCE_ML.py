@@ -725,7 +725,7 @@ def prepare_indicators(df):
                 df[col] = pd.to_numeric(df[col], errors='coerce').astype('float32')
         for col in numeric_cols:
             if col in df.columns and df[col].dtype == 'float32':
-                df[col] = df[col].fillna(0.0)
+                df[col] = df[col].fillna(0.0) 
     return df
 
 # -------------------------
