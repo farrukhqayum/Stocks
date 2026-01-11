@@ -123,7 +123,7 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
         yf_interval = interval_map.get(interval, interval)
         
         df = yf.download(ticker, start=start_date, end=end_date,
-                        interval=yf_interval, progress=False, auto_adjust=True)
+                        interval=yf_interval, progress=False, auto_adjust=True, actions=False)
         
         if df.empty:
             st.error(f"No data found for {ticker} with interval {interval}")
