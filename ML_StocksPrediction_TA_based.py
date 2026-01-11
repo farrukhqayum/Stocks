@@ -194,16 +194,27 @@ FEATURES = [
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
 ]
 
+def optimize_dataframe(df):
+    for col in df.select_dtypes(include=['float64']).columns:
+        df[col] = df[col].astype('float32')
+    for col in df.select_dtypes(include=['int64']).columns:
+        df[col] = df[col].astype('int32')
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
+
+    return df
+    
 def get_stock_data(ticker, start_date, end_date):
     try:
         df = yf.download(
-            ticker,
-            start=start_date,
-            end=end_date + timedelta(days=1),
-            interval='1d',
-            auto_adjust=False,
-            progress=False
+        ticker, 
+        start=start_date, 
+        end=end_date + timedelta(days=1),
+        progress=False,
+        auto_adjust=True, 
+        actions=False
         )
+    
     except Exception:
         return None
 
@@ -218,10 +229,9 @@ def get_stock_data(ticker, start_date, end_date):
 
     if df.empty:
         return None
-        
-    return df
 
-
+    df_a = optimize_dataframe(df) # 32-bit
+    return df_a
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
@@ -1614,6 +1624,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
