@@ -543,88 +543,72 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
     return df
 
 def compute_expected_return(df, window=14, r_cols=['R1', 'R2']):
-    """Optimized version using vectorization"""
-    df = df.copy()
-    if len(df) < window + 1:
-        df['Expected_Return'] = np.nan
-        return df
-    
+    n = len(df)
     close_prices = df['Close'].values
-    pivot_cols = [col for col in r_cols if col in df.columns]
     
-    if not pivot_cols:
-        df['Expected_Return'] = np.nan
-        return df
+    expected_return = np.full(n, np.nan)
     
-    # Create pivot matrix
-    pivot_matrix = np.column_stack([df[col].values for col in pivot_cols])
+    pivot_matrix = np.column_stack([
+        df[col].values if col in df.columns else np.full(n, np.nan)
+        for col in r_cols
+    ])
     
-    # Initialize result array
-    expected_returns = np.full(len(df), np.nan)
+    pivot_max = np.nanmax(pivot_matrix, axis=1)
+    has_pivot = ~np.isnan(pivot_max)
     
-    # Vectorized computation
-    for i in range(len(df) - window):
+    for i in range(n - window):
         current_price = close_prices[i]
-        target_level = np.nanmax(pivot_matrix[i])
+        future_window = close_prices[i+1:i+1+window]
         
-        if not np.isnan(target_level):
-            future_prices = close_prices[i+1:i+1+window]
-            hit_mask = future_prices >= target_level
-            if np.any(hit_mask):
-                # First hit
-                hit_idx = np.where(hit_mask)[0][0]
-                expected_returns[i] = (future_prices[hit_idx] - current_price) / current_price
+        if has_pivot[i]:
+            target_level = pivot_max[i]
+            hit_mask = future_window >= target_level
+            if hit_mask.any():
+                expected_return[i] = (target_level - current_price) / current_price
             else:
-                # No hit, use max
-                expected_returns[i] = (np.nanmax(future_prices) - current_price) / current_price
+                if len(future_window) > 0:
+                    expected_return[i] = (np.nanmax(future_window) - current_price) / current_price
         else:
-            future_prices = close_prices[i+1:i+1+window]
-            expected_returns[i] = (np.nanmax(future_prices) - current_price) / current_price
+            if len(future_window) > 0:
+                expected_return[i] = (np.nanmax(future_window) - current_price) / current_price
     
-    df['Expected_Return'] = expected_returns
+    df['Expected_Return'] = expected_return
     return df
 
+
 def compute_expected_loss(df, window=14, s_cols=['S1', 'S2']):
-    """Optimized version using vectorization"""
-    df = df.copy()
-    if len(df) < window + 1:
-        df['Expected_Loss'] = np.nan
-        return df
-    
+    n = len(df)
     close_prices = df['Close'].values
-    pivot_cols = [col for col in s_cols if col in df.columns]
     
-    if not pivot_cols:
-        df['Expected_Loss'] = np.nan
-        return df
+    expected_loss = np.full(n, np.nan)
     
-    # Create pivot matrix
-    pivot_matrix = np.column_stack([df[col].values for col in pivot_cols])
+    pivot_matrix = np.column_stack([
+        df[col].values if col in df.columns else np.full(n, np.nan)
+        for col in s_cols
+    ])
     
-    # Initialize result array
-    expected_losses = np.full(len(df), np.nan)
+    pivot_min = np.nanmin(pivot_matrix, axis=1)
+    has_pivot = ~np.isnan(pivot_min)
     
-    # Vectorized computation
-    for i in range(len(df) - window):
+    for i in range(n - window):
         current_price = close_prices[i]
-        target_level = np.nanmin(pivot_matrix[i])
+        future_window = close_prices[i+1:i+1+window]
         
-        if not np.isnan(target_level):
-            future_prices = close_prices[i+1:i+1+window]
-            hit_mask = future_prices <= target_level
-            if np.any(hit_mask):
-                # First hit
-                hit_idx = np.where(hit_mask)[0][0]
-                expected_losses[i] = (future_prices[hit_idx] - current_price) / current_price
+        if has_pivot[i]:
+            target_level = pivot_min[i]
+            hit_mask = future_window <= target_level
+            if hit_mask.any():
+                expected_loss[i] = (target_level - current_price) / current_price
             else:
-                # No hit, use min
-                expected_losses[i] = (np.nanmin(future_prices) - current_price) / current_price
+                if len(future_window) > 0:
+                    expected_loss[i] = (np.nanmin(future_window) - current_price) / current_price
         else:
-            future_prices = close_prices[i+1:i+1+window]
-            expected_losses[i] = (np.nanmin(future_prices) - current_price) / current_price
+            if len(future_window) > 0:
+                expected_loss[i] = (np.nanmin(future_window) - current_price) / current_price
     
-    df['Expected_Loss'] = expected_losses
+    df['Expected_Loss'] = expected_loss
     return df
+
 
 def label_hit_prob_past(
     df,
@@ -815,6 +799,7 @@ def train_ml_models_optimized_fast(df, current_index):
     # Compute labels only if needed
     if 'Expected_Return' not in df_filled.columns:
         df_filled = compute_expected_return(df_filled, window=14, r_cols=['R1_Avg', 'R2_Avg'])
+        
     if 'Expected_Loss' not in df_filled.columns:
         df_filled = compute_expected_loss(df_filled, window=14, s_cols=['S1_Avg', 'S2_Avg'])
     
@@ -1079,7 +1064,7 @@ if st.button("Run ML Strategy Backtest"):
                             predicted_loss = ml_prediction['predicted_loss']
                             
                             # Determine TP price
-                            if tp_given > predicted_return:
+                            if tp_given < predicted_return:
                                 TP_price = entry_price * (1 + predicted_return)
                                 used_ml_tp = True
                             else:
