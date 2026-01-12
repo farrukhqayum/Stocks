@@ -1048,11 +1048,14 @@ if st.button("Run ML Strategy Backtest"):
                         'ML_Confidence': current_ml_confidence, 
                         'ML_Signal': current_ml_signal
                     })
-                    
-                    # Only check entry conditions if not in trade
+
+                    ema1 = current_data.loc[current_date, 'SMA10']
+                    close = current_data.loc[current_date, 'Close']
+                    emacheck = abs(close - ema1) > ema1 * 0.03
+ 
                     if not in_trade:
-                        # ENTRY CONDITIONS
-                        if (current_ml_signal in ['None', 'TP', 'Hold'] and 
+                        if (emacheck and
+                            current_ml_signal in ['None', 'TP', 'Hold'] and 
                             current_ml_confidence >= ml_confidence_threshold):
                             
                             entry_price = float(current_data.loc[current_date, 'Close'])
