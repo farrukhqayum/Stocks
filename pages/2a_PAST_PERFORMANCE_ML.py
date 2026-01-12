@@ -232,7 +232,7 @@ with col1:
 
 # --- History period ---
 with col2:
-    period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=1)
+    period = st.selectbox("History period", ["1y", "2y", "3y", "5y", "7y"], index=2)
 
 with col3:
     risk_setup = st.selectbox(
