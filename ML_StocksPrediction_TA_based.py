@@ -196,12 +196,12 @@ FEATURES = [
 
 
 EMOJI = {
-    "STRONG BUY": "🟢💎", 
+    "STRONG BUY": "💎", 
     "Buy": "🟢", 
-    "Wait": "🟡⏳", 
-    "Short/AVOID": "🔴🚫", 
-    "Short the RISE": "🔻📉", 
-    "RISKY BUY": "⚠️🟠", 
+    "Wait": "⏳", 
+    "Short/AVOID": "🚫", 
+    "Short the RISE": "🔻", 
+    "RISKY BUY": "⚠️", 
     "Monitor": "🔍", 
     "Watch": "👀"
 } 
@@ -1651,6 +1651,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
