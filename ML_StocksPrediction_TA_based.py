@@ -194,6 +194,20 @@ FEATURES = [
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
 ]
 
+
+EMOJI = {
+    "STRONG BUY": "🟢💎", 
+    "Buy": "🟢", 
+    "Wait": "🟡⏳", 
+    "Short/AVOID": "🔴🚫", 
+    "Short the RISE": "🔻📉", 
+    "RISKY BUY": "⚠️🟠", 
+    "Monitor": "🔍", 
+    "Watch": "👀"
+} 
+def label(text):
+    return f"{EMOJI.get(text, '')} {text}"
+    
 def optimize_dataframe(df):
     for col in df.select_dtypes(include=['float64']).columns:
         df[col] = df[col].astype('float32')
@@ -806,19 +820,6 @@ def get_action_label(confidence,
         base = str(will_hit_raw).split()[0]
 
     c = float(confidence)
-
-    EMOJI = {
-        "STRONG BUY": "🟢💎", 
-        "Buy": "🟢", 
-        "Wait": "🟡⏳", 
-        "Short/AVOID": "🔴🚫", 
-        "Short the RISE": "🔻📉", 
-        "RISKY BUY": "⚠️🟠", 
-        "Monitor": "🔍", 
-        "Watch": "👀"
-    } 
-     def label(text):
-         return f"{EMOJI.get(text, '')} {text}"
 
     # 🔴 PRIORITY 1: DANGER SIGNALS (Backtest shows SL/Short = immediate exit)
     if base in ("SL", "Short") and c < 42:
@@ -1650,6 +1651,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
