@@ -800,7 +800,7 @@ def get_action_label(confidence, will_hit_raw, current_price, ema1, rsi, ti_sign
     c = float(confidence)
     
     # 🔴 PRIORITY 1: DANGER SIGNALS (Backtest shows SL/Short = immediate exit)
-    if base in ("SL", "Short"):
+    if base in ("SL", "Short") and c < 42:
         return "Short/AVOID"
 
     # 🟢 PRIORITY 2: IDEAL BUY ZONE (Backtest sweet spot)
@@ -821,13 +821,12 @@ def get_action_label(confidence, will_hit_raw, current_price, ema1, rsi, ti_sign
 
     # 🔴 PRIORITY 4: Low confidence bearish → Short (backtest filters these out)
     elif c < 40 and c >= 20 and base in ("Bear", "Short"):
-        return "Short"
+        return "Short the RISE"
 
     # ⚠️ PRIORITY 5: Very low confidence → Risky (backtest shows poor performance)
     elif c < 20:
-        return "RISKY"
+        return "RISKY BUY"
 
-    # Backtest fallback: TI-driven decision
     if ti_signal == "StrongBull":
         return "Monitor"
     elif ti_signal in ("Bull", "Hold"):
@@ -925,8 +924,16 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f'SL: ${loss_price:.2f}, {loss}%')
     ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label=f'E: ${avg_price:.2f}')
     ax1.annotate(f'E: ${avg_price:.2f}', xy=(last_date, avg_price), xytext=(10, 0), textcoords='offset points', ha='left', va='center', color='orange', fontsize=9, bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    ax1.annotate(f'${current_price}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%', xy=(future_date, gain_price), xytext=(10, 10), textcoords='offset points', ha='left', va='bottom', color='green', fontsize=9, fontname='DejaVu Sans', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    ax1.annotate(f'${current_price}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%', xy=(future_date, loss_price), xytext=(10, -10), textcoords='offset points', ha='left', va='top', color='red', fontsize=9, fontname='DejaVu Sans', bbox=dict(facecolor='white', alpha=0.4, edgecolor='none'))
+    ax1.annotate(f'${current_price:.2f}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%',
+                 xy=(future_date, gain_price), 
+                 xytext=(10, 10), 
+                 textcoords='offset points', ha='left', va='bottom', color='green', 
+                 fontsize=9, fontname='DejaVu Sans', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
+    ax1.annotate(f'${current_price:.2f}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%',
+                 xy=(future_date, loss_price), 
+                 xytext=(10, -10), 
+                 textcoords='offset points', ha='left', va='top', color='red', 
+                 fontsize=9, fontname='DejaVu Sans', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
 
     signal_color = (
         'green' if 'Bull' in predictions['Signal'] else
@@ -1624,6 +1631,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
