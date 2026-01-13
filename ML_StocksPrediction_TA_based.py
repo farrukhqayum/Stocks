@@ -783,7 +783,14 @@ def generate_action(ticker, clean_label, conf, will_hit_str):
 
     return action, colour
 
-def get_action_label(confidence, will_hit_raw, current_price, ema1, rsi, ti_signal, predicted_return, predicted_loss):
+def get_action_label(confidence, 
+                     will_hit_raw, 
+                     current_price, 
+                     ema1, 
+                     rsi, 
+                     ti_signal, 
+                     predicted_return, 
+                     predicted_loss):
     """
     ENHANCED ACTION LOGIC from backtest proven rules:
     1. SL/Short OVERRIDES everything (immediate exit risk)
@@ -792,16 +799,30 @@ def get_action_label(confidence, will_hit_raw, current_price, ema1, rsi, ti_sign
     4. TI trend alignment (Bull/Hold context)
     5. R/R ratio validation
     """
+                         
     if will_hit_raw is None or str(will_hit_raw).lower() == "nan":
         base = "None"
     else:
         base = str(will_hit_raw).split()[0]
 
     c = float(confidence)
-    
+
+    EMOJI = {
+        "STRONG BUY": "🟢💎", 
+        "Buy": "🟢", 
+        "Wait": "🟡⏳", 
+        "Short/AVOID": "🔴🚫", 
+        "Short the RISE": "🔻📉", 
+        "RISKY BUY": "⚠️🟠", 
+        "Monitor": "🔍", 
+        "Watch": "👀"
+    } 
+     def label(text):
+         return f"{EMOJI.get(text, '')} {text}"
+
     # 🔴 PRIORITY 1: DANGER SIGNALS (Backtest shows SL/Short = immediate exit)
     if base in ("SL", "Short") and c < 42:
-        return "Short/AVOID"
+        return label("Short/AVOID")
 
     # 🟢 PRIORITY 2: IDEAL BUY ZONE (Backtest sweet spot)
     ema_proximity = 0.95 <= current_price / ema1 <= 1.05  # Price near EMA1 (±5%)
@@ -812,29 +833,27 @@ def get_action_label(confidence, will_hit_raw, current_price, ema1, rsi, ti_sign
         # Bonus: Validate R/R > 1.0 (backtest uses predicted returns)
         rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
         if rr_ratio >= 1.0:
-            return "STRONG BUY"
-        return "Buy"
+            return label("STRONG BUY")
+        return label("Buy")
 
     # 🟡 PRIORITY 3: Medium confidence → Wait (backtest avoids weak signals)
     elif 40 <= c < 63:
-        return "Wait"
+        return label("Wait")
 
     # 🔴 PRIORITY 4: Low confidence bearish → Short (backtest filters these out)
     elif c < 40 and c >= 20 and base in ("Bear", "Short"):
-        return "Short the RISE"
+        return label("Short the RISE")
 
     # ⚠️ PRIORITY 5: Very low confidence → Risky (backtest shows poor performance)
     elif c < 20:
-        return "RISKY BUY"
+        return label("RISKY BUY")
 
     if ti_signal == "StrongBull":
-        return "Monitor"
+        return label("Monitor")
     elif ti_signal in ("Bull", "Hold"):
-        return "Watch"
+        return label("Watch")
     
-    return "Wait"
-
-
+    return label("Wait")
     
 #  🟡 PLOT TA
 def plot_single_ticker(ticker, df, df_results, _window=14):
@@ -1631,6 +1650,7 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
+
 
 
 
