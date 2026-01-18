@@ -917,7 +917,7 @@ if not gf_aligned.empty and not stk_aligned.empty:
     # Correlation chart
     if not rolling_corr_df.empty:
         corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
-            x=alt.X('Date:T', axis= None),
+            x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
             y=alt.Y('Correlation:Q', title=f'{user_ticker} - Correlation (%)', 
                    scale=alt.Scale(domain=[-100, 100])),
             tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
@@ -937,13 +937,13 @@ if not gf_aligned.empty and not stk_aligned.empty:
     
     color_scale = alt.Scale(domain=['Global Money Flow', 'Stock Price'], 
                            range=['#1f77b4', '#d62728'])
-
+    
     money_flow_line = base.mark_line(color='#1f77b4', opacity=0.8).encode(
-    x=alt.X('Date:T', axis=None),
-    y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
-    color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left', title=None))
-    )
-
+        x=alt.X('Date:T', axis=None),
+        y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
+        color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left', title=None))
+    ).transform_filter(alt.datum.Series == 'Global Money Flow')
+    
     stock_price_line = base.mark_line(opacity=0.8).encode(
         y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
         color=alt.Color('Series:N', scale=color_scale, legend=None)
@@ -974,8 +974,6 @@ if not gf_aligned.empty and not stk_aligned.empty:
     ).resolve_scale(
         y='independent'
     ).properties(height=300, width="container")
-
-    x=alt.X('Date:T', axis=None)
     
     combined_price_chart = combined_price_chart + correlation_text
     
