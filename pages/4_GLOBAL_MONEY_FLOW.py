@@ -966,6 +966,14 @@ if not gf_aligned.empty and not stk_aligned.empty:
                             ) 
                         ) 
                        )
+    
+    combined_price_chart = alt.layer(
+        money_flow_line, 
+        stock_price_line
+    ).resolve_scale(
+        y='independent'
+    ).properties(height=300)
+    
     combined_price_chart = combined_price_chart + correlation_text
     
     # Combine charts
