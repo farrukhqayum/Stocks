@@ -960,8 +960,8 @@ if not gf_aligned.empty and not stk_aligned.empty:
                             fontWeight='bold', 
                             color='gray' ) 
                         .encode( 
-                            x='x:Q', 
-                            y='y:Q', 
+                            x=alt.X('x:Q', axis=None),
+                            y=alt.Y('y:Q', axis=None),
                             text=alt.value( 
                                 f'{cw_}D Corr: {latest_corr_percent:.1f}%' 
                                 if pd.notna(latest_corr_percent) 
