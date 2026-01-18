@@ -938,14 +938,15 @@ if not gf_aligned.empty and not stk_aligned.empty:
     color_scale = alt.Scale(domain=['Global Money Flow', 'Stock Price'], 
                            range=['#1f77b4', '#d62728'])
     
-    money_flow_line = base.mark_line(color='#1f77b4', opacity=0.8).encode(
+    money_flow_line = base.mark_line(color='#1f77b4', opacity=0.5).encode(
         x=alt.X('Date:T', axis=None),
         y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
         color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left', title=None))
     ).transform_filter(alt.datum.Series == 'Global Money Flow')
     
-    stock_price_line = base.mark_line(opacity=0.8).encode(
-        y=alt.Y('Value:Q', axis=alt.Axis(format='%d/%m/%Y', title=f'Normalized {user_ticker} Price', orient='right')),
+    stock_price_line = base.mark_line(opacity=0.5).encode(
+        x = alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y'))
+        y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
         color=alt.Color('Series:N', scale=color_scale, legend=None)
     ).transform_filter(alt.datum.Series == 'Stock Price')
     
