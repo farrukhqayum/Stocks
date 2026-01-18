@@ -952,24 +952,27 @@ if not gf_aligned.empty and not stk_aligned.empty:
     ).transform_filter(alt.datum.Series == 'Stock Price')
     
     # Add correlation text
-    correlation_text = ( alt.Chart(rolling_corr_df.tail(1))) 
-                        .mark_text( 
-                            align='center', 
-                            baseline='top', 
-                            fontSize=14, 
-                            fontWeight='bold', 
-                            color='gray',
-                            dy=5) 
-                        .encode( 
-                            x=alt.X('Date:T', , axis=None),
-                            y=alt.Y(0, axis=None),
-                            text=alt.value( 
-                                f'{cw_}D Corr: {latest_corr_percent:.1f}%' 
-                                if pd.notna(latest_corr_percent) 
-                                else f'{cw_}D Corr: N/A'
-                            ) 
-                        ) 
-                       )
+    correlation_text = (
+        alt.Chart(rolling_corr_df.tail(1))
+          .mark_text(
+              align='center', 
+              baseline='top', 
+              fontSize=14,
+              fontWeight='bold',
+              color='gray',
+              dy=5   
+          )
+          .encode(
+              x=alt.X('Date:T', axis=None),   
+              y=alt.value(0), 
+              text=alt.value(
+                  f'{cw_}D Corr: {latest_corr_percent:.1f}%'
+                  if pd.notna(latest_corr_percent)
+                  else f'{cw_}D Corr: N/A'
+              )
+          )
+    )
+
     
     combined_price_chart = alt.layer(
         money_flow_line, 
