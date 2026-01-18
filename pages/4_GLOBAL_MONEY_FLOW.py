@@ -878,6 +878,7 @@ gf_aligned, stk_aligned = gf_single.align(stk_single, join='inner')
 
 cw_ = 60
 latest_corr = float('nan')
+latest_corr_percent = float('nan')
 
 if len(gf_aligned) >= cw_:
     rolling_corr_single = gf_aligned.rolling(cw_, min_periods=cw_//2).corr(stk_aligned)
@@ -945,7 +946,7 @@ if not gf_aligned.empty and not stk_aligned.empty:
     ).transform_filter(alt.datum.Series == 'Global Money Flow')
     
     stock_price_line = base.mark_line(opacity=0.5).encode(
-        x = alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y'))
+        x = alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y')),
         y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
         color=alt.Color('Series:N', scale=color_scale, legend=None)
     ).transform_filter(alt.datum.Series == 'Stock Price')
