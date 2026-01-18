@@ -945,7 +945,7 @@ if not gf_aligned.empty and not stk_aligned.empty:
     ).transform_filter(alt.datum.Series == 'Global Money Flow')
     
     stock_price_line = base.mark_line(opacity=0.8).encode(
-        y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
+        y=alt.Y('Value:Q', axis=alt.Axis(format='%d/%m/%Y', title=f'Normalized {user_ticker} Price', orient='right')),
         color=alt.Color('Series:N', scale=color_scale, legend=None)
     ).transform_filter(alt.datum.Series == 'Stock Price')
     
