@@ -972,7 +972,7 @@ if not gf_aligned.empty and not stk_aligned.empty:
         stock_price_line
     ).resolve_scale(
         y='independent'
-    ).properties(height=300)
+    ).properties(height=300, width="container")
     
     combined_price_chart = combined_price_chart + correlation_text
     
