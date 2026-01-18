@@ -955,13 +955,14 @@ if not gf_aligned.empty and not stk_aligned.empty:
     correlation_text = ( alt.Chart(pd.DataFrame({'x': [0.5], 'y': [0.5]})) 
                         .mark_text( 
                             align='center', 
-                            baseline='middle', 
+                            baseline='top', 
                             fontSize=14, 
                             fontWeight='bold', 
-                            color='gray' ) 
+                            color='gray',
+                            dy=5) 
                         .encode( 
-                            x=alt.X('x:Q', axis=None),
-                            y=alt.Y('y:Q', axis=None),
+                            x=alt.X(0.5 * combined_price_chart.width, axis=None),
+                            y=alt.Y(0, axis=None),
                             text=alt.value( 
                                 f'{cw_}D Corr: {latest_corr_percent:.1f}%' 
                                 if pd.notna(latest_corr_percent) 
