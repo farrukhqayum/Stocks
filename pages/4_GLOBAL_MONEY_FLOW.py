@@ -953,18 +953,17 @@ if not gf_aligned.empty and not stk_aligned.empty:
     
     # Add correlation text
     correlation_text = (
-        alt.Chart(rolling_corr_df.tail(1))
+        alt.Chart(pd.DataFrame({'x': [0.5], 'y': [0]}))
           .mark_text(
-              align='center', 
-              baseline='top', 
+              align='center',
+              baseline='top',
               fontSize=14,
               fontWeight='bold',
-              color='gray',
-              dy=5   
+              color='gray'
           )
           .encode(
-              x=alt.X('Date:T', axis=None),   
-              y=alt.value(0), 
+              x='x:Q',
+              y='y:Q',
               text=alt.value(
                   f'{cw_}D Corr: {latest_corr_percent:.1f}%'
                   if pd.notna(latest_corr_percent)
@@ -972,7 +971,6 @@ if not gf_aligned.empty and not stk_aligned.empty:
               )
           )
     )
-
     
     combined_price_chart = alt.layer(
         money_flow_line, 
