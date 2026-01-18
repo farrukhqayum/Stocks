@@ -950,19 +950,19 @@ if not gf_aligned.empty and not stk_aligned.empty:
     
     # Add correlation text
     if pd.notna(latest_corr_percent):
-        correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
-            align='center', baseline='top', fontSize=14, fontWeight='bold', color='gray'
+        correlation_text = alt.Chart(pd.DataFrame({'x':[0.5], 'y':[0]})).mark_text(
+            align='center', baseline='top', fontSize=12, fontWeight='bold', color='gray'
         ).encode(
-            x=alt.value(700),
-            y=alt.value(10),
+            x='x:Q',
+            y='y:Q',
             text=alt.value(f'{cw_}D Corr: {latest_corr_percent:.1f}%')
         )
     else:
-        correlation_text = alt.Chart(pd.DataFrame({'x':[0], 'y':[0]})).mark_text(
+        correlation_text = alt.Chart(pd.DataFrame({'x':[0.5], 'y':[0]})).mark_text(
             align='center', baseline='top', fontSize=12, color='gray'
         ).encode(
-            x=alt.value(700),
-            y=alt.value(10),
+            x='x:Q',
+            y='y:Q',
             text=alt.value(f'{cw_}D Corr: N/A')
         )
     
