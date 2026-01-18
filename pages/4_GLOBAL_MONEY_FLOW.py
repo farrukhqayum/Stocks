@@ -952,7 +952,7 @@ if not gf_aligned.empty and not stk_aligned.empty:
     ).transform_filter(alt.datum.Series == 'Stock Price')
     
     # Add correlation text
-    correlation_text = ( alt.Chart(pd.DataFrame({'x': [0.5], 'y': [0.5]})) 
+    correlation_text = ( alt.Chart(rolling_corr_df.tail(1))) 
                         .mark_text( 
                             align='center', 
                             baseline='top', 
@@ -961,7 +961,7 @@ if not gf_aligned.empty and not stk_aligned.empty:
                             color='gray',
                             dy=5) 
                         .encode( 
-                            x=alt.X(0.5 * combined_price_chart.width, axis=None),
+                            x=alt.X('Date:T', , axis=None),
                             y=alt.Y(0, axis=None),
                             text=alt.value( 
                                 f'{cw_}D Corr: {latest_corr_percent:.1f}%' 
