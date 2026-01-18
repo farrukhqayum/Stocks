@@ -917,7 +917,7 @@ if not gf_aligned.empty and not stk_aligned.empty:
     # Correlation chart
     if not rolling_corr_df.empty:
         corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
-            x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
+            x=alt.X('Date:T', axis= None),
             y=alt.Y('Correlation:Q', title=f'{user_ticker} - Correlation (%)', 
                    scale=alt.Scale(domain=[-100, 100])),
             tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
@@ -973,6 +973,8 @@ if not gf_aligned.empty and not stk_aligned.empty:
     ).resolve_scale(
         y='independent'
     ).properties(height=300, width="container")
+
+    x=alt.X('Date:T', axis=None)
     
     combined_price_chart = combined_price_chart + correlation_text
     
