@@ -949,30 +949,23 @@ if not gf_aligned.empty and not stk_aligned.empty:
     ).transform_filter(alt.datum.Series == 'Stock Price')
     
     # Add correlation text
-    if pd.notna(latest_corr_percent):
-        correlation_text = alt.Chart(pd.DataFrame({'x':[0.5], 'y':[0]})).mark_text(
-            align='top', baseline='middle', fontSize=12, fontWeight='bold', color='gray'
-        ).encode(
-            x='x:Q',
-            y='y:Q',
-            text=alt.value(f'{cw_}D Corr: {latest_corr_percent:.1f}%')
-        )
-    else:
-        correlation_text = alt.Chart(pd.DataFrame({'x':[0.5], 'y':[0]})).mark_text(
-            align='top', baseline='middle', fontSize=12, color='gray'
-        ).encode(
-            x='x:Q',
-            y='y:Q',
-            text=alt.value(f'{cw_}D Corr: N/A')
-        )
-    
-    combined_price_chart = alt.layer(
-        money_flow_line, 
-        stock_price_line
-    ).resolve_scale(
-        y='independent'
-    ).properties(height=300)
-    
+    correlation_text = ( alt.Chart(pd.DataFrame({'x': [0.5], 'y': [0.5]})) 
+                        .mark_text( 
+                            align='center', 
+                            baseline='middle', 
+                            fontSize=14, 
+                            fontWeight='bold', 
+                            color='gray' ) 
+                        .encode( 
+                            x='x:Q', 
+                            y='y:Q', 
+                            text=alt.value( 
+                                f'{cw_}D Corr: {latest_corr_percent:.1f}%' 
+                                if pd.notna(latest_corr_percent) 
+                                else f'{cw_}D Corr: N/A'
+                            ) 
+                        ) 
+                       )
     combined_price_chart = combined_price_chart + correlation_text
     
     # Combine charts
