@@ -257,7 +257,7 @@ with col2:
     st.metric("Z-Score", f"{latest_zscore:+.2f}", 
               delta="Extreme" if abs(latest_zscore) > Z_EXTREME else "Normal")
 with col3:
-    st.metric("30-Day Momentum", f"{latest_momentum:+.0f}%/day",
+    st.metric("30-Day Momentum", f"{latest_momentum:+.0f}%",
               delta="Accelerating" if abs(latest_momentum) > MOM_HIGH else "Stable")
 
 # ===== 2nd ROW: POSITIONING & ROTATION SNAPSHOT =====
