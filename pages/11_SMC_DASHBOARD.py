@@ -268,7 +268,7 @@ def draw_smc_box(ax, df, zones):
         ax.text(
             0.02, y, text,
             transform=ax.transAxes,
-            fontsize=8,
+            fontsize=12,
             color=color,
             ha="left", va="top",
             wrap=True
