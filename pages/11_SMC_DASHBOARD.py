@@ -7,6 +7,45 @@ from matplotlib.patches import Rectangle
 from datetime import datetime, timedelta
 
 # ---------------------------------------------------------
+# Helpers: EMA, ATR, RSI
+# ---------------------------------------------------------
+def ema(series, length):
+    return series.ewm(span=length, adjust=False).mean()
+
+def compute_rsi(series, length=14):
+    delta = series.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(length).mean()
+    avg_loss = loss.rolling(length).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+def compute_lb_curve(df, lblen=10):
+    close = df['close']
+    high = df['high']
+    low = df['low']
+
+    lb = close.copy()
+    for i in range(len(df)):
+        if i == 0:
+            lb.iloc[i] = close.iloc[i]
+        else:
+            start = max(0, i - lblen + 1)
+            highest_lb_prev = lb.iloc[start:i].max()
+            lowest_lb_prev = lb.iloc[start:i].min()
+
+            if close.iloc[i] > highest_lb_prev:
+                lb.iloc[i] = (high.iloc[i] + close.iloc[i]) / 2
+            elif close.iloc[i] < lowest_lb_prev:
+                lb.iloc[i] = (low.iloc[i] + close.iloc[i]) / 2
+            else:
+                lb.iloc[i] = lb.iloc[i-1]
+
+    return ema(lb, lblen)
+
+    
+# ---------------------------------------------------------
 # 1. Data loading (weekly)
 # ---------------------------------------------------------
 @st.cache_data
@@ -40,23 +79,15 @@ def load_weekly(ticker, start_date, end_date):
     df["Date"] = pd.to_datetime(df["Date"])
     df.set_index("Date", inplace=True)
 
+    # Add basic indicators
+    df['ema20']  = ema(df.close, 20)
+    df['ema50']  = ema(df.close, 50)
+    df['ema200'] = ema(df.close, 200)
+    df['rsi']    = compute_rsi(df.close)
+    df["rsi_ema"] = ema(df["rsi"], 14)
+    df["lb_crv"] = compute_lb_curve(df)
+    
     return df
-
-
-# ---------------------------------------------------------
-# Helpers: EMA, ATR, RSI
-# ---------------------------------------------------------
-def ema(series, length):
-    return series.ewm(span=length, adjust=False).mean()
-
-def compute_rsi(series, length=14):
-    delta = series.diff()
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-    avg_gain = gain.rolling(length).mean()
-    avg_loss = loss.rolling(length).mean()
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
 
 # ---------------------------------------------------------
 # Candlestick Pattern Detection (your full logic)
@@ -75,36 +106,189 @@ def detect_candlestick_patterns(df):
     c = df['close'].values
     n = len(df)
 
-    # (KEEP YOUR FULL ORIGINAL LOGIC HERE)
-    # ...
+    for i in range(1, n):
+        # Current and previous candles
+        o0, c0, h0, l0 = o[i], c[i], h[i], l[i]
+        o1, c1, h1, l1 = o[i-1], c[i-1], h[i-1], l[i-1]
+
+        body0 = abs(c0 - o0)
+        body1 = abs(c1 - o1)
+        range0 = h0 - l0
+        downtrend = c0 < ema20[i]
+        uptrend = c0 > ema20[i]
+
+        # -------------------------
+        # 1. ENGULFING (correct logic)
+        # -------------------------
+
+        # Bullish Engulfing
+        if (
+            c1 < o1 and              # previous bearish
+            c0 > o0 and              # current bullish
+            o0 <= c1 and             # current opens inside/below prev body
+            c0 >= o1                 # current closes above prev open
+        ):
+            last_pattern = "Bull Engulfing"
+            pattern_bullish = True
+            pattern_idx = i
+            continue
+
+        # Bearish Engulfing
+        if (
+            c1 > o1 and              # previous bullish
+            c0 < o0 and              # current bearish
+            o0 >= c1 and             # current opens inside/above prev body
+            c0 <= o1                 # current closes below prev open
+        ):
+            last_pattern = "Bear Engulfing"
+            pattern_bullish = False
+            pattern_idx = i
+            continue
+
+        # -------------------------
+        # 2. PIERCING / DARK CLOUD (correct logic)
+        # -------------------------
+
+        # Piercing Pattern (bullish)
+        if (
+            c1 < o1 and              # previous bearish
+            o0 < l1 and              # gap down
+            c0 > (o1 + c1) / 2 and   # closes above midpoint of prev body
+            c0 < o1                  # but not fully engulfing
+        ):
+            last_pattern = "Piercing"
+            pattern_bullish = True
+            pattern_idx = i
+            continue
+
+        # Dark Cloud Cover (bearish)
+        if (
+            c1 > o1 and              # previous bullish
+            o0 > h1 and              # gap up
+            c0 < (o1 + c1) / 2 and   # closes below midpoint
+            c0 > o1                  # but not fully engulfing
+        ):
+            last_pattern = "Dark Cloud"
+            pattern_bullish = False
+            pattern_idx = i
+            continue
+
+        # -------------------------
+        # 3. HAMMER / SHOOTING STAR (correct logic)
+        # -------------------------
+
+        upper_wick = h0 - max(o0, c0)
+        lower_wick = min(o0, c0) - l0
+
+        # Hammer (bullish)
+        if (
+            lower_wick >= body0 * 2 and
+            upper_wick <= body0 * 0.3
+        ):
+            last_pattern = "Hammer"
+            pattern_bullish = True
+            pattern_idx = i
+            continue
+
+        # Shooting Star (bearish)
+        if (
+            upper_wick >= body0 * 2 and
+            lower_wick <= body0 * 0.3
+        ):
+            last_pattern = "Shooting Star"
+            pattern_bullish = False
+            pattern_idx = i
+            continue
+
+        # -------------------------
+        # 4. DOJI (correct logic)
+        # -------------------------
+
+        if body0 <= range0 * 0.1:
+            # Gravestone
+            if upper_wick >= range0 * 0.6 and lower_wick <= range0 * 0.1:
+                last_pattern = "Gravestone Doji"
+                pattern_bullish = False
+                pattern_idx = i
+                continue
+
+            # Dragonfly
+            if lower_wick >= range0 * 0.6 and upper_wick <= range0 * 0.1:
+                last_pattern = "Dragonfly Doji"
+                pattern_bullish = True
+                pattern_idx = i
+                continue
+
+            # Neutral Doji
+            last_pattern = "Doji"
+            pattern_bullish = None
+            pattern_idx = i
+            continue
+
+        # -------------------------
+        # 5. MORNING / EVENING STAR (correct logic)
+        # -------------------------
+
+        if i >= 2:
+            o2, c2 = o[i-2], c[i-2]
+
+            # Morning Star (bullish)
+            if (
+                c2 < o2 and                # strong bearish candle
+                body1 <= body0 * 0.5 and   # small middle candle
+                c0 > (o2 + c2) / 2         # strong bullish close
+            ):
+                last_pattern = "Morning Star"
+                pattern_bullish = True
+                pattern_idx = i
+                continue
+
+            # Evening Star (bearish)
+            if (
+                c2 > o2 and                # strong bullish candle
+                body1 <= body0 * 0.5 and   # small middle candle
+                c0 < (o2 + c2) / 2         # strong bearish close
+            ):
+                last_pattern = "Evening Star"
+                pattern_bullish = False
+                pattern_idx = i
+                continue
+
+        # -------------------------
+        # 6. TWEEZER TOP / BOTTOM (correct logic)
+        # -------------------------
+
+        if abs(l0 - l1) <= (range0 * 0.1):
+            last_pattern = "Tweezer Bottom"
+            pattern_bullish = True
+            pattern_idx = i
+            continue
+
+        if abs(h0 - h1) <= (range0 * 0.1):
+            last_pattern = "Tweezer Top"
+            pattern_bullish = False
+            pattern_idx = i
+            continue
+
+    # -------------------------
+    # PATTERN VALIDATION
+    # -------------------------
+    if last_pattern is not None:
+        pattern_low  = df['low'].iloc[pattern_idx]
+        pattern_high = df['high'].iloc[pattern_idx]
+    
+        curr_low  = df['low'].iloc[-1]
+        curr_high = df['high'].iloc[-1]
+    
+        if pattern_bullish:
+            pattern_valid = curr_low >= pattern_low
+        elif pattern_bullish is False:
+            pattern_valid = curr_high <= pattern_high
+        else:
+            pattern_valid = False
+
 
     return last_pattern, pattern_bullish, pattern_idx, pattern_valid
-
-# ---------------------------------------------------------
-# LB Curve
-# ---------------------------------------------------------
-def compute_lb_curve(df, lblen=10):
-    close = df['close']
-    high = df['high']
-    low = df['low']
-
-    lb = close.copy()
-    for i in range(len(df)):
-        if i == 0:
-            lb.iloc[i] = close.iloc[i]
-        else:
-            start = max(0, i - lblen + 1)
-            highest_lb_prev = lb.iloc[start:i].max()
-            lowest_lb_prev = lb.iloc[start:i].min()
-
-            if close.iloc[i] > highest_lb_prev:
-                lb.iloc[i] = (high.iloc[i] + close.iloc[i]) / 2
-            elif close.iloc[i] < lowest_lb_prev:
-                lb.iloc[i] = (low.iloc[i] + close.iloc[i]) / 2
-            else:
-                lb.iloc[i] = lb.iloc[i-1]
-
-    return ema(lb, lblen)
 
 # ---------------------------------------------------------
 # FVG Zone Engine
@@ -484,10 +668,6 @@ if df is None:
     st.error("No data found.")
     st.stop()
 
-# Compute LB curve
-df["lb_crv"] = compute_lb_curve(df)
-df["rsi"] = compute_rsi(df["close"], 14)
-df["rsi_ema"] = ema(df["rsi"], 14)
 
 # Window navigation
 if "window_start" not in st.session_state:
