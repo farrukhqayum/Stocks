@@ -243,6 +243,7 @@ def draw_smc_box(ax, df, zones):
         (f"MOMENTUM: {mom_text}", mom_color),
         (f"ZONE: {zone_text}", zone_color),
         (f"{entry_text}", entry_color)
+        (f"------")
     ]
 
     # --- Draw Background Box ---
