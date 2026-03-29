@@ -19,16 +19,29 @@ def load_weekly(ticker, start_date, end_date):
         auto_adjust=False,
         progress=False
     )
-    if df.empty:
+
+    # If empty → return None
+    if df is None or df.empty:
         return None
 
-    df = df.rename(columns=str.lower)
+    # Flatten multi-index columns
+    df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
+
+    # Ensure required columns exist
+    required = {"open", "high", "low", "close"}
+    if not required.issubset(df.columns):
+        return None
+
+    # Clean data
     df = df.dropna(subset=["open", "high", "low", "close"])
     df = df.astype(float)
+
     df = df.reset_index()
     df["Date"] = pd.to_datetime(df["Date"])
     df.set_index("Date", inplace=True)
-    return df.dropna()
+
+    return df
+
 
 # ---------------------------------------------------------
 # Helpers: EMA, ATR, RSI
