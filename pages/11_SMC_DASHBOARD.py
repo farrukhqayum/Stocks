@@ -245,18 +245,23 @@ def draw_smc_box(ax, df, zones):
         (f"{entry_text}", entry_color),
         ("------", "black")
     ]
-
+    
+    # --- Dynamic Box Height ---
+    line_height = 0.027
+    padding = 0.02
+    box_height = len(lines) * line_height + padding
+    
     # --- Draw Background Box ---
     ax.add_patch(Rectangle(
-        (0.01, 0.99 - 0.24),
+        (0.01, 0.99 - box_height),
         0.33,
-        0.24,
+        box_height,
         transform=ax.transAxes,
         facecolor=(0.95, 0.95, 0.95, 0.85),
         edgecolor="black",
         linewidth=0.5
     ))
-
+    
     # --- Draw Text Lines ---
     y = 0.99 - 0.03
     for text, color in lines:
@@ -265,9 +270,10 @@ def draw_smc_box(ax, df, zones):
             transform=ax.transAxes,
             fontsize=8,
             color=color,
-            ha="left", va="top"
+            ha="left", va="top",
+            wrap=True
         )
-        y -= 0.027
+        y -= line_height
 
 # ---------------------------------------------------------
 # Plotting
