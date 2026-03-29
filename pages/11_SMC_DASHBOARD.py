@@ -156,6 +156,118 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
 
     return [z for z in zones if not z.is_mitigated]
 
+def draw_smc_box(ax, df, zones):
+    c = df['close'].values
+    h = df['high'].values
+    l = df['low'].values
+    o = df['open'].values
+
+    # --- Candlestick Pattern ---
+    last_pattern, pattern_bullish, pattern_idx, pattern_valid = detect_candlestick_patterns(df)
+    plot_pattern_label(ax, df, pattern_idx, last_pattern, pattern_bullish)
+
+    if last_pattern is None:
+        pattern_text = "None"
+        pattern_color = "gray"
+    else:
+        age = len(df) - pattern_idx
+        validity = "Active" if pattern_valid else "Rejected"
+        pattern_text = f"{last_pattern} ({age} bars ago, {validity})"
+        pattern_color = "green" if pattern_bullish else "red"
+
+    # --- Sweep Detection ---
+    bull_sweep = (l[-1] < l[-2]) and (c[-1] > l[-2])
+    bear_sweep = (h[-1] > h[-2]) and (c[-1] < h[-2])
+
+    if bull_sweep:
+        sweep_text = "Sell-side Sweep (Bullish) ↑"
+        sweep_color = "green"
+    elif bear_sweep:
+        sweep_text = "Buy-side Sweep (Bearish) ↓"
+        sweep_color = "red"
+    else:
+        sweep_text = "None"
+        sweep_color = "gray"
+
+    # --- Trend (EMA 20/50/200) ---
+    ema20 = ema(df['close'], 20)
+    ema50 = ema(df['close'], 50)
+    ema200 = ema(df['close'], 200)
+
+    ema_bullish = (df['close'].iloc[-1] > ema20.iloc[-1]) and (ema20.iloc[-1] > ema50.iloc[-1])
+    ema_bearish = (df['close'].iloc[-1] < ema20.iloc[-1]) and (ema20.iloc[-1] < ema50.iloc[-1])
+
+    trend_text = "UP" if ema_bullish else "DOWN" if ema_bearish else "SIDEWAYS"
+    trend_color = "green" if ema_bullish else "red" if ema_bearish else "gray"
+
+    # --- Momentum (RSI + LB curve) ---
+    rsi = df["rsi"].iloc[-1]
+    rsi_ema = df["rsi_ema"].iloc[-1]
+    close = df["close"].iloc[-1]
+    lb = df["lb_crv"].iloc[-1]
+
+    mom_bullish = (rsi > 52 and rsi > rsi_ema) or (close > lb)
+    mom_bearish = (rsi < 52 and rsi < rsi_ema) or (close < lb)
+
+    mom_text = "BULLISH" if mom_bullish else "BEARISH" if mom_bearish else "NEUTRAL"
+    mom_color = "green" if mom_bullish else "red" if mom_bearish else "gray"
+
+    # --- FVG Status ---
+    last_close = c[-1]
+    has_bull_fvg = any(z.is_bull for z in zones)
+    has_bear_fvg = any(not z.is_bull for z in zones)
+    inside_zone = any(min(z.bottom, z.top) < last_close < max(z.bottom, z.top) for z in zones)
+
+    zone_text = f"FVG {'✓' if has_bull_fvg or has_bear_fvg else '✗'} | Inside {'✓' if inside_zone else '✗'}"
+    zone_color = "green" if (has_bull_fvg or has_bear_fvg) else "gray"
+
+    # --- Structure ---
+    strong_bullish = ema_bullish and has_bull_fvg and close > lb
+    strong_bearish = ema_bearish and has_bear_fvg and close < lb
+
+    struct_text = "STRONG BULLISH" if strong_bullish else "STRONG BEARISH" if strong_bearish else "NEUTRAL"
+    struct_color = "green" if strong_bullish else "red" if strong_bearish else "gray"
+
+    # --- Entry Ready ---
+    entry_ready = has_bull_fvg and mom_bullish and inside_zone
+    entry_text = "🟢 ENTRY READY" if entry_ready else "—"
+    entry_color = "green" if entry_ready else "gray"
+
+    # --- Build Lines ---
+    lines = [
+        ("SMC & SIGNALS", "black"),
+        (f"SWEEP: {sweep_text}", sweep_color),
+        (f"PATTERN: {pattern_text}", pattern_color),
+        (f"STRUCTURE: {struct_text}", struct_color),
+        (f"TREND: {trend_text}", trend_color),
+        (f"MOMENTUM: {mom_text}", mom_color),
+        (f"ZONE: {zone_text}", zone_color),
+        (f"{entry_text}", entry_color)
+    ]
+
+    # --- Draw Background Box ---
+    ax.add_patch(Rectangle(
+        (0.01, 0.99 - 0.24),
+        0.33,
+        0.24,
+        transform=ax.transAxes,
+        facecolor=(0.95, 0.95, 0.95, 0.85),
+        edgecolor="black",
+        linewidth=1
+    ))
+
+    # --- Draw Text Lines ---
+    y = 0.99 - 0.03
+    for text, color in lines:
+        ax.text(
+            0.02, y, text,
+            transform=ax.transAxes,
+            fontsize=8,
+            color=color,
+            ha="left", va="top"
+        )
+        y -= 0.027
+
 # ---------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------
