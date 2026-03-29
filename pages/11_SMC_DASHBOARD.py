@@ -418,7 +418,7 @@ def plotchart(df, zones, title="SMC FVG View"):
 # ---------------------------------------------------------
 # STREAMLIT UI
 # ---------------------------------------------------------
-st.title("📈 SMC + FVG Streamlit Dashboard")
+st.title("📈 SMART MONEY CONCEPTS (SMC) Dashboard")
 
 # Sidebar
 st.sidebar.header("Settings")
