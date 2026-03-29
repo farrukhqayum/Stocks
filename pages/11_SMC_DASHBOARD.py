@@ -253,7 +253,7 @@ def draw_smc_box(ax, df, zones):
         transform=ax.transAxes,
         facecolor=(0.95, 0.95, 0.95, 0.85),
         edgecolor="black",
-        linewidth=1
+        linewidth=0.5
     ))
 
     # --- Draw Text Lines ---
