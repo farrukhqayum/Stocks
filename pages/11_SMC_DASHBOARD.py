@@ -242,7 +242,7 @@ def draw_smc_box(ax, df, zones):
         (f"TREND: {trend_text}", trend_color),
         (f"MOMENTUM: {mom_text}", mom_color),
         (f"ZONE: {zone_text}", zone_color),
-        (f"{entry_text}", entry_color)
+        (f"{entry_text}", entry_color),
         (f"------")
     ]
 
