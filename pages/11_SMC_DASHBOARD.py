@@ -161,54 +161,116 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
 # ---------------------------------------------------------
 def plotchart(df, zones, title="SMC FVG View"):
     df = df.copy()
-    df["rsi"] = compute_rsi(df["close"])
-    df["rsi_ema"] = ema(df["rsi"], 14)
+
+    # --- Compute RSI + RSI EMA + LB curve already exists in df ---
+    if "rsi" not in df.columns:
+        df["rsi"] = compute_rsi(df["close"], 14)
+    if "rsi_ema" not in df.columns:
+        df["rsi_ema"] = ema(df["rsi"], 14)
 
     fig, (ax, ax2) = plt.subplots(
-        2, 1, figsize=(12, 7),
+        2, 1,
+        figsize=(12, 7),
         gridspec_kw={"height_ratios": [3, 1]},
         sharex=True
     )
 
     x = np.arange(len(df))
-    o, h, l, c = df['open'], df['high'], df['low'], df['close']
+    o, h, l, c = df["open"], df["high"], df["low"], df["close"]
 
-    # Candles
+    width = 0.6
+    up_color = "#26a69a"
+    down_color = "#ef5350"
+
+    # -----------------------------
+    # PANEL 1 — PRICE + FVG + SMC
+    # -----------------------------
     for i in range(len(df)):
-        color = "#26a69a" if c.iloc[i] >= o.iloc[i] else "#ef5350"
-        ax.vlines(i, l.iloc[i], h.iloc[i], color=color)
+        color = up_color if c.iloc[i] >= o.iloc[i] else down_color
+        ax.vlines(i, l.iloc[i], h.iloc[i], color=color, linewidth=1)
         ax.add_patch(Rectangle(
-            (i - 0.3, min(o.iloc[i], c.iloc[i])),
-            0.6,
+            (i - width/2, min(o.iloc[i], c.iloc[i])),
+            width,
             abs(c.iloc[i] - o.iloc[i]) or 0.001,
-            facecolor=color
+            facecolor=color,
+            edgecolor=color
         ))
 
-    # LB curve
-    ax.plot(x, df["lb_crv"], color="gray")
+    # LB curve (already computed outside)
+    ax.plot(x, df["lb_crv"], color="gray", linewidth=1.2)
 
     # FVG zones
     last_idx = len(df) - 1
     for z in zones:
+        rect_x = z.start_idx - 0.5
+        rect_width = (last_idx - z.start_idx) + 1
+        color = "teal" if z.is_bull else "blue"
         ax.add_patch(Rectangle(
-            (z.start_idx - 0.5, z.bottom),
-            (last_idx - z.start_idx) + 1,
+            (rect_x, z.bottom),
+            rect_width,
             z.top - z.bottom,
-            facecolor="teal" if z.is_bull else "blue",
-            alpha=0.15
+            facecolor=color,
+            alpha=0.15,
+            edgecolor=color,
+            linestyle="--"
         ))
+
+    # 🔹 SMC dashboard box (your original logic)
+    draw_smc_box(ax, df, zones)
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
 
-    # RSI panel
-    ax2.plot(x, df["rsi"], color="gray")
-    ax2.plot(x, df["rsi_ema"], color="gold")
-    ax2.axhline(50, linestyle="--", color="black", alpha=0.5)
-    ax2.set_ylim(0, 100)
-    ax2.grid(alpha=0.2)
+    # -----------------------------
+    # PANEL 2 — RSI PANEL (with fills)
+    # -----------------------------
+    rsi = df["rsi"]
+    rsi_ema = df["rsi_ema"]
 
+    # Green fill when RSI > RSI EMA
+    ax2.fill_between(
+        x,
+        rsi,
+        rsi_ema,
+        where=(rsi > rsi_ema),
+        color="green",
+        alpha=0.15
+    )
+
+    # Red fill when RSI < RSI EMA
+    ax2.fill_between(
+        x,
+        rsi,
+        rsi_ema,
+        where=(rsi < rsi_ema),
+        color="red",
+        alpha=0.15
+    )
+
+    ax2.plot(x, rsi, color="gray", linewidth=1.2, label="RSI")
+    ax2.plot(x, rsi_ema, color="gold", linewidth=1.2, label="RSI EMA")
+
+    # Same reference lines as notebook
+    for level in [25, 50, 78]:
+        ax2.axhline(level, color="black", linestyle="--", linewidth=0.7, alpha=0.6)
+
+    ax2.set_ylim(0, 100)
+    ax2.set_ylabel("RSI")
+    ax2.grid(alpha=0.2)
+    ax2.legend(loc="upper left")
+
+    # X‑axis labels if index is datetime
+    if isinstance(df.index, pd.DatetimeIndex):
+        ax2.set_xticks(x[::max(1, len(x)//10)])
+        ax2.set_xticklabels(
+            df.index.strftime("%Y-%m-%d")[::max(1, len(x)//10)],
+            rotation=45,
+            fontsize=8
+        )
+
+    plt.tight_layout()
     return fig
+
 
 # ---------------------------------------------------------
 # STREAMLIT UI
@@ -231,6 +293,8 @@ if df is None:
 
 # Compute LB curve
 df["lb_crv"] = compute_lb_curve(df)
+df["rsi"] = compute_rsi(df["close"], 14)
+df["rsi_ema"] = ema(df["rsi"], 14)
 
 # Window navigation
 if "window_start" not in st.session_state:
