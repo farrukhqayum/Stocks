@@ -271,6 +271,37 @@ def draw_smc_box(ax, df, zones):
 # ---------------------------------------------------------
 # Plotting
 # ---------------------------------------------------------
+def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish):
+    if pattern_idx is None or pattern_name is None:
+        return
+
+    high = df['high'].iloc[pattern_idx]
+    low  = df['low'].iloc[pattern_idx]
+    x = pattern_idx
+
+    # Vertical offset
+    offset = (high - low) * 0.15
+
+    if pattern_bullish:
+        y = low - offset
+        va = "top"
+        color = "green"
+    else:
+        y = high + offset
+        va = "bottom"
+        color = "red"
+
+    ax.text(
+        x, y,
+        pattern_name,
+        color=color,
+        fontsize=6,
+        ha="center",
+        va=va,
+        fontweight="bold",
+        zorder=20
+    )
+
 def plotchart(df, zones, title="SMC FVG View"):
     df = df.copy()
 
