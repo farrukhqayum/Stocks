@@ -434,18 +434,21 @@ def bullish_exit(df, zones):
 def bearish_exit(df, zones):
     last = df.iloc[-1]
 
-    if last.rsi > last.rsi_ema:
-        return True
+    # 1. Momentum reversal (strong)
+    mom_flip = (last.rsi > 55) and (last.rsi > last.rsi_ema)
 
-    if last.close > last.ema20:
-        return True
+    # 2. Trend reversal (strong)
+    trend_flip = last.close > last.ema20 and last.ema20 > last.ema50
 
+    # 3. Bearish FVG invalidation
     bear_zones = [z for z in zones if not z.is_bull]
-    for z in bear_zones:
-        if last.close > z.top:
-            return True
+    fvg_invalid = any(last.close > z.top for z in bear_zones)
+
+    if mom_flip or trend_flip or fvg_invalid:
+        return True
 
     return False
+
 
 
 # ---------------------------------------------------------
