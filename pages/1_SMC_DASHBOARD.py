@@ -663,6 +663,15 @@ tf = st.sidebar.selectbox(
     index=2
 )
 
+if "last_tf" not in st.session_state:
+    st.session_state.last_tf = tf
+
+if st.session_state.last_tf != tf:
+    # Reset window to full range
+    st.session_state.window_start_idx = 0
+    st.session_state.window_end_idx = len(df) - 1
+    st.session_state.last_tf = tf
+
 today = datetime.today()
 
 if tf == "4H":
@@ -679,6 +688,7 @@ elif tf == "1M":
     interval = "1mo"
 
 df = load_data(ticker, start_date, interval)
+
 
 if df is None or df.empty:
     st.error("No data found.")
