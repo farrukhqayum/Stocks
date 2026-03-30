@@ -515,26 +515,19 @@ def draw_smc_box(ax, df, zones):
     first_touch_bull = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bull_zones)
     first_touch_bear = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bear_zones)
     
-    zone_text = (
-        f"BULL FVG: {'✓' if has_bull_fvg else '✗'} "
-        f"| BEAR FVG: {'✓\n' if has_bear_fvg else '✗'} "
-        f"| Inside Bull: {'✓' if inside_bull else '✗'} "
-        f"| Inside Bear: {'✓\n' if inside_bear else '✗'} "
-        f"| 1stTouch Bull: {'✓' if first_touch_bull else '✗'} "
-        f"| 1stTouch Bear: {'✓' if first_touch_bear else '✗'}"
-    )
-
-    if inside_bull:
-        zone_color = "green"
-    elif inside_bear:
-        zone_color = "red"
-    else:
-        zone_color = "gray"
-
+    zone_lines = [
+        f"BULL FVG: {'✓' if has_bull_fvg else '✗'}",
+        f"BEAR FVG: {'✓' if has_bear_fvg else '✗'}",
+        f"Inside Bull: {'✓' if inside_bull else '✗'}",
+        f"Inside Bear: {'✓' if inside_bear else '✗'}",
+        f"1stTouch Bull: {'✓' if first_touch_bull else '✗'}",
+        f"1stTouch Bear: {'✓' if first_touch_bear else '✗'}",
+    ]
+    
     lines.append(("ZONE:", zone_color))
-    for zline in zone_text.split("\n"):
-        lines.append((f"  {zline}", zone_color)
-
+    for zline in zone_lines:
+        lines.append((f"  {zline}", zone_color))
+    
     # --- Structure ---
     strong_bullish = ema_bullish and has_bull_fvg and close > lb
     strong_bearish = ema_bearish and has_bear_fvg and close < lb
