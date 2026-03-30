@@ -570,18 +570,6 @@ def draw_smc_box(ax, df, zones):
         )
         y -= line_height
 
-    
-    debug_info = {
-        "strong_bullish": strong_bullish,
-        "strong_bearish": strong_bearish,
-        "inside_bull": inside_bull,
-        "inside_bear": inside_bear,
-        "first_touch_bull": first_touch_bull,
-        "first_touch_bear": first_touch_bear,
-        "bull_sweep": bull_sweep,
-        "bear_sweep": bear_sweep,
-    }
-    return debug_info
 
 # ---------------------------------------------------------
 # Plotting
@@ -677,8 +665,6 @@ def plotchart(df, zones, title="SMC FVG View"):
 
     # 🔹 SMC dashboard box (your original logic)
     debug = draw_smc_box(ax, df, zones)
-    st.subheader("🔍 Debug Signals")
-    st.json(debug)
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
