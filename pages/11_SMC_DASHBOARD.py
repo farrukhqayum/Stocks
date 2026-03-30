@@ -457,7 +457,7 @@ def draw_smc_box(ax, df, zones):
     struct_color = "green" if strong_bullish else "red" if strong_bearish else "gray"
 
     # --- Entry Ready ---
-    entry_ready = has_bull_fvg and mom_bullish and inside_zone
+    entry_ready = (mom_bullish and inside_bull) or (mom_bearish and inside_bear)
     entry_text = "🟢 ENTRY READY" if entry_ready else "—"
     entry_color = "green" if entry_ready else "gray"
 
