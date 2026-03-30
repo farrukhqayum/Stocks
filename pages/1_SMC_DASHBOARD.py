@@ -7,7 +7,7 @@ from matplotlib.patches import Rectangle
 from datetime import datetime, timedelta
 
 st.set_page_config(page_title="SMC Dashboard", layout="wide")
-st.title("📈 SMART MONEY CONCEPTS (SMC) Dashboard")
+st.title("📈 SMART MONEY CONCEPTS (SMC)")
 
 def ema(series, length):
     return series.ewm(span=length, adjust=False).mean()
