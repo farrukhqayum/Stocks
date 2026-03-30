@@ -128,6 +128,7 @@ def detect_candlestick_patterns(df):
 
         # Bullish Engulfing
         if (
+            is_downtrend and
             c1 < o1 and              # previous bearish
             c0 > o0 and              # current bullish
             o0 <= c1 and             # current opens inside/below prev body
@@ -140,6 +141,7 @@ def detect_candlestick_patterns(df):
 
         # Bearish Engulfing
         if (
+            is_uptrend and
             c1 > o1 and              # previous bullish
             c0 < o0 and              # current bearish
             o0 >= c1 and             # current opens inside/above prev body
@@ -156,6 +158,7 @@ def detect_candlestick_patterns(df):
 
         # Piercing Pattern (bullish)
         if (
+            is_downtrend and
             c1 < o1 and              # previous bearish
             o0 < l1 and              # gap down
             c0 > (o1 + c1) / 2 and   # closes above midpoint of prev body
@@ -168,6 +171,7 @@ def detect_candlestick_patterns(df):
 
         # Dark Cloud Cover (bearish)
         if (
+            is_uptrend and
             c1 > o1 and              # previous bullish
             o0 > h1 and              # gap up
             c0 < (o1 + c1) / 2 and   # closes below midpoint
@@ -187,6 +191,7 @@ def detect_candlestick_patterns(df):
 
         # Hammer (bullish)
         if (
+            is_downtrend and
             lower_wick >= body0 * 2 and
             upper_wick <= body0 * 0.3
         ):
@@ -197,6 +202,7 @@ def detect_candlestick_patterns(df):
 
         # Shooting Star (bearish)
         if (
+            is_uptrend and
             upper_wick >= body0 * 2 and
             lower_wick <= body0 * 0.3
         ):
@@ -239,6 +245,7 @@ def detect_candlestick_patterns(df):
 
             # Morning Star (bullish)
             if (
+                is_downtrend and
                 c2 < o2 and                # strong bearish candle
                 body1 <= body0 * 0.5 and   # small middle candle
                 c0 > (o2 + c2) / 2         # strong bullish close
@@ -250,6 +257,7 @@ def detect_candlestick_patterns(df):
 
             # Evening Star (bearish)
             if (
+                is_uptrend and
                 c2 > o2 and                # strong bullish candle
                 body1 <= body0 * 0.5 and   # small middle candle
                 c0 < (o2 + c2) / 2         # strong bearish close
@@ -263,13 +271,13 @@ def detect_candlestick_patterns(df):
         # 6. TWEEZER TOP / BOTTOM (correct logic)
         # -------------------------
 
-        if abs(l0 - l1) <= (range0 * 0.1):
+        if is_downtrend and abs(l0 - l1) <= (range0 * 0.1):
             last_pattern = "Tweezer Bottom"
             pattern_bullish = True
             pattern_idx = i
             continue
 
-        if abs(h0 - h1) <= (range0 * 0.1):
+        if is_uptrend and abs(h0 - h1) <= (range0 * 0.1):
             last_pattern = "Tweezer Top"
             pattern_bullish = False
             pattern_idx = i
