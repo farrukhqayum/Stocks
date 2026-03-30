@@ -428,8 +428,15 @@ def draw_smc_box(ax, df, zones):
     has_bull_fvg = len(bull_zones) > 0
     has_bear_fvg = len(bear_zones) > 0
     
-    inside_bull = any(z.bottom < last_close < z.top for z in bull_zones)
-    inside_bear = any(z.bottom < last_close < z.top for z in bear_zones)
+    inside_bull = any((z.bottom < last_close < z.top) for z in bull_zones)
+    inside_bear = any((z.bottom < last_close < z.top) for z in bear_zones)
+    
+    if inside_bull:
+    zone_color = "green"
+    elif inside_bear:
+        zone_color = "red"
+    else:
+        zone_color = "gray"
     
     zone_text = (
         f"BULL FVG: {'✓' if has_bull_fvg else '✗'} "
@@ -437,17 +444,6 @@ def draw_smc_box(ax, df, zones):
         f"| Inside Bull: {'✓' if inside_bull else '✗'} "
         f"| Inside Bear: {'✓' if inside_bear else '✗'}"
     )
-    
-    # Color logic
-    if inside_bull:
-        zone_color = "green"
-    elif inside_bear:
-        zone_color = "red"
-    elif has_bull_fvg or has_bear_fvg:
-        zone_color = "gray"
-    else:
-        zone_color = "gray"
-
 
     # --- Structure ---
     strong_bullish = ema_bullish and has_bull_fvg and close > lb
@@ -457,7 +453,7 @@ def draw_smc_box(ax, df, zones):
     struct_color = "green" if strong_bullish else "red" if strong_bearish else "gray"
 
     # --- Entry Ready ---
-    entry_ready = entry_ready = has_bull_fvg and mom_bullish and inside_bull
+    entry_ready = (mom_bullish and inside_bull) or (mom_bearish and inside_bear)
     entry_text = "🟢 ENTRY READY" if entry_ready else "—"
     entry_color = "green" if entry_ready else "gray"
 
@@ -470,8 +466,7 @@ def draw_smc_box(ax, df, zones):
         (f"TREND: {trend_text}", trend_color),
         (f"MOMENTUM: {mom_text}", mom_color),
         (f"ZONE: {zone_text}", zone_color),
-        (f"{entry_text}", entry_color),
-        ("------", "black")
+        (f"{entry_text}", entry_color)
     ]
     
     # --- Dynamic Box Height ---
