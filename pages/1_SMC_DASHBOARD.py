@@ -616,7 +616,7 @@ if "window_end_idx" not in st.session_state:
 # SCROLL BUTTONS — MOVE BY BARS
 # -----------------------------------------
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 if col1.button("⬅️ Previous"):
     st.session_state.window_start_idx = max(0, st.session_state.window_start_idx - 1)
@@ -625,6 +625,21 @@ if col1.button("⬅️ Previous"):
 if col2.button("Next ➡️"):
     st.session_state.window_start_idx = min(len(df) - 1, st.session_state.window_start_idx + 1)
     st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + 1)
+
+# Recompute slice AFTER button clicks
+start_idx = st.session_state.window_start_idx
+end_idx = st.session_state.window_end_idx
+
+if start_idx > end_idx:
+    start_idx, end_idx = end_idx, start_idx
+
+df_slice = df.iloc[start_idx:end_idx + 1]
+
+with col3:
+    if len(df_slice) > 0:
+        st.write(f"Visible Window: **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
+    else:
+        st.write("Visible Window: —")
 
 # -----------------------------------------
 # CLAMP WINDOW
@@ -727,5 +742,3 @@ with c4:
 
 fig = plotchart(df_slice, zones, title=f"{ticker} — {tf} SMC FVG View")
 st.pyplot(fig)
-
-st.write(f"Visible Window: **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
