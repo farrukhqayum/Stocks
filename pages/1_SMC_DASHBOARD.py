@@ -538,6 +538,8 @@ def plotchart(df, zones, title="SMC FVG View"):
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position("right")
 
     rsi = df["rsi"]
     rsi_ema = df["rsi_ema"]
@@ -570,6 +572,9 @@ def plotchart(df, zones, title="SMC FVG View"):
     ax2.set_ylabel("RSI")
     ax2.grid(alpha=0.2)
     ax2.legend(loc="upper left")
+    ax2.yaxis.tick_right()
+    ax2.yaxis.set_label_position("right")
+
 
     if isinstance(df.index, pd.DatetimeIndex):
         ax2.set_xticks(x[::max(1, len(x)//10)])
