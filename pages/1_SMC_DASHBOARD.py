@@ -84,38 +84,53 @@ class FVGZone:
 def detect_fvg_zones(df, max_age=25, fail_window=5):
     high = df['high'].values
     low = df['low'].values
+    open_ = df['open'].values
     close = df['close'].values
+
     zones = []
+
     for i in range(len(df)):
         if i >= 2:
             is_fvg_up = low[i] > high[i-2]
             is_fvg_dn = high[i] < low[i-2]
+
             if is_fvg_up:
-                top = max(high[i-2], low[i])
-                bottom = min(high[i-2], low[i])
+                top = low[i]
+                bottom = high[i-2]
                 zones.append(FVGZone(top, bottom, i, True))
+
             if is_fvg_dn:
-                top = max(high[i], low[i-2])
-                bottom = min(high[i], low[i-2])
+                top = high[i]
+                bottom = low[i-2]
                 zones.append(FVGZone(top, bottom, i, False))
+
         to_delete = []
         for j, z in enumerate(zones):
             age = i - z.start_idx
             failed = False
+
             if age <= fail_window:
                 if z.is_bull and close[i] < z.bottom:
                     failed = True
                 if not z.is_bull and close[i] > z.top:
                     failed = True
-            if (not z.is_mitigated) and (not failed):
-                if high[i] > z.bottom and low[i] < z.top:
+
+            body_high = max(open_[i], close[i])
+            body_low = min(open_[i], close[i])
+
+            if not z.is_mitigated and not failed:
+                if body_high > z.bottom and body_low < z.top:
                     z.is_mitigated = True
-            if failed or age > max_age:
-                to_delete.append(j)
+
             if (not z.touched) and (z.bottom < close[i] < z.top):
                 z.touched = True
+
+            if failed or age > max_age:
+                to_delete.append(j)
+
         for j in reversed(to_delete):
             del zones[j]
+
     return [z for z in zones if not z.is_mitigated]
 
 def pine_candle_engine(df):
@@ -349,7 +364,6 @@ def draw_smc_box(ax, df, zones):
 
     plot_pattern_label(ax, df, pattern_idx, last_pattern, pattern_bull, rejected)
 
-    # Sweep
     if bullSweep:
         sweep_text = "SWEEP: Buy-side ✓"
         sweep_color = "green"
@@ -360,7 +374,6 @@ def draw_smc_box(ax, df, zones):
         sweep_text = "SWEEP: None"
         sweep_color = "gray"
 
-    # Pattern
     if last_pattern is None:
         pattern_text = "PATTERN: None"
         pattern_color = "gray"
@@ -368,12 +381,11 @@ def draw_smc_box(ax, df, zones):
         age = len(df) - 1 - pattern_idx
         state = "Rejected" if rejected else "Expired" if expired else "Active"
         pattern_text = f"PATTERN: {last_pattern} ({age} bars, {state})"
-        if rejected or expired:
-            pattern_color = "gray"
-        else:
-            pattern_color = "green" if pattern_bull else "red"
+        pattern_color = (
+            "gray" if (rejected or expired)
+            else ("green" if pattern_bull else "red")
+        )
 
-    # Structure
     if strong_bullish:
         struct_text = "STRUCTURE: STRONG BULLISH"
         struct_color = "green"
@@ -384,7 +396,6 @@ def draw_smc_box(ax, df, zones):
         struct_text = "STRUCTURE: NEUTRAL"
         struct_color = "gray"
 
-    # Trend
     if ema_bullish:
         trend_text = "TREND: UP"
         trend_color = "green"
@@ -395,7 +406,6 @@ def draw_smc_box(ax, df, zones):
         trend_text = "TREND: SIDEWAYS"
         trend_color = "gray"
 
-    # Momentum
     if mom_bullish:
         mom_text = "MOM: BULLISH"
         mom_color = "green"
@@ -406,7 +416,6 @@ def draw_smc_box(ax, df, zones):
         mom_text = "MOM: NEUTRAL"
         mom_color = "gray"
 
-    # BUY THE DIP / SELL THE RISE
     if bull_signal:
         sig_text = "SIGNAL: 🟢 BUY THE DIP"
         sig_color = "green"
@@ -417,7 +426,6 @@ def draw_smc_box(ax, df, zones):
         sig_text = "SIGNAL: —"
         sig_color = "gray"
 
-    # FVG zone awareness
     last_close = df['close'].iloc[-1]
     bull_zones = [z for z in zones if z.is_bull]
     bear_zones = [z for z in zones if not z.is_bull]
@@ -426,8 +434,8 @@ def draw_smc_box(ax, df, zones):
     has_bear_fvg = len(bear_zones) > 0
     inside_bull = any(z.bottom < last_close < z.top for z in bull_zones)
     inside_bear = any(z.bottom < last_close < z.top for z in bear_zones)
-    first_touch_bull = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bull_zones)
-    first_touch_bear = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bear_zones)
+    first_touch_bull = any(z.touched for z in bull_zones)
+    first_touch_bear = any(z.touched for z in bear_zones)
 
     def yn(flag): return "green" if flag else "red"
 
@@ -441,7 +449,6 @@ def draw_smc_box(ax, df, zones):
         (f"  1stTouch Bear: {'✓' if first_touch_bear else '✗'}", yn(first_touch_bear)),
     ]
 
-    # Final multi-row SMC box
     lines = [
         ("SMC & SIGNALS", "black"),
         (sweep_text, sweep_color),
