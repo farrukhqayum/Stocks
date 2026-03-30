@@ -791,6 +791,22 @@ zones = detect_fvg_zones(df_slice)
 
 info_slice = pine_candle_engine(df_slice)
 
+pattern_idx = info_slice["pattern_idx"]
+pattern_bull = info_slice["pattern_bull"]
+
+close_last = df_slice["close"].iloc[-1]
+lb_last = df_slice["lb_crv"].iloc[-1]
+
+ema_bullish = info_slice["ema_bullish"]
+ema_bearish = info_slice["ema_bearish"]
+
+# Pattern low/high for SL
+patLow = None
+patHigh = None
+if pattern_idx is not None:
+    patLow = df_slice["low"].iloc[pattern_idx]
+    patHigh = df_slice["high"].iloc[pattern_idx]
+
 bull_signal = info_slice["bull_signal"]
 bear_signal = info_slice["bear_signal"]
 mom_bearish = info_slice["mom_bearish"]
