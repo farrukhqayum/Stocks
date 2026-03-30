@@ -55,10 +55,8 @@ def load_data(ticker, start_date, interval):
     if df is None or df.empty:
         return None
 
-    # Normalize column names
     df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
 
-    # Handle datetime index properly
     if isinstance(df.index, pd.DatetimeIndex):
         df["Date"] = df.index
     elif "date" in df.columns:
@@ -70,10 +68,8 @@ def load_data(ticker, start_date, interval):
 
     df.set_index("Date", inplace=True)
 
-    # Clean OHLC
     df = df.dropna(subset=["open", "high", "low", "close"]).astype(float)
 
-    # Indicators
     df['ema20'] = ema(df.close, 20)
     df['ema50'] = ema(df.close, 50)
     df['ema200'] = ema(df.close, 200)
@@ -84,7 +80,6 @@ def load_data(ticker, start_date, interval):
     df = df.ffill()
 
     return df
-
 
 class FVGZone:
     def __init__(self, top, bottom, start_idx, is_bull):
@@ -179,7 +174,6 @@ def pine_candle_engine(df):
             "strong_bearish": False
         }
 
-    # --- Trend filters (match Pine) ---
     ema_up = (ema20 > ema50) & (ema50 > ema200)
     ema_down = (ema20 < ema50) & (ema50 < ema200)
     lb_up = c > lb
@@ -190,9 +184,8 @@ def pine_candle_engine(df):
 
     last_pattern = None
     pattern_bull = None
-    pattern_idx = None  # index of the bar where pattern is anchored (like pattern_bar in Pine)
+    pattern_idx = None
 
-    # --- Scan bars, enforcing priority: 3-candle > 2-candle > 1-candle ---
     for i in range(2, n):
         body0 = abs(c[i] - o[i])
         body1 = abs(c[i-1] - o[i-1])
@@ -201,7 +194,6 @@ def pine_candle_engine(df):
         wickHigh = h[i] - max(o[i], c[i])
         wickLow = min(o[i], c[i]) - l[i]
 
-        # 3-candle patterns (highest priority)
         isMorning = (
             trend_down[i]
             and c[i-2] < o[i-2]
@@ -218,7 +210,7 @@ def pine_candle_engine(df):
         if isMorning:
             last_pattern = "Morning Star"
             pattern_bull = True
-            pattern_idx = i - 1  # center bar, like Pine
+            pattern_idx = i - 1
             continue
 
         if isEvening:
@@ -227,7 +219,6 @@ def pine_candle_engine(df):
             pattern_idx = i - 1
             continue
 
-        # 2-candle patterns
         bullEngulf = (
             trend_down[i]
             and c[i-1] < o[i-1]
@@ -290,7 +281,7 @@ def pine_candle_engine(df):
         if tweezerBot:
             last_pattern = "Tweezer Bottom"
             pattern_bull = True
-            pattern_idx = i - 1  # like Pine
+            pattern_idx = i - 1
             continue
 
         if tweezerTop:
@@ -299,7 +290,6 @@ def pine_candle_engine(df):
             pattern_idx = i - 1
             continue
 
-        # 1-candle patterns (lowest priority)
         isHammer = (
             trend_down[i]
             and wickLow > body0 * 2
@@ -332,7 +322,6 @@ def pine_candle_engine(df):
     bear_signal = False
 
     if last_pattern is not None and pattern_idx is not None:
-        # barsAgo: how many bars since pattern bar
         barsAgo = n - 1 - pattern_idx
         expired = barsAgo > 20
 
@@ -354,7 +343,6 @@ def pine_candle_engine(df):
             else:
                 bear_signal = (close_last <= lb_last) and (rsi_last <= rsi_ema_last)
 
-    # --- Trend / momentum / structure (match Pine semantics) ---
     ema_bullish = ema20[-1] > ema50[-1]
     ema_bearish = ema20[-1] < ema50[-1]
 
@@ -391,7 +379,7 @@ def pine_candle_engine(df):
         "strong_bullish": strong_bullish,
         "strong_bearish": strong_bearish
     }
-    
+
 def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish, rejected):
     if pattern_idx is None or pattern_name is None:
         return
@@ -546,7 +534,90 @@ def draw_smc_box(ax, df, zones):
         )
         y -= 0.035
 
-def plotchart(df, zones, title="SMC FVG View"):
+def fvg_mask_regime(df):
+    """
+    FVG Mask Regime Model:
+    - Bull regime: price above EMA20, EMA20 > EMA50, and last broken bearish FVG holds as support.
+    - Bear regime: price below EMA20, EMA20 < EMA50, and last broken bullish FVG holds as resistance.
+    """
+    o = df["open"].values
+    h = df["high"].values
+    l = df["low"].values
+    c = df["close"].values
+    ema20 = df["ema20"].values
+    ema50 = df["ema50"].values
+
+    n = len(df)
+    if n < 3:
+        return {
+            "bull_mask_on": False,
+            "bear_mask_on": False,
+            "ref_bear_low": None,
+            "ref_bear_high": None,
+            "ref_bull_low": None,
+            "ref_bull_high": None,
+        }
+
+    close_last = c[-1]
+    ema20_last = ema20[-1]
+    ema50_last = ema50[-1]
+
+    bull_trend_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
+    bear_trend_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
+
+    ref_bear_low = None
+    ref_bear_high = None
+    ref_bull_low = None
+    ref_bull_high = None
+
+    last_break_bear_idx = None
+    last_break_bull_idx = None
+
+    for i in range(2, n):
+        is_fvg_up = l[i] > h[i-2]
+        is_fvg_dn = h[i] < l[i-2]
+
+        if is_fvg_dn:
+            top = h[i]
+            bottom = l[i-2]
+            for j in range(i, n):
+                if c[j] > top:
+                    if last_break_bear_idx is None or j >= last_break_bear_idx:
+                        last_break_bear_idx = j
+                        ref_bear_low = bottom
+                        ref_bear_high = top
+
+        if is_fvg_up:
+            top = l[i]
+            bottom = h[i-2]
+            for j in range(i, n):
+                if c[j] < bottom:
+                    if last_break_bull_idx is None or j >= last_break_bull_idx:
+                        last_break_bull_idx = j
+                        ref_bull_low = bottom
+                        ref_bull_high = top
+
+    bull_mask_on = False
+    bear_mask_on = False
+
+    if bull_trend_mask and ref_bear_low is not None and ref_bear_high is not None:
+        if close_last > ref_bear_low:
+            bull_mask_on = True
+
+    if bear_trend_mask and ref_bull_low is not None and ref_bull_high is not None:
+        if close_last < ref_bull_high:
+            bear_mask_on = True
+
+    return {
+        "bull_mask_on": bull_mask_on,
+        "bear_mask_on": bear_mask_on,
+        "ref_bear_low": ref_bear_low,
+        "ref_bear_high": ref_bear_high,
+        "ref_bull_low": ref_bull_low,
+        "ref_bull_high": ref_bull_high,
+    }
+
+def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False):
     df = df.copy()
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
@@ -646,12 +717,7 @@ def plotchart(df, zones, title="SMC FVG View"):
             fontsize=8
         )
 
-
-    # -----------------------------
-    # SIGNAL ANNOTATIONS ON CHART
-    # -----------------------------
     info = pine_candle_engine(df)
-    
     bull_signal = info["bull_signal"]
     bear_signal = info["bear_signal"]
 
@@ -662,16 +728,20 @@ def plotchart(df, zones, title="SMC FVG View"):
 
     if bull_signal:
         ax.scatter(last_idx, last_low * 0.995, color="green", marker="^", s=50, zorder=20)
-    
+
     if bear_signal:
         ax.scatter(last_idx, last_high * 1.005, color="red", marker="v", s=50, zorder=20)
-    
+
     if exit_long:
-        ax.scatter(last_idx, last_close, color="gold", marker="s", s=50, zorder=20)
-    
+        ax.scatter(last_idx, last_close, color="gold", marker="s", s=60, zorder=21)
+
     if exit_short:
-        ax.text( last_idx, last_close, "❌", color="red", fontsize=16,  ha="center", va="center",
-        fontweight="bold", zorder=20 )
+        ax.text(
+            last_idx, last_close, "❌",
+            color="red", fontsize=16,
+            ha="center", va="center",
+            fontweight="bold", zorder=21
+        )
 
     legend_text = (
         "▲ BUY THE DIP\n"
@@ -679,17 +749,23 @@ def plotchart(df, zones, title="SMC FVG View"):
         "■ EXIT LONG\n"
         "❌ EXIT SHORT"
     )
-    
-    ax.text(0.02, 0.02, legend_text, transform=ax.transAxes,
-        fontsize=8, color="blue", ha="left", va="bottom",
+
+    ax.text(
+        0.02, 0.02, legend_text,
+        transform=ax.transAxes,
+        fontsize=8, color="blue",
+        ha="left", va="bottom",
         bbox=dict(
             facecolor="white",
             alpha=0.4,
             edgecolor="none",
-            boxstyle="round,pad=0.3"))
+            boxstyle="round,pad=0.3"
+        )
+    )
 
     plt.tight_layout()
     return fig
+
 # ---------------------------------------------------------
 # UI — TIMEFRAME, DATA LOADING, WINDOW MANAGEMENT, SCROLLING
 # ---------------------------------------------------------
@@ -725,19 +801,11 @@ if df is None or df.empty:
     st.error("No data found.")
     st.stop()
 
-# -----------------------------------------
-# INITIALIZE WINDOW STATE
-# -----------------------------------------
-
 if "window_start_idx" not in st.session_state:
     st.session_state.window_start_idx = 0
 
 if "window_end_idx" not in st.session_state:
     st.session_state.window_end_idx = len(df) - 1
-
-# -----------------------------------------
-# SCROLL BUTTONS — MOVE BY BARS
-# -----------------------------------------
 
 col1, col2, col3 = st.columns(3)
 
@@ -749,7 +817,6 @@ if col2.button("Next ➡️"):
     st.session_state.window_start_idx = min(len(df) - 1, st.session_state.window_start_idx + 1)
     st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + 1)
 
-# Recompute slice AFTER button clicks
 start_idx = st.session_state.window_start_idx
 end_idx = st.session_state.window_end_idx
 
@@ -764,16 +831,8 @@ with col3:
     else:
         st.write("Visible Window: —")
 
-# -----------------------------------------
-# CLAMP WINDOW
-# -----------------------------------------
-
 st.session_state.window_start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
 st.session_state.window_end_idx = max(0, min(st.session_state.window_end_idx, len(df) - 1))
-
-# -----------------------------------------
-# SLICE DATAFRAME BY INDEX
-# -----------------------------------------
 
 start_idx = st.session_state.window_start_idx
 end_idx = st.session_state.window_end_idx
@@ -785,237 +844,94 @@ df_slice = df.iloc[start_idx:end_idx + 1]
 
 zones = detect_fvg_zones(df_slice)
 
-# -----------------------------------------
-# SIGNAL ENGINE (Pine-style)
-# -----------------------------------------
+# ---------------------------------------------------------
+# FVG MASK REGIME + TRADE STATE
+# ---------------------------------------------------------
 
-info_slice = pine_candle_engine(df_slice)
+regime = fvg_mask_regime(df_slice)
 
-last_pattern = info_slice["last_pattern"]
-pattern_idx = info_slice["pattern_idx"]
-pattern_bull = info_slice["pattern_bull"]
-rejected = info_slice["rejected"]
-expired = info_slice["expired"]
-
-bull_signal = info_slice["bull_signal"]
-bear_signal = info_slice["bear_signal"]
-mom_bearish = info_slice["mom_bearish"]
-mom_bullish = info_slice["mom_bullish"]
-strong_bullish = info_slice["strong_bullish"]
-strong_bearish = info_slice["strong_bearish"]
-ema_bullish = info_slice["ema_bullish"]
-ema_bearish = info_slice["ema_bearish"]
+bull_mask_on = regime["bull_mask_on"]
+bear_mask_on = regime["bear_mask_on"]
+ref_bear_low = regime["ref_bear_low"]
+ref_bear_high = regime["ref_bear_high"]
+ref_bull_low = regime["ref_bull_low"]
+ref_bull_high = regime["ref_bull_high"]
 
 close_last = df_slice["close"].iloc[-1]
-high_last = df_slice["high"].iloc[-1]
-low_last = df_slice["low"].iloc[-1]
-lb_last = df_slice["lb_crv"].iloc[-1]
+open_last = df_slice["open"].iloc[-1]
 
-# Pattern low/high for SL
-patLow = None
-patHigh = None
-if pattern_idx is not None:
-    patLow = df_slice["low"].iloc[pattern_idx]
-    patHigh = df_slice["high"].iloc[pattern_idx]
-def get_last_fvg(zones, is_bull):
-    for z in reversed(zones):
-        if z.is_bull == is_bull and not z.is_mitigated:
-            return z
-    return None
-
-zones = detect_fvg_zones(df_slice)
-
-close_last = df_slice["close"].iloc[-1]
-
-last_bull_fvg = get_last_fvg(zones, True)
-last_bear_fvg = get_last_fvg(zones, False)
-
-# -----------------------------
-# REGIME STATE
-# -----------------------------
-if "regime_side" not in st.session_state:
-    st.session_state.regime_side = None  # "long", "short", or None
-if "ref_fvg" not in st.session_state:
-    st.session_state.ref_fvg = None
+bullish_candle = close_last > open_last
+bearish_candle = close_last < open_last
 
 if "in_long" not in st.session_state:
     st.session_state.in_long = False
 if "in_short" not in st.session_state:
     st.session_state.in_short = False
 
-if "entry_price_long" not in st.session_state:
-    st.session_state.entry_price_long = None
-if "entry_price_short" not in st.session_state:
-    st.session_state.entry_price_short = None
+long_entry = bull_mask_on and not st.session_state.in_long and bullish_candle
+short_entry = bear_mask_on and not st.session_state.in_short and bearish_candle
 
-if "sl_long" not in st.session_state:
-    st.session_state.sl_long = None
-if "sl_short" not in st.session_state:
-    st.session_state.sl_short = None
+sl_long = (
+    st.session_state.in_long
+    and ref_bear_low is not None
+    and close_last < ref_bear_low
+)
 
-if "tp1_long" not in st.session_state:
-    st.session_state.tp1_long = None
-if "tp2_long" not in st.session_state:
-    st.session_state.tp2_long = None
-if "tp1_short" not in st.session_state:
-    st.session_state.tp1_short = None
-if "tp2_short" not in st.session_state:
-    st.session_state.tp2_short = None
+sl_short = (
+    st.session_state.in_short
+    and ref_bull_high is not None
+    and close_last > ref_bull_high
+)
 
-new_long_entry = False
-new_short_entry = False
-exit_long = False
-exit_short = False
-exit_reason_long = None
-exit_reason_short = None
+tp_long = st.session_state.in_long and (not bull_mask_on or bear_mask_on)
+tp_short = st.session_state.in_short and (not bear_mask_on or bull_mask_on)
 
-# -----------------------------
-# REGIME FLIP LOGIC
-# -----------------------------
-# Bear regime: break below last bull FVG
-if last_bull_fvg is not None and close_last < last_bull_fvg.bottom:
-    if st.session_state.regime_side != "short":
-        st.session_state.regime_side = "short"
-        st.session_state.ref_fvg = last_bull_fvg
+exit_long = sl_long or tp_long
+exit_short = sl_short or tp_short
 
-# Bull regime: break above last bear FVG
-if last_bear_fvg is not None and close_last > last_bear_fvg.top:
-    if st.session_state.regime_side != "long":
-        st.session_state.regime_side = "long"
-        st.session_state.ref_fvg = last_bear_fvg
-
-# -----------------------------
-# ENTRIES (one core position)
-# -----------------------------
-if st.session_state.regime_side == "short" and not st.session_state.in_short:
-    ref = st.session_state.ref_fvg
-    if ref is not None:
-        entry = close_last
-        sl = ref.top
-        risk = max(sl - entry, 0.0001)
-        tp1 = entry - risk
-        tp2 = entry - 2 * risk
-
-        st.session_state.in_short = True
-        st.session_state.in_long = False
-        st.session_state.entry_price_short = entry
-        st.session_state.sl_short = sl
-        st.session_state.tp1_short = tp1
-        st.session_state.tp2_short = tp2
-        new_short_entry = True
-
-if st.session_state.regime_side == "long" and not st.session_state.in_long:
-    ref = st.session_state.ref_fvg
-    if ref is not None:
-        entry = close_last
-        sl = ref.bottom
-        risk = max(entry - sl, 0.0001)
-        tp1 = entry + risk
-        tp2 = entry + 2 * risk
-
-        st.session_state.in_long = True
-        st.session_state.in_short = False
-        st.session_state.entry_price_long = entry
-        st.session_state.sl_long = sl
-        st.session_state.tp1_long = tp1
-        st.session_state.tp2_long = tp2
-        new_long_entry = True
-
-# -----------------------------
-# EXITS (priority)
-# -----------------------------
-if st.session_state.in_short:
-    sl = st.session_state.sl_short
-    tp1 = st.session_state.tp1_short
-    tp2 = st.session_state.tp2_short
-    ref = st.session_state.ref_fvg
-
-    # 1) SL
-    if sl is not None and close_last > sl:
-        exit_short = True
-        exit_reason_short = "SL"
-    # 2) TP2
-    elif tp2 is not None and close_last <= tp2:
-        exit_short = True
-        exit_reason_short = "TP2"
-    # 3) TP1
-    elif tp1 is not None and close_last <= tp1:
-        exit_short = True
-        exit_reason_short = "TP1"
-    # 4) Back into broken FVG (invalidation)
-    elif ref is not None and close_last >= ref.bottom:
-        exit_short = True
-        exit_reason_short = "Back into FVG"
-
-if st.session_state.in_long:
-    sl = st.session_state.sl_long
-    tp1 = st.session_state.tp1_long
-    tp2 = st.session_state.tp2_long
-    ref = st.session_state.ref_fvg
-
-    # 1) SL
-    if sl is not None and close_last < sl:
-        exit_long = True
-        exit_reason_long = "SL"
-    # 2) TP2
-    elif tp2 is not None and close_last >= tp2:
-        exit_long = True
-        exit_reason_long = "TP2"
-    # 3) TP1
-    elif tp1 is not None and close_last >= tp1:
-        exit_long = True
-        exit_reason_long = "TP1"
-    # 4) Back into broken FVG
-    elif ref is not None and close_last <= ref.top:
-        exit_long = True
-        exit_reason_long = "Back into FVG"
-
-if exit_short:
+if long_entry:
+    st.session_state.in_long = True
     st.session_state.in_short = False
-    st.session_state.entry_price_short = None
-    st.session_state.sl_short = None
-    st.session_state.tp1_short = None
-    st.session_state.tp2_short = None
+
+if short_entry:
+    st.session_state.in_short = True
+    st.session_state.in_long = False
 
 if exit_long:
     st.session_state.in_long = False
-    st.session_state.entry_price_long = None
-    st.session_state.sl_long = None
-    st.session_state.tp1_long = None
-    st.session_state.tp2_long = None
 
-# -----------------------------
-# UI BUTTONS
-# -----------------------------
+if exit_short:
+    st.session_state.in_short = False
+
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    if new_long_entry:
-        st.success("📈 LONG (FVG break)")
+    if long_entry:
+        st.success("📈 LONG (FVG MASK)")
+    elif st.session_state.in_long:
+        st.info("✅ LONG ACTIVE")
     else:
         st.info("—")
 
 with c2:
-    if new_short_entry:
-        st.error("📉 SHORT (FVG break)")
+    if short_entry:
+        st.error("📉 SHORT (FVG MASK)")
+    elif st.session_state.in_short:
+        st.info("✅ SHORT ACTIVE")
     else:
         st.info("—")
 
 with c3:
     if exit_long:
-        st.warning(f"🔔 EXIT LONG ({exit_reason_long})")
+        st.warning("🔔 EXIT LONG")
     else:
         st.info("—")
 
 with c4:
     if exit_short:
-        st.warning(f"🔔 EXIT SHORT ({exit_reason_short})")
+        st.warning("🔔 EXIT SHORT")
     else:
         st.info("—")
 
-# -----------------------------------------
-# DRAW CHART
-# -----------------------------------------
-
-fig = plotchart(df_slice, zones, title=f"{ticker} — {tf} SMC FVG View")
+fig = plotchart(df_slice, zones, title=f"{ticker} — {tf} SMC FVG View", exit_long=exit_long, exit_short=exit_short)
 st.pyplot(fig)
