@@ -212,29 +212,39 @@ def detect_candlestick_patterns(df):
             continue
 
         # -------------------------
-        # 4. DOJI (correct logic)
+        # 4. DOJI (with trend validation)
         # -------------------------
-
+        
         if body0 <= range0 * 0.1:
-            # Gravestone
-            if upper_wick >= range0 * 0.6 and lower_wick <= range0 * 0.1:
-                last_pattern = "Gravestone Doji"
+        
+            # Gravestone Doji (bearish reversal) → requires uptrend
+            if (
+                upper_wick >= range0 * 0.6 and 
+                lower_wick <= range0 * 0.1 and
+                is_uptrend
+            ):
+                last_pattern = "Gravestone"
                 pattern_bullish = False
                 pattern_idx = i
                 continue
-
-            # Dragonfly
-            if lower_wick >= range0 * 0.6 and upper_wick <= range0 * 0.1:
-                last_pattern = "Dragonfly Doji"
+        
+            # Dragonfly Doji (bullish reversal) → requires downtrend
+            if (
+                lower_wick >= range0 * 0.6 and 
+                upper_wick <= range0 * 0.1 and
+                is_downtrend
+            ):
+                last_pattern = "Dragonfly"
                 pattern_bullish = True
                 pattern_idx = i
                 continue
-
-            # Neutral Doji
+        
+            # Neutral Doji → NO trend validation
             last_pattern = "Doji"
             pattern_bullish = None
             pattern_idx = i
             continue
+
 
         # -------------------------
         # 5. MORNING / EVENING STAR (correct logic)
