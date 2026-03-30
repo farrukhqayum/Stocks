@@ -681,50 +681,60 @@ with st.expander("ℹ️ Explanation of How This Dashboard Works"):
 - The user can scroll through time using **Previous Week / Next Week** buttons, updating the visible window dynamically.
 """)
 
-
 ticker = st.sidebar.text_input("Ticker", "COIN")
 start_date = st.sidebar.date_input("Start Date", datetime(2022, 9, 1))
 end_date = st.sidebar.date_input("End Date", datetime(2026, 3, 29))
 
 # Load data
 df = load_weekly(ticker, start_date, end_date)
-data_start = df.index.min()
-data_end   = df.index.max()
-
-# Clamp window_start
-if st.session_state.window_start < data_start:
-    st.session_state.window_start = data_start
-
-# Clamp window_end
-if st.session_state.window_end > data_end:
-    st.session_state.window_end = data_end
 
 if df is None:
     st.error("No data found.")
     st.stop()
 
-# Window navigation
-if "window_start" not in st.session_state:
-    st.session_state.window_start = start_date
-if "window_end" not in st.session_state:
-    st.session_state.window_end = end_date
+# Data boundaries
+data_start = df.index.min()
+data_end   = df.index.max()
 
+# Initialize session state AFTER loading data
+if "window_start" not in st.session_state:
+    st.session_state.window_start = data_start
+
+if "window_end" not in st.session_state:
+    st.session_state.window_end = data_end
+
+# Navigation buttons
 col1, col2 = st.columns(2)
+
 if col1.button("⬅️ Previous Week"):
     st.session_state.window_start -= timedelta(days=7)
-    st.session_state.window_end -= timedelta(days=7)
+    st.session_state.window_end   -= timedelta(days=7)
 
 if col2.button("Next Week ➡️"):
     st.session_state.window_start += timedelta(days=7)
-    st.session_state.window_end += timedelta(days=7)
+    st.session_state.window_end   += timedelta(days=7)
 
-df_slice = df.loc[
-    st.session_state.window_start : st.session_state.window_end
-]
+# Convert to pandas timestamps for safe comparison
+ws = pd.to_datetime(st.session_state.window_start)
+we = pd.to_datetime(st.session_state.window_end)
+
+# Clamp to data boundaries
+if ws < data_start:
+    ws = data_start
+if we > data_end:
+    we = data_end
+
+# Save clamped values back
+st.session_state.window_start = ws
+st.session_state.window_end   = we
+
+# Slice safely
+df_slice = df.loc[ws:we]
 
 zones = detect_fvg_zones(df_slice)
 
 fig = plotchart(df_slice, zones, title=f"{ticker} — SMC FVG View")
 st.pyplot(fig)
 
-st.write(f"Visible Window: **{st.session_state.window_start} → {st.session_state.window_end}**")
+st.write(f"Visible Window: **{ws} → {we}**")
+
