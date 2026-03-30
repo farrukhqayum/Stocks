@@ -55,19 +55,33 @@ def load_data(ticker, start_date, interval):
     if df is None or df.empty:
         return None
 
+    # Normalize column names
     df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
-    df = df.dropna(subset=["open", "high", "low", "close"]).astype(float)
 
-    df = df.reset_index()
-    df["Date"] = pd.to_datetime(df["Date"])
+    # Handle datetime index properly
+    if isinstance(df.index, pd.DatetimeIndex):
+        df["Date"] = df.index
+    elif "date" in df.columns:
+        df["Date"] = pd.to_datetime(df["date"])
+    elif "datetime" in df.columns:
+        df["Date"] = pd.to_datetime(df["datetime"])
+    else:
+        raise ValueError("No valid datetime column found in downloaded data.")
+
     df.set_index("Date", inplace=True)
 
+    # Clean OHLC
+    df = df.dropna(subset=["open", "high", "low", "close"]).astype(float)
+
+    # Indicators
     df['ema20'] = ema(df.close, 20)
     df['ema50'] = ema(df.close, 50)
     df['ema200'] = ema(df.close, 200)
     df['rsi'] = compute_rsi(df.close)
     df['rsi_ema'] = ema(df['rsi'], 14)
     df['lb_crv'] = compute_lb_curve(df)
+    df = df.bfill()
+    df = df.ffill()
 
     return df
 
