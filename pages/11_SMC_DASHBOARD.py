@@ -446,9 +446,9 @@ def draw_smc_box(ax, df, zones):
     
     zone_text = (
         f"BULL FVG: {'✓' if has_bull_fvg else '✗'} "
-        f"| BEAR FVG: {'✓' if has_bear_fvg else '✗'} "
+        f"| BEAR FVG: {'✓\n' if has_bear_fvg else '✗'} "
         f"| Inside Bull: {'✓' if inside_bull else '✗'} "
-        f"| Inside Bear: {'✓' if inside_bear else '✗'} "
+        f"| Inside Bear: {'✓\n' if inside_bear else '✗'} "
         f"| 1stTouch Bull: {'✓' if first_touch_bull else '✗'} "
         f"| 1stTouch Bear: {'✓' if first_touch_bear else '✗'}"
     )
