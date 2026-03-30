@@ -991,9 +991,6 @@ if last_broken_bull is not None:
 # -----------------------------
 # APPLY ENTRIES / EXITS
 # -----------------------------
-# -----------------------------
-# APPLY ENTRIES / EXITS
-# -----------------------------
 
 # --- LONG ENTRY ---
 if long_entry:
@@ -1015,15 +1012,51 @@ if exit_long:
         if close_last < last_broken_bear["low"] and bearish_candle:
             st.session_state.in_short = True
 
-# --- SHORT EXIT ---
-if exit_short:
-    st.session_state.in_short = False
+# -----------------------------
+# BEARISH REGIME LOGIC (Sell the Rise)
+# -----------------------------
+short_entry = False
+exit_short = False
 
-    # *** REGIME FLIP: SHORT → LONG ***
-    # If price breaks above bullish FVG AND candle is bullish → LONG
-    if last_broken_bull is not None:
-        if close_last > last_broken_bull["high"] and bullish_candle:
-            st.session_state.in_long = True
+if last_broken_bull is not None:
+    ref_low  = last_broken_bull["low"]   # bullish FVG bottom
+    ref_high = last_broken_bull["high"]  # bullish FVG top
+
+    # --- SHORT ENTRY CONDITIONS ---
+    if not st.session_state.in_short and bear_mask:
+
+        # 1) Breakdown short (price breaks below bullish FVG low)
+        if close_last < ref_low and bearish_candle:
+            short_entry = True
+
+        # 2) Sell the rise: bearish candle while below FVG high
+        elif bearish_candle and close_last < ref_high:
+            short_entry = True
+
+        # 3) Re-entry: 2nd candle closes below 5% reclaim of FVG
+        fvg_range = ref_high - ref_low
+        if bearish_candle and close_last < ref_high - 0.05 * fvg_range:
+            short_entry = True
+
+    # --- SHORT EXIT CONDITIONS ---
+    if st.session_state.in_short:
+
+        # A short remains active as long as:
+        #   - sell-the-rise is active
+        #   - AND close remains BELOW the bearish FVG high
+        # Exit when either fails:
+
+        # 1) Price breaks ABOVE the bearish FVG high
+        if close_last > ref_high:
+            exit_short = True
+
+        # 2) Bullish candle prints
+        if bullish_candle:
+            exit_short = True
+
+        # 3) Trend mask breaks
+        if not bear_mask:
+            exit_short = True
 
 
 # -----------------------------
