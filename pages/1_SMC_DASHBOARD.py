@@ -565,6 +565,46 @@ def plotchart(df, zones, title="SMC FVG View"):
             fontsize=8
         )
 
+    # -----------------------------
+    # SIGNAL ANNOTATIONS ON CHART
+    # -----------------------------
+    info = pine_candle_engine(df)
+    
+    bull_signal = info["bull_signal"]
+    bear_signal = info["bear_signal"]
+
+    last_idx = len(df) - 1
+    last_close = df["close"].iloc[-1]
+    last_high = df["high"].iloc[-1]
+    last_low = df["low"].iloc[-1]
+
+    if bull_signal:
+        ax.scatter(last_idx, last_low * 0.995, color="green", marker="^", s=120, zorder=20)
+    
+    if bear_signal:
+        ax.scatter(last_idx, last_high * 1.005, color="red", marker="v", s=120, zorder=20)
+    
+    if exit_long:
+        ax.scatter(last_idx, last_close, color="gold", marker="s", s=140, zorder=20)
+    
+    if exit_short:
+        ax.scatter(last_idx, last_close, color="purple", marker="s", s=140, zorder=20)
+
+    legend_text = (
+        "▲ BUY THE DIP\n"
+        "▼ SELL THE RISE\n"
+        "■ EXIT LONG\n"
+        "■ EXIT SHORT"
+    )
+    
+    ax.text(0.02, 0.02, legend_text, transform=ax.transAxes,
+        fontsize=8, color="white", ha="left", va="bottom",
+        bbox=dict(
+            facecolor="black",
+            alpha=0.4,
+            edgecolor="none",
+            boxstyle="round,pad=0.3"))
+
     plt.tight_layout()
     return fig
 # ---------------------------------------------------------
