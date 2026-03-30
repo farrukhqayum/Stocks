@@ -134,7 +134,7 @@ def detect_candlestick_patterns(df):
             o0 <= c1 and             # current opens inside/below prev body
             c0 >= o1                 # current closes above prev open
         ):
-            last_pattern = "Bull Engulfing"
+            last_pattern = "Bull Engulf"
             pattern_bullish = True
             pattern_idx = i
             continue
@@ -147,7 +147,7 @@ def detect_candlestick_patterns(df):
             o0 >= c1 and             # current opens inside/above prev body
             c0 <= o1                 # current closes below prev open
         ):
-            last_pattern = "Bear Engulfing"
+            last_pattern = "Bear Engulf"
             pattern_bullish = False
             pattern_idx = i
             continue
@@ -282,7 +282,7 @@ def detect_candlestick_patterns(df):
         # -------------------------
 
         if is_downtrend and abs(l0 - l1) <= (range0 * 0.1):
-            last_pattern = "Tweezer Bottom"
+            last_pattern = "Tweezer Bot"
             pattern_bullish = True
             pattern_idx = i
             continue
