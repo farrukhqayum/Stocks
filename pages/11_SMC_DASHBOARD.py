@@ -554,9 +554,9 @@ def plotchart(df, zones, title="SMC FVG View"):
         ))
 
     # LB curve (already computed outside)
-    ax.plot(x, df["lb_crv"], color="gray", alpha=0.5,  linewidth=1.2)
-    ax.plot(x, df["ema20"], color="yellow", alpha=0.5, linewidth=1)
-    ax.plot(x, df["ema50"], color="red", alpha=0.5, linewidth=1)
+    ax.plot(x, df["lb_crv"], color="gray", alpha=0.75,  linewidth=1.2)
+    ax.plot(x, df["ema20"], color="yellow", alpha=0.75, linewidth=1)
+    ax.plot(x, df["ema50"], color="red", alpha=0.75, linewidth=1)
 
     # FVG zones
     last_idx = len(df) - 1
