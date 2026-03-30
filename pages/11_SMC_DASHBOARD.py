@@ -519,7 +519,7 @@ def draw_smc_box(ax, df, zones):
     elif inside_bear:
         zone_color = "red"
     else:
-    zone_color = "gray"
+        zone_color = "gray"
     
     lines = []
     
