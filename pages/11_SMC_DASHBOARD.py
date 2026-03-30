@@ -449,7 +449,7 @@ def draw_smc_box(ax, df, zones):
     l = df['low'].values
     o = df['open'].values
 
-        debug_info = {
+    debug_info = {
         "ema_bullish": ema_bullish,
         "ema_bearish": ema_bearish,
         "mom_bullish": mom_bullish,
