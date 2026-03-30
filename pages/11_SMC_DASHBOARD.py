@@ -532,8 +532,8 @@ def draw_smc_box(ax, df, zones):
         zone_color = "gray"
 
     lines.append(("ZONE:", zone_color))
-    for zline in zone_text:
-        lines.append((f"  {zline}", zone_color))
+    for zline in zone_text.split("\n"):
+        lines.append((f"  {zline}", zone_color)
 
     # --- Structure ---
     strong_bullish = ema_bullish and has_bull_fvg and close > lb
