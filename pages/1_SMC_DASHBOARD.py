@@ -812,11 +812,32 @@ if "in_short" not in st.session_state:
 long_signal = bull_signal and not st.session_state.in_long
 short_signal = bear_signal and not st.session_state.in_short
 
-sl_long = st.session_state.in_long and (close_last < patLow)
-sl_short = st.session_state.in_short and (close_last > patHigh)
-tp_long = st.session_state.in_long and (ema_bearish or mom_bearish or close_last < lb_last)
-tp_short = st.session_state.in_short and (ema_bullish or mom_bullish or close_last > lb_last)
-expired_exit = (expired and (st.session_state.in_long or st.session_state.in_short))
+sl_long = (
+    st.session_state.in_long
+    and pattern_bull is True
+    and patLow is not None
+    and close_last < patLow
+)
+
+sl_short = (
+    st.session_state.in_short
+    and pattern_bull is False
+    and patHigh is not None
+    and close_last > patHigh
+)
+
+tp_long = (
+    st.session_state.in_long
+    and (ema_bearish or mom_bearish or close_last < lb_last)
+)
+
+tp_short = (
+    st.session_state.in_short
+    and (ema_bullish or mom_bullish or close_last > lb_last)
+)
+
+expired_exit = expired and (st.session_state.in_long or st.session_state.in_short)
+
 exit_long = sl_long or tp_long or expired_exit
 exit_short = sl_short or tp_short or expired_exit
 
