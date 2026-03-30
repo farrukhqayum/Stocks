@@ -847,48 +847,149 @@ zones = detect_fvg_zones(df_slice)
 # ---------------------------------------------------------
 # FVG MASK REGIME + TRADE STATE
 # ---------------------------------------------------------
+def get_last_broken_fvg(df):
+    o = df["open"].values
+    h = df["high"].values
+    l = df["low"].values
+    c = df["close"].values
+    n = len(df)
 
-regime = fvg_mask_regime(df_slice)
+    last_broken_bear = None   # bearish FVG broken UP → bull reference
+    last_broken_bull = None   # bullish FVG broken DOWN → bear reference
 
-bull_mask_on = regime["bull_mask_on"]
-bear_mask_on = regime["bear_mask_on"]
-ref_bear_low = regime["ref_bear_low"]
-ref_bear_high = regime["ref_bear_high"]
-ref_bull_low = regime["ref_bull_low"]
-ref_bull_high = regime["ref_bull_high"]
+    for i in range(2, n):
+        # Bearish FVG (for bulls)
+        if h[i] < l[i-2]:
+            top = h[i]
+            bottom = l[i-2]
+            # broken UP?
+            for j in range(i, n):
+                if c[j] > top:
+                    last_broken_bear = {"low": bottom, "high": top, "break_idx": j}
+
+        # Bullish FVG (for bears)
+        if l[i] > h[i-2]:
+            top = l[i]
+            bottom = h[i-2]
+            # broken DOWN?
+            for j in range(i, n):
+                if c[j] < bottom:
+                    last_broken_bull = {"low": bottom, "high": top, "break_idx": j}
+
+    return last_broken_bear, last_broken_bull
+# ---------------------------------------------------------
+# FVG MASK REGIME ENGINE
+# ---------------------------------------------------------
+
+last_broken_bear, last_broken_bull = get_last_broken_fvg(df_slice)
 
 close_last = df_slice["close"].iloc[-1]
 open_last = df_slice["open"].iloc[-1]
+ema20_last = df_slice["ema20"].iloc[-1]
+ema50_last = df_slice["ema50"].iloc[-1]
 
 bullish_candle = close_last > open_last
 bearish_candle = close_last < open_last
 
+# -----------------------------
+# TREND MASKS
+# -----------------------------
+bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
+bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
+
+# -----------------------------
+# SESSION STATE INIT
+# -----------------------------
 if "in_long" not in st.session_state:
     st.session_state.in_long = False
 if "in_short" not in st.session_state:
     st.session_state.in_short = False
 
-long_entry = bull_mask_on and not st.session_state.in_long and bullish_candle
-short_entry = bear_mask_on and not st.session_state.in_short and bearish_candle
+if "ref_low" not in st.session_state:
+    st.session_state.ref_low = None
+if "ref_high" not in st.session_state:
+    st.session_state.ref_high = None
 
-sl_long = (
-    st.session_state.in_long
-    and ref_bear_low is not None
-    and close_last < ref_bear_low
-)
+# -----------------------------
+# BULLISH REGIME LOGIC
+# -----------------------------
+long_entry = False
+exit_long = False
 
-sl_short = (
-    st.session_state.in_short
-    and ref_bull_high is not None
-    and close_last > ref_bull_high
-)
+if last_broken_bear is not None:
+    ref_low = last_broken_bear["low"]
+    ref_high = last_broken_bear["high"]
 
-tp_long = st.session_state.in_long and (not bull_mask_on or bear_mask_on)
-tp_short = st.session_state.in_short and (not bear_mask_on or bull_mask_on)
+    # If we are NOT in long and bull mask is ON
+    if not st.session_state.in_long and bull_mask:
+        # 1) Breakout long
+        if close_last > ref_high:
+            long_entry = True
 
-exit_long = sl_long or tp_long
-exit_short = sl_short or tp_short
+        # 2) Buy the dip: bullish candle while above FVG low
+        elif bullish_candle and close_last > ref_low:
+            long_entry = True
 
+        # 3) Re‑entry rule: 2nd candle closes above 1st bullish FVG (5% range)
+        fvg_range = ref_high - ref_low
+        if bullish_candle and close_last > ref_low + 0.05 * fvg_range:
+            long_entry = True
+
+    # If already long → check exits
+    if st.session_state.in_long:
+        # Structural SL: price breaks below FVG low
+        if close_last < ref_low:
+            exit_long = True
+
+        # Trend mask breaks
+        if not bull_mask:
+            exit_long = True
+
+        # Bearish candle exit
+        if bearish_candle:
+            exit_long = True
+
+# -----------------------------
+# BEARISH REGIME LOGIC
+# -----------------------------
+short_entry = False
+exit_short = False
+
+if last_broken_bull is not None:
+    ref_low = last_broken_bull["low"]
+    ref_high = last_broken_bull["high"]
+
+    if not st.session_state.in_short and bear_mask:
+        # 1) Breakdown short
+        if close_last < ref_low:
+            short_entry = True
+
+        # 2) Sell the rally: bearish candle while below FVG high
+        elif bearish_candle and close_last < ref_high:
+            short_entry = True
+
+        # 3) Re‑entry rule: 2nd candle closes below 1st bearish FVG (5% range)
+        fvg_range = ref_high - ref_low
+        if bearish_candle and close_last < ref_high - 0.05 * fvg_range:
+            short_entry = True
+
+    # If already short → check exits
+    if st.session_state.in_short:
+        # Structural SL: price breaks above FVG high
+        if close_last > ref_high:
+            exit_short = True
+
+        # Trend mask breaks
+        if not bear_mask:
+            exit_short = True
+
+        # Bullish candle exit
+        if bullish_candle:
+            exit_short = True
+
+# -----------------------------
+# APPLY ENTRIES / EXITS
+# -----------------------------
 if long_entry:
     st.session_state.in_long = True
     st.session_state.in_short = False
@@ -903,13 +1004,16 @@ if exit_long:
 if exit_short:
     st.session_state.in_short = False
 
+# -----------------------------
+# UI SIGNALS
+# -----------------------------
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
     if long_entry:
         st.success("📈 LONG (FVG MASK)")
     elif st.session_state.in_long:
-        st.info("✅ LONG ACTIVE")
+        st.info("🟢 LONG ACTIVE")
     else:
         st.info("—")
 
@@ -917,7 +1021,7 @@ with c2:
     if short_entry:
         st.error("📉 SHORT (FVG MASK)")
     elif st.session_state.in_short:
-        st.info("✅ SHORT ACTIVE")
+        st.info("🔴 SHORT ACTIVE")
     else:
         st.info("—")
 
@@ -932,6 +1036,7 @@ with c4:
         st.warning("🔔 EXIT SHORT")
     else:
         st.info("—")
+
 
 fig = plotchart(df_slice, zones, title=f"{ticker} — {tf} SMC FVG View", exit_long=exit_long, exit_short=exit_short)
 st.pyplot(fig)
