@@ -449,21 +449,6 @@ def draw_smc_box(ax, df, zones):
     l = df['low'].values
     o = df['open'].values
 
-    debug_info = {
-        "ema_bullish": ema_bullish,
-        "ema_bearish": ema_bearish,
-        "mom_bullish": mom_bullish,
-        "mom_bearish": mom_bearish,
-        "strong_bullish": strong_bullish,
-        "strong_bearish": strong_bearish,
-        "inside_bull": inside_bull,
-        "inside_bear": inside_bear,
-        "first_touch_bull": first_touch_bull,
-        "first_touch_bear": first_touch_bear,
-        "bull_sweep": bull_sweep,
-        "bear_sweep": bear_sweep,
-    }
-
     # --- Candlestick Pattern ---
     last_pattern, pattern_bullish, pattern_idx, pattern_valid = detect_candlestick_patterns(df)
     plot_pattern_label(ax, df, pattern_idx, last_pattern, pattern_bullish)
@@ -582,6 +567,18 @@ def draw_smc_box(ax, df, zones):
             wrap=False
         )
         y -= line_height
+
+    
+    debug_info = {
+        "strong_bullish": strong_bullish,
+        "strong_bearish": strong_bearish,
+        "inside_bull": inside_bull,
+        "inside_bear": inside_bear,
+        "first_touch_bull": first_touch_bull,
+        "first_touch_bear": first_touch_bear,
+        "bull_sweep": bull_sweep,
+        "bear_sweep": bear_sweep,
+    }
     return debug_info
 
 # ---------------------------------------------------------
