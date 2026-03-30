@@ -637,7 +637,7 @@ df_slice = df.iloc[start_idx:end_idx + 1]
 
 with col3:
     if len(df_slice) > 0:
-        st.write(f"Visible Window: **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
+        st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
     else:
         st.write("Visible Window: —")
 
