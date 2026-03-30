@@ -827,7 +827,6 @@ if "in_short" not in st.session_state:
 
 long_signal = bull_signal and not st.session_state.in_long
 short_signal = bear_signal and not st.session_state.in_short
-
 # -----------------------------
 # STOP LOSS (pattern invalidation)
 # -----------------------------
@@ -844,6 +843,10 @@ sl_short = (
     and patHigh is not None
     and close_last > patHigh
 )
+
+# -----------------------------
+# TAKE PROFIT BUFFERS
+# -----------------------------
 if "tp_buffer_long" not in st.session_state:
     st.session_state.tp_buffer_long = 0
 if "tp_buffer_short" not in st.session_state:
@@ -866,15 +869,20 @@ if st.session_state.in_short:
 tp_long = st.session_state.tp_buffer_long >= 2
 tp_short = st.session_state.tp_buffer_short >= 2
 
+# -----------------------------
+# EXPIRATION EXIT (corrected)
+# -----------------------------
 expired_exit = (
-    (pattern_idx is not None) 
-    and expired 
-    and (st.session_state.in_long or st.session_state.in_short)
+    (pattern_idx is not None) and
+    expired and
+    (st.session_state.in_long or st.session_state.in_short)
 )
 
+# -----------------------------
+# FINAL EXIT FLAGS
+# -----------------------------
 exit_long = sl_long or tp_long or expired_exit
 exit_short = sl_short or tp_short or expired_exit
-
 
 if long_signal:
     st.session_state.in_long = True
