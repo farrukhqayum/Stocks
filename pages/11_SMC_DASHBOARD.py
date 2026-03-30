@@ -531,19 +531,6 @@ def draw_smc_box(ax, df, zones):
         zone_color = "red"
     else:
         zone_color = "gray"
-    
-    entry_ready = (mom_bullish and inside_bull) or (mom_bearish and inside_bear)
-    entry_ready_first_touch = (mom_bullish and first_touch_bull) or (mom_bearish and first_touch_bear)
-    
-    if entry_ready_first_touch:
-        entry_text = "🟢 ENTRY READY (1st touch)"
-        entry_color = "green"
-    elif entry_ready:
-        entry_text = "🟢 ENTRY READY"
-        entry_color = "green"
-    else:
-        entry_text = "—"
-        entry_color = "gray"
 
     # --- Structure ---
     strong_bullish = ema_bullish and has_bull_fvg and close > lb
@@ -560,8 +547,7 @@ def draw_smc_box(ax, df, zones):
         (f"STRUCTURE: {struct_text}", struct_color),
         (f"TREND: {trend_text}", trend_color),
         (f"MOMENTUM: {mom_text}", mom_color),
-        (f"ZONE: {zone_text}", zone_color),
-        (f"{entry_text}", entry_color)
+        (f"ZONE: {zone_text}", zone_color)
     ]
     
     # --- Dynamic Box Height ---
