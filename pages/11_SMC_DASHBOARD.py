@@ -818,12 +818,27 @@ st.session_state.window_end   = we
 # Slice safely
 df_slice = df.loc[ws:we]
 zones = detect_fvg_zones(df_slice)
-# ---- ENTRY / EXIT SIGNALS ----
-long_signal  = bullish_entry(df_slice, zones)
-short_signal = bearish_entry(df_slice, zones)
 
-exit_long  = bullish_exit(df_slice, zones)
-exit_short = bearish_exit(df_slice, zones)
+# ---- ENTRY / EXIT SIGNALS ----
+# Initialize trade state
+if "in_long" not in st.session_state:
+    st.session_state.in_long = False
+if "in_short" not in st.session_state:
+    st.session_state.in_short = False
+    
+if long_signal:
+    st.session_state.in_long = True
+    st.session_state.in_short = False
+
+if short_signal:
+    st.session_state.in_short = True
+    st.session_state.in_long = False
+
+if st.session_state.in_long and exit_long:
+    st.session_state.in_long = False
+
+if st.session_state.in_short and exit_short:
+    st.session_state.in_short = False
 
 # ---- DISPLAY SIGNALS IN 4 COLUMNS ----
 c1, c2, c3, c4 = st.columns(4)
