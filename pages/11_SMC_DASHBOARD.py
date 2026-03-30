@@ -514,7 +514,7 @@ def draw_smc_box(ax, df, zones):
     
     first_touch_bull = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bull_zones)
     first_touch_bear = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bear_zones)
-    
+    zone_lines=[]
     zone_lines = [
         f"BULL FVG: {'✓' if has_bull_fvg else '✗'}",
         f"BEAR FVG: {'✓' if has_bear_fvg else '✗'}",
