@@ -442,7 +442,140 @@ def draw_smc_box(ax, df, zones):
     ]
     lines.extend(zone_lines)
 
-    line_height = 0.027
+    line_height = 0.027def draw_smc_box(ax, df, zones):
+    info = pine_candle_engine(df)
+
+    last_pattern = info["last_pattern"]
+    pattern_bull = info["pattern_bull"]
+    pattern_idx = info["pattern_idx"]
+    rejected = info["rejected"]
+    expired = info["expired"]
+    bull_signal = info["bull_signal"]
+    bear_signal = info["bear_signal"]
+    bullSweep = info["bullSweep"]
+    bearSweep = info["bearSweep"]
+    ema_bullish = info["ema_bullish"]
+    ema_bearish = info["ema_bearish"]
+    mom_bullish = info["mom_bullish"]
+    mom_bearish = info["mom_bearish"]
+    strong_bullish = info["strong_bullish"]
+    strong_bearish = info["strong_bearish"]
+
+    plot_pattern_label(ax, df, pattern_idx, last_pattern, pattern_bull, rejected)
+
+    # Sweep
+    if bullSweep:
+        sweep_text = "SWEEP: Buy-side ✓"
+        sweep_color = "green"
+    elif bearSweep:
+        sweep_text = "SWEEP: Sell-side ✓"
+        sweep_color = "red"
+    else:
+        sweep_text = "SWEEP: None"
+        sweep_color = "gray"
+
+    # Pattern
+    if last_pattern is None:
+        pattern_text = "PATTERN: None"
+        pattern_color = "gray"
+    else:
+        age = len(df) - 1 - pattern_idx
+        state = "Rejected" if rejected else "Expired" if expired else "Active"
+        pattern_text = f"PATTERN: {last_pattern} ({age} bars, {state})"
+        if rejected or expired:
+            pattern_color = "gray"
+        else:
+            pattern_color = "green" if pattern_bull else "red"
+
+    # Structure
+    if strong_bullish:
+        struct_text = "STRUCTURE: STRONG BULLISH"
+        struct_color = "green"
+    elif strong_bearish:
+        struct_text = "STRUCTURE: STRONG BEARISH"
+        struct_color = "red"
+    else:
+        struct_text = "STRUCTURE: NEUTRAL"
+        struct_color = "gray"
+
+    # Trend
+    if ema_bullish:
+        trend_text = "TREND: UP"
+        trend_color = "green"
+    elif ema_bearish:
+        trend_text = "TREND: DOWN"
+        trend_color = "red"
+    else:
+        trend_text = "TREND: SIDEWAYS"
+        trend_color = "gray"
+
+    # Momentum
+    if mom_bullish:
+        mom_text = "MOM: BULLISH"
+        mom_color = "green"
+    elif mom_bearish:
+        mom_text = "MOM: BEARISH"
+        mom_color = "red"
+    else:
+        mom_text = "MOM: NEUTRAL"
+        mom_color = "gray"
+
+    # BUY THE DIP / SELL THE RISE
+    if bull_signal:
+        sig_text = "SIGNAL: 🟢 BUY THE DIP"
+        sig_color = "green"
+    elif bear_signal:
+        sig_text = "SIGNAL: 🔴 SELL THE RISE"
+        sig_color = "red"
+    else:
+        sig_text = "SIGNAL: —"
+        sig_color = "gray"
+
+    # FVG zone awareness
+    last_close = df['close'].iloc[-1]
+    bull_zones = [z for z in zones if z.is_bull]
+    bear_zones = [z for z in zones if not z.is_bull]
+
+    has_bull_fvg = len(bull_zones) > 0
+    has_bear_fvg = len(bear_zones) > 0
+    inside_bull = any(z.bottom < last_close < z.top for z in bull_zones)
+    inside_bear = any(z.bottom < last_close < z.top for z in bear_zones)
+    first_touch_bull = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bull_zones)
+    first_touch_bear = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bear_zones)
+
+    def yn(flag): return "green" if flag else "red"
+
+    zone_lines = [
+        ("ZONE:", "gray"),
+        (f"  BULL FVG: {'✓' if has_bull_fvg else '✗'}", yn(has_bull_fvg)),
+        (f"  BEAR FVG: {'✓' if has_bear_fvg else '✗'}", yn(has_bear_fvg)),
+        (f"  Inside Bull: {'✓' if inside_bull else '✗'}", yn(inside_bull)),
+        (f"  Inside Bear: {'✓' if inside_bear else '✗'}", yn(inside_bear)),
+        (f"  1stTouch Bull: {'✓' if first_touch_bull else '✗'}", yn(first_touch_bull)),
+        (f"  1stTouch Bear: {'✓' if first_touch_bear else '✗'}", yn(first_touch_bear)),
+    ]
+
+    # Final multi-row SMC box
+    lines = [
+        ("SMC & SIGNALS", "black"),
+        (sweep_text, sweep_color),
+        (pattern_text, pattern_color),
+        (struct_text, struct_color),
+        (trend_text + " | " + mom_text, mom_color),
+        (sig_text, sig_color),
+    ] + zone_lines
+
+    y = 0.96
+    for text, color in lines:
+        ax.text(
+            0.02, y, text,
+            transform=ax.transAxes,
+            fontsize=8,
+            color=color,
+            ha="left", va="top"
+        )
+        y -= 0.035
+
     y = 0.99 - 0.03
     for text, color in lines:
         ax.text(
