@@ -514,30 +514,23 @@ def draw_smc_box(ax, df, zones):
     
     first_touch_bull = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bull_zones)
     first_touch_bear = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bear_zones)
-    
-    if inside_bull:
-        zone_color = "green"
-    elif inside_bear:
-        zone_color = "red"
-    else:
-        zone_color = "gray"
-    
-    zone_lines = []
-    
-    zone_text = [
-        f"BULL FVG: {'✓' if has_bull_fvg else '✗'}",
-        f"BEAR FVG: {'✓' if has_bear_fvg else '✗'}",
-        f"Inside Bull: {'✓' if inside_bull else '✗'}",
-        f"Inside Bear: {'✓' if inside_bear else '✗'}",
-        f"1stTouch Bull: {'✓' if first_touch_bull else '✗'}",
-        f"1stTouch Bear: {'✓' if first_touch_bear else '✗'}",
-    ]
-    # --- ZONE TEXT BUILD ---
-    zone_lines = [
-        ("ZONE:", zone_color),
-    ]
-    for zline in zone_text:
-        zone_lines.append((f"  {zline}", zone_color))
+
+    def yesno_color(flag):
+        return "green" if flag else "red"
+
+    zone_lines.append(("ZONE:", "gray"))
+    zone_lines.append((f"  BULL FVG: {'✓' if has_bull_fvg else '✗'}",
+                       yesno_color(has_bull_fvg)))
+    zone_lines.append((f"  BEAR FVG: {'✓' if has_bear_fvg else '✗'}",
+                       yesno_color(has_bear_fvg)))
+    zone_lines.append((f"  Inside Bull: {'✓' if inside_bull else '✗'}",
+                       yesno_color(inside_bull)))
+    zone_lines.append((f"  Inside Bear: {'✓' if inside_bear else '✗'}",
+                       yesno_color(inside_bear)))
+    zone_lines.append((f"  1stTouch Bull: {'✓' if first_touch_bull else '✗'}",
+                       yesno_color(first_touch_bull)))
+    zone_lines.append((f"  1stTouch Bear: {'✓' if first_touch_bear else '✗'}",
+                       yesno_color(first_touch_bear)))
 
     # --- Structure ---
     strong_bullish = ema_bullish and has_bull_fvg and close > lb
