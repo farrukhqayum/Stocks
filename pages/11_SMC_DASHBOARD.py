@@ -7,7 +7,13 @@ from matplotlib.patches import Rectangle
 from datetime import datetime, timedelta
 
 # ---------------------------------------------------------
-# Helpers: EMA, ATR, RSI
+# BASIC CONFIG
+# ---------------------------------------------------------
+st.set_page_config(page_title="SMC Dashboard", layout="wide")
+st.title("📈 SMART MONEY CONCEPTS (SMC) Dashboard")
+
+# ---------------------------------------------------------
+# HELPERS: EMA, RSI, LB CURVE
 # ---------------------------------------------------------
 def ema(series, length):
     return series.ewm(span=length, adjust=False).mean()
@@ -45,7 +51,7 @@ def compute_lb_curve(df, lblen=10):
     return ema(lb, lblen)
 
 # ---------------------------------------------------------
-# 1. Data loading (weekly)
+# DATA LOADING (WEEKLY)
 # ---------------------------------------------------------
 @st.cache_data
 def load_weekly(ticker, start_date, end_date):
@@ -58,19 +64,15 @@ def load_weekly(ticker, start_date, end_date):
         progress=False
     )
 
-    # If empty → return None
     if df is None or df.empty:
         return None
 
-    # Flatten multi-index columns
     df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
 
-    # Ensure required columns exist
     required = {"open", "high", "low", "close"}
     if not required.issubset(df.columns):
         return None
 
-    # Clean data
     df = df.dropna(subset=["open", "high", "low", "close"])
     df = df.astype(float)
 
@@ -78,18 +80,17 @@ def load_weekly(ticker, start_date, end_date):
     df["Date"] = pd.to_datetime(df["Date"])
     df.set_index("Date", inplace=True)
 
-    # Add basic indicators
-    df['ema20']  = ema(df.close, 20)
-    df['ema50']  = ema(df.close, 50)
+    df['ema20'] = ema(df.close, 20)
+    df['ema50'] = ema(df.close, 50)
     df['ema200'] = ema(df.close, 200)
-    df['rsi']    = compute_rsi(df.close)
+    df['rsi'] = compute_rsi(df.close)
     df["rsi_ema"] = ema(df["rsi"], 14)
     df["lb_crv"] = compute_lb_curve(df)
-    
+
     return df
 
 # ---------------------------------------------------------
-# Candlestick Pattern Detection
+# CANDLESTICK PATTERNS
 # ---------------------------------------------------------
 def detect_candlestick_patterns(df):
     last_pattern = None
@@ -106,25 +107,22 @@ def detect_candlestick_patterns(df):
     ema20 = df['ema20'].values
     ema50 = df['ema50'].values
     ema200 = df['ema200'].values
-    
-    trend_up   = df['close'].values > ema20
+
+    trend_up = df['close'].values > ema20
     trend_down = df['close'].values < ema20
-    
+
     for i in range(1, n):
         o0, c0, h0, l0 = o[i], c[i], h[i], l[i]
         o1, c1, h1, l1 = o[i-1], c[i-1], h[i-1], l[i-1]
-    
+
         body0 = abs(c0 - o0)
         body1 = abs(c1 - o1)
         range0 = h0 - l0
 
-        is_uptrend   = trend_up[i]
+        is_uptrend = trend_up[i]
         is_downtrend = trend_down[i]
 
-        # -------------------------
-        # 1. ENGULFING (correct logic)
-        # -------------------------
- 
+        # 1. Engulfing
         if (
             trend_down[i] and
             c1 < o1 and
@@ -136,8 +134,7 @@ def detect_candlestick_patterns(df):
             pattern_bullish = True
             pattern_idx = i
             continue
-        
-        # Bearish Engulfing (strict + trend filtered)
+
         if (
             trend_up[i] and
             c1 > o1 and
@@ -150,44 +147,35 @@ def detect_candlestick_patterns(df):
             pattern_idx = i
             continue
 
-        # -------------------------
-        # 2. PIERCING / DARK CLOUD (correct logic)
-        # -------------------------
-
-        # Piercing Pattern (bullish)
+        # 2. Piercing / Dark Cloud
         if (
             is_downtrend and
-            c1 < o1 and              # previous bearish
-            o0 < l1 and              # gap down
-            c0 > (o1 + c1) / 2 and   # closes above midpoint of prev body
-            c0 < o1                  # but not fully engulfing
+            c1 < o1 and
+            o0 < l1 and
+            c0 > (o1 + c1) / 2 and
+            c0 < o1
         ):
             last_pattern = "Piercing"
             pattern_bullish = True
             pattern_idx = i
             continue
 
-        # Dark Cloud Cover (bearish)
         if (
             is_uptrend and
-            c1 > o1 and              # previous bullish
-            o0 > h1 and              # gap up
-            c0 < (o1 + c1) / 2 and   # closes below midpoint
-            c0 > o1                  # but not fully engulfing
+            c1 > o1 and
+            o0 > h1 and
+            c0 < (o1 + c1) / 2 and
+            c0 > o1
         ):
             last_pattern = "Dark Cloud"
             pattern_bullish = False
             pattern_idx = i
             continue
 
-        # -------------------------
-        # 3. HAMMER / SHOOTING STAR (correct logic)
-        # -------------------------
-
+        # 3. Hammer / Shooting Star
         upper_wick = h0 - max(o0, c0)
         lower_wick = min(o0, c0) - l0
 
-        # Hammer (bullish)
         if (
             is_downtrend and
             lower_wick >= body0 * 2 and
@@ -198,7 +186,6 @@ def detect_candlestick_patterns(df):
             pattern_idx = i
             continue
 
-        # Shooting Star (bearish)
         if (
             is_uptrend and
             upper_wick >= body0 * 2 and
@@ -209,15 +196,10 @@ def detect_candlestick_patterns(df):
             pattern_idx = i
             continue
 
-        # -------------------------
-        # 4. DOJI (with trend validation)
-        # -------------------------
-        
+        # 4. Doji
         if body0 <= range0 * 0.1:
-        
-            # Gravestone Doji (bearish reversal) → requires uptrend
             if (
-                upper_wick >= range0 * 0.6 and 
+                upper_wick >= range0 * 0.6 and
                 lower_wick <= range0 * 0.1 and
                 is_uptrend
             ):
@@ -225,10 +207,9 @@ def detect_candlestick_patterns(df):
                 pattern_bullish = False
                 pattern_idx = i
                 continue
-        
-            # Dragonfly Doji (bullish reversal) → requires downtrend
+
             if (
-                lower_wick >= range0 * 0.6 and 
+                lower_wick >= range0 * 0.6 and
                 upper_wick <= range0 * 0.1 and
                 is_downtrend
             ):
@@ -236,49 +217,39 @@ def detect_candlestick_patterns(df):
                 pattern_bullish = True
                 pattern_idx = i
                 continue
-        
-            # Neutral Doji → NO trend validation
+
             last_pattern = "Doji"
             pattern_bullish = None
             pattern_idx = i
             continue
 
-
-        # -------------------------
-        # 5. MORNING / EVENING STAR (correct logic)
-        # -------------------------
-
+        # 5. Morning / Evening Star
         if i >= 2:
             o2, c2 = o[i-2], c[i-2]
 
-            # Morning Star (bullish)
             if (
                 is_downtrend and
-                c2 < o2 and                # strong bearish candle
-                body1 <= body0 * 0.5 and   # small middle candle
-                c0 > (o2 + c2) / 2         # strong bullish close
+                c2 < o2 and
+                body1 <= body0 * 0.5 and
+                c0 > (o2 + c2) / 2
             ):
                 last_pattern = "Morning Star"
                 pattern_bullish = True
                 pattern_idx = i
                 continue
 
-            # Evening Star (bearish)
             if (
                 is_uptrend and
-                c2 > o2 and                # strong bullish candle
-                body1 <= body0 * 0.5 and   # small middle candle
-                c0 < (o2 + c2) / 2         # strong bearish close
+                c2 > o2 and
+                body1 <= body0 * 0.5 and
+                c0 < (o2 + c2) / 2
             ):
                 last_pattern = "Evening Star"
                 pattern_bullish = False
                 pattern_idx = i
                 continue
 
-        # -------------------------
-        # 6. TWEEZER TOP / BOTTOM (correct logic)
-        # -------------------------
-
+        # 6. Tweezer Top / Bottom
         if is_downtrend and abs(l0 - l1) <= (range0 * 0.1):
             last_pattern = "Tweezer Bot"
             pattern_bullish = True
@@ -291,16 +262,13 @@ def detect_candlestick_patterns(df):
             pattern_idx = i
             continue
 
-    # -------------------------
-    # PATTERN VALIDATION
-    # -------------------------
-    if last_pattern is not None:
-        pattern_low  = df['low'].iloc[pattern_idx]
+    if last_pattern is not None and pattern_idx is not None:
+        pattern_low = df['low'].iloc[pattern_idx]
         pattern_high = df['high'].iloc[pattern_idx]
-    
-        curr_low  = df['low'].iloc[-1]
+
+        curr_low = df['low'].iloc[-1]
         curr_high = df['high'].iloc[-1]
-    
+
         if pattern_bullish:
             pattern_valid = curr_low >= pattern_low
         elif pattern_bullish is False:
@@ -308,11 +276,10 @@ def detect_candlestick_patterns(df):
         else:
             pattern_valid = False
 
-
     return last_pattern, pattern_bullish, pattern_idx, pattern_valid
 
 # ---------------------------------------------------------
-# FVG Zone Engine
+# FVG ENGINE
 # ---------------------------------------------------------
 class FVGZone:
     def __init__(self, top, bottom, start_idx, is_bull):
@@ -338,7 +305,7 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
                 top = max(high[i-2], low[i])
                 bottom = min(high[i-2], low[i])
                 zones.append(FVGZone(top, bottom, i, True))
-            
+
             if is_fvg_dn:
                 top = max(high[i], low[i-2])
                 bottom = min(high[i], low[i-2])
@@ -361,7 +328,7 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
 
             if failed or age > max_age:
                 to_delete.append(j)
-        
+
             if (not z.touched) and (z.bottom < close[i] < z.top):
                 z.touched = True
 
@@ -371,7 +338,7 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
     return [z for z in zones if not z.is_mitigated]
 
 # ---------------------------------------------------------
-# ENTRY ZONES
+# ENTRY / EXIT LOGIC
 # ---------------------------------------------------------
 def bullish_entry(df, zones):
     last = df.iloc[-1]
@@ -383,8 +350,6 @@ def bullish_entry(df, zones):
 
     inside_bull = any(z.bottom <= last.close <= z.top for z in bull_zones)
     first_touch = any(z.touched for z in bull_zones)
-
-    # NEW: allow entry if price is ABOVE the FVG after mitigation
     near_zone = any(abs(last.close - z.bottom) < (last.close * 0.01) for z in bull_zones)
 
     if ema_bull and mom_bull and (inside_bull or first_touch or near_zone):
@@ -396,7 +361,7 @@ def bearish_entry(df, zones):
 
     ema_bear = (last.close < last.ema20) and (last.ema20 < last.ema50)
     mom_bear = (last.rsi < last.rsi_ema)
-    
+
     bear_zones = [z for z in zones if not z.is_bull]
     inside_bear = any(z.bottom < last.close < z.top for z in bear_zones)
     first_touch = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bear_zones)
@@ -407,191 +372,45 @@ def bearish_entry(df, zones):
 
 def bullish_exit(df, zones):
     last = df.iloc[-1]
-    ema_bull = (last.close > last.ema20) and (last.ema20 > last.ema50)
 
-    if not ema_bull:
-        return False
-
-    # Momentum flip
-    momentum_flip = last.rsi < last.rsi_ema
-    trend_flip = last.close < last.ema20
-    
-    if momentum_flip and trend_flip:
-        return True
-
+    # Strong momentum reversal
+    mom_flip = (last.rsi < 45) and (last.rsi < last.rsi_ema)
     # Trend flip
-    if last.close < last.ema20:
-        return True
+    trend_flip = last.close < last.ema20 and last.ema20 < last.ema50
 
-    # FVG invalidation
     bull_zones = [z for z in zones if z.is_bull]
-    for z in bull_zones:
-        if last.close < z.bottom:
-            return True
+    fvg_invalid = any(last.close < z.bottom for z in bull_zones)
 
+    if mom_flip or trend_flip or fvg_invalid:
+        return True
     return False
 
 def bearish_exit(df, zones):
     last = df.iloc[-1]
 
-    # 1. Momentum reversal (strong)
+    # Strong momentum reversal
     mom_flip = (last.rsi > 55) and (last.rsi > last.rsi_ema)
-
-    # 2. Trend reversal (strong)
+    # Trend flip
     trend_flip = last.close > last.ema20 and last.ema20 > last.ema50
 
-    # 3. Bearish FVG invalidation
     bear_zones = [z for z in zones if not z.is_bull]
     fvg_invalid = any(last.close > z.top for z in bear_zones)
 
     if mom_flip or trend_flip or fvg_invalid:
         return True
-
     return False
-
-
 
 # ---------------------------------------------------------
 # DRAWING
-# ---------------------------------------------------------
-def draw_smc_box(ax, df, zones):
-    c = df['close'].values
-    h = df['high'].values
-    l = df['low'].values
-    o = df['open'].values
-
-    # --- Candlestick Pattern ---
-    last_pattern, pattern_bullish, pattern_idx, pattern_valid = detect_candlestick_patterns(df)
-    plot_pattern_label(ax, df, pattern_idx, last_pattern, pattern_bullish)
-
-    if last_pattern is None:
-        pattern_text = "None"
-        pattern_color = "gray"
-    else:
-        age = len(df) - pattern_idx
-        validity = "Active" if pattern_valid else "Rejected"
-        pattern_text = f"{last_pattern} ({age} bars ago, {validity})"
-        pattern_color = "green" if pattern_bullish else "red"
-
-    # --- Sweep Detection ---
-    bull_sweep = (l[-1] < l[-2]) and (c[-1] > l[-2])
-    bear_sweep = (h[-1] > h[-2]) and (c[-1] < h[-2])
-
-    if bull_sweep:
-        sweep_text = "Sell-side Sweep (Bullish) ↑"
-        sweep_color = "green"
-    elif bear_sweep:
-        sweep_text = "Buy-side Sweep (Bearish) ↓"
-        sweep_color = "red"
-    else:
-        sweep_text = "None"
-        sweep_color = "gray"
-
-    # --- Trend (EMA 20/50/200) ---
-    ema20 = ema(df['close'], 20)
-    ema50 = ema(df['close'], 50)
-    ema200 = ema(df['close'], 200)
-
-    ema_bullish = (df['close'].iloc[-1] > ema20.iloc[-1]) and (ema20.iloc[-1] > ema50.iloc[-1])
-    ema_bearish = (df['close'].iloc[-1] < ema20.iloc[-1]) and (ema20.iloc[-1] < ema50.iloc[-1])
-
-    trend_text = "UP" if ema_bullish else "DOWN" if ema_bearish else "SIDEWAYS"
-    trend_color = "green" if ema_bullish else "red" if ema_bearish else "gray"
-
-    # --- Momentum (RSI + LB curve) ---
-    rsi = df["rsi"].iloc[-1]
-    rsi_ema = df["rsi_ema"].iloc[-1]
-    close = df["close"].iloc[-1]
-    lb = df["lb_crv"].iloc[-1]
-
-    mom_bullish = (rsi > 52 and rsi > rsi_ema) or (close > lb)
-    mom_bearish = (rsi < 52 and rsi < rsi_ema) or (close < lb)
-
-    mom_text = "BULLISH" if mom_bullish else "BEARISH" if mom_bearish else "NEUTRAL"
-    mom_color = "green" if mom_bullish else "red" if mom_bearish else "gray"
-
-    # --- FVG Status (Directional) ---
-    last_close = c[-1]
-    
-    bull_zones = [z for z in zones if z.is_bull]
-    bear_zones = [z for z in zones if not z.is_bull]
-    
-    has_bull_fvg = len(bull_zones) > 0
-    has_bear_fvg = len(bear_zones) > 0
-    
-    inside_bull = any((z.bottom < last_close < z.top) for z in bull_zones)
-    inside_bear = any((z.bottom < last_close < z.top) for z in bear_zones)
-    
-    first_touch_bull = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bull_zones)
-    first_touch_bear = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bear_zones)
-
-    zone_lines = []
-    def yesno_color(flag):
-        return "green" if flag else "red"
-
-    zone_lines.append(("ZONE:", "gray"))
-    zone_lines.append((f"  BULL FVG: {'✓' if has_bull_fvg else '✗'}",
-                       yesno_color(has_bull_fvg)))
-    zone_lines.append((f"  BEAR FVG: {'✓' if has_bear_fvg else '✗'}",
-                       yesno_color(has_bear_fvg)))
-    zone_lines.append((f"  Inside Bull: {'✓' if inside_bull else '✗'}",
-                       yesno_color(inside_bull)))
-    zone_lines.append((f"  Inside Bear: {'✓' if inside_bear else '✗'}",
-                       yesno_color(inside_bear)))
-    zone_lines.append((f"  1stTouch Bull: {'✓' if first_touch_bull else '✗'}",
-                       yesno_color(first_touch_bull)))
-    zone_lines.append((f"  1stTouch Bear: {'✓' if first_touch_bear else '✗'}",
-                       yesno_color(first_touch_bear)))
-
-    # --- Structure ---
-    strong_bullish = ema_bullish and has_bull_fvg and close > lb
-    strong_bearish = ema_bearish and has_bear_fvg and close < lb
-
-    struct_text = "STRONG BULLISH" if strong_bullish else "STRONG BEARISH" if strong_bearish else "NEUTRAL"
-    struct_color = "green" if strong_bullish else "red" if strong_bearish else "gray"
-
-    # --- Build Lines ---
-    lines = [
-        ("SMC & SIGNALS", "black"),
-        (f"SWEEP: {sweep_text}", sweep_color),
-        (f"PATTERN: {pattern_text}", pattern_color),
-        (f"STRUCTURE: {struct_text}", struct_color),
-        (f"TREND: {trend_text}", trend_color),
-        (f"MOMENTUM: {mom_text}", mom_color)
-    ]
-    lines.extend(zone_lines)
-    
-    # --- Dynamic Box Height ---
-    line_height = 0.027
-    padding = 0.02
-    box_height = len(lines) * line_height + padding
-        
-    # --- Draw Text Lines ---
-    y = 0.99 - 0.03
-    for text, color in lines:
-        ax.text(
-            0.02, y, text,
-            transform=ax.transAxes,
-            fontsize=8,
-            color=color,
-            ha="left", va="top",
-            wrap=False
-        )
-        y -= line_height
-
-
-# ---------------------------------------------------------
-# Plotting
 # ---------------------------------------------------------
 def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish):
     if pattern_idx is None or pattern_name is None:
         return
 
     high = df['high'].iloc[pattern_idx]
-    low  = df['low'].iloc[pattern_idx]
+    low = df['low'].iloc[pattern_idx]
     x = pattern_idx
 
-    # Vertical offset
     offset = (high - low) * 0.15
 
     if pattern_bullish:
@@ -614,10 +433,122 @@ def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish):
         zorder=20
     )
 
+def draw_smc_box(ax, df, zones):
+    c = df['close'].values
+    h = df['high'].values
+    l = df['low'].values
+    o = df['open'].values
+
+    last_pattern, pattern_bullish, pattern_idx, pattern_valid = detect_candlestick_patterns(df)
+    plot_pattern_label(ax, df, pattern_idx, last_pattern, pattern_bullish)
+
+    if last_pattern is None:
+        pattern_text = "None"
+        pattern_color = "gray"
+    else:
+        age = len(df) - pattern_idx
+        validity = "Active" if pattern_valid else "Rejected"
+        pattern_text = f"{last_pattern} ({age} bars ago, {validity})"
+        pattern_color = "green" if pattern_bullish else "red"
+
+    bull_sweep = (l[-1] < l[-2]) and (c[-1] > l[-2])
+    bear_sweep = (h[-1] > h[-2]) and (c[-1] < h[-2])
+
+    if bull_sweep:
+        sweep_text = "Sell-side Sweep (Bullish) ↑"
+        sweep_color = "green"
+    elif bear_sweep:
+        sweep_text = "Buy-side Sweep (Bearish) ↓"
+        sweep_color = "red"
+    else:
+        sweep_text = "None"
+        sweep_color = "gray"
+
+    ema20 = ema(df['close'], 20)
+    ema50 = ema(df['close'], 50)
+    ema200 = ema(df['close'], 200)
+
+    ema_bullish = (df['close'].iloc[-1] > ema20.iloc[-1]) and (ema20.iloc[-1] > ema50.iloc[-1])
+    ema_bearish = (df['close'].iloc[-1] < ema20.iloc[-1]) and (ema20.iloc[-1] < ema50.iloc[-1])
+
+    trend_text = "UP" if ema_bullish else "DOWN" if ema_bearish else "SIDEWAYS"
+    trend_color = "green" if ema_bullish else "red" if ema_bearish else "gray"
+
+    rsi = df["rsi"].iloc[-1]
+    rsi_ema = df["rsi_ema"].iloc[-1]
+    close = df["close"].iloc[-1]
+    lb = df["lb_crv"].iloc[-1]
+
+    mom_bullish = (rsi > 52 and rsi > rsi_ema) or (close > lb)
+    mom_bearish = (rsi < 52 and rsi < rsi_ema) or (close < lb)
+
+    mom_text = "BULLISH" if mom_bullish else "BEARISH" if mom_bearish else "NEUTRAL"
+    mom_color = "green" if mom_bullish else "red" if mom_bearish else "gray"
+
+    last_close = c[-1]
+
+    bull_zones = [z for z in zones if z.is_bull]
+    bear_zones = [z for z in zones if not z.is_bull]
+
+    has_bull_fvg = len(bull_zones) > 0
+    has_bear_fvg = len(bear_zones) > 0
+
+    inside_bull = any((z.bottom < last_close < z.top) for z in bull_zones)
+    inside_bear = any((z.bottom < last_close < z.top) for z in bear_zones)
+
+    first_touch_bull = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bull_zones)
+    first_touch_bear = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bear_zones)
+
+    def yesno_color(flag):
+        return "green" if flag else "red"
+
+    zone_lines = []
+    zone_lines.append(("ZONE:", "gray"))
+    zone_lines.append((f"  BULL FVG: {'✓' if has_bull_fvg else '✗'}",
+                       yesno_color(has_bull_fvg)))
+    zone_lines.append((f"  BEAR FVG: {'✓' if has_bear_fvg else '✗'}",
+                       yesno_color(has_bear_fvg)))
+    zone_lines.append((f"  Inside Bull: {'✓' if inside_bull else '✗'}",
+                       yesno_color(inside_bull)))
+    zone_lines.append((f"  Inside Bear: {'✓' if inside_bear else '✗'}",
+                       yesno_color(inside_bear)))
+    zone_lines.append((f"  1stTouch Bull: {'✓' if first_touch_bull else '✗'}",
+                       yesno_color(first_touch_bull)))
+    zone_lines.append((f"  1stTouch Bear: {'✓' if first_touch_bear else '✗'}",
+                       yesno_color(first_touch_bear)))
+
+    strong_bullish = ema_bullish and has_bull_fvg and close > lb
+    strong_bearish = ema_bearish and has_bear_fvg and close < lb
+
+    struct_text = "STRONG BULLISH" if strong_bullish else "STRONG BEARISH" if strong_bearish else "NEUTRAL"
+    struct_color = "green" if strong_bullish else "red" if strong_bearish else "gray"
+
+    lines = [
+        ("SMC & SIGNALS", "black"),
+        (f"SWEEP: {sweep_text}", sweep_color),
+        (f"PATTERN: {pattern_text}", pattern_color),
+        (f"STRUCTURE: {struct_text}", struct_color),
+        (f"TREND: {trend_text}", trend_color),
+        (f"MOMENTUM: {mom_text}", mom_color)
+    ]
+    lines.extend(zone_lines)
+
+    line_height = 0.027
+    y = 0.99 - 0.03
+    for text, color in lines:
+        ax.text(
+            0.02, y, text,
+            transform=ax.transAxes,
+            fontsize=8,
+            color=color,
+            ha="left", va="top",
+            wrap=False
+        )
+        y -= line_height
+
 def plotchart(df, zones, title="SMC FVG View"):
     df = df.copy()
 
-    # --- Compute RSI + RSI EMA + LB curve already exists in df ---
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
     if "rsi_ema" not in df.columns:
@@ -637,9 +568,6 @@ def plotchart(df, zones, title="SMC FVG View"):
     up_color = "#26a69a"
     down_color = "#ef5350"
 
-    # -----------------------------
-    # PANEL 1 — PRICE + FVG + SMC
-    # -----------------------------
     for i in range(len(df)):
         color = up_color if c.iloc[i] >= o.iloc[i] else down_color
         ax.vlines(i, l.iloc[i], h.iloc[i], color=color, linewidth=1)
@@ -651,12 +579,10 @@ def plotchart(df, zones, title="SMC FVG View"):
             edgecolor=color
         ))
 
-    # LB curve (already computed outside)
-    ax.plot(x, df["lb_crv"], color="gray", alpha=0.75,  linewidth=1.2)
+    ax.plot(x, df["lb_crv"], color="gray", alpha=0.75, linewidth=1.2)
     ax.plot(x, df["ema20"], color="yellow", alpha=0.75, linewidth=1)
     ax.plot(x, df["ema50"], color="red", alpha=0.75, linewidth=1)
 
-    # FVG zones
     last_idx = len(df) - 1
     for z in zones:
         rect_x = z.start_idx - 0.5
@@ -672,19 +598,14 @@ def plotchart(df, zones, title="SMC FVG View"):
             linestyle="--"
         ))
 
-    # 🔹 SMC dashboard box (your original logic)
-    debug = draw_smc_box(ax, df, zones)
+    draw_smc_box(ax, df, zones)
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
 
-    # -----------------------------
-    # PANEL 2 — RSI PANEL (with fills)
-    # -----------------------------
     rsi = df["rsi"]
     rsi_ema = df["rsi_ema"]
 
-    # Green fill when RSI > RSI EMA
     ax2.fill_between(
         x,
         rsi,
@@ -694,7 +615,6 @@ def plotchart(df, zones, title="SMC FVG View"):
         alpha=0.15
     )
 
-    # Red fill when RSI < RSI EMA
     ax2.fill_between(
         x,
         rsi,
@@ -707,7 +627,6 @@ def plotchart(df, zones, title="SMC FVG View"):
     ax2.plot(x, rsi, color="gray", linewidth=1.2, label="RSI")
     ax2.plot(x, rsi_ema, color="gold", linewidth=1.2, label="RSI EMA")
 
-    # Same reference lines as notebook
     for level in [25, 50, 78]:
         ax2.axhline(level, color="black", linestyle="--", linewidth=0.7, alpha=0.6)
 
@@ -716,7 +635,6 @@ def plotchart(df, zones, title="SMC FVG View"):
     ax2.grid(alpha=0.2)
     ax2.legend(loc="upper left")
 
-    # X‑axis labels if index is datetime
     if isinstance(df.index, pd.DatetimeIndex):
         ax2.set_xticks(x[::max(1, len(x)//10)])
         ax2.set_xticklabels(
@@ -728,104 +646,76 @@ def plotchart(df, zones, title="SMC FVG View"):
     plt.tight_layout()
     return fig
 
-
 # ---------------------------------------------------------
-# STREAMLIT UI
+# SIDEBAR & SESSION STATE MANAGEMENT
 # ---------------------------------------------------------
-st.title("📈 SMART MONEY CONCEPTS (SMC) Dashboard")
-
-# Sidebar
 st.sidebar.header("Settings")
 
-with st.expander("ℹ️ Explanation of How This Dashboard Works"):
-    st.markdown("""
-### **1. Data Loading & Pre‑Processing**
-- The app begins by downloading **weekly OHLC price data** using `yfinance`.  
-- It ensures the dataset contains the required columns (`open`, `high`, `low`, `close`) and cleans missing values.  
-- The index is converted to a proper datetime format so the chart can align candles correctly.  
-- This weekly data becomes the foundation for all SMC, FVG, and momentum calculations.
-
-### **2. Technical Indicators (EMA, RSI, LB Curve)**
-- The script computes **Exponential Moving Averages (20/50/200)** to determine trend direction.  
-- RSI and its EMA are calculated to measure **momentum shifts**.  
-- A custom **Liquidity Breaker (LB) curve** is generated by tracking structural highs/lows and smoothing them with an EMA.  
-- These indicators feed directly into the SMC dashboard logic.
-
-### **3. Smart Money Concepts (SMC) Logic**
-- The system detects **candlestick patterns**, **sweeps**, and **market structure bias**.  
-- It evaluates trend, momentum, and pattern validity to classify the market as *bullish, bearish, or neutral*.  
-- A compact SMC dashboard box is drawn on the chart summarizing:  
-  - Sweep detection  
-  - Candlestick pattern  
-  - Trend bias  
-  - Momentum bias  
-  - FVG presence  
-  - Structure strength  
-  - Entry readiness  
-
-### **4. Fair Value Gap (FVG) Engine**
-- The script scans for **bullish and bearish FVGs** using a 3‑candle logic.  
-- Each FVG is tracked for:  
-  - Age  
-  - Mitigation  
-  - Failure conditions  
-- Only **active, unmitigated zones** are displayed on the chart as shaded rectangles.  
-- This allows traders to visually identify premium/discount zones.
-
-### **5. Chart Rendering & Navigation**
-- The chart is built manually using **matplotlib candlesticks**, giving full control over styling.  
-- FVG zones, LB curve, and SMC dashboard are layered on top of the candles.  
-- A second panel shows RSI with green/red fills to highlight momentum shifts.  
-- The user can scroll through time using **Previous Week / Next Week** buttons, updating the visible window dynamically.
-""")
-
-ticker = st.sidebar.text_input("Ticker", "COIN")
+ticker = st.sidebar.text_input("Ticker", "ASML")
 start_date = st.sidebar.date_input("Start Date", datetime(2022, 9, 1))
 end_date = st.sidebar.date_input("End Date", datetime(2026, 3, 29))
 
-# Load data
+# Detect changes in core inputs → reset window & trade state
+if "prev_ticker" not in st.session_state:
+    st.session_state.prev_ticker = ticker
+if "prev_start" not in st.session_state:
+    st.session_state.prev_start = start_date
+if "prev_end" not in st.session_state:
+    st.session_state.prev_end = end_date
+
+inputs_changed = (
+    ticker != st.session_state.prev_ticker or
+    start_date != st.session_state.prev_start or
+    end_date != st.session_state.prev_end
+)
+
 df = load_weekly(ticker, start_date, end_date)
 
-if df is None:
+if df is None or df.empty:
     st.error("No data found.")
     st.stop()
 
-# Data boundaries
 data_start = df.index.min()
-data_end   = df.index.max()
+data_end = df.index.max()
 
-# Initialize session state AFTER loading data
-if "window_start" not in st.session_state:
+if "window_start" not in st.session_state or inputs_changed:
     st.session_state.window_start = data_start
-
-if "window_end" not in st.session_state:
+if "window_end" not in st.session_state or inputs_changed:
     st.session_state.window_end = data_end
 
-# Convert to pandas timestamps for safe comparison
+if "in_long" not in st.session_state or inputs_changed:
+    st.session_state.in_long = False
+if "in_short" not in st.session_state or inputs_changed:
+    st.session_state.in_short = False
+
+st.session_state.prev_ticker = ticker
+st.session_state.prev_start = start_date
+st.session_state.prev_end = end_date
+
 ws = pd.to_datetime(st.session_state.window_start)
 we = pd.to_datetime(st.session_state.window_end)
 
-# Clamp to data boundaries
 if ws < data_start:
     ws = data_start
 if we > data_end:
     we = data_end
 
-# Save clamped values back
 st.session_state.window_start = ws
-st.session_state.window_end   = we
+st.session_state.window_end = we
 
-# Slice safely
 df_slice = df.loc[ws:we]
 zones = detect_fvg_zones(df_slice)
 
-# ---- ENTRY / EXIT SIGNALS ----
-# Initialize trade state
-if "in_long" not in st.session_state:
-    st.session_state.in_long = False
-if "in_short" not in st.session_state:
-    st.session_state.in_short = False
-    
+# ---------------------------------------------------------
+# SIGNALS + TRADE STATE
+# ---------------------------------------------------------
+long_signal = bullish_entry(df_slice, zones)
+short_signal = bearish_entry(df_slice, zones)
+
+exit_long = bullish_exit(df_slice, zones)
+exit_short = bearish_exit(df_slice, zones)
+
+# Update trade state
 if long_signal:
     st.session_state.in_long = True
     st.session_state.in_short = False
@@ -840,7 +730,9 @@ if st.session_state.in_long and exit_long:
 if st.session_state.in_short and exit_short:
     st.session_state.in_short = False
 
-# ---- DISPLAY SIGNALS IN 4 COLUMNS ----
+# ---------------------------------------------------------
+# DISPLAY SIGNALS
+# ---------------------------------------------------------
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
@@ -867,19 +759,34 @@ with c4:
     else:
         st.info("—")
 
-# Navigation buttons
+# ---------------------------------------------------------
+# NAVIGATION
+# ---------------------------------------------------------
 col1, col2 = st.columns(2)
 
 if col1.button("⬅️ Previous Week"):
     st.session_state.window_start -= timedelta(days=7)
-    st.session_state.window_end   -= timedelta(days=7)
+    st.session_state.window_end -= timedelta(days=7)
 
 if col2.button("Next Week ➡️"):
     st.session_state.window_start += timedelta(days=7)
-    st.session_state.window_end   += timedelta(days=7)
+    st.session_state.window_end += timedelta(days=7)
+
+ws = pd.to_datetime(st.session_state.window_start)
+we = pd.to_datetime(st.session_state.window_end)
+
+if ws < data_start:
+    ws = data_start
+if we > data_end:
+    we = data_end
+
+st.session_state.window_start = ws
+st.session_state.window_end = we
+
+df_slice = df.loc[ws:we]
+zones = detect_fvg_zones(df_slice)
 
 fig = plotchart(df_slice, zones, title=f"{ticker} — SMC FVG View")
 st.pyplot(fig)
 
-st.write(f"Visible Window: **{ws} → {we}**")
-
+st.write(f"Visible Window: **{ws.date()} → {we.date()}**")
