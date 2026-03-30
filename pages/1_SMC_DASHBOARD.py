@@ -1001,16 +1001,52 @@ if long_entry:
 if short_entry:
     st.session_state.in_short = True
     st.session_state.in_long = False
+    
+# -----------------------------
+# BULLISH REGIME LOGIC (Buy the Dip / Breakout)
+# -----------------------------
+long_entry = False
+exit_long = False
 
-# --- LONG EXIT ---
-if exit_long:
-    st.session_state.in_long = False
+if last_broken_bear is not None:
+    ref_low  = last_broken_bear["low"]   # bearish FVG bottom (support)
+    ref_high = last_broken_bear["high"]  # bearish FVG top
 
-    # *** REGIME FLIP: LONG → SHORT ***
-    # If price breaks below bearish FVG AND candle is bearish → SHORT
-    if last_broken_bear is not None:
-        if close_last < last_broken_bear["low"] and bearish_candle:
-            st.session_state.in_short = True
+    # --- LONG ENTRY CONDITIONS ---
+    if not st.session_state.in_long and bull_mask:
+
+        # 1) Breakout long (price breaks above bearish FVG high)
+        if close_last > ref_high and bullish_candle:
+            long_entry = True
+
+        # 2) Buy the dip: bullish candle while above FVG low
+        elif bullish_candle and close_last > ref_low:
+            long_entry = True
+
+        # 3) Re-entry: 2nd candle closes above 5% reclaim of FVG
+        fvg_range = ref_high - ref_low
+        if bullish_candle and close_last > ref_low + 0.05 * fvg_range:
+            long_entry = True
+
+    # --- LONG EXIT CONDITIONS ---
+    if st.session_state.in_long:
+
+        # A long remains active as long as:
+        #   - buy-the-dip is active
+        #   - AND close remains ABOVE the bearish FVG low
+        # Exit when either fails:
+
+        # 1) Price breaks BELOW the bearish FVG low
+        if close_last < ref_low:
+            exit_long = True
+
+        # 2) Bearish candle prints
+        if bearish_candle:
+            exit_long = True
+
+        # 3) Trend mask breaks
+        if not bull_mask:
+            exit_long = True
 
 # -----------------------------
 # BEARISH REGIME LOGIC (Sell the Rise)
