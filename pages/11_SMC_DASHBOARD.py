@@ -407,9 +407,13 @@ def bearish_entry(df, zones):
 
 def bullish_exit(df, zones):
     last = df.iloc[-1]
+    ema_bull = (last.close > last.ema20) and (last.ema20 > last.ema50)
+
+    if not ema_bull:
+        return False
 
     # Momentum flip
-    if last.rsi < last.rsi_ema:
+    if (momentum_flip AND trend_flip):
         return True
 
     # Trend flip
