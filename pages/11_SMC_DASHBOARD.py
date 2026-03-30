@@ -112,16 +112,16 @@ def detect_candlestick_patterns(df):
     trend_down = df['close'].values < ema20
     
     for i in range(1, n):
-        # Current and previous candles
         o0, c0, h0, l0 = o[i], c[i], h[i], l[i]
         o1, c1, h1, l1 = o[i-1], c[i-1], h[i-1], l[i-1]
-
+    
         body0 = abs(c0 - o0)
         body1 = abs(c1 - o1)
         range0 = h0 - l0
-        downtrend = c0 < df['ema20'].iloc[i]
-        uptrend   = c0 > df['ema20'].iloc[i]
-        
+
+        is_uptrend   = trend_up[i]
+        is_downtrend = trend_down[i]
+
         # -------------------------
         # 1. ENGULFING (correct logic)
         # -------------------------
