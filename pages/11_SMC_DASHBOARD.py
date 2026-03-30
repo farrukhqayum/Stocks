@@ -838,18 +838,32 @@ short_signal = bearish_entry(df_slice, zones)
 exit_long  = bullish_exit(df_slice, zones)
 exit_short = bearish_exit(df_slice, zones)
 
-# ---- DISPLAY SIGNALS ----
-if long_signal:
-    st.success("📈 LONG SIGNAL triggered")
-elif short_signal:
-    st.error("📉 SHORT SIGNAL triggered")
-else:
-    st.info("No entry signal")
+# ---- DISPLAY SIGNALS IN 4 COLUMNS ----
+c1, c2, c3, c4 = st.columns(4)
 
-if exit_long:
-    st.warning("🔔 EXIT LONG conditions met")
-if exit_short:
-    st.warning("🔔 EXIT SHORT conditions met")
+with c1:
+    if long_signal:
+        st.success("📈 LONG")
+    else:
+        st.info("—")
+
+with c2:
+    if short_signal:
+        st.error("📉 SHORT")
+    else:
+        st.info("—")
+
+with c3:
+    if exit_long:
+        st.warning("🔔 EXIT LONG")
+    else:
+        st.info("—")
+
+with c4:
+    if exit_short:
+        st.warning("🔔 EXIT SHORT")
+    else:
+        st.info("—")
 
 fig = plotchart(df_slice, zones, title=f"{ticker} — SMC FVG View")
 st.pyplot(fig)
