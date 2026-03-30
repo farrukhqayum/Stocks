@@ -42,32 +42,35 @@ def compute_lb_curve(df, lblen=10):
     return ema(lb, lblen)
 
 @st.cache_data
-def load_weekly(ticker, start_date, end_date):
+def load_data(ticker, start_date, interval):
     df = yf.download(
         ticker,
         start=start_date,
-        end=(pd.to_datetime(end_date) + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
-        interval="1wk",
+        end=datetime.today().strftime("%Y-%m-%d"),
+        interval=interval,
         auto_adjust=False,
         progress=False
     )
+
     if df is None or df.empty:
         return None
+
     df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
-    required = {"open", "high", "low", "close"}
-    if not required.issubset(df.columns):
-        return None
     df = df.dropna(subset=["open", "high", "low", "close"]).astype(float)
+
     df = df.reset_index()
     df["Date"] = pd.to_datetime(df["Date"])
     df.set_index("Date", inplace=True)
+
     df['ema20'] = ema(df.close, 20)
     df['ema50'] = ema(df.close, 50)
     df['ema200'] = ema(df.close, 200)
     df['rsi'] = compute_rsi(df.close)
     df['rsi_ema'] = ema(df['rsi'], 14)
     df['lb_crv'] = compute_lb_curve(df)
+
     return df
+
 
 class FVGZone:
     def __init__(self, top, bottom, start_idx, is_bull):
@@ -557,62 +560,92 @@ def plotchart(df, zones, title="SMC FVG View"):
 
     plt.tight_layout()
     return fig
+# ---------------------------------------------------------
+# UI — TIMEFRAME, DATA LOADING, WINDOW MANAGEMENT, SCROLLING
+# ---------------------------------------------------------
 
 st.sidebar.header("Settings")
+
 ticker = st.sidebar.text_input("Ticker", "ASML")
-start_date = st.sidebar.date_input("Start Date", datetime(2022, 9, 1))
-end_date = st.sidebar.date_input("End Date", datetime(2026, 3, 29))
 
-if "prev_ticker" not in st.session_state:
-    st.session_state.prev_ticker = ticker
-if "prev_start" not in st.session_state:
-    st.session_state.prev_start = start_date
-if "prev_end" not in st.session_state:
-    st.session_state.prev_end = end_date
-
-inputs_changed = (
-    ticker != st.session_state.prev_ticker or
-    start_date != st.session_state.prev_start or
-    end_date != st.session_state.prev_end
+tf = st.sidebar.selectbox(
+    "Timeframe",
+    ["4H", "1D", "1W", "1M"],
+    index=2
 )
 
-df = load_weekly(ticker, start_date, end_date)
+today = datetime.today()
+
+if tf == "4H":
+    start_date = today - timedelta(days=180)
+    interval = "4h"
+elif tf == "1D":
+    start_date = today - timedelta(days=365)
+    interval = "1d"
+elif tf == "1W":
+    start_date = today - timedelta(days=365*2)
+    interval = "1wk"
+elif tf == "1M":
+    start_date = today - timedelta(days=365*5)
+    interval = "1mo"
+
+df = load_data(ticker, start_date, interval)
+
 if df is None or df.empty:
     st.error("No data found.")
     st.stop()
 
-data_start = df.index.min()
-data_end = df.index.max()
+# -----------------------------------------
+# INITIALIZE WINDOW STATE
+# -----------------------------------------
 
-if "window_start" not in st.session_state or inputs_changed:
-    st.session_state.window_start = data_start
-if "window_end" not in st.session_state or inputs_changed:
-    st.session_state.window_end = data_end
+if "window_start_idx" not in st.session_state:
+    st.session_state.window_start_idx = 0
 
-if "in_long" not in st.session_state or inputs_changed:
-    st.session_state.in_long = False
-if "in_short" not in st.session_state or inputs_changed:
-    st.session_state.in_short = False
+if "window_end_idx" not in st.session_state:
+    st.session_state.window_end_idx = len(df) - 1
 
-st.session_state.prev_ticker = ticker
-st.session_state.prev_start = start_date
-st.session_state.prev_end = end_date
+# -----------------------------------------
+# SCROLL BUTTONS — MOVE BY BARS
+# -----------------------------------------
 
-ws = pd.to_datetime(st.session_state.window_start)
-we = pd.to_datetime(st.session_state.window_end)
+col1, col2 = st.columns(2)
 
-if ws < data_start:
-    ws = data_start
-if we > data_end:
-    we = data_end
+if col1.button("⬅️ Previous"):
+    st.session_state.window_start_idx = max(0, st.session_state.window_start_idx - 1)
+    st.session_state.window_end_idx = max(0, st.session_state.window_end_idx - 1)
 
-st.session_state.window_start = ws
-st.session_state.window_end = we
+if col2.button("Next ➡️"):
+    st.session_state.window_start_idx = min(len(df) - 1, st.session_state.window_start_idx + 1)
+    st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + 1)
 
-df_slice = df.loc[ws:we]
+# -----------------------------------------
+# CLAMP WINDOW
+# -----------------------------------------
+
+st.session_state.window_start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
+st.session_state.window_end_idx = max(0, min(st.session_state.window_end_idx, len(df) - 1))
+
+# -----------------------------------------
+# SLICE DATAFRAME BY INDEX
+# -----------------------------------------
+
+start_idx = st.session_state.window_start_idx
+end_idx = st.session_state.window_end_idx
+
+if start_idx > end_idx:
+    start_idx, end_idx = end_idx, start_idx
+
+df_slice = df.iloc[start_idx:end_idx + 1]
+
 zones = detect_fvg_zones(df_slice)
 
+# -----------------------------------------
+# SIGNAL ENGINE (Pine-style)
+# -----------------------------------------
+
 info_slice = pine_candle_engine(df_slice)
+
 bull_signal = info_slice["bull_signal"]
 bear_signal = info_slice["bear_signal"]
 mom_bearish = info_slice["mom_bearish"]
@@ -621,6 +654,15 @@ strong_bullish = info_slice["strong_bullish"]
 strong_bearish = info_slice["strong_bearish"]
 rejected = info_slice["rejected"]
 expired = info_slice["expired"]
+
+# -----------------------------------------
+# TRADE STATE
+# -----------------------------------------
+
+if "in_long" not in st.session_state:
+    st.session_state.in_long = False
+if "in_short" not in st.session_state:
+    st.session_state.in_short = False
 
 long_signal = bull_signal and not st.session_state.in_long
 short_signal = bear_signal and not st.session_state.in_short
@@ -636,11 +678,15 @@ if short_signal:
     st.session_state.in_short = True
     st.session_state.in_long = False
 
-if st.session_state.in_long and exit_long:
+if exit_long:
     st.session_state.in_long = False
 
-if st.session_state.in_short and exit_short:
+if exit_short:
     st.session_state.in_short = False
+
+# -----------------------------------------
+# DISPLAY SIGNAL COLUMNS
+# -----------------------------------------
 
 c1, c2, c3, c4 = st.columns(4)
 
@@ -668,41 +714,11 @@ with c4:
     else:
         st.info("—")
 
-col1, col2 = st.columns(2)
+# -----------------------------------------
+# DRAW CHART
+# -----------------------------------------
 
-if col1.button("⬅️ Previous Week"):
-    st.session_state.window_start -= timedelta(days=7)
-    st.session_state.window_end -= timedelta(days=7)
-
-if col2.button("Next Week ➡️"):
-    st.session_state.window_start += timedelta(days=7)
-    st.session_state.window_end += timedelta(days=7)
-
-if "prev_ws" not in st.session_state:
-    st.session_state.prev_ws = ws
-if "prev_we" not in st.session_state:
-    st.session_state.prev_we = we
-
-window_changed = (ws != st.session_state.prev_ws) or (we != st.session_state.prev_we)
-
-st.session_state.prev_ws = ws
-st.session_state.prev_we = we
-
-ws = pd.to_datetime(st.session_state.window_start)
-we = pd.to_datetime(st.session_state.window_end)
-
-if ws < data_start:
-    ws = data_start
-if we > data_end:
-    we = data_end
-
-st.session_state.window_start = ws
-st.session_state.window_end = we
-
-df_slice = df.loc[ws:we]
-zones = detect_fvg_zones(df_slice)
-
-fig = plotchart(df_slice, zones, title=f"{ticker} — SMC FVG View")
+fig = plotchart(df_slice, zones, title=f"{ticker} — {tf} SMC FVG View")
 st.pyplot(fig)
 
-st.write(f"Visible Window: **{ws.date()} → {we.date()}**")
+st.write(f"Visible Window: **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
