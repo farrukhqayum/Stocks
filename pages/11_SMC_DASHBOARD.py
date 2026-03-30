@@ -823,6 +823,12 @@ short_signal = bearish_entry(df_slice, zones)
 
 exit_long  = bullish_exit(df_slice, zones)
 exit_short = bearish_exit(df_slice, zones)
+print("Trend:", ema_bullish)
+print("Momentum:", mom_bullish)
+print("Structure:", strong_bullish)
+print("Sweep:", bull_sweep)
+print("Inside Bull:", inside_bull)
+print("1st Touch Bull:", first_touch_bull)
 
 # ---- DISPLAY SIGNALS IN 4 COLUMNS ----
 c1, c2, c3, c4 = st.columns(4)
