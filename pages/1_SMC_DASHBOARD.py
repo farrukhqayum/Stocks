@@ -1030,23 +1030,19 @@ if last_broken_bear is not None:
 
     # --- LONG EXIT CONDITIONS ---
     if st.session_state.in_long:
-
-        # A long remains active as long as:
-        #   - buy-the-dip is active
-        #   - AND close remains ABOVE the bearish FVG low
-        # Exit when either fails:
-
-        # 1) Price breaks BELOW the bearish FVG low
-        if close_last < ref_low:
-            exit_long = True
-
-        # 2) Bearish candle prints
+    
+        # 1) Bearish candle → exit
         if bearish_candle:
             exit_long = True
-
-        # 3) Trend mask breaks
-        if not bull_mask:
+    
+        # 2) Price breaks below bearish FVG low → exit
+        if ref_bear_low is not None and close_last < ref_bear_low:
             exit_long = True
+    
+        # 3) Price breaks below line-break (same as FVG low)
+        if ref_bear_low is not None and close_last < ref_bear_low:
+            exit_long = True
+
 
 # -----------------------------
 # BEARISH REGIME LOGIC (Sell the Rise)
@@ -1076,23 +1072,19 @@ if last_broken_bull is not None:
 
     # --- SHORT EXIT CONDITIONS ---
     if st.session_state.in_short:
-
-        # A short remains active as long as:
-        #   - sell-the-rise is active
-        #   - AND close remains BELOW the bearish FVG high
-        # Exit when either fails:
-
-        # 1) Price breaks ABOVE the bearish FVG high
-        if close_last > ref_high:
-            exit_short = True
-
-        # 2) Bullish candle prints
+    
+        # 1) Bullish candle → exit
         if bullish_candle:
             exit_short = True
-
-        # 3) Trend mask breaks
-        if not bear_mask:
+    
+        # 2) Price breaks above bullish FVG high → exit
+        if ref_bull_high is not None and close_last > ref_bull_high:
             exit_short = True
+    
+        # 3) Price breaks above line-break (same as FVG high)
+        if ref_bull_high is not None and close_last > ref_bull_high:
+            exit_short = True
+
 
 
 # -----------------------------
