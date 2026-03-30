@@ -688,11 +688,20 @@ end_date = st.sidebar.date_input("End Date", datetime(2026, 3, 29))
 
 # Load data
 df = load_weekly(ticker, start_date, end_date)
+data_start = df.index.min()
+data_end   = df.index.max()
+
+# Clamp window_start
+if st.session_state.window_start < data_start:
+    st.session_state.window_start = data_start
+
+# Clamp window_end
+if st.session_state.window_end > data_end:
+    st.session_state.window_end = data_end
 
 if df is None:
     st.error("No data found.")
     st.stop()
-
 
 # Window navigation
 if "window_start" not in st.session_state:
