@@ -364,9 +364,9 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
 
             if failed or age > max_age:
                 to_delete.append(j)
-
-        if (not z.touched) and (z.bottom < close[i] < z.top):
-            z.touched = True
+        
+            if (not z.touched) and (z.bottom < close[i] < z.top):
+                z.touched = True
 
         for j in reversed(to_delete):
             del zones[j]
