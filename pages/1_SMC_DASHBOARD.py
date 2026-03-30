@@ -865,9 +865,16 @@ if st.session_state.in_short:
 
 tp_long = st.session_state.tp_buffer_long >= 2
 tp_short = st.session_state.tp_buffer_short >= 2
-expired_exit = expired and (st.session_state.in_long or st.session_state.in_short)
-exit_long = sl_long or tp_long or expired
-exit_short = sl_short or tp_short or expired
+
+expired_exit = (
+    (pattern_idx is not None) 
+    and expired 
+    and (st.session_state.in_long or st.session_state.in_short)
+)
+
+exit_long = sl_long or tp_long or expired_exit
+exit_short = sl_short or tp_short or expired_exit
+
 
 if long_signal:
     st.session_state.in_long = True
