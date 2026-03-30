@@ -323,6 +323,7 @@ class FVGZone:
         self.start_idx = start_idx
         self.is_bull = is_bull
         self.is_mitigated = False
+        self.touched = False
 
 def detect_fvg_zones(df, max_age=25, fail_window=5):
     high = df['high'].values
@@ -336,9 +337,14 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
             is_fvg_dn = high[i] < low[i-2]
 
             if is_fvg_up:
-                zones.append(FVGZone(high[i-2], low[i], i, True))
+                top = max(high[i-2], low[i])
+                bottom = min(high[i-2], low[i])
+                zones.append(FVGZone(top, bottom, i, True))
+            
             if is_fvg_dn:
-                zones.append(FVGZone(high[i], low[i-2], i, False))
+                top = max(high[i], low[i-2])
+                bottom = min(high[i], low[i-2])
+                zones.append(FVGZone(top, bottom, i, False))
 
         to_delete = []
         for j, z in enumerate(zones):
@@ -357,6 +363,9 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
 
             if failed or age > max_age:
                 to_delete.append(j)
+
+        if (not z.touched) and (z.bottom < close[i] < z.top):
+            z.touched = True
 
         for j in reversed(to_delete):
             del zones[j]
@@ -431,19 +440,38 @@ def draw_smc_box(ax, df, zones):
     inside_bull = any((z.bottom < last_close < z.top) for z in bull_zones)
     inside_bear = any((z.bottom < last_close < z.top) for z in bear_zones)
     
-    if inside_bull:
-    zone_color = "green"
-    elif inside_bear:
-        zone_color = "red"
-    else:
-        zone_color = "gray"
+    first_touch_bull = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bull_zones)
+    first_touch_bear = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bear_zones)
     
     zone_text = (
         f"BULL FVG: {'✓' if has_bull_fvg else '✗'} "
         f"| BEAR FVG: {'✓' if has_bear_fvg else '✗'} "
         f"| Inside Bull: {'✓' if inside_bull else '✗'} "
-        f"| Inside Bear: {'✓' if inside_bear else '✗'}"
+        f"| Inside Bear: {'✓' if inside_bear else '✗'} "
+        f"| 1stTouch Bull: {'✓' if first_touch_bull else '✗'} "
+        f"| 1stTouch Bear: {'✓' if first_touch_bear else '✗'}"
     )
+    
+    # Color logic: green if inside bullish zone, red if inside bearish zone, gray otherwise
+    if inside_bull:
+        zone_color = "green"
+    elif inside_bear:
+        zone_color = "red"
+    else:
+        zone_color = "gray"
+    
+    entry_ready = (mom_bullish and inside_bull) or (mom_bearish and inside_bear)
+    entry_ready_first_touch = (mom_bullish and first_touch_bull) or (mom_bearish and first_touch_bear)
+    
+    if entry_ready_first_touch:
+        entry_text = "🟢 ENTRY READY (1st touch)"
+        entry_color = "green"
+    elif entry_ready:
+        entry_text = "🟢 ENTRY READY"
+        entry_color = "green"
+    else:
+        entry_text = "—"
+        entry_color = "gray"
 
     # --- Structure ---
     strong_bullish = ema_bullish and has_bull_fvg and close > lb
@@ -451,11 +479,6 @@ def draw_smc_box(ax, df, zones):
 
     struct_text = "STRONG BULLISH" if strong_bullish else "STRONG BEARISH" if strong_bearish else "NEUTRAL"
     struct_color = "green" if strong_bullish else "red" if strong_bearish else "gray"
-
-    # --- Entry Ready ---
-    entry_ready = (mom_bullish and inside_bull) or (mom_bearish and inside_bear)
-    entry_text = "🟢 ENTRY READY" if entry_ready else "—"
-    entry_color = "green" if entry_ready else "gray"
 
     # --- Build Lines ---
     lines = [
