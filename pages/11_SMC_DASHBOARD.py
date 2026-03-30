@@ -449,6 +449,21 @@ def draw_smc_box(ax, df, zones):
     l = df['low'].values
     o = df['open'].values
 
+        debug_info = {
+        "ema_bullish": ema_bullish,
+        "ema_bearish": ema_bearish,
+        "mom_bullish": mom_bullish,
+        "mom_bearish": mom_bearish,
+        "strong_bullish": strong_bullish,
+        "strong_bearish": strong_bearish,
+        "inside_bull": inside_bull,
+        "inside_bear": inside_bear,
+        "first_touch_bull": first_touch_bull,
+        "first_touch_bear": first_touch_bear,
+        "bull_sweep": bull_sweep,
+        "bear_sweep": bear_sweep,
+    }
+
     # --- Candlestick Pattern ---
     last_pattern, pattern_bullish, pattern_idx, pattern_valid = detect_candlestick_patterns(df)
     plot_pattern_label(ax, df, pattern_idx, last_pattern, pattern_bullish)
@@ -567,6 +582,7 @@ def draw_smc_box(ax, df, zones):
             wrap=False
         )
         y -= line_height
+    return debug_info
 
 # ---------------------------------------------------------
 # Plotting
@@ -823,12 +839,6 @@ short_signal = bearish_entry(df_slice, zones)
 
 exit_long  = bullish_exit(df_slice, zones)
 exit_short = bearish_exit(df_slice, zones)
-print("Trend:", ema_bullish)
-print("Momentum:", mom_bullish)
-print("Structure:", strong_bullish)
-print("Sweep:", bull_sweep)
-print("Inside Bull:", inside_bull)
-print("1st Touch Bull:", first_touch_bull)
 
 # ---- DISPLAY SIGNALS IN 4 COLUMNS ----
 c1, c2, c3, c4 = st.columns(4)
