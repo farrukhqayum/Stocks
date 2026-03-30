@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from datetime import datetime, timedelta
 
-
 # ---------------------------------------------------------
 # Helpers: EMA, ATR, RSI
 # ---------------------------------------------------------
@@ -515,6 +514,7 @@ def draw_smc_box(ax, df, zones):
     first_touch_bull = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bull_zones)
     first_touch_bear = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bear_zones)
 
+    zone_lines = []
     def yesno_color(flag):
         return "green" if flag else "red"
 
