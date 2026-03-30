@@ -45,7 +45,6 @@ def compute_lb_curve(df, lblen=10):
 
     return ema(lb, lblen)
 
-    
 # ---------------------------------------------------------
 # 1. Data loading (weekly)
 # ---------------------------------------------------------
@@ -373,6 +372,78 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
 
     return [z for z in zones if not z.is_mitigated]
 
+# ---------------------------------------------------------
+# ENTRY ZONES
+# ---------------------------------------------------------
+def bullish_entry(df, zones):
+    last = df.iloc[-1]
+
+    ema_bull = (last.close > last.ema20) and (last.ema20 > last.ema50)
+    mom_bull = (last.rsi > last.rsi_ema)
+    
+    # FVG location
+    bull_zones = [z for z in zones if z.is_bull]
+    inside_bull = any(z.bottom < last.close < z.top for z in bull_zones)
+    first_touch = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bull_zones)
+
+    # Entry rule
+    if ema_bull and mom_bull and (inside_bull or first_touch):
+        return True
+    return False
+    
+def bearish_entry(df, zones):
+    last = df.iloc[-1]
+
+    ema_bear = (last.close < last.ema20) and (last.ema20 < last.ema50)
+    mom_bear = (last.rsi < last.rsi_ema)
+    
+    bear_zones = [z for z in zones if not z.is_bull]
+    inside_bear = any(z.bottom < last.close < z.top for z in bear_zones)
+    first_touch = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bear_zones)
+
+    if ema_bear and mom_bear and (inside_bear or first_touch):
+        return True
+    return False
+
+def bullish_exit(df, zones):
+    last = df.iloc[-1]
+
+    # Momentum flip
+    if last.rsi < last.rsi_ema:
+        return True
+
+    # Trend flip
+    if last.close < last.ema20:
+        return True
+
+    # FVG invalidation
+    bull_zones = [z for z in zones if z.is_bull]
+    for z in bull_zones:
+        if last.close < z.bottom:
+            return True
+
+    return False
+
+def bearish_exit(df, zones):
+    last = df.iloc[-1]
+
+    if last.rsi > last.rsi_ema:
+        return True
+
+    if last.close > last.ema20:
+        return True
+
+    bear_zones = [z for z in zones if not z.is_bull]
+    for z in bear_zones:
+        if last.close > z.top:
+            return True
+
+    return False
+
+
+# ---------------------------------------------------------
+# DRAWING
+# ---------------------------------------------------------
 def draw_smc_box(ax, df, zones):
     c = df['close'].values
     h = df['high'].values
@@ -759,8 +830,26 @@ st.session_state.window_end   = we
 
 # Slice safely
 df_slice = df.loc[ws:we]
-
 zones = detect_fvg_zones(df_slice)
+# ---- ENTRY / EXIT SIGNALS ----
+long_signal  = bullish_entry(df_slice, zones)
+short_signal = bearish_entry(df_slice, zones)
+
+exit_long  = bullish_exit(df_slice, zones)
+exit_short = bearish_exit(df_slice, zones)
+
+# ---- DISPLAY SIGNALS ----
+if long_signal:
+    st.success("📈 LONG SIGNAL triggered")
+elif short_signal:
+    st.error("📉 SHORT SIGNAL triggered")
+else:
+    st.info("No entry signal")
+
+if exit_long:
+    st.warning("🔔 EXIT LONG conditions met")
+if exit_short:
+    st.warning("🔔 EXIT SHORT conditions met")
 
 fig = plotchart(df_slice, zones, title=f"{ticker} — SMC FVG View")
 st.pyplot(fig)
