@@ -419,14 +419,35 @@ def draw_smc_box(ax, df, zones):
     mom_text = "BULLISH" if mom_bullish else "BEARISH" if mom_bearish else "NEUTRAL"
     mom_color = "green" if mom_bullish else "red" if mom_bearish else "gray"
 
-    # --- FVG Status ---
+    # --- FVG Status (Directional) ---
     last_close = c[-1]
-    has_bull_fvg = any(z.is_bull for z in zones)
-    has_bear_fvg = any(not z.is_bull for z in zones)
-    inside_zone = any(min(z.bottom, z.top) < last_close < max(z.bottom, z.top) for z in zones)
+    
+    bull_zones = [z for z in zones if z.is_bull]
+    bear_zones = [z for z in zones if not z.is_bull]
+    
+    has_bull_fvg = len(bull_zones) > 0
+    has_bear_fvg = len(bear_zones) > 0
+    
+    inside_bull = any(z.bottom < last_close < z.top for z in bull_zones)
+    inside_bear = any(z.bottom < last_close < z.top for z in bear_zones)
+    
+    zone_text = (
+        f"BULL FVG: {'✓' if has_bull_fvg else '✗'} "
+        f"| BEAR FVG: {'✓' if has_bear_fvg else '✗'} "
+        f"| Inside Bull: {'✓' if inside_bull else '✗'} "
+        f"| Inside Bear: {'✓' if inside_bear else '✗'}"
+    )
+    
+    # Color logic
+    if inside_bull:
+        zone_color = "green"
+    elif inside_bear:
+        zone_color = "red"
+    elif has_bull_fvg or has_bear_fvg:
+        zone_color = "gray"
+    else:
+        zone_color = "gray"
 
-    zone_text = f"FVG {'✓' if has_bull_fvg or has_bear_fvg else '✗'} | Inside {'✓' if inside_zone else '✗'}"
-    zone_color = "green" if (has_bull_fvg or has_bear_fvg) else "gray"
 
     # --- Structure ---
     strong_bullish = ema_bullish and has_bull_fvg and close > lb
