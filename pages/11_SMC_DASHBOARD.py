@@ -791,17 +791,6 @@ if "window_start" not in st.session_state:
 if "window_end" not in st.session_state:
     st.session_state.window_end = data_end
 
-# Navigation buttons
-col1, col2 = st.columns(2)
-
-if col1.button("⬅️ Previous Week"):
-    st.session_state.window_start -= timedelta(days=7)
-    st.session_state.window_end   -= timedelta(days=7)
-
-if col2.button("Next Week ➡️"):
-    st.session_state.window_start += timedelta(days=7)
-    st.session_state.window_end   += timedelta(days=7)
-
 # Convert to pandas timestamps for safe comparison
 ws = pd.to_datetime(st.session_state.window_start)
 we = pd.to_datetime(st.session_state.window_end)
@@ -852,6 +841,17 @@ with c4:
         st.warning("🔔 EXIT SHORT")
     else:
         st.info("—")
+
+# Navigation buttons
+col1, col2 = st.columns(2)
+
+if col1.button("⬅️ Previous Week"):
+    st.session_state.window_start -= timedelta(days=7)
+    st.session_state.window_end   -= timedelta(days=7)
+
+if col2.button("Next Week ➡️"):
+    st.session_state.window_start += timedelta(days=7)
+    st.session_state.window_end   += timedelta(days=7)
 
 fig = plotchart(df_slice, zones, title=f"{ticker} — SMC FVG View")
 st.pyplot(fig)
