@@ -677,7 +677,9 @@ def plotchart(df, zones, title="SMC FVG View"):
         ))
 
     # 🔹 SMC dashboard box (your original logic)
-    draw_smc_box(ax, df, zones)
+    debug = draw_smc_box(ax, df, zones)
+    st.subheader("🔍 Debug Signals")
+    st.json(debug)
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
