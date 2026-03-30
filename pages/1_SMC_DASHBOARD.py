@@ -86,6 +86,275 @@ def load_data(ticker, start_date, interval):
     return df
 
 # ---------------------------------------------------------
+# CANDLESTICK ENGINE
+# ---------------------------------------------------------
+def pine_candle_engine(df):
+    o = df['open'].values
+    h = df['high'].values
+    l = df['low'].values
+    c = df['close'].values
+    ema20 = df['ema20'].values
+    ema50 = df['ema50'].values
+    ema200 = df['ema200'].values
+    rsi = df['rsi'].values
+    rsi_ema = df['rsi_ema'].values
+    lb = df['lb_crv'].values
+
+    n = len(df)
+    if n < 3:
+        return {
+            "last_pattern": None,
+            "pattern_bull": None,
+            "pattern_idx": None,
+            "rejected": False,
+            "expired": True,
+            "bull_signal": False,
+            "bear_signal": False,
+            "bullSweep": False,
+            "bearSweep": False,
+            "ema_bullish": False,
+            "ema_bearish": False,
+            "mom_bullish": False,
+            "mom_bearish": False,
+            "strong_bullish": False,
+            "strong_bearish": False
+        }
+
+    ema_up = (ema20 > ema50) & (ema50 > ema200)
+    ema_down = (ema20 < ema50) & (ema50 < ema200)
+    lb_up = c > lb
+    lb_down = c < lb
+
+    trend_up = (c > ema20) & (ema_up | lb_up)
+    trend_down = (c < ema20) & (ema_down | lb_down)
+
+    last_pattern = None
+    pattern_bull = None
+    pattern_idx = None
+
+    for i in range(2, n):
+        body0 = abs(c[i] - o[i])
+        body1 = abs(c[i-1] - o[i-1])
+        body2 = abs(c[i-2] - o[i-2])
+        crange0 = h[i] - l[i]
+        wickHigh = h[i] - max(o[i], c[i])
+        wickLow = min(o[i], c[i]) - l[i]
+
+        isMorning = (
+            trend_down[i]
+            and c[i-2] < o[i-2]
+            and body1 < body2 * 0.4
+            and c[i] > (o[i-2] + c[i-2]) / 2
+        )
+        isEvening = (
+            trend_up[i]
+            and c[i-2] > o[i-2]
+            and body1 < body2 * 0.4
+            and c[i] < (o[i-2] + c[i-2]) / 2
+        )
+
+        if isMorning:
+            last_pattern = "Morning Star"
+            pattern_bull = True
+            pattern_idx = i - 1
+            continue
+
+        if isEvening:
+            last_pattern = "Evening Star"
+            pattern_bull = False
+            pattern_idx = i - 1
+            continue
+
+        bullEngulf = (
+            trend_down[i]
+            and c[i-1] < o[i-1]
+            and c[i] > o[i]
+            and o[i] <= c[i-1]
+            and c[i] >= o[i-1]
+        )
+        bearEngulf = (
+            trend_up[i]
+            and c[i-1] > o[i-1]
+            and c[i] < o[i]
+            and o[i] >= c[i-1]
+            and c[i] <= o[i-1]
+        )
+
+        bullPierce = (
+            trend_down[i]
+            and c[i-1] < o[i-1]
+            and c[i] > (o[i-1] + c[i-1]) / 2
+        )
+        bearDark = (
+            trend_up[i]
+            and c[i-1] > o[i-1]
+            and c[i] < (o[i-1] + c[i-1]) / 2
+        )
+
+        tweezerBot = (
+            trend_down[i]
+            and abs(l[i] - l[i-1]) < (crange0 * 0.1)
+        )
+        tweezerTop = (
+            trend_up[i]
+            and abs(h[i] - h[i-1]) < (crange0 * 0.1)
+        )
+
+        if bullEngulf:
+            last_pattern = "Bull Engulfing"
+            pattern_bull = True
+            pattern_idx = i
+            continue
+
+        if bearEngulf:
+            last_pattern = "Bear Engulfing"
+            pattern_bull = False
+            pattern_idx = i
+            continue
+
+        if bullPierce:
+            last_pattern = "Piercing"
+            pattern_bull = True
+            pattern_idx = i
+            continue
+
+        if bearDark:
+            last_pattern = "Dark Cloud"
+            pattern_bull = False
+            pattern_idx = i
+            continue
+
+        if tweezerBot:
+            last_pattern = "Tweezer Bottom"
+            pattern_bull = True
+            pattern_idx = i - 1
+            continue
+
+        if tweezerTop:
+            last_pattern = "Tweezer Top"
+            pattern_bull = False
+            pattern_idx = i - 1
+            continue
+
+        isHammer = (
+            trend_down[i]
+            and wickLow > body0 * 2
+            and wickHigh < body0 * 0.5
+        )
+        isStar = (
+            trend_up[i]
+            and wickHigh > body0 * 2
+            and wickLow < body0 * 0.5
+        )
+
+        if isHammer:
+            last_pattern = "Hammer"
+            pattern_bull = True
+            pattern_idx = i
+            continue
+
+        if isStar:
+            last_pattern = "Shooting Star"
+            pattern_bull = False
+            pattern_idx = i
+            continue
+
+    if last_pattern is None or pattern_idx is None:
+        pattern_bull = None
+
+    expired = True
+    rejected = False
+    bull_signal = False
+    bear_signal = False
+
+    if last_pattern is not None and pattern_idx is not None:
+        barsAgo = n - 1 - pattern_idx
+        expired = barsAgo > 20
+
+        patLow = l[pattern_idx]
+        patHigh = h[pattern_idx]
+        close_last = c[-1]
+
+        if pattern_bull:
+            rejected = close_last < patLow
+        else:
+            rejected = close_last > patHigh
+
+        if not expired and not rejected:
+            rsi_last = rsi[-1]
+            rsi_ema_last = rsi_ema[-1]
+            lb_last = lb[-1]
+            if pattern_bull:
+                bull_signal = (close_last > lb_last * 0.98) and (rsi_last >= rsi_ema_last)
+            else:
+                bear_signal = (close_last <= lb_last) and (rsi_last <= rsi_ema_last)
+
+    ema_bullish = ema20[-1] > ema50[-1]
+    ema_bearish = ema20[-1] < ema50[-1]
+
+    rsi_last = rsi[-1]
+    rsi_ema_last = rsi_ema[-1]
+    lb_last = lb[-1]
+
+    mom_bullish = (rsi_last > 51 and rsi_last > rsi_ema_last) or (c[-1] > lb_last * 1.02)
+    mom_bearish = (rsi_last < 44 and rsi_last < rsi_ema_last) or (c[-1] < lb_last * 0.98)
+
+    strong_bullish = ema_bullish and c[-1] > lb_last
+    strong_bearish = ema_bearish and c[-1] < lb_last
+
+    bullSweep = False
+    bearSweep = False
+    if n >= 2:
+        bullSweep = (l[-1] < l[-2]) and (c[-1] > (h[-1] + l[-1]) / 2)
+        bearSweep = (h[-1] > h[-2]) and (c[-1] < (h[-1] + l[-1]) / 2)
+
+    return {
+        "last_pattern": last_pattern,
+        "pattern_bull": pattern_bull,
+        "pattern_idx": pattern_idx,
+        "rejected": rejected,
+        "expired": expired,
+        "bull_signal": bull_signal,
+        "bear_signal": bear_signal,
+        "bullSweep": bullSweep,
+        "bearSweep": bearSweep,
+        "ema_bullish": ema_bullish,
+        "ema_bearish": ema_bearish,
+        "mom_bullish": mom_bullish,
+        "mom_bearish": mom_bearish,
+        "strong_bullish": strong_bullish,
+        "strong_bearish": strong_bearish
+    }
+
+def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish, rejected):
+    if pattern_idx is None or pattern_name is None:
+        return
+    high = df['high'].iloc[pattern_idx]
+    low = df['low'].iloc[pattern_idx]
+    x = pattern_idx
+    offset = (high - low) * 0.15
+    if pattern_bullish:
+        y = low - offset
+        va = "top"
+        color = "green"
+    else:
+        y = high + offset
+        va = "bottom"
+        color = "red"
+    if rejected:
+        color = "gray"
+    ax.text(
+        x, y,
+        pattern_name,
+        color=color,
+        fontsize=6,
+        ha="center",
+        va=va,
+        fontweight="bold",
+        zorder=20
+    )
+
+# ---------------------------------------------------------
 # FVG DETECTION
 # ---------------------------------------------------------
 
@@ -375,7 +644,8 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
             boxstyle="round,pad=0.3"
         )
     )
-
+    info = pine_candle_engine(df)
+    plot_pattern_label(ax, df, info["pattern_idx"], info["last_pattern"], info["pattern_bull"], info["rejected"])
     plt.tight_layout()
     return fig
 
