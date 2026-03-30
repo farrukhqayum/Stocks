@@ -379,17 +379,19 @@ def bullish_entry(df, zones):
 
     ema_bull = (last.close > last.ema20) and (last.ema20 > last.ema50)
     mom_bull = (last.rsi > last.rsi_ema)
-    
-    # FVG location
-    bull_zones = [z for z in zones if z.is_bull]
-    inside_bull = any(z.bottom < last.close < z.top for z in bull_zones)
-    first_touch = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bull_zones)
 
-    # Entry rule
-    if ema_bull and mom_bull and (inside_bull or first_touch):
+    bull_zones = [z for z in zones if z.is_bull]
+
+    inside_bull = any(z.bottom <= last.close <= z.top for z in bull_zones)
+    first_touch = any(z.touched for z in bull_zones)
+
+    # NEW: allow entry if price is ABOVE the FVG after mitigation
+    near_zone = any(abs(last.close - z.bottom) < (last.close * 0.01) for z in bull_zones)
+
+    if ema_bull and mom_bull and (inside_bull or first_touch or near_zone):
         return True
     return False
-    
+
 def bearish_entry(df, zones):
     last = df.iloc[-1]
 
