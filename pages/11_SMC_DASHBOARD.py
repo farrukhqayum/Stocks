@@ -90,11 +90,9 @@ def load_weekly(ticker, start_date, end_date):
     return df
 
 # ---------------------------------------------------------
-# Candlestick Pattern Detection (your full logic)
+# Candlestick Pattern Detection
 # ---------------------------------------------------------
 def detect_candlestick_patterns(df):
-    # (Your full pattern detection code pasted here exactly)
-    # --- shortened for space, but include your full function ---
     last_pattern = None
     pattern_bullish = None
     pattern_idx = None
@@ -106,6 +104,13 @@ def detect_candlestick_patterns(df):
     c = df['close'].values
     n = len(df)
 
+    ema20 = df['ema20'].values
+    ema50 = df['ema50'].values
+    ema200 = df['ema200'].values
+    
+    trend_up   = df['close'].values > ema20
+    trend_down = df['close'].values < ema20
+    
     for i in range(1, n):
         # Current and previous candles
         o0, c0, h0, l0 = o[i], c[i], h[i], l[i]
@@ -114,9 +119,9 @@ def detect_candlestick_patterns(df):
         body0 = abs(c0 - o0)
         body1 = abs(c1 - o1)
         range0 = h0 - l0
-        downtrend = c0 < ema20[i]
-        uptrend = c0 > ema20[i]
-
+        downtrend = c0 < df['ema20'].iloc[i]
+        uptrend   = c0 > df['ema20'].iloc[i]
+        
         # -------------------------
         # 1. ENGULFING (correct logic)
         # -------------------------
