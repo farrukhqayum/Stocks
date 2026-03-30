@@ -877,6 +877,7 @@ def get_last_broken_fvg(df):
                     last_broken_bull = {"low": bottom, "high": top, "break_idx": j}
 
     return last_broken_bear, last_broken_bull
+    
 # ---------------------------------------------------------
 # FVG MASK REGIME ENGINE
 # ---------------------------------------------------------
@@ -990,19 +991,40 @@ if last_broken_bull is not None:
 # -----------------------------
 # APPLY ENTRIES / EXITS
 # -----------------------------
+# -----------------------------
+# APPLY ENTRIES / EXITS
+# -----------------------------
+
+# --- LONG ENTRY ---
 if long_entry:
     st.session_state.in_long = True
     st.session_state.in_short = False
 
+# --- SHORT ENTRY ---
 if short_entry:
     st.session_state.in_short = True
     st.session_state.in_long = False
 
+# --- LONG EXIT ---
 if exit_long:
     st.session_state.in_long = False
 
+    # *** REGIME FLIP: LONG → SHORT ***
+    # If price breaks below bearish FVG AND candle is bearish → SHORT
+    if last_broken_bear is not None:
+        if close_last < last_broken_bear["low"] and bearish_candle:
+            st.session_state.in_short = True
+
+# --- SHORT EXIT ---
 if exit_short:
     st.session_state.in_short = False
+
+    # *** REGIME FLIP: SHORT → LONG ***
+    # If price breaks above bullish FVG AND candle is bullish → LONG
+    if last_broken_bull is not None:
+        if close_last > last_broken_bull["high"] and bullish_candle:
+            st.session_state.in_long = True
+
 
 # -----------------------------
 # UI SIGNALS
