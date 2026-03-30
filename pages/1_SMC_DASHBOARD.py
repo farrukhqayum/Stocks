@@ -1037,6 +1037,12 @@ with c4:
     else:
         st.info("—")
 
+fig = plotchart(
+    df_slice,
+    zones,
+    title=f"{ticker} — {tf} SMC FVG View",
+    exit_long=exit_long,
+    exit_short=exit_short
+)
 
-fig = plotchart(df_slice, zones, title=f"{ticker} — {tf} SMC FVG View", exit_long=exit_long, exit_short=exit_short)
 st.pyplot(fig)
