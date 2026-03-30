@@ -124,27 +124,26 @@ def detect_candlestick_patterns(df):
         # -------------------------
         # 1. ENGULFING (correct logic)
         # -------------------------
-
-        # Bullish Engulfing
+ 
         if (
-            is_downtrend and
-            c1 < o1 and              # previous bearish
-            c0 > o0 and              # current bullish
-            o0 <= c1 and             # current opens inside/below prev body
-            c0 >= o1                 # current closes above prev open
+            trend_down[i] and
+            c1 < o1 and
+            c0 > o0 and
+            o0 <= c1 and
+            c0 >= o1
         ):
             last_pattern = "Bull Engulf"
             pattern_bullish = True
             pattern_idx = i
             continue
-
-        # Bearish Engulfing
+        
+        # Bearish Engulfing (strict + trend filtered)
         if (
-            is_uptrend and
-            c1 > o1 and              # previous bullish
-            c0 < o0 and              # current bearish
-            o0 >= c1 and             # current opens inside/above prev body
-            c0 <= o1                 # current closes below prev open
+            trend_up[i] and
+            c1 > o1 and
+            c0 < o0 and
+            o0 >= c1 and
+            c0 <= o1
         ):
             last_pattern = "Bear Engulf"
             pattern_bullish = False
