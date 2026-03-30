@@ -523,8 +523,7 @@ def draw_smc_box(ax, df, zones):
         f"| 1stTouch Bull: {'✓' if first_touch_bull else '✗'} "
         f"| 1stTouch Bear: {'✓' if first_touch_bear else '✗'}"
     )
-    
-    # Color logic: green if inside bullish zone, red if inside bearish zone, gray otherwise
+
     if inside_bull:
         zone_color = "green"
     elif inside_bear:
@@ -564,7 +563,7 @@ def draw_smc_box(ax, df, zones):
             fontsize=8,
             color=color,
             ha="left", va="top",
-            wrap=True
+            wrap=False
         )
         y -= line_height
 
