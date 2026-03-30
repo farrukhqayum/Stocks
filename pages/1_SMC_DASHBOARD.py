@@ -791,14 +791,25 @@ zones = detect_fvg_zones(df_slice)
 
 info_slice = pine_candle_engine(df_slice)
 
+last_pattern = info_slice["last_pattern"]
 pattern_idx = info_slice["pattern_idx"]
 pattern_bull = info_slice["pattern_bull"]
+rejected = info_slice["rejected"]
+expired = info_slice["expired"]
 
-close_last = df_slice["close"].iloc[-1]
-lb_last = df_slice["lb_crv"].iloc[-1]
-
+bull_signal = info_slice["bull_signal"]
+bear_signal = info_slice["bear_signal"]
+mom_bearish = info_slice["mom_bearish"]
+mom_bullish = info_slice["mom_bullish"]
+strong_bullish = info_slice["strong_bullish"]
+strong_bearish = info_slice["strong_bearish"]
 ema_bullish = info_slice["ema_bullish"]
 ema_bearish = info_slice["ema_bearish"]
+
+close_last = df_slice["close"].iloc[-1]
+high_last = df_slice["high"].iloc[-1]
+low_last = df_slice["low"].iloc[-1]
+lb_last = df_slice["lb_crv"].iloc[-1]
 
 # Pattern low/high for SL
 patLow = None
@@ -807,17 +818,8 @@ if pattern_idx is not None:
     patLow = df_slice["low"].iloc[pattern_idx]
     patHigh = df_slice["high"].iloc[pattern_idx]
 
-bull_signal = info_slice["bull_signal"]
-bear_signal = info_slice["bear_signal"]
-mom_bearish = info_slice["mom_bearish"]
-mom_bullish = info_slice["mom_bullish"]
-strong_bullish = info_slice["strong_bullish"]
-strong_bearish = info_slice["strong_bearish"]
-rejected = info_slice["rejected"]
-expired = info_slice["expired"]
-
 # -----------------------------------------
-# TRADE STATE
+# TRADE STATE (one position at a time)
 # -----------------------------------------
 
 if "in_long" not in st.session_state:
@@ -825,78 +827,167 @@ if "in_long" not in st.session_state:
 if "in_short" not in st.session_state:
     st.session_state.in_short = False
 
-long_signal = bull_signal and not st.session_state.in_long
-short_signal = bear_signal and not st.session_state.in_short
-# -----------------------------
-# STOP LOSS (pattern invalidation)
-# -----------------------------
-sl_long = (
-    st.session_state.in_long
-    and pattern_bull is True
-    and patLow is not None
-    and close_last < patLow
-)
+if "entry_price_long" not in st.session_state:
+    st.session_state.entry_price_long = None
+if "entry_price_short" not in st.session_state:
+    st.session_state.entry_price_short = None
 
-sl_short = (
-    st.session_state.in_short
-    and pattern_bull is False
-    and patHigh is not None
-    and close_last > patHigh
-)
+if "sl_long" not in st.session_state:
+    st.session_state.sl_long = None
+if "sl_short" not in st.session_state:
+    st.session_state.sl_short = None
 
-# -----------------------------
-# TAKE PROFIT BUFFERS
-# -----------------------------
-if "tp_buffer_long" not in st.session_state:
-    st.session_state.tp_buffer_long = 0
-if "tp_buffer_short" not in st.session_state:
-    st.session_state.tp_buffer_short = 0
+if "tp1_long" not in st.session_state:
+    st.session_state.tp1_long = None
+if "tp2_long" not in st.session_state:
+    st.session_state.tp2_long = None
 
-# LONG TP buffer
+if "tp1_short" not in st.session_state:
+    st.session_state.tp1_short = None
+if "tp2_short" not in st.session_state:
+    st.session_state.tp2_short = None
+
+if "pattern_side" not in st.session_state:
+    st.session_state.pattern_side = None  # "long" or "short"
+if "pattern_idx" not in st.session_state:
+    st.session_state.pattern_idx = None
+
+# -----------------------------------------
+# ENTRY LOGIC (only when flat)
+# -----------------------------------------
+
+new_long_entry = False
+new_short_entry = False
+
+flat = not st.session_state.in_long and not st.session_state.in_short
+pattern_valid = (last_pattern is not None) and (not rejected) and (not expired)
+
+if flat and pattern_valid:
+    if bull_signal and pattern_bull is True and patLow is not None:
+        # LONG ENTRY
+        st.session_state.in_long = True
+        st.session_state.in_short = False
+        st.session_state.pattern_side = "long"
+        st.session_state.pattern_idx = pattern_idx
+
+        entry = close_last
+        sl = patLow
+        risk = max(entry - sl, 0.0001)
+
+        st.session_state.entry_price_long = entry
+        st.session_state.sl_long = sl
+        st.session_state.tp1_long = entry + risk
+        st.session_state.tp2_long = entry + 2 * risk
+
+        new_long_entry = True
+
+    elif flat and bear_signal and pattern_bull is False and patHigh is not None:
+        # SHORT ENTRY
+        st.session_state.in_short = True
+        st.session_state.in_long = False
+        st.session_state.pattern_side = "short"
+        st.session_state.pattern_idx = pattern_idx
+
+        entry = close_last
+        sl = patHigh
+        risk = max(sl - entry, 0.0001)
+
+        st.session_state.entry_price_short = entry
+        st.session_state.sl_short = sl
+        st.session_state.tp1_short = entry - risk
+        st.session_state.tp2_short = entry - 2 * risk
+
+        new_short_entry = True
+
+# -----------------------------------------
+# EXIT LOGIC (priority: SL > TP2 > TP1 > Expiration)
+# -----------------------------------------
+
+exit_long = False
+exit_short = False
+exit_reason_long = None
+exit_reason_short = None
+
+# LONG EXIT
 if st.session_state.in_long:
-    if ema_bearish or mom_bearish or close_last < lb_last:
-        st.session_state.tp_buffer_long += 1
-    else:
-        st.session_state.tp_buffer_long = 0
+    sl_long = st.session_state.sl_long
+    tp1_long = st.session_state.tp1_long
+    tp2_long = st.session_state.tp2_long
 
-# SHORT TP buffer
+    # 1) Stop-loss
+    if sl_long is not None and close_last < sl_long:
+        exit_long = True
+        exit_reason_long = "SL"
+
+    # 2) TP2
+    elif tp2_long is not None and close_last >= tp2_long:
+        exit_long = True
+        exit_reason_long = "TP2"
+
+    # 3) TP1
+    elif tp1_long is not None and close_last >= tp1_long:
+        exit_long = True
+        exit_reason_long = "TP1"
+
+    # 4) Expiration of pattern that created this trade
+    elif (
+        st.session_state.pattern_side == "long"
+        and st.session_state.pattern_idx is not None
+        and pattern_idx == st.session_state.pattern_idx
+        and expired
+    ):
+        exit_long = True
+        exit_reason_long = "Expired"
+
+# SHORT EXIT
 if st.session_state.in_short:
-    if ema_bullish or mom_bullish or close_last > lb_last:
-        st.session_state.tp_buffer_short += 1
-    else:
-        st.session_state.tp_buffer_short = 0
+    sl_short = st.session_state.sl_short
+    tp1_short = st.session_state.tp1_short
+    tp2_short = st.session_state.tp2_short
 
-tp_long = st.session_state.tp_buffer_long >= 2
-tp_short = st.session_state.tp_buffer_short >= 2
+    # 1) Stop-loss
+    if sl_short is not None and close_last > sl_short:
+        exit_short = True
+        exit_reason_short = "SL"
 
-# -----------------------------
-# EXPIRATION EXIT (corrected)
-# -----------------------------
-expired_exit = (
-    (pattern_idx is not None) and
-    expired and
-    (st.session_state.in_long or st.session_state.in_short)
-)
+    # 2) TP2
+    elif tp2_short is not None and close_last <= tp2_short:
+        exit_short = True
+        exit_reason_short = "TP2"
 
-# -----------------------------
-# FINAL EXIT FLAGS
-# -----------------------------
-exit_long = sl_long or tp_long or expired_exit
-exit_short = sl_short or tp_short or expired_exit
+    # 3) TP1
+    elif tp1_short is not None and close_last <= tp1_short:
+        exit_short = True
+        exit_reason_short = "TP1"
 
-if long_signal:
-    st.session_state.in_long = True
-    st.session_state.in_short = False
+    # 4) Expiration
+    elif (
+        st.session_state.pattern_side == "short"
+        and st.session_state.pattern_idx is not None
+        and pattern_idx == st.session_state.pattern_idx
+        and expired
+    ):
+        exit_short = True
+        exit_reason_short = "Expired"
 
-if short_signal:
-    st.session_state.in_short = True
-    st.session_state.in_long = False
-
+# Apply exits to state
 if exit_long:
     st.session_state.in_long = False
+    st.session_state.entry_price_long = None
+    st.session_state.sl_long = None
+    st.session_state.tp1_long = None
+    st.session_state.tp2_long = None
+    st.session_state.pattern_side = None
+    st.session_state.pattern_idx = None
 
 if exit_short:
     st.session_state.in_short = False
+    st.session_state.entry_price_short = None
+    st.session_state.sl_short = None
+    st.session_state.tp1_short = None
+    st.session_state.tp2_short = None
+    st.session_state.pattern_side = None
+    st.session_state.pattern_idx = None
 
 # -----------------------------------------
 # DISPLAY SIGNAL COLUMNS
@@ -905,26 +996,26 @@ if exit_short:
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    if long_signal:
-        st.success("📈 LONG")
+    if new_long_entry:
+        st.success("📈 LONG ENTRY")
     else:
         st.info("—")
 
 with c2:
-    if short_signal:
-        st.error("📉 SHORT")
+    if new_short_entry:
+        st.error("📉 SHORT ENTRY")
     else:
         st.info("—")
 
 with c3:
     if exit_long:
-        st.warning("🔔 EXIT LONG")
+        st.warning(f"🔔 EXIT LONG ({exit_reason_long})")
     else:
         st.info("—")
 
 with c4:
     if exit_short:
-        st.warning("🔔 EXIT SHORT")
+        st.warning(f"🔔 EXIT SHORT ({exit_reason_short})")
     else:
         st.info("—")
 
