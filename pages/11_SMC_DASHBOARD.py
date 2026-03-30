@@ -478,18 +478,7 @@ def draw_smc_box(ax, df, zones):
     line_height = 0.027
     padding = 0.02
     box_height = len(lines) * line_height + padding
-    
-    # --- Draw Background Box ---
-    ax.add_patch(Rectangle(
-        (0.01, 0.99 - box_height),
-        0.33,
-        box_height,
-        transform=ax.transAxes,
-        facecolor=(0.95, 0.95, 0.95, 0.85),
-        edgecolor="black",
-        linewidth=0.5
-    ))
-    
+        
     # --- Draw Text Lines ---
     y = 0.99 - 0.03
     for text, color in lines:
