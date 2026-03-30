@@ -817,10 +817,26 @@ patHigh = None
 if pattern_idx is not None:
     patLow = df_slice["low"].iloc[pattern_idx]
     patHigh = df_slice["high"].iloc[pattern_idx]
+def get_last_fvg(zones, is_bull):
+    for z in reversed(zones):
+        if z.is_bull == is_bull and not z.is_mitigated:
+            return z
+    return None
 
-# -----------------------------------------
-# TRADE STATE (one position at a time)
-# -----------------------------------------
+zones = detect_fvg_zones(df_slice)
+
+close_last = df_slice["close"].iloc[-1]
+
+last_bull_fvg = get_last_fvg(zones, True)
+last_bear_fvg = get_last_fvg(zones, False)
+
+# -----------------------------
+# REGIME STATE
+# -----------------------------
+if "regime_side" not in st.session_state:
+    st.session_state.regime_side = None  # "long", "short", or None
+if "ref_fvg" not in st.session_state:
+    st.session_state.ref_fvg = None
 
 if "in_long" not in st.session_state:
     st.session_state.in_long = False
@@ -841,144 +857,118 @@ if "tp1_long" not in st.session_state:
     st.session_state.tp1_long = None
 if "tp2_long" not in st.session_state:
     st.session_state.tp2_long = None
-
 if "tp1_short" not in st.session_state:
     st.session_state.tp1_short = None
 if "tp2_short" not in st.session_state:
     st.session_state.tp2_short = None
 
-if "pattern_side" not in st.session_state:
-    st.session_state.pattern_side = None  # "long" or "short"
-if "pattern_idx" not in st.session_state:
-    st.session_state.pattern_idx = None
-
-# -----------------------------------------
-# ENTRY LOGIC (only when flat)
-# -----------------------------------------
-
 new_long_entry = False
 new_short_entry = False
-
-flat = not st.session_state.in_long and not st.session_state.in_short
-pattern_valid = (last_pattern is not None) and (not rejected) and (not expired)
-
-if flat and pattern_valid:
-    if bull_signal and pattern_bull is True and patLow is not None:
-        # LONG ENTRY
-        st.session_state.in_long = True
-        st.session_state.in_short = False
-        st.session_state.pattern_side = "long"
-        st.session_state.pattern_idx = pattern_idx
-
-        entry = close_last
-        sl = patLow
-        risk = max(entry - sl, 0.0001)
-
-        st.session_state.entry_price_long = entry
-        st.session_state.sl_long = sl
-        st.session_state.tp1_long = entry + risk
-        st.session_state.tp2_long = entry + 2 * risk
-
-        new_long_entry = True
-
-    elif flat and bear_signal and pattern_bull is False and patHigh is not None:
-        # SHORT ENTRY
-        st.session_state.in_short = True
-        st.session_state.in_long = False
-        st.session_state.pattern_side = "short"
-        st.session_state.pattern_idx = pattern_idx
-
-        entry = close_last
-        sl = patHigh
-        risk = max(sl - entry, 0.0001)
-
-        st.session_state.entry_price_short = entry
-        st.session_state.sl_short = sl
-        st.session_state.tp1_short = entry - risk
-        st.session_state.tp2_short = entry - 2 * risk
-
-        new_short_entry = True
-
-# -----------------------------------------
-# EXIT LOGIC (priority: SL > TP2 > TP1 > Expiration)
-# -----------------------------------------
-
 exit_long = False
 exit_short = False
 exit_reason_long = None
 exit_reason_short = None
 
-# LONG EXIT
-if st.session_state.in_long:
-    sl_long = st.session_state.sl_long
-    tp1_long = st.session_state.tp1_long
-    tp2_long = st.session_state.tp2_long
+# -----------------------------
+# REGIME FLIP LOGIC
+# -----------------------------
+# Bear regime: break below last bull FVG
+if last_bull_fvg is not None and close_last < last_bull_fvg.bottom:
+    if st.session_state.regime_side != "short":
+        st.session_state.regime_side = "short"
+        st.session_state.ref_fvg = last_bull_fvg
 
-    # 1) Stop-loss
-    if sl_long is not None and close_last < sl_long:
-        exit_long = True
-        exit_reason_long = "SL"
+# Bull regime: break above last bear FVG
+if last_bear_fvg is not None and close_last > last_bear_fvg.top:
+    if st.session_state.regime_side != "long":
+        st.session_state.regime_side = "long"
+        st.session_state.ref_fvg = last_bear_fvg
 
-    # 2) TP2
-    elif tp2_long is not None and close_last >= tp2_long:
-        exit_long = True
-        exit_reason_long = "TP2"
+# -----------------------------
+# ENTRIES (one core position)
+# -----------------------------
+if st.session_state.regime_side == "short" and not st.session_state.in_short:
+    ref = st.session_state.ref_fvg
+    if ref is not None:
+        entry = close_last
+        sl = ref.top
+        risk = max(sl - entry, 0.0001)
+        tp1 = entry - risk
+        tp2 = entry - 2 * risk
 
-    # 3) TP1
-    elif tp1_long is not None and close_last >= tp1_long:
-        exit_long = True
-        exit_reason_long = "TP1"
+        st.session_state.in_short = True
+        st.session_state.in_long = False
+        st.session_state.entry_price_short = entry
+        st.session_state.sl_short = sl
+        st.session_state.tp1_short = tp1
+        st.session_state.tp2_short = tp2
+        new_short_entry = True
 
-    # 4) Expiration of pattern that created this trade
-    elif (
-        st.session_state.pattern_side == "long"
-        and st.session_state.pattern_idx is not None
-        and pattern_idx == st.session_state.pattern_idx
-        and expired
-    ):
-        exit_long = True
-        exit_reason_long = "Expired"
+if st.session_state.regime_side == "long" and not st.session_state.in_long:
+    ref = st.session_state.ref_fvg
+    if ref is not None:
+        entry = close_last
+        sl = ref.bottom
+        risk = max(entry - sl, 0.0001)
+        tp1 = entry + risk
+        tp2 = entry + 2 * risk
 
-# SHORT EXIT
+        st.session_state.in_long = True
+        st.session_state.in_short = False
+        st.session_state.entry_price_long = entry
+        st.session_state.sl_long = sl
+        st.session_state.tp1_long = tp1
+        st.session_state.tp2_long = tp2
+        new_long_entry = True
+
+# -----------------------------
+# EXITS (priority)
+# -----------------------------
 if st.session_state.in_short:
-    sl_short = st.session_state.sl_short
-    tp1_short = st.session_state.tp1_short
-    tp2_short = st.session_state.tp2_short
+    sl = st.session_state.sl_short
+    tp1 = st.session_state.tp1_short
+    tp2 = st.session_state.tp2_short
+    ref = st.session_state.ref_fvg
 
-    # 1) Stop-loss
-    if sl_short is not None and close_last > sl_short:
+    # 1) SL
+    if sl is not None and close_last > sl:
         exit_short = True
         exit_reason_short = "SL"
-
     # 2) TP2
-    elif tp2_short is not None and close_last <= tp2_short:
+    elif tp2 is not None and close_last <= tp2:
         exit_short = True
         exit_reason_short = "TP2"
-
     # 3) TP1
-    elif tp1_short is not None and close_last <= tp1_short:
+    elif tp1 is not None and close_last <= tp1:
         exit_short = True
         exit_reason_short = "TP1"
-
-    # 4) Expiration
-    elif (
-        st.session_state.pattern_side == "short"
-        and st.session_state.pattern_idx is not None
-        and pattern_idx == st.session_state.pattern_idx
-        and expired
-    ):
+    # 4) Back into broken FVG (invalidation)
+    elif ref is not None and close_last >= ref.bottom:
         exit_short = True
-        exit_reason_short = "Expired"
+        exit_reason_short = "Back into FVG"
 
-# Apply exits to state
-if exit_long:
-    st.session_state.in_long = False
-    st.session_state.entry_price_long = None
-    st.session_state.sl_long = None
-    st.session_state.tp1_long = None
-    st.session_state.tp2_long = None
-    st.session_state.pattern_side = None
-    st.session_state.pattern_idx = None
+if st.session_state.in_long:
+    sl = st.session_state.sl_long
+    tp1 = st.session_state.tp1_long
+    tp2 = st.session_state.tp2_long
+    ref = st.session_state.ref_fvg
+
+    # 1) SL
+    if sl is not None and close_last < sl:
+        exit_long = True
+        exit_reason_long = "SL"
+    # 2) TP2
+    elif tp2 is not None and close_last >= tp2:
+        exit_long = True
+        exit_reason_long = "TP2"
+    # 3) TP1
+    elif tp1 is not None and close_last >= tp1:
+        exit_long = True
+        exit_reason_long = "TP1"
+    # 4) Back into broken FVG
+    elif ref is not None and close_last <= ref.top:
+        exit_long = True
+        exit_reason_long = "Back into FVG"
 
 if exit_short:
     st.session_state.in_short = False
@@ -986,24 +976,28 @@ if exit_short:
     st.session_state.sl_short = None
     st.session_state.tp1_short = None
     st.session_state.tp2_short = None
-    st.session_state.pattern_side = None
-    st.session_state.pattern_idx = None
 
-# -----------------------------------------
-# DISPLAY SIGNAL COLUMNS
-# -----------------------------------------
+if exit_long:
+    st.session_state.in_long = False
+    st.session_state.entry_price_long = None
+    st.session_state.sl_long = None
+    st.session_state.tp1_long = None
+    st.session_state.tp2_long = None
 
+# -----------------------------
+# UI BUTTONS
+# -----------------------------
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
     if new_long_entry:
-        st.success("📈 LONG ENTRY")
+        st.success("📈 LONG (FVG break)")
     else:
         st.info("—")
 
 with c2:
     if new_short_entry:
-        st.error("📉 SHORT ENTRY")
+        st.error("📉 SHORT (FVG break)")
     else:
         st.info("—")
 
