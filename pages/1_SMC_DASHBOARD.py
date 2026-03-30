@@ -598,9 +598,9 @@ def plotchart(df, zones, title="SMC FVG View"):
     )
     
     ax.text(0.02, 0.02, legend_text, transform=ax.transAxes,
-        fontsize=8, color="white", ha="left", va="bottom",
+        fontsize=8, color="blue", ha="left", va="bottom",
         bbox=dict(
-            facecolor="black",
+            facecolor="white",
             alpha=0.4,
             edgecolor="none",
             boxstyle="round,pad=0.3"))
