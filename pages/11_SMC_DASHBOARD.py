@@ -413,7 +413,10 @@ def bullish_exit(df, zones):
         return False
 
     # Momentum flip
-    if (momentum_flip AND trend_flip):
+    momentum_flip = last.rsi < last.rsi_ema
+    trend_flip = last.close < last.ema20
+    
+    if momentum_flip and trend_flip:
         return True
 
     # Trend flip
