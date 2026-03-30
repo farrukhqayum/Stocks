@@ -638,7 +638,6 @@ def plotchart(df, zones, title="SMC FVG View"):
     ax2.yaxis.tick_right()
     ax2.yaxis.set_label_position("right")
 
-
     if isinstance(df.index, pd.DatetimeIndex):
         ax2.set_xticks(x[::max(1, len(x)//10)])
         ax2.set_xticklabels(
@@ -646,6 +645,7 @@ def plotchart(df, zones, title="SMC FVG View"):
             rotation=45,
             fontsize=8
         )
+
 
     # -----------------------------
     # SIGNAL ANNOTATIONS ON CHART
@@ -661,22 +661,23 @@ def plotchart(df, zones, title="SMC FVG View"):
     last_low = df["low"].iloc[-1]
 
     if bull_signal:
-        ax.scatter(last_idx, last_low * 0.995, color="green", marker="^", s=120, zorder=20)
+        ax.scatter(last_idx, last_low * 0.995, color="green", marker="^", s=50, zorder=20)
     
     if bear_signal:
-        ax.scatter(last_idx, last_high * 1.005, color="red", marker="v", s=120, zorder=20)
+        ax.scatter(last_idx, last_high * 1.005, color="red", marker="v", s=50, zorder=20)
     
     if exit_long:
-        ax.scatter(last_idx, last_close, color="gold", marker="s", s=140, zorder=20)
+        ax.scatter(last_idx, last_close, color="gold", marker="s", s=50, zorder=20)
     
     if exit_short:
-        ax.scatter(last_idx, last_close, color="purple", marker="s", s=140, zorder=20)
+        ax.text( last_idx, last_close, "❌", color="red", fontsize=16,  ha="center", va="center",
+        fontweight="bold", zorder=20 )
 
     legend_text = (
         "▲ BUY THE DIP\n"
         "▼ SELL THE RISE\n"
         "■ EXIT LONG\n"
-        "■ EXIT SHORT"
+        "❌ EXIT SHORT"
     )
     
     ax.text(0.02, 0.02, legend_text, transform=ax.transAxes,
