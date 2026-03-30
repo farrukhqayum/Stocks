@@ -344,7 +344,7 @@ def bullish_entry(df, zones):
     last = df.iloc[-1]
 
     ema_bull = (last.close > last.ema20) and (last.ema20 > last.ema50)
-    mom_bull = (last.rsi > last.rsi_ema)
+    mom_bull = (last.rsi > last.rsi_ema) and (last.close > last.lb_crv)
 
     bull_zones = [z for z in zones if z.is_bull]
 
@@ -352,23 +352,19 @@ def bullish_entry(df, zones):
     first_touch = any(z.touched for z in bull_zones)
     near_zone = any(abs(last.close - z.bottom) < (last.close * 0.01) for z in bull_zones)
 
-    if ema_bull and mom_bull and (inside_bull or first_touch or near_zone):
-        return True
-    return False
+    return ema_bull and mom_bull and (inside_bull or first_touch or near_zone)
 
 def bearish_entry(df, zones):
     last = df.iloc[-1]
 
     ema_bear = (last.close < last.ema20) and (last.ema20 < last.ema50)
-    mom_bear = (last.rsi < last.rsi_ema)
+    mom_bear = (last.rsi < last.rsi_ema) and (last.close < last.lb_crv)
 
     bear_zones = [z for z in zones if not z.is_bull]
     inside_bear = any(z.bottom < last.close < z.top for z in bear_zones)
     first_touch = any(z.touched and (len(df)-1 - z.start_idx) <= 2 for z in bear_zones)
 
-    if ema_bear and mom_bear and (inside_bear or first_touch):
-        return True
-    return False
+    return ema_bear and mom_bear and (inside_bear or first_touch)
 
 def bullish_exit(df, zones):
     last = df.iloc[-1]
@@ -479,11 +475,18 @@ def draw_smc_box(ax, df, zones):
     close = df["close"].iloc[-1]
     lb = df["lb_crv"].iloc[-1]
 
-    mom_bullish = (rsi > 52 and rsi > rsi_ema) or (close > lb)
-    mom_bearish = (rsi < 52 and rsi < rsi_ema) or (close < lb)
-
-    mom_text = "BULLISH" if mom_bullish else "BEARISH" if mom_bearish else "NEUTRAL"
-    mom_color = "green" if mom_bullish else "red" if mom_bearish else "gray"
+    mmom_bullish = (rsi > 52) and (rsi > rsi_ema) and (close > lb)
+    mom_bearish = (rsi < 48) and (rsi < rsi_ema) and (close < lb)
+    
+    if mom_bullish:
+        mom_text = "BULLISH"
+        mom_color = "green"
+    elif mom_bearish:
+        mom_text = "BEARISH"
+        mom_color = "red"
+    else:
+        mom_text = "NEUTRAL"
+        mom_color = "gray"
 
     last_close = c[-1]
 
