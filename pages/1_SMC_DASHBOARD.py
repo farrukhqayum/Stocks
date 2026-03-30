@@ -667,16 +667,16 @@ tf = st.sidebar.selectbox(
 today = datetime.today()
 
 if tf == "4H":
-    start_date = today - timedelta(days=180)
+    start_date = today - timedelta(days=90)
     interval = "4h"
 elif tf == "1D":
-    start_date = today - timedelta(days=365)
+    start_date = today - timedelta(days=180)
     interval = "1d"
 elif tf == "1W":
-    start_date = today - timedelta(days=365*2)
+    start_date = today - timedelta(days=365)
     interval = "1wk"
 elif tf == "1M":
-    start_date = today - timedelta(days=365*5)
+    start_date = today - timedelta(days=365*2)
     interval = "1mo"
 
 df = load_data(ticker, start_date, interval)
