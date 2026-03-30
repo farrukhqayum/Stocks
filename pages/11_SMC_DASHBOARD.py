@@ -470,12 +470,14 @@ def draw_smc_box(ax, df, zones):
     trend_text = "UP" if ema_bullish else "DOWN" if ema_bearish else "SIDEWAYS"
     trend_color = "green" if ema_bullish else "red" if ema_bearish else "gray"
 
+    # --- Momentum (RSI + LB curve) ---
     rsi = df["rsi"].iloc[-1]
     rsi_ema = df["rsi_ema"].iloc[-1]
     close = df["close"].iloc[-1]
     lb = df["lb_crv"].iloc[-1]
-
-    mmom_bullish = (rsi > 52) and (rsi > rsi_ema) and (close > lb)
+    
+    # strict polarity: price must agree with LB
+    mom_bullish = (rsi > 52) and (rsi > rsi_ema) and (close > lb)
     mom_bearish = (rsi < 48) and (rsi < rsi_ema) and (close < lb)
     
     if mom_bullish:
