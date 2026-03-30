@@ -514,6 +514,7 @@ def draw_smc_box(ax, df, zones):
     
     first_touch_bull = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bull_zones)
     first_touch_bear = any((z.touched and (len(df)-1 - z.start_idx) <= 2) for z in bear_zones)
+    
     if inside_bull:
         zone_color = "green"
     elif inside_bear:
@@ -521,9 +522,9 @@ def draw_smc_box(ax, df, zones):
     else:
         zone_color = "gray"
     
-    lines = []
+    zone_lines = []
     
-    zone_lines = [
+    zone_text = [
         f"BULL FVG: {'✓' if has_bull_fvg else '✗'}",
         f"BEAR FVG: {'✓' if has_bear_fvg else '✗'}",
         f"Inside Bull: {'✓' if inside_bull else '✗'}",
@@ -531,10 +532,12 @@ def draw_smc_box(ax, df, zones):
         f"1stTouch Bull: {'✓' if first_touch_bull else '✗'}",
         f"1stTouch Bear: {'✓' if first_touch_bear else '✗'}",
     ]
-
-    lines.append(("ZONE:", zone_color))
-    for zline in zone_lines:
-        lines.append((f"  {zline}", zone_color))
+    # --- ZONE TEXT BUILD ---
+    zone_lines = [
+        ("ZONE:", zone_color),
+    ]
+    for zline in zone_text:
+        zone_lines.append((f"  {zline}", zone_color))
 
     # --- Structure ---
     strong_bullish = ema_bullish and has_bull_fvg and close > lb
@@ -550,9 +553,9 @@ def draw_smc_box(ax, df, zones):
         (f"PATTERN: {pattern_text}", pattern_color),
         (f"STRUCTURE: {struct_text}", struct_color),
         (f"TREND: {trend_text}", trend_color),
-        (f"MOMENTUM: {mom_text}", mom_color),
-        (f"ZONE: {zone_text}", zone_color)
+        (f"MOMENTUM: {mom_text}", mom_color)
     ]
+    lines.extend(zone_lines)
     
     # --- Dynamic Box Height ---
     line_height = 0.027
