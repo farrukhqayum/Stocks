@@ -777,6 +777,17 @@ if col2.button("Next Week ➡️"):
     st.session_state.window_start += timedelta(days=7)
     st.session_state.window_end += timedelta(days=7)
 
+# Reset signals when window changes
+if "prev_ws" not in st.session_state:
+    st.session_state.prev_ws = ws
+if "prev_we" not in st.session_state:
+    st.session_state.prev_we = we
+
+window_changed = (ws != st.session_state.prev_ws) or (we != st.session_state.prev_we)
+
+st.session_state.prev_ws = ws
+st.session_state.prev_we = we
+
 ws = pd.to_datetime(st.session_state.window_start)
 we = pd.to_datetime(st.session_state.window_end)
 
