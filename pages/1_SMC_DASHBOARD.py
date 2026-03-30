@@ -179,17 +179,20 @@ def pine_candle_engine(df):
             "strong_bearish": False
         }
 
+    # --- Trend filters (match Pine) ---
     ema_up = (ema20 > ema50) & (ema50 > ema200)
     ema_down = (ema20 < ema50) & (ema50 < ema200)
     lb_up = c > lb
     lb_down = c < lb
-    trend_up = ema_up | lb_up
-    trend_down = ema_down | lb_down
+
+    trend_up = (c > ema20) & (ema_up | lb_up)
+    trend_down = (c < ema20) & (ema_down | lb_down)
 
     last_pattern = None
     pattern_bull = None
-    pattern_idx = None
+    pattern_idx = None  # index of the bar where pattern is anchored (like pattern_bar in Pine)
 
+    # --- Scan bars, enforcing priority: 3-candle > 2-candle > 1-candle ---
     for i in range(2, n):
         body0 = abs(c[i] - o[i])
         body1 = abs(c[i-1] - o[i-1])
@@ -198,66 +201,122 @@ def pine_candle_engine(df):
         wickHigh = h[i] - max(o[i], c[i])
         wickLow = min(o[i], c[i]) - l[i]
 
-        bullEngulf = trend_down[i] and c[i-1] < o[i-1] and c[i] > o[i] and o[i] <= c[i-1] and c[i] >= o[i-1]
-        bearEngulf = trend_up[i] and c[i-1] > o[i-1] and c[i] < o[i] and o[i] >= c[i-1] and c[i] <= o[i-1]
-
-        bullPierce = trend_down[i] and c[i-1] < o[i-1] and c[i] > (o[i-1] + c[i-1]) / 2
-        bearDark = trend_up[i] and c[i-1] > o[i-1] and c[i] < (o[i-1] + c[i-1]) / 2
-
-        isHammer = trend_down[i] and wickLow > body0 * 2 and wickHigh < body0 * 0.5
-        isStar = trend_up[i] and wickHigh > body0 * 2 and wickLow < body0 * 0.5
-
-        isMorning = trend_down[i] and c[i-2] < o[i-2] and body1 < body2 * 0.4 and c[i] > (o[i-2] + c[i-2]) / 2
-        isEvening = trend_up[i] and c[i-2] > o[i-2] and body1 < body2 * 0.4 and c[i] < (o[i-2] + c[i-2]) / 2
-
-        tweezerBot = trend_down[i] and abs(l[i] - l[i-1]) < (crange0 * 0.1)
-        tweezerTop = trend_up[i] and abs(h[i] - h[i-1]) < (crange0 * 0.1)
+        # 3-candle patterns (highest priority)
+        isMorning = (
+            trend_down[i]
+            and c[i-2] < o[i-2]
+            and body1 < body2 * 0.4
+            and c[i] > (o[i-2] + c[i-2]) / 2
+        )
+        isEvening = (
+            trend_up[i]
+            and c[i-2] > o[i-2]
+            and body1 < body2 * 0.4
+            and c[i] < (o[i-2] + c[i-2]) / 2
+        )
 
         if isMorning:
             last_pattern = "Morning Star"
             pattern_bull = True
-            pattern_idx = i
+            pattern_idx = i - 1  # center bar, like Pine
             continue
+
         if isEvening:
             last_pattern = "Evening Star"
             pattern_bull = False
-            pattern_idx = i
+            pattern_idx = i - 1
             continue
+
+        # 2-candle patterns
+        bullEngulf = (
+            trend_down[i]
+            and c[i-1] < o[i-1]
+            and c[i] > o[i]
+            and o[i] <= c[i-1]
+            and c[i] >= o[i-1]
+        )
+        bearEngulf = (
+            trend_up[i]
+            and c[i-1] > o[i-1]
+            and c[i] < o[i]
+            and o[i] >= c[i-1]
+            and c[i] <= o[i-1]
+        )
+
+        bullPierce = (
+            trend_down[i]
+            and c[i-1] < o[i-1]
+            and c[i] > (o[i-1] + c[i-1]) / 2
+        )
+        bearDark = (
+            trend_up[i]
+            and c[i-1] > o[i-1]
+            and c[i] < (o[i-1] + c[i-1]) / 2
+        )
+
+        tweezerBot = (
+            trend_down[i]
+            and abs(l[i] - l[i-1]) < (crange0 * 0.1)
+        )
+        tweezerTop = (
+            trend_up[i]
+            and abs(h[i] - h[i-1]) < (crange0 * 0.1)
+        )
+
         if bullEngulf:
             last_pattern = "Bull Engulfing"
             pattern_bull = True
             pattern_idx = i
             continue
+
         if bearEngulf:
             last_pattern = "Bear Engulfing"
             pattern_bull = False
             pattern_idx = i
             continue
+
         if bullPierce:
             last_pattern = "Piercing"
             pattern_bull = True
             pattern_idx = i
             continue
+
         if bearDark:
             last_pattern = "Dark Cloud"
             pattern_bull = False
             pattern_idx = i
             continue
+
         if tweezerBot:
             last_pattern = "Tweezer Bottom"
             pattern_bull = True
-            pattern_idx = i
+            pattern_idx = i - 1  # like Pine
             continue
+
         if tweezerTop:
             last_pattern = "Tweezer Top"
             pattern_bull = False
-            pattern_idx = i
+            pattern_idx = i - 1
             continue
+
+        # 1-candle patterns (lowest priority)
+        isHammer = (
+            trend_down[i]
+            and wickLow > body0 * 2
+            and wickHigh < body0 * 0.5
+        )
+        isStar = (
+            trend_up[i]
+            and wickHigh > body0 * 2
+            and wickLow < body0 * 0.5
+        )
+
         if isHammer:
             last_pattern = "Hammer"
             pattern_bull = True
             pattern_idx = i
             continue
+
         if isStar:
             last_pattern = "Shooting Star"
             pattern_bull = False
@@ -273,11 +332,14 @@ def pine_candle_engine(df):
     bear_signal = False
 
     if last_pattern is not None and pattern_idx is not None:
+        # barsAgo: how many bars since pattern bar
         barsAgo = n - 1 - pattern_idx
         expired = barsAgo > 20
+
         patLow = l[pattern_idx]
         patHigh = h[pattern_idx]
         close_last = c[-1]
+
         if pattern_bull:
             rejected = close_last < patLow
         else:
@@ -292,8 +354,9 @@ def pine_candle_engine(df):
             else:
                 bear_signal = (close_last <= lb_last) and (rsi_last <= rsi_ema_last)
 
-    ema_bullish = (c[-1] > ema20[-1]) and (ema20[-1] > ema50[-1])
-    ema_bearish = (c[-1] < ema20[-1]) and (ema20[-1] < ema50[-1])
+    # --- Trend / momentum / structure (match Pine semantics) ---
+    ema_bullish = ema20[-1] > ema50[-1]
+    ema_bearish = ema20[-1] < ema50[-1]
 
     rsi_last = rsi[-1]
     rsi_ema_last = rsi_ema[-1]
@@ -328,7 +391,7 @@ def pine_candle_engine(df):
         "strong_bullish": strong_bullish,
         "strong_bearish": strong_bearish
     }
-
+    
 def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish, rejected):
     if pattern_idx is None or pattern_name is None:
         return
