@@ -771,19 +771,19 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
     tp_code  = info["turning_code"]
     
     if tp_flag and tp_code is not None:
-    idx = len(df) - 1               
-    high_val = df["high"].iloc[idx]
+        idx = len(df) - 1               
+        high_val = df["high"].iloc[idx]
 
-    ax.text(
-        idx, high_val * 1.01,
-        tp_code,
-        color="orange",
-        fontsize=8,
-        ha="center",
-        va="bottom",
-        fontweight="bold",
-        bbox=dict(facecolor="white", alpha=0.6, edgecolor="orange")
-    )
+        ax.text(
+            idx, high_val * 1.01,
+            tp_code,
+            color="orange",
+            fontsize=8,
+            ha="center",
+            va="bottom",
+            fontweight="bold",
+            bbox=dict(facecolor="white", alpha=0.6, edgecolor="orange")
+        )
 
     plt.tight_layout()
     return fig
