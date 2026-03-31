@@ -311,23 +311,34 @@ def pine_candle_engine(df):
         bullSweep = (l[-1] < l[-2]) and (c[-1] > (h[-1] + l[-1]) / 2)
         bearSweep = (h[-1] > h[-2]) and (c[-1] < (h[-1] + l[-1]) / 2)
 
+        # ---------------------------------------------------------
+    # TURNING POINT ENGINE (Pine Script Accurate)
+    # ---------------------------------------------------------
     turning_point = False
 
-    if last_pattern is not None and pattern_idx is not None:
+    if last_pattern is not None and pattern_idx is not None and not expired and not rejected:
         # Opposite strong candle vs active pattern
         if pattern_bull and strong_bearish:
             turning_point = True
-        if not pattern_bull and strong_bullish:
+        if (not pattern_bull) and strong_bullish:
             turning_point = True
 
-        # Optional: treat large opposite candle as strong
+        # Additional SMC turning-point conditions
         body_last = abs(c[-1] - o[-1])
         range_last = h[-1] - l[-1]
 
+        # Large opposite candle
         if pattern_bull and (c[-1] < o[-1]) and (body_last > 0.6 * range_last):
             turning_point = True
 
         if (not pattern_bull) and (c[-1] > o[-1]) and (body_last > 0.6 * range_last):
+            turning_point = True
+
+        # Opposite candle breaks previous candle low/high
+        if pattern_bull and (l[-1] < l[-2]):
+            turning_point = True
+
+        if (not pattern_bull) and (h[-1] > h[-2]):
             turning_point = True
 
 
