@@ -821,6 +821,22 @@ elif tf == "1M":
 
 df = load_data(ticker, start_date, interval)
 
+# PRECOMPUTE EVERYTHING HERE
+df["turning_point"] = False
+df["turning_code"]  = None
+df["pattern_idx"]   = None
+df["pattern_name"]  = None
+
+info = pine_candle_engine(df)
+
+df.loc[df.index[-1], "turning_point"] = info["turning_point"]
+df.loc[df.index[-1], "turning_code"] = info["turning_code"]
+df.loc[df.index[-1], "pattern_idx"] = info["pattern_idx"]
+df.loc[df.index[-1], "pattern_name"] = info["last_pattern"]
+
+zones = detect_fvg_zones(df)
+
+
 # Initialize last_tf if missing
 if "last_tf" not in st.session_state:
     st.session_state.last_tf = tf
@@ -857,8 +873,6 @@ end_idx = st.session_state.window_end_idx
 if start_idx > end_idx:
     start_idx, end_idx = end_idx, start_idx
 
-df_slice = df.iloc[start_idx:end_idx + 1]
-
 with col3:
     if len(df_slice) > 0:
         st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
@@ -875,8 +889,8 @@ if start_idx > end_idx:
     start_idx, end_idx = end_idx, start_idx
 
 df_slice = df.iloc[start_idx:end_idx + 1]
+zones_slice = [z for z in zones if z.start_idx >= start_idx and z.start_idx <= end_idx]
 
-zones = detect_fvg_zones(df_slice)
 
 # ---------------------------------------------------------
 # ADAPTIVE REGIME / STRUCTURAL ENGINE
