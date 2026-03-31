@@ -353,7 +353,8 @@ def pine_candle_engine(df):
         "mom_bullish": mom_bullish,
         "mom_bearish": mom_bearish,
         "strong_bullish": strong_bullish,
-        "strong_bearish": strong_bearish
+        "strong_bearish": strong_bearish,
+        "reversal_text" : reversal_text
     }
 
 def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish, rejected):
