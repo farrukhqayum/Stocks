@@ -822,6 +822,7 @@ elif tf == "1M":
 df = load_data(ticker, start_date, interval)
 zones = detect_fvg_zones(df)
 
+col1, col2, col3 = st.columns(3)
 # Initialize last_tf if missing
 if "last_tf" not in st.session_state:
     st.session_state.last_tf = tf
@@ -836,25 +837,29 @@ if df is None or df.empty:
     st.error("No data found.")
     st.stop()
 
+if "window_end_idx" not in st.session_state:
+    st.session_state.window_end_idx = 50  # start with first 50 candles
 if "window_start_idx" not in st.session_state:
     st.session_state.window_start_idx = 0
 
-if "window_end_idx" not in st.session_state:
-    st.session_state.window_end_idx = len(df) - 1
-
-col1, col2, col3 = st.columns(3)
-
+# --- BUTTON LOGIC ---
 if col1.button("⬅️ Previous"):
-    st.session_state.window_start_idx = max(0, st.session_state.window_start_idx - 1)
-    st.session_state.window_end_idx = max(0, st.session_state.window_end_idx - 1)
+    # Remove last candle (shrink window)
+    st.session_state.window_end_idx = max(
+        st.session_state.window_start_idx + 1,
+        st.session_state.window_end_idx - 1
+    )
 
 if col2.button("Next ➡️"):
-    st.session_state.window_start_idx = min(len(df) - 1, st.session_state.window_start_idx + 1)
-    st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + 1)
+    # Add next candle (expand window)
+    st.session_state.window_end_idx = min(
+        len(df) - 1,
+        st.session_state.window_end_idx + 1
+    )
 
+# --- FINAL SLICE ---
 start_idx = st.session_state.window_start_idx
 end_idx = st.session_state.window_end_idx
-
 df_slice = df.iloc[start_idx:end_idx + 1]
 
 if start_idx > end_idx:
