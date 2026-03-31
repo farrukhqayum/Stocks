@@ -765,7 +765,7 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         )
 
     # ---------------------------------------------------------
-    # DRAW TURNING POINT ABOVE BAR (Ultra-Compact Code)
+    # DRAW TURNING POINT ABOVE BAR
     # ---------------------------------------------------------
     tp_flag  = info["turning_point"]
     tp_code  = info["turning_code"]
@@ -775,7 +775,7 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         high_val = df["high"].iloc[idx]
     
         ax.text(
-            idx, high_val * 1.01,
+            idx, high_val * 1.05,
             tp_code,                   
             color="blue",
             fontsize=8,
