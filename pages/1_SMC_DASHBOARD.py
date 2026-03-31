@@ -855,6 +855,8 @@ if col2.button("Next ➡️"):
 start_idx = st.session_state.window_start_idx
 end_idx = st.session_state.window_end_idx
 
+df_slice = df.iloc[start_idx:end_idx + 1]
+
 if start_idx > end_idx:
     start_idx, end_idx = end_idx, start_idx
 
@@ -868,14 +870,6 @@ with col3:
 
 st.session_state.window_start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
 st.session_state.window_end_idx = max(0, min(st.session_state.window_end_idx, len(df) - 1))
-
-start_idx = st.session_state.window_start_idx
-end_idx = st.session_state.window_end_idx
-
-if start_idx > end_idx:
-    start_idx, end_idx = end_idx, start_idx
-
-df_slice = df.iloc[start_idx:end_idx + 1]
 
 # ---------------------------------------------------------
 # ADAPTIVE REGIME / STRUCTURAL ENGINE
