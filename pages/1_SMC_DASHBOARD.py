@@ -820,7 +820,7 @@ elif tf == "1M":
     interval = "1mo"
 
 df = load_data(ticker, start_date, interval)
-zones = detect_fvg_zones(df_slice)
+zones = detect_fvg_zones(df)
 
 # Initialize last_tf if missing
 if "last_tf" not in st.session_state:
