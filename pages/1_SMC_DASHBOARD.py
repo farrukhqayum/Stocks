@@ -736,7 +736,7 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         high_val = df["high"].iloc[idx]
         ax.text(
             idx, high_val * 1.01,
-            "TP", color="orange",
+            "Turning Point", color="orange",
             fontsize=8, ha="center", va="bottom",
             fontweight="bold",
             bbox=dict(facecolor="white", alpha=0.6, edgecolor="orange")
