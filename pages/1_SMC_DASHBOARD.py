@@ -803,6 +803,7 @@ tf = st.sidebar.selectbox(
     index=2
 )
 
+
 today = datetime.today()
 
 if tf == "4H":
@@ -819,30 +820,22 @@ elif tf == "1M":
     interval = "1mo"
 
 df = load_data(ticker, start_date, interval)
-
-# Stop early if no data
-if df is None or df.empty:
-    st.error("No data found.")
-    st.stop()
-
-
-zones = detect_fvg_zones(df)
-
-# ---------------------------------------------------------
-# WINDOW MANAGEMENT
-# ---------------------------------------------------------
+zones = detect_fvg_zones(df_slice)
 
 # Initialize last_tf if missing
 if "last_tf" not in st.session_state:
     st.session_state.last_tf = tf
 
-# Reset window when timeframe changes
+# If timeframe changed → reset window to full dataset
 if st.session_state.last_tf != tf:
     st.session_state.window_start_idx = 0
     st.session_state.window_end_idx = len(df) - 1
     st.session_state.last_tf = tf
 
-# Initialize window indices
+if df is None or df.empty:
+    st.error("No data found.")
+    st.stop()
+
 if "window_start_idx" not in st.session_state:
     st.session_state.window_start_idx = 0
 
@@ -851,35 +844,38 @@ if "window_end_idx" not in st.session_state:
 
 col1, col2, col3 = st.columns(3)
 
-# Scroll left
 if col1.button("⬅️ Previous"):
     st.session_state.window_start_idx = max(0, st.session_state.window_start_idx - 1)
-    st.session_state.window_end_idx   = max(0, st.session_state.window_end_idx - 1)
+    st.session_state.window_end_idx = max(0, st.session_state.window_end_idx - 1)
 
-# Scroll right
 if col2.button("Next ➡️"):
     st.session_state.window_start_idx = min(len(df) - 1, st.session_state.window_start_idx + 1)
-    st.session_state.window_end_idx   = min(len(df) - 1, st.session_state.window_end_idx + 1)
+    st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + 1)
 
-# Clamp indices
-start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
-end_idx   = max(0, min(st.session_state.window_end_idx, len(df) - 1))
+start_idx = st.session_state.window_start_idx
+end_idx = st.session_state.window_end_idx
 
 if start_idx > end_idx:
     start_idx, end_idx = end_idx, start_idx
 
-# Slice AFTER fixing indices
 df_slice = df.iloc[start_idx:end_idx + 1]
 
-# Show visible window
 with col3:
     if len(df_slice) > 0:
         st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
     else:
         st.write("Visible Window: —")
 
-# Slice FVGs for visible window
-zones_slice = [z for z in zones if start_idx <= z.start_idx <= end_idx]
+st.session_state.window_start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
+st.session_state.window_end_idx = max(0, min(st.session_state.window_end_idx, len(df) - 1))
+
+start_idx = st.session_state.window_start_idx
+end_idx = st.session_state.window_end_idx
+
+if start_idx > end_idx:
+    start_idx, end_idx = end_idx, start_idx
+
+df_slice = df.iloc[start_idx:end_idx + 1]
 
 # ---------------------------------------------------------
 # ADAPTIVE REGIME / STRUCTURAL ENGINE
