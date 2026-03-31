@@ -328,7 +328,7 @@ def pine_candle_engine(df):
             # Bull Reject  → "Reject Lows"
             if (c[-1] > o[-1]) and (wick_low_last > body_last * 1.2):
                 turning_point = True
-                turning_code = "Reject Lows"
+                turning_code = "▲ Rejecting Lows"
 
             # Bull Engulf → "Bull Shift"
             if (n >= 2 and
@@ -337,19 +337,19 @@ def pine_candle_engine(df):
                 o[-1] <= c[-2] and
                 c[-1] >= o[-2]):
                 turning_point = True
-                turning_code = "Bull Shift"
+                turning_code = "▲ Bullish Shift"
 
             # Bull Body   → "Bull Drive"
             if (c[-1] > o[-1]) and (body_last > 0.55 * range_last):
                 turning_point = True
-                turning_code = "Bull Drive"
+                turning_code = "▲ Bullish Drive"
 
         # Bullish pattern → look for bearish reversal
         if pattern_bull is True:
             # Bear Reject → "Reject Highs"
             if (c[-1] < o[-1]) and (wick_high_last > body_last * 1.2):
                 turning_point = True
-                turning_code = "Reject Highs"
+                turning_code = "▼ Rejecting Highs"
 
             # Bear Engulf → "Bear Shift"
             if (n >= 2 and
@@ -358,12 +358,12 @@ def pine_candle_engine(df):
                 o[-1] >= c[-2] and
                 c[-1] <= o[-2]):
                 turning_point = True
-                turning_code = "Bear Shift"
+                turning_code = "▼ Bearish Shift"
 
             # Bear Body   → "Bear Drive"
             if (c[-1] < o[-1]) and (body_last > 0.55 * range_last):
                 turning_point = True
-                turning_code = "Bear Drive"
+                turning_code = "▼ Bearish Drive"
 
 
     return {
