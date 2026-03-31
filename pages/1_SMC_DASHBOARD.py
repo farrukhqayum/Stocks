@@ -670,13 +670,21 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         ha="left", va="bottom",
         bbox=dict(facecolor="white", alpha=0.4, edgecolor="none", boxstyle="round,pad=0.3")
     )
-
+    
     # -----------------------------
     # PATTERN + REVERSAL ENGINE
     # -----------------------------
     info = pine_candle_engine(df)
-    plot_pattern_label(ax, df, info["pattern_idx"], info["last_pattern"], info["pattern_bull"], info["rejected"])
-
+    
+    # Draw candlestick pattern label
+    plot_pattern_label(
+        ax, df,
+        info["pattern_idx"],
+        info["last_pattern"],
+        info["pattern_bull"],
+        info["rejected"]
+    )
+    
     # -----------------------------
     # REVERSAL DETECTION
     # -----------------------------
@@ -688,7 +696,7 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         and info["mom_bullish"]
         and info["ema_bullish"]
     )
-
+    
     bear_reversal = (
         info["last_pattern"] is not None
         and info["pattern_bull"] is False
@@ -697,7 +705,7 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         and info["mom_bearish"]
         and info["ema_bearish"]
     )
-
+    
     if bull_reversal:
         reversal_text = "🟢 Bullish Reversal"
         reversal_color = "green"
@@ -706,7 +714,7 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         reversal_color = "red"
     else:
         reversal_text = None
-
+    
     # -----------------------------
     # DRAW REVERSAL TEXT INSIDE CHART
     # -----------------------------
@@ -724,7 +732,6 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
                 boxstyle="round,pad=0.3"
             )
         )
-
     plt.tight_layout()
     return fig
 
