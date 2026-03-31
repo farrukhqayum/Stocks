@@ -725,7 +725,7 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
     # -----------------------------
     if reversal_text:
         ax.text(
-            0.02, 0.90, reversal_text,
+            0.02, 0.1, reversal_text,
             transform=ax.transAxes,
             fontsize=10,
             color=reversal_color,
