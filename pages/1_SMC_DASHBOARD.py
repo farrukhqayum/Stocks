@@ -308,6 +308,36 @@ def pine_candle_engine(df):
         bullSweep = (l[-1] < l[-2]) and (c[-1] > (h[-1] + l[-1]) / 2)
         bearSweep = (h[-1] > h[-2]) and (c[-1] < (h[-1] + l[-1]) / 2)
 
+    # ---------------------------------------------------------
+    # REVERSAL DETECTION (Pine-equivalent logic)
+    # ---------------------------------------------------------
+    
+    bull_reversal = (
+        info["last_pattern"] is not None
+        and info["pattern_bull"] is True
+        and not info["rejected"]
+        and not info["expired"]
+        and info["mom_bullish"]
+        and info["ema_bullish"]
+    )
+    
+    bear_reversal = (
+        info["last_pattern"] is not None
+        and info["pattern_bull"] is False
+        and not info["rejected"]
+        and not info["expired"]
+        and info["mom_bearish"]
+        and info["ema_bearish"]
+    )
+    
+    if bull_reversal:
+        reversal_text = "🟢 REVERSAL: Bullish"
+    elif bear_reversal:
+        reversal_text = "🔴 REVERSAL: Bearish"
+    else:
+        reversal_text = "—"
+
+
     return {
         "last_pattern": last_pattern,
         "pattern_bull": pattern_bull,
@@ -329,6 +359,7 @@ def pine_candle_engine(df):
 def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish, rejected):
     if pattern_idx is None or pattern_name is None:
         return
+        
     high = df['high'].iloc[pattern_idx]
     low = df['low'].iloc[pattern_idx]
     x = pattern_idx
@@ -512,7 +543,6 @@ def draw_smc_box(ax, df, zones):
 # ---------------------------------------------------------
 # CHART
 # ---------------------------------------------------------
-
 def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False):
     df = df.copy()
     if "rsi" not in df.columns:
@@ -534,6 +564,9 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
     up_color = "#26a69a"
     down_color = "#ef5350"
 
+    # -----------------------------
+    # CANDLE PLOTTING
+    # -----------------------------
     for i in range(len(df)):
         color = up_color if c.iloc[i] >= o.iloc[i] else down_color
         ax.vlines(i, l.iloc[i], h.iloc[i], color=color, linewidth=1)
@@ -545,10 +578,16 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
             edgecolor=color
         ))
 
+    # -----------------------------
+    # INDICATORS
+    # -----------------------------
     ax.plot(x, df["lb_crv"], color="gray", alpha=0.75, linewidth=1.2)
     ax.plot(x, df["ema20"], color="yellow", alpha=0.75, linewidth=1)
     ax.plot(x, df["ema50"], color="red", alpha=0.75, linewidth=1)
 
+    # -----------------------------
+    # FVG ZONES
+    # -----------------------------
     last_idx = len(df) - 1
     for z in zones:
         rect_x = z.start_idx - 0.5
@@ -564,6 +603,9 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
             linestyle="--"
         ))
 
+    # -----------------------------
+    # SMC BOX
+    # -----------------------------
     draw_smc_box(ax, df, zones)
 
     ax.set_title(title)
@@ -571,29 +613,17 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
     ax.yaxis.tick_right()
     ax.yaxis.set_label_position("right")
 
+    # -----------------------------
+    # RSI PANEL
+    # -----------------------------
     rsi = df["rsi"]
     rsi_ema = df["rsi_ema"]
 
-    ax2.fill_between(
-        x,
-        rsi,
-        rsi_ema,
-        where=(rsi > rsi_ema),
-        color="green",
-        alpha=0.15
-    )
+    ax2.fill_between(x, rsi, rsi_ema, where=(rsi > rsi_ema), color="green", alpha=0.15)
+    ax2.fill_between(x, rsi, rsi_ema, where=(rsi < rsi_ema), color="red", alpha=0.15)
 
-    ax2.fill_between(
-        x,
-        rsi,
-        rsi_ema,
-        where=(rsi < rsi_ema),
-        color="red",
-        alpha=0.15
-    )
-
-    ax2.plot(x, rsi, color="gray", linewidth=1.2, label="RSI")
-    ax2.plot(x, rsi_ema, color="gold", linewidth=1.2, label="RSI EMA")
+    ax2.plot(x, rsi, color="gray", linewidth=1.2)
+    ax2.plot(x, rsi_ema, color="gold", linewidth=1.2)
 
     for level in [25, 50, 78]:
         ax2.axhline(level, color="black", linestyle="--", linewidth=0.7, alpha=0.6)
@@ -601,7 +631,6 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
     ax2.set_ylim(0, 100)
     ax2.set_ylabel("RSI")
     ax2.grid(alpha=0.2)
-    ax2.legend(loc="upper left")
     ax2.yaxis.tick_right()
     ax2.yaxis.set_label_position("right")
 
@@ -613,6 +642,9 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
             fontsize=8
         )
 
+    # -----------------------------
+    # EXIT MARKERS
+    # -----------------------------
     last_idx = len(df) - 1
     last_close = df["close"].iloc[-1]
 
@@ -627,27 +659,75 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
             fontweight="bold", zorder=21
         )
 
-    legend_text = (
-        "■ EXIT LONG\n"
-        "❌ EXIT SHORT"
-    )
-
+    # -----------------------------
+    # LEGEND
+    # -----------------------------
+    legend_text = "■ EXIT LONG\n❌ EXIT SHORT"
     ax.text(
         0.02, 0.02, legend_text,
         transform=ax.transAxes,
         fontsize=8, color="blue",
         ha="left", va="bottom",
-        bbox=dict(
-            facecolor="white",
-            alpha=0.4,
-            edgecolor="none",
-            boxstyle="round,pad=0.3"
-        )
+        bbox=dict(facecolor="white", alpha=0.4, edgecolor="none", boxstyle="round,pad=0.3")
     )
+
+    # -----------------------------
+    # PATTERN + REVERSAL ENGINE
+    # -----------------------------
     info = pine_candle_engine(df)
     plot_pattern_label(ax, df, info["pattern_idx"], info["last_pattern"], info["pattern_bull"], info["rejected"])
+
+    # -----------------------------
+    # REVERSAL DETECTION
+    # -----------------------------
+    bull_reversal = (
+        info["last_pattern"] is not None
+        and info["pattern_bull"] is True
+        and not info["rejected"]
+        and not info["expired"]
+        and info["mom_bullish"]
+        and info["ema_bullish"]
+    )
+
+    bear_reversal = (
+        info["last_pattern"] is not None
+        and info["pattern_bull"] is False
+        and not info["rejected"]
+        and not info["expired"]
+        and info["mom_bearish"]
+        and info["ema_bearish"]
+    )
+
+    if bull_reversal:
+        reversal_text = "🟢 Bullish Reversal"
+        reversal_color = "green"
+    elif bear_reversal:
+        reversal_text = "🔴 Bearish Reversal"
+        reversal_color = "red"
+    else:
+        reversal_text = None
+
+    # -----------------------------
+    # DRAW REVERSAL TEXT INSIDE CHART
+    # -----------------------------
+    if reversal_text:
+        ax.text(
+            0.02, 0.90, reversal_text,
+            transform=ax.transAxes,
+            fontsize=10,
+            color=reversal_color,
+            fontweight="bold",
+            bbox=dict(
+                facecolor="white",
+                alpha=0.5,
+                edgecolor=reversal_color,
+                boxstyle="round,pad=0.3"
+            )
+        )
+
     plt.tight_layout()
     return fig
+
 
 # ---------------------------------------------------------
 # UI — TIMEFRAME, DATA LOADING, WINDOW MANAGEMENT
@@ -900,6 +980,5 @@ with c4:
 # ---------------------------------------------------------
 # DRAW CHART
 # ---------------------------------------------------------
-
-fig = plotchart(df_slice, zones, title=f"{ticker} — {tf} SMC FVG Regime View", exit_long=exit_long, exit_short=exit_short)
+plot_pattern_label(ax, df, info["pattern_idx"], info["last_pattern"], info["pattern_bull"], info["rejected"])
 st.pyplot(fig)
