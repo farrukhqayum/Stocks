@@ -803,7 +803,6 @@ tf = st.sidebar.selectbox(
     index=2
 )
 
-
 today = datetime.today()
 
 if tf == "4H":
@@ -821,36 +820,29 @@ elif tf == "1M":
 
 df = load_data(ticker, start_date, interval)
 
-# PRECOMPUTE EVERYTHING HERE
-df["turning_point"] = False
-df["turning_code"]  = None
-df["pattern_idx"]   = None
-df["pattern_name"]  = None
+# Stop early if no data
+if df is None or df.empty:
+    st.error("No data found.")
+    st.stop()
 
-info = pine_candle_engine(df)
-
-df.loc[df.index[-1], "turning_point"] = info["turning_point"]
-df.loc[df.index[-1], "turning_code"] = info["turning_code"]
-df.loc[df.index[-1], "pattern_idx"] = info["pattern_idx"]
-df.loc[df.index[-1], "pattern_name"] = info["last_pattern"]
 
 zones = detect_fvg_zones(df)
 
+# ---------------------------------------------------------
+# WINDOW MANAGEMENT
+# ---------------------------------------------------------
 
 # Initialize last_tf if missing
 if "last_tf" not in st.session_state:
     st.session_state.last_tf = tf
 
-# If timeframe changed → reset window to full dataset
+# Reset window when timeframe changes
 if st.session_state.last_tf != tf:
     st.session_state.window_start_idx = 0
     st.session_state.window_end_idx = len(df) - 1
     st.session_state.last_tf = tf
 
-if df is None or df.empty:
-    st.error("No data found.")
-    st.stop()
-
+# Initialize window indices
 if "window_start_idx" not in st.session_state:
     st.session_state.window_start_idx = 0
 
@@ -859,38 +851,35 @@ if "window_end_idx" not in st.session_state:
 
 col1, col2, col3 = st.columns(3)
 
+# Scroll left
 if col1.button("⬅️ Previous"):
     st.session_state.window_start_idx = max(0, st.session_state.window_start_idx - 1)
-    st.session_state.window_end_idx = max(0, st.session_state.window_end_idx - 1)
+    st.session_state.window_end_idx   = max(0, st.session_state.window_end_idx - 1)
 
+# Scroll right
 if col2.button("Next ➡️"):
     st.session_state.window_start_idx = min(len(df) - 1, st.session_state.window_start_idx + 1)
-    st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + 1)
+    st.session_state.window_end_idx   = min(len(df) - 1, st.session_state.window_end_idx + 1)
 
-start_idx = st.session_state.window_start_idx
-end_idx = st.session_state.window_end_idx
+# Clamp indices
+start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
+end_idx   = max(0, min(st.session_state.window_end_idx, len(df) - 1))
 
 if start_idx > end_idx:
     start_idx, end_idx = end_idx, start_idx
 
+# Slice AFTER fixing indices
+df_slice = df.iloc[start_idx:end_idx + 1]
+
+# Show visible window
 with col3:
     if len(df_slice) > 0:
         st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
     else:
         st.write("Visible Window: —")
 
-st.session_state.window_start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
-st.session_state.window_end_idx = max(0, min(st.session_state.window_end_idx, len(df) - 1))
-
-start_idx = st.session_state.window_start_idx
-end_idx = st.session_state.window_end_idx
-
-if start_idx > end_idx:
-    start_idx, end_idx = end_idx, start_idx
-
-df_slice = df.iloc[start_idx:end_idx + 1]
-zones_slice = [z for z in zones if z.start_idx >= start_idx and z.start_idx <= end_idx]
-
+# Slice FVGs for visible window
+zones_slice = [z for z in zones if start_idx <= z.start_idx <= end_idx]
 
 # ---------------------------------------------------------
 # ADAPTIVE REGIME / STRUCTURAL ENGINE
@@ -1061,7 +1050,5 @@ fig = plotchart(
     exit_long=exit_long,
     exit_short=exit_short
 )
-
-st.pyplot(fig)
 
 st.pyplot(fig)
