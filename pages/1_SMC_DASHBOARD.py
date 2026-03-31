@@ -311,35 +311,60 @@ def pine_candle_engine(df):
         bullSweep = (l[-1] < l[-2]) and (c[-1] > (h[-1] + l[-1]) / 2)
         bearSweep = (h[-1] > h[-2]) and (c[-1] < (h[-1] + l[-1]) / 2)
 
-        # ---------------------------------------------------------
-    # TURNING POINT ENGINE (Pine Script Accurate)
+    # ---------------------------------------------------------
+    # TURNING POINT ENGINE (Ultra-Compact Codes)
     # ---------------------------------------------------------
     turning_point = False
+    turning_code = None
 
     if last_pattern is not None and pattern_idx is not None and not expired and not rejected:
-        # Opposite strong candle vs active pattern
-        if pattern_bull and strong_bearish:
-            turning_point = True
-        if (not pattern_bull) and strong_bullish:
-            turning_point = True
-
-        # Additional SMC turning-point conditions
         body_last = abs(c[-1] - o[-1])
         range_last = h[-1] - l[-1]
+        wick_high_last = h[-1] - max(o[-1], c[-1])
+        wick_low_last = min(o[-1], c[-1]) - l[-1]
 
-        # Large opposite candle
-        if pattern_bull and (c[-1] < o[-1]) and (body_last > 0.6 * range_last):
-            turning_point = True
+        # Bearish pattern → look for bullish reversal
+        if pattern_bull is False:
+            # Bull Reject  → "Reject Lows"
+            if (c[-1] > o[-1]) and (wick_low_last > body_last * 1.2):
+                turning_point = True
+                turning_code = "Reject Lows"
 
-        if (not pattern_bull) and (c[-1] > o[-1]) and (body_last > 0.6 * range_last):
-            turning_point = True
+            # Bull Engulf → "Bull Shift"
+            if (n >= 2 and
+                c[-2] < o[-2] and          # prev bearish
+                c[-1] > o[-1] and          # curr bullish
+                o[-1] <= c[-2] and
+                c[-1] >= o[-2]):
+                turning_point = True
+                turning_code = "Bull Shift"
 
-        # Opposite candle breaks previous candle low/high
-        if pattern_bull and (l[-1] < l[-2]):
-            turning_point = True
+            # Bull Body   → "Bull Drive"
+            if (c[-1] > o[-1]) and (body_last > 0.55 * range_last):
+                turning_point = True
+                turning_code = "Bull Drive"
 
-        if (not pattern_bull) and (h[-1] > h[-2]):
-            turning_point = True
+        # Bullish pattern → look for bearish reversal
+        if pattern_bull is True:
+            # Bear Reject → "Reject Highs"
+            if (c[-1] < o[-1]) and (wick_high_last > body_last * 1.2):
+                turning_point = True
+                turning_code = "Reject Highs"
+
+            # Bear Engulf → "Bear Shift"
+            if (n >= 2 and
+                c[-2] > o[-2] and          # prev bullish
+                c[-1] < o[-1] and          # curr bearish
+                o[-1] >= c[-2] and
+                c[-1] <= o[-2]):
+                turning_point = True
+                turning_code = "Bear Shift"
+
+            # Bear Body   → "Bear Drive"
+            if (c[-1] < o[-1]) and (body_last > 0.55 * range_last):
+                turning_point = True
+                turning_code = "Bear Drive"
+
 
     return {
         "last_pattern": last_pattern,
@@ -357,7 +382,8 @@ def pine_candle_engine(df):
         "mom_bearish": mom_bearish,
         "strong_bullish": strong_bullish,
         "strong_bearish": strong_bearish,
-        "turning_point": turning_point
+        "turning_point": turning_point,
+        "turning_code": turning_code
     }
 
 
@@ -739,18 +765,31 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         )
 
     # ---------------------------------------------------------
-    # DRAW TURNING POINT ABOVE BAR
+    # DRAW TURNING POINT ABOVE BAR (Ultra-Compact Code)
     # ---------------------------------------------------------
-    if info["turning_point"] and info["pattern_idx"] is not None:
+    tp_flag  = info["turning_point"]
+    tp_code  = info["turning_code"]
+    
+    if tp_flag and info["pattern_idx"] is not None and tp_code is not None:
         idx = info["pattern_idx"]
         high_val = df["high"].iloc[idx]
+    
         ax.text(
             idx, high_val * 1.01,
-            "REV", color="orange",
-            fontsize=8, ha="center", va="bottom",
+            tp_code,                      # <-- show actual code
+            color="orange",
+            fontsize=5,
+            ha="center",
+            va="bottom",
             fontweight="bold",
-            bbox=dict(facecolor="white", alpha=0.6, edgecolor="orange")
+            bbox=dict(
+                facecolor="white",
+                alpha=0.6,
+                edgecolor="orange",
+                boxstyle="round,pad=0.2"
+            )
         )
+
 
     plt.tight_layout()
     return fig
