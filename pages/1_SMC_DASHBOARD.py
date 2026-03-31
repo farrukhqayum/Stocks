@@ -983,9 +983,18 @@ with c4:
         st.warning("🔔 EXIT SHORT")
     else:
         st.info("—")
-
 # ---------------------------------------------------------
 # DRAW CHART
 # ---------------------------------------------------------
-plot_pattern_label(ax, df, info["pattern_idx"], info["last_pattern"], info["pattern_bull"], info["rejected"])
+
+fig = plotchart(
+    df_slice,
+    zones,
+    title=f"{ticker} — {tf} SMC FVG Regime View",
+    exit_long=exit_long,
+    exit_short=exit_short
+)
+
+st.pyplot(fig)
+
 st.pyplot(fig)
