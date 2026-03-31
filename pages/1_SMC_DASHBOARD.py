@@ -311,6 +311,26 @@ def pine_candle_engine(df):
         bullSweep = (l[-1] < l[-2]) and (c[-1] > (h[-1] + l[-1]) / 2)
         bearSweep = (h[-1] > h[-2]) and (c[-1] < (h[-1] + l[-1]) / 2)
 
+    turning_point = False
+
+    if last_pattern is not None and pattern_idx is not None:
+        # Opposite strong candle vs active pattern
+        if pattern_bull and strong_bearish:
+            turning_point = True
+        if not pattern_bull and strong_bullish:
+            turning_point = True
+
+        # Optional: treat large opposite candle as strong
+        body_last = abs(c[-1] - o[-1])
+        range_last = h[-1] - l[-1]
+
+        if pattern_bull and (c[-1] < o[-1]) and (body_last > 0.6 * range_last):
+            turning_point = True
+
+        if (not pattern_bull) and (c[-1] > o[-1]) and (body_last > 0.6 * range_last):
+            turning_point = True
+
+
     return {
         "last_pattern": last_pattern,
         "pattern_bull": pattern_bull,
@@ -326,7 +346,8 @@ def pine_candle_engine(df):
         "mom_bullish": mom_bullish,
         "mom_bearish": mom_bearish,
         "strong_bullish": strong_bullish,
-        "strong_bearish": strong_bearish
+        "strong_bearish": strong_bearish,
+        "turning_point": turning_point
     }
 
 
@@ -706,6 +727,21 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
                 boxstyle="round,pad=0.3"
             )
         )
+
+    # ---------------------------------------------------------
+    # DRAW TURNING POINT ABOVE BAR
+    # ---------------------------------------------------------
+    if info["turning_point"] and info["pattern_idx"] is not None:
+        idx = info["pattern_idx"]
+        high_val = df["high"].iloc[idx]
+        ax.text(
+            idx, high_val * 1.01,
+            "TP", color="orange",
+            fontsize=8, ha="center", va="bottom",
+            fontweight="bold",
+            bbox=dict(facecolor="white", alpha=0.6, edgecolor="orange")
+        )
+
     plt.tight_layout()
     return fig
 
