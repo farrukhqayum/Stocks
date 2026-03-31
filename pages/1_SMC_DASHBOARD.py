@@ -341,7 +341,6 @@ def pine_candle_engine(df):
         if (not pattern_bull) and (h[-1] > h[-2]):
             turning_point = True
 
-
     return {
         "last_pattern": last_pattern,
         "pattern_bull": pattern_bull,
@@ -747,7 +746,7 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         high_val = df["high"].iloc[idx]
         ax.text(
             idx, high_val * 1.01,
-            "Turning Point", color="orange",
+            "REV", color="orange",
             fontsize=8, ha="center", va="bottom",
             fontweight="bold",
             bbox=dict(facecolor="white", alpha=0.6, edgecolor="orange")
