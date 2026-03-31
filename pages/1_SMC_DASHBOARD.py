@@ -776,9 +776,9 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
     
         ax.text(
             idx, high_val * 1.01,
-            tp_code,                      # <-- show actual code
-            color="orange",
-            fontsize=5,
+            tp_code,                   
+            color="blue",
+            fontsize=8,
             ha="center",
             va="bottom",
             fontweight="bold",
