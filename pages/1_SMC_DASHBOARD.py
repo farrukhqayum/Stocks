@@ -140,6 +140,7 @@ def pine_candle_engine(df):
         wickHigh = h[i] - max(o[i], c[i])
         wickLow = min(o[i], c[i]) - l[i]
 
+        # 3-candle patterns
         isMorning = (
             trend_down[i]
             and c[i-2] < o[i-2]
@@ -165,6 +166,7 @@ def pine_candle_engine(df):
             pattern_idx = i - 1
             continue
 
+        # 2-candle patterns
         bullEngulf = (
             trend_down[i]
             and c[i-1] < o[i-1]
@@ -236,6 +238,7 @@ def pine_candle_engine(df):
             pattern_idx = i - 1
             continue
 
+        # 1-candle patterns
         isHammer = (
             trend_down[i]
             and wickLow > body0 * 2
@@ -259,9 +262,7 @@ def pine_candle_engine(df):
             pattern_idx = i
             continue
 
-    if last_pattern is None or pattern_idx is None:
-        pattern_bull = None
-
+    # Pattern validation
     expired = True
     rejected = False
     bull_signal = False
@@ -289,6 +290,7 @@ def pine_candle_engine(df):
             else:
                 bear_signal = (close_last <= lb_last) and (rsi_last <= rsi_ema_last)
 
+    # Trend + momentum
     ema_bullish = ema20[-1] > ema50[-1]
     ema_bearish = ema20[-1] < ema50[-1]
 
@@ -302,41 +304,12 @@ def pine_candle_engine(df):
     strong_bullish = ema_bullish and c[-1] > lb_last
     strong_bearish = ema_bearish and c[-1] < lb_last
 
+    # Sweeps
     bullSweep = False
     bearSweep = False
     if n >= 2:
         bullSweep = (l[-1] < l[-2]) and (c[-1] > (h[-1] + l[-1]) / 2)
         bearSweep = (h[-1] > h[-2]) and (c[-1] < (h[-1] + l[-1]) / 2)
-
-    # ---------------------------------------------------------
-    # REVERSAL DETECTION (Pine-equivalent logic)
-    # ---------------------------------------------------------
-    
-    bull_reversal = (
-        info["last_pattern"] is not None
-        and info["pattern_bull"] is True
-        and not info["rejected"]
-        and not info["expired"]
-        and info["mom_bullish"]
-        and info["ema_bullish"]
-    )
-    
-    bear_reversal = (
-        info["last_pattern"] is not None
-        and info["pattern_bull"] is False
-        and not info["rejected"]
-        and not info["expired"]
-        and info["mom_bearish"]
-        and info["ema_bearish"]
-    )
-    
-    if bull_reversal:
-        reversal_text = "🟢 REVERSAL: Bullish"
-    elif bear_reversal:
-        reversal_text = "🔴 REVERSAL: Bearish"
-    else:
-        reversal_text = "—"
-
 
     return {
         "last_pattern": last_pattern,
@@ -353,9 +326,9 @@ def pine_candle_engine(df):
         "mom_bullish": mom_bullish,
         "mom_bearish": mom_bearish,
         "strong_bullish": strong_bullish,
-        "strong_bearish": strong_bearish,
-        "reversal_text" : reversal_text
+        "strong_bearish": strong_bearish
     }
+
 
 def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish, rejected):
     if pattern_idx is None or pattern_name is None:
