@@ -2,175 +2,133 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
-# ---------------------------------------------------------
-# DATA LOADER
-# ---------------------------------------------------------
+# =========================================================
+# 1. CORE STYLE & SETTINGS
+# =========================================================
+st.set_page_config(page_title="AlphaSMC Terminal", layout="wide")
+
+# Custom CSS for a professional dark look
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    div[data-testid="stMetricValue"] { font-size: 1.8rem; color: #26a69a; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# =========================================================
+# 2. DATA & LOGIC (Optimized)
+# =========================================================
 @st.cache_data(show_spinner=False)
-def load_data(ticker, start_date, interval):
-    try:
-        df = yf.download(ticker, start=start_date, interval=interval)
-        if df is None or df.empty:
-            return None
-        # Handle MultiIndex if yfinance returns it
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        df = df.rename(columns=str.lower)
-        df.dropna(inplace=True)
-        return df
-    except Exception:
-        return None
+def get_clean_data(ticker, days=365):
+    df = yf.download(ticker, start=datetime.now()-timedelta(days=days), interval="1d")
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    df.columns = [c.lower() for c in df.columns]
+    return df.dropna()
 
-# ---------------------------------------------------------
-# HELPERS
-# ---------------------------------------------------------
-def ema(series, length):
-    return series.ewm(span=length, adjust=False).mean()
-
-def rsi(series, length=14):
-    delta = series.diff()
-    gain = delta.clip(lower=0)
-    loss = -delta.clip(upper=0)
-    avg_gain = gain.rolling(length).mean()
-    avg_loss = loss.rolling(length).mean()
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
-
-def atr(df, length=14):
-    high, low, close_prev = df["high"], df["low"], df["close"].shift()
-    tr = pd.concat([(high - low), (high - close_prev).abs(), (low - close_prev).abs()], axis=1).max(axis=1)
-    return tr.rolling(length).mean()
-
-class Zone:
-    def __init__(self, top, bottom, start_idx, is_bull, is_ob, color):
-        self.top, self.bottom = top, bottom
-        self.start_idx = start_idx
-        self.is_bull, self.is_ob, self.color = is_bull, is_ob, color
-        self.is_mitigated, self.taps = False, 0
-
-def rgba(hex_color, alpha):
-    hex_color = hex_color.lstrip("#")
-    return (int(hex_color[0:2], 16)/255, int(hex_color[2:4], 16)/255, int(hex_color[4:6], 16)/255, alpha)
-
-# ---------------------------------------------------------
-# ENGINES
-# ---------------------------------------------------------
-def compute_structure(df, swing_left=20, swing_right=5):
-    highs, lows, closes = df["high"].values, df["low"].values, df["close"].values
-    n = len(df)
-    bos_up, bos_dn, trend = np.zeros(n, dtype=bool), np.zeros(n, dtype=bool), np.zeros(n, dtype=bool)
-    last_hi, last_lo, is_uptrend = np.nan, np.nan, False
-
-    for i in range(n):
-        if i >= swing_left and i < n - swing_right:
-            if highs[i] == highs[i-swing_left : i+swing_right+1].max(): last_hi = highs[i]
-            if lows[i] == lows[i-swing_left : i+swing_right+1].min(): last_lo = lows[i]
-        
-        if not np.isnan(last_hi) and closes[i] > last_hi:
-            bos_up[i], is_uptrend, last_hi = True, True, np.nan
-        if not np.isnan(last_lo) and closes[i] < last_lo:
-            bos_dn[i], is_uptrend, last_lo = True, False, np.nan
-        trend[i] = is_uptrend
-    return pd.Series(bos_up, index=df.index), pd.Series(bos_dn, index=df.index), pd.Series(trend, index=df.index)
-
-def detect_patterns(df, lb_crv):
-    o, c, h, l = df["open"], df["close"], df["high"], df["low"]
-    pattern_name = pd.Series("None", index=df.index)
-    pattern_bull = pd.Series(False, index=df.index)
+def apply_smc(df):
+    # Basic Indicators
+    df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
+    df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
     
-    # Simple Engulfing Logic
-    bull_eng = (c > o) & (c.shift(1) < o.shift(1)) & (c >= h.shift(1))
-    bear_eng = (c < o) & (c.shift(1) > o.shift(1)) & (c <= l.shift(1))
+    # Simple Structure (BOS)
+    df['hi_20'] = df['high'].rolling(20, center=True).max()
+    df['lo_20'] = df['low'].rolling(20, center=True).min()
     
-    pattern_name[bull_eng] = "Bull Engulfing"
-    pattern_bull[bull_eng] = True
-    pattern_name[bear_eng] = "Bear Engulfing"
-    pattern_bull[bear_eng] = False
-    return pattern_name, pattern_bull
-
-def apply_pinescript_logic(df_raw):
-    df = df_raw.copy()
-    for col in ["open", "high", "low", "close"]: df[col] = df[col].values.flatten()
+    bos_up = (df['close'] > df['hi_20'].shift(1))
+    bos_dn = (df['close'] < df['lo_20'].shift(1))
     
-    df["ema20"] = ema(df["close"], 20)
-    df["ema50"] = ema(df["close"], 50)
-    df["atr"] = atr(df, 14)
-    
-    # Simple LB Curve
-    df["lb_crv"] = df["close"].rolling(10).mean()
-    
-    bos_up, bos_dn, is_uptrend = compute_structure(df)
-    p_name, p_bull = detect_patterns(df, df["lb_crv"])
-    
-    # Zone Detection
-    zones = []
+    # FVG Detection
+    fvgs = []
     for i in range(2, len(df)):
-        # FVG Detection
-        if df["low"].iloc[i] > df["high"].iloc[i-2]:
-            zones.append(Zone(df["high"].iloc[i-2], df["low"].iloc[i], i, True, False, rgba("35aa18", 0.3)))
-        if df["high"].iloc[i] < df["low"].iloc[i-2]:
-            zones.append(Zone(df["high"].iloc[i], df["low"].iloc[i-2], i, False, False, rgba("da1313", 0.3)))
+        # Bullish FVG
+        if df['low'].iloc[i] > df['high'].iloc[i-2]:
+            fvgs.append({'type': 'bull', 'top': df['low'].iloc[i], 'bot': df['high'].iloc[i-2], 'idx': df.index[i]})
+        # Bearish FVG
+        if df['high'].iloc[i] < df['low'].iloc[i-2]:
+            fvgs.append({'type': 'bear', 'top': df['low'].iloc[i-2], 'bot': df['high'].iloc[i], 'idx': df.index[i]})
+            
+    return df, bos_up, bos_dn, fvgs
 
-    info_df = pd.DataFrame({
-        "pattern_name": p_name, "pattern_bull": p_bull,
-        "bos_up": bos_up, "bos_dn": bos_dn, "is_uptrend": is_uptrend
-    }, index=df.index)
-    
-    return df, zones, info_df
+# =========================================================
+# 3. SIDEBAR & UI CONTROLS
+# =========================================================
+st.sidebar.title("⚡ AlphaSMC v2")
+ticker = st.sidebar.text_input("Symbol", "NVDA").upper()
+lookback = st.sidebar.slider("Chart Lookback", 30, 200, 100)
 
-# ---------------------------------------------------------
-# PLOTTING
-# ---------------------------------------------------------
-def plotchart(df_slice, zones, info_slice, full_df_index, title="SMC View"):
-    fig, ax = plt.subplots(figsize=(14, 7), facecolor='#0e1117')
-    ax.set_facecolor('#0e1117')
-    
-    dates = df_slice.index
-    for i in range(len(df_slice)):
-        o, c, h, l = df_slice["open"].iloc[i], df_slice["close"].iloc[i], df_slice["high"].iloc[i], df_slice["low"].iloc[i]
-        color = "#26a69a" if c >= o else "#ef5350"
-        ax.plot([i, i], [l, h], color=color, linewidth=1)
-        ax.add_patch(plt.Rectangle((i-0.3, min(o, c)), 0.6, abs(c-o), color=color))
-        
-        curr_date = dates[i]
-        if info_slice.loc[curr_date, "bos_up"]:
-            ax.text(i, h, "BOS↑", color="lime", fontsize=8, ha="center", va="bottom")
-        if info_slice.loc[curr_date, "bos_dn"]:
-            ax.text(i, l, "BOS↓", color="red", fontsize=8, ha="center", va="top")
+df_raw = get_clean_data(ticker)
 
-    for z in zones:
-        if z.start_idx < len(full_df_index):
-            z_date = full_df_index[z.start_idx]
-            if z_date <= dates[-1]:
-                start_x = max(0, dates.get_loc(z_date)) if z_date in dates else 0
-                ax.add_patch(plt.Rectangle((start_x, z.bottom), len(df_slice)-start_x, z.top-z.bottom, color=z.color, alpha=0.2))
+if not df_raw.empty:
+    df, bos_up, bos_dn, fvgs = apply_smc(df_raw)
+    
+    # Header Metrics
+    last_price = df['close'].iloc[-1]
+    change = last_price - df['close'].iloc[-2]
+    
+    m1, m2, m3 = st.columns(3)
+    m1.metric(f"{ticker} Price", f"${last_price:.2f}", f"{change:.2f}")
+    m2.metric("Trend", "BULLISH" if df['ema20'].iloc[-1] > df['ema50'].iloc[-1] else "BEARISH")
+    m3.metric("Volatility (ATR)", f"{ (df['high']-df['low']).rolling(14).mean().iloc[-1]:.2f}")
 
-    plt.title(title, color="white")
-    ax.tick_params(colors='white')
-    return fig
+    # =========================================================
+    # 4. THE PLOT (Plotly Interactive)
+    # =========================================================
+    df_plot = df.suffix('').tail(lookback)
+    
+    fig = go.Figure()
 
-# ---------------------------------------------------------
-# UI
-# ---------------------------------------------------------
-st.set_page_config(page_title="SMC Dashboard", layout="wide")
-ticker = st.sidebar.text_input("Ticker", "ASML")
-df_raw = load_data(ticker, datetime.now()-timedelta(days=365), "1d")
+    # Candlesticks
+    fig.add_trace(go.Candlestick(
+        x=df_plot.index, open=df_plot['open'], high=df_plot['high'],
+        low=df_plot['low'], close=df_plot['close'],
+        increasing_line_color='#26a69a', decreasing_line_color='#ef5350',
+        name="Price"
+    ))
 
-if df_raw is not None:
-    df, zones, info_df = apply_pinescript_logic(df_raw)
+    # EMAs
+    fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['ema20'], line=dict(color='#2962ff', width=1), name="EMA 20"))
+    fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['ema50'], line=dict(color='#ff9800', width=1), name="EMA 50"))
+
+    # Add FVGs (Rectangles)
+    for f in fvgs:
+        if f['idx'] in df_plot.index:
+            color = "rgba(38, 166, 154, 0.2)" if f['type'] == 'bull' else "rgba(239, 83, 80, 0.2)"
+            fig.add_shape(type="rect",
+                x0=f['idx'], x1=df_plot.index[-1], y0=f['bot'], y1=f['top'],
+                fillcolor=color, line_width=0, layer="below"
+            )
+
+    # Add BOS Labels
+    plot_bos_up = bos_up[df_plot.index]
+    plot_bos_dn = bos_dn[df_plot.index]
     
-    if "win_end" not in st.session_state: st.session_state.win_end = len(df)
-    
-    # Simple navigation
-    cc1, cc2 = st.sidebar.columns(2)
-    if cc1.button("Prev"): st.session_state.win_end = max(20, st.session_state.win_end - 5)
-    if cc2.button("Next"): st.session_state.win_end = min(len(df), st.session_state.win_end + 5)
-    
-    df_slice = df.iloc[st.session_state.win_end-50 : st.session_state.win_end]
-    info_slice = info_df.iloc[st.session_state.win_end-50 : st.session_state.win_end]
-    
-    st.pyplot(plotchart(df_slice, zones, info_slice, df.index, f"{ticker} Analysis"))
+    fig.add_trace(go.Scatter(
+        x=df_plot.index[plot_bos_up], y=df_plot['high'][plot_bos_up],
+        mode='text', text="BOS ↑", textposition="top center",
+        textfont=dict(color="lime", size=10), name="Structure Break"
+    ))
+
+    # Layout Styling
+    fig.update_layout(
+        height=700,
+        template="plotly_dark",
+        xaxis_rangeslider_visible=False,
+        margin=dict(l=10, r=10, t=30, b=10),
+        yaxis=dict(gridcolor='#1e222d', zeroline=False),
+        xaxis=dict(gridcolor='#1e222d', zeroline=False),
+        paper_bgcolor='#0e1117',
+        plot_bgcolor='#0e1117',
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Logic Information
+    with st.expander("Show Raw Signal Data"):
+        st.dataframe(df_plot.tail(10), use_container_width=True)
+
 else:
-    st.error("Data not found.")
+    st.error("Could not fetch data. Check the ticker symbol.")
