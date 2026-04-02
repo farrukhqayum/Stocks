@@ -48,11 +48,18 @@ def rsi(series, length=14):
 
 
 def atr(df, length=14):
-    high_low = df["high"] - df["low"]
-    high_close = np.abs(df["high"] - df["close"].shift())
-    low_close = np.abs(df["low"] - df["close"].shift())
-    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    high = df["high"]
+    low = df["low"]
+    close_prev = df["close"].shift()
+
+    tr = pd.concat([
+        (high - low),
+        (high - close_prev).abs(),
+        (low - close_prev).abs()
+    ], axis=1).max(axis=1)
+
     return tr.rolling(length).mean()
+
 
 # ---------------------------------------------------------
 # SWING POINTS
@@ -323,57 +330,58 @@ def detect_candlestick_patterns(df, lb_crv, body_thresh=0.10,
 # ---------------------------------------------------------
 # MARKET STRUCTURE (BOS / CHoCH)
 # ---------------------------------------------------------
-
 def compute_structure(df, swing_left=20, swing_right=5, bos_ext_bars=20):
-    """
-    Returns:
-        bos_up: Series[bool]
-        bos_dn: Series[bool]
-        is_uptrend: Series[bool]
-    """
-    highs = df["high"]
-    lows = df["low"]
-    idx = df.index
+    highs = df["high"].to_numpy().flatten()
+    lows  = df["low"].to_numpy().flatten()
+    closes = df["close"].to_numpy().flatten()
+    n = len(df)
 
-    # Swing points (approx)
-    sw_hi = pivot_high(df, swing_left, swing_right)
-    sw_lo = pivot_low(df, swing_left, swing_right)
+    # Swing points as arrays of floats (NaN where no swing)
+    sw_hi = np.full(n, np.nan)
+    sw_lo = np.full(n, np.nan)
+
+    for i in range(swing_left, n - swing_right):
+        window = highs[i - swing_left : i + swing_right + 1]
+        if highs[i] == window.max():
+            sw_hi[i] = highs[i]
+        if lows[i] == window.min():
+            sw_lo[i] = lows[i]
+
+    bos_up = np.zeros(n, dtype=bool)
+    bos_dn = np.zeros(n, dtype=bool)
+    trend  = np.zeros(n, dtype=bool)
 
     last_hi = np.nan
     last_lo = np.nan
     is_uptrend = False
 
-    bos_up = pd.Series(False, index=idx)
-    bos_dn = pd.Series(False, index=idx)
-    trend_series = pd.Series(False, index=idx)
+    for i in range(n):
+        if not np.isnan(sw_hi[i]):
+            last_hi = sw_hi[i]
+        if not np.isnan(sw_lo[i]):
+            last_lo = sw_lo[i]
 
-    for i in range(len(df)):
-        t = idx[i]
-
-        # Update last swing high/low
-        if t in sw_hi.index:
-            last_hi = sw_hi.loc[t]
-        if t in sw_lo.index:
-            last_lo = sw_lo.loc[t]
-
-        close = df["close"].iloc[i]
+        close_i = closes[i]
 
         # BOS up
-        if not np.isnan(last_hi) and close > last_hi and not bos_up.iloc[i]:
-            bos_up.iloc[i] = True
+        if not np.isnan(last_hi) and close_i > last_hi:
+            bos_up[i] = True
             is_uptrend = True
             last_hi = np.nan
 
         # BOS down
-        if not np.isnan(last_lo) and close < last_lo and not bos_dn.iloc[i]:
-            bos_dn.iloc[i] = True
+        if not np.isnan(last_lo) and close_i < last_lo:
+            bos_dn[i] = True
             is_uptrend = False
             last_lo = np.nan
 
-        trend_series.iloc[i] = is_uptrend
+        trend[i] = is_uptrend
 
-    return bos_up, bos_dn, trend_series
-
+    return (
+        pd.Series(bos_up, index=df.index),
+        pd.Series(bos_dn, index=df.index),
+        pd.Series(trend, index=df.index),
+    )
 
 # ---------------------------------------------------------
 # MAIN ENGINE: APPLY PINE LOGIC TO DF
@@ -535,14 +543,17 @@ def apply_pinescript_logic(df_raw):
                      start_idx=i, color=fvg_bear_col, cond=True)
 
         # 3-candle OB (displacement)
-        close_i = df["close"].iloc[i]
-        open_i = df["open"].iloc[i]
-        close_1 = df["close"].iloc[i-1]
-        open_1 = df["open"].iloc[i-1]
-        high_1 = df["high"].iloc[i-1]
-        low_1 = df["low"].iloc[i-1]
-        high_2 = df["high"].iloc[i-2]
-        low_2 = df["low"].iloc[i-2]
+        close_1 = df["close"].iloc[i-1])
+        open_1 = float(df["open"].iloc[i-1]
+        high_1 = float(df["high"].iloc[i-1])
+        low_1 = float(df["low"].iloc[i-1])
+        high_2 = float(df["high"].iloc[i-2])
+        low_2 = float(df["low"].iloc[i-2])
+        close_i = float(df["close"].iloc[i])
+        open_i  = float(df["open"].iloc[i])
+        high_1  = float(df["high"].iloc[i-1])
+        low_1   = float(df["low"].iloc[i-1])
+
 
         displacement_up = (close_i > high_1) and (close_i > open_i)
         displacement_dn = (close_i < low_1) and (close_i < open_i)
