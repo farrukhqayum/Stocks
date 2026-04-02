@@ -2,132 +2,143 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
 # =========================================================
-# 1. THE ENGINE (Your Logic, Fixed for Vectorization)
+# BLOCK 1 — DATA & INDICATORS
 # =========================================================
 
-def apply_smc_engine(df):
-    # Ensure 1D arrays to prevent "Ambiguous Truth" errors
-    close = df['close'].values.flatten()
-    high = df['high'].values.flatten()
-    low = df['low'].values.flatten()
-    
-    # 20/50/200 EMA
-    df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
-    df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
-    
-    # Structure (BOS) - Looking for local swings
-    lb = 15 
-    df['hi_max'] = df['high'].rolling(window=lb, center=True).max()
-    df['lo_min'] = df['low'].rolling(window=lb, center=True).min()
-    
-    bos_up = (df['close'] > df['hi_max'].shift(1))
-    bos_dn = (df['close'] < df['lo_min'].shift(1))
+@st.cache_data(show_spinner=False)
+def load_data(ticker, start_date, interval):
+    try:
+        df = yf.download(ticker, start=start_date, interval=interval)
+        if df is None or df.empty: return None
+        # Handle potential MultiIndex from yfinance
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        df = df.rename(columns=str.lower)
+        df.dropna(inplace=True)
+        return df
+    except Exception:
+        return None
 
-    # Zone Detection (FVG & OB)
+def ema(series, length):
+    return series.ewm(span=length, adjust=False).mean()
+
+def atr(df, length=14):
+    high, low, close_prev = df["high"], df["low"], df["close"].shift()
+    tr = pd.concat([(high - low), (high - close_prev).abs(), (low - close_prev).abs()], axis=1).max(axis=1)
+    return tr.rolling(length).mean()
+
+class Zone:
+    def __init__(self, top, bottom, start_idx, is_bull, is_ob, color):
+        self.top, self.bottom = top, bottom
+        self.start_idx = start_idx # This is the index label (Date)
+        self.is_bull, self.is_ob, self.color = is_bull, is_ob, color
+        self.is_mitigated = False
+
+# =========================================================
+# BLOCK 2 — ENGINE (BOS, PATTERNS, ZONES)
+# =========================================================
+
+def compute_structure(df, sw_len=20):
+    highs, lows, closes = df["high"].values, df["low"].values, df["close"].values
+    n = len(df)
+    bos_up, bos_dn = np.zeros(n, dtype=bool), np.zeros(n, dtype=bool)
+    last_hi, last_lo = np.nan, np.nan
+
+    for i in range(sw_len, n - 5):
+        if highs[i] == highs[i-sw_len : i+6].max(): last_hi = highs[i]
+        if lows[i] == lows[i-sw_len : i+6].min(): last_lo = lows[i]
+        
+        if not np.isnan(last_hi) and closes[i] > last_hi:
+            bos_up[i], last_hi = True, np.nan
+        if not np.isnan(last_lo) and closes[i] < last_lo:
+            bos_dn[i], last_lo = True, np.nan
+            
+    return pd.Series(bos_up, index=df.index), pd.Series(bos_dn, index=df.index)
+
+def apply_pinescript_logic(df_raw):
+    df = df_raw.copy()
+    for col in ["open", "high", "low", "close"]:
+        df[col] = df[col].to_numpy().flatten()
+
+    df["ema20"] = ema(df["close"], 20)
+    df["ema50"] = ema(df["close"], 50)
+    df["atr"] = atr(df, 14)
+    
+    bos_up, bos_dn = compute_structure(df)
+    
+    # Zones Detection
     zones = []
     for i in range(2, len(df)):
-        # FVG Bull (Gap between Candle i and i-2)
-        if low[i] > high[i-2]:
-            zones.append(dict(t=df.index[i], top=low[i], bot=high[i-2], type='bull', label='FVG'))
-        # FVG Bear
-        elif high[i] < low[i-2]:
-            zones.append(dict(t=df.index[i], top=low[i-2], bot=high[i], type='bear', label='FVG'))
-            
-    return df, bos_up, bos_dn, zones
+        # FVG Detection
+        if df["low"].iloc[i] > df["high"].iloc[i-2] + (df["atr"].iloc[i]*0.1):
+            zones.append(Zone(df["low"].iloc[i], df["high"].iloc[i-2], df.index[i], True, False, (0.14, 0.44, 0.09, 0.3)))
+        if df["high"].iloc[i] < df["low"].iloc[i-2] - (df["atr"].iloc[i]*0.1):
+            zones.append(Zone(df["low"].iloc[i-2], df["high"].iloc[i], df.index[i], False, False, (0.55, 0.05, 0.05, 0.3)))
+
+    # Synchronized Info DataFrame for slicing
+    info_df = pd.DataFrame({"bos_up": bos_up, "bos_dn": bos_dn}, index=df.index)
+    return df, zones, info_df
 
 # =========================================================
-# 2. UI CONFIG & DATA LOAD
+# BLOCK 3 — PLOTTING (FIXED COORDINATES)
 # =========================================================
-st.set_page_config(page_title="SMC Backtester Pro", layout="wide")
 
-st.sidebar.title("🛠️ Backtest Controls")
-ticker = st.sidebar.text_input("Ticker", "AAPL").upper()
-timeframe = st.sidebar.selectbox("Interval", ["1d", "1h", "4h", "1wk"])
-zoom_level = st.sidebar.slider("Visible Candles", 50, 500, 150)
-
-@st.cache_data
-def load_data(symbol, inter):
-    d = yf.download(symbol, period="2y", interval=inter)
-    if isinstance(d.columns, pd.MultiIndex): d.columns = d.columns.get_level_values(0)
-    d.columns = [c.lower() for c in d.columns]
-    return d.dropna()
-
-data = load_data(ticker, timeframe)
-
-if not data.empty:
-    df, b_up, b_dn, zones = apply_smc_engine(data)
+def plotchart(df_slice, zones, info_slice, full_df_index):
+    fig, ax = plt.subplots(figsize=(14, 7), facecolor='#131722')
+    ax.set_facecolor('#131722')
     
-    # Slice for "Backtest View"
-    # This mimics your "Next/Prev" behavior but with a smooth slider
-    total_len = len(df)
-    current_pos = st.sidebar.slider("Timeline Position", zoom_level, total_len, total_len)
-    
-    df_slice = df.iloc[current_pos - zoom_level : current_pos]
-    
-    # =========================================================
-    # 3. THE PLOT (TradingView Style)
-    # =========================================================
-    fig = go.Figure()
+    dates = df_slice.index
+    for i in range(len(df_slice)):
+        o, c, h, l = df_slice["open"].iloc[i], df_slice["close"].iloc[i], df_slice["high"].iloc[i], df_slice["low"].iloc[i]
+        color = "#26a69a" if c >= o else "#ef5350"
+        ax.plot([i, i], [l, h], color=color, linewidth=1)
+        ax.add_patch(plt.Rectangle((i-0.3, min(o, c)), 0.6, abs(c-o), color=color, alpha=0.9))
+        
+        # Fixed Signal Lookup
+        curr_date = dates[i]
+        if info_slice.loc[curr_date, "bos_up"]:
+            ax.text(i, h, "BOS↑", color="#00ff00", fontsize=9, ha="center", va="bottom", fontweight='bold')
+        if info_slice.loc[curr_date, "bos_dn"]:
+            ax.text(i, l, "BOS↓", color="#ff0000", fontsize=9, ha="center", va="top", fontweight='bold')
 
-    # 1. Candlesticks
-    fig.add_trace(go.Candlestick(
-        x=df_slice.index, open=df_slice['open'], high=df_slice['high'],
-        low=df_slice['low'], close=df_slice['close'],
-        increasing_line_color='#26a69a', decreasing_line_color='#ef5350',
-        increasing_fillcolor='#26a69a', decreasing_fillcolor='#ef5350',
-        name="OHLC"
-    ))
-
-    # 2. Indicators (EMAs)
-    fig.add_trace(go.Scatter(x=df_slice.index, y=df_slice['ema20'], line=dict(color='#2962ff', width=1.5), name="EMA 20"))
-    fig.add_trace(go.Scatter(x=df_slice.index, y=df_slice['ema50'], line=dict(color='#ff9800', width=1.5), name="EMA 50"))
-
-    # 3. Draw Zones (FVGs)
+    # Fixed Zone drawing to prevent KeyError
     for z in zones:
-        # Only draw if the zone was created before or during the visible slice
-        if z['t'] in df_slice.index:
-            color = "rgba(38, 166, 154, 0.25)" if z['type'] == 'bull' else "rgba(239, 83, 80, 0.25)"
-            fig.add_shape(type="rect",
-                x0=z['t'], x1=df_slice.index[-1], y0=z['bot'], y1=z['top'],
-                fillcolor=color, line_width=0, layer="below"
-            )
+        if z.start_idx in dates:
+            start_x = dates.get_loc(z.start_idx)
+            width = len(df_slice) - start_x
+            ax.add_patch(plt.Rectangle((start_x, z.bottom), width, z.top - z.bottom, color=z.color, linewidth=0))
 
-    # 4. Structure Breaks (BOS)
-    up_idx = df_slice.index[b_up[df_slice.index]]
-    dn_idx = df_slice.index[b_dn[df_slice.index]]
+    ax.set_title("SMC Backtest Dashboard", color="white", fontsize=12)
+    ax.grid(True, color="#2a2e39", alpha=0.5)
+    ax.tick_params(colors='white')
+    return fig
 
-    fig.add_trace(go.Scatter(x=up_idx, y=df_slice.loc[up_idx, 'high'], mode='markers+text',
-                             text="BOS↑", textposition="top center", marker=dict(symbol='triangle-up', color='lime')))
+# =========================================================
+# BLOCK 4 — UI ORCHESTRATION
+# =========================================================
+
+st.set_page_config(page_title="SMC Backtester", layout="wide")
+ticker = st.sidebar.text_input("Ticker", "NVDA")
+df_raw = load_data(ticker, datetime.now()-timedelta(days=365), "1d")
+
+if df_raw is not None:
+    df, zones, info_df = apply_pinescript_logic(df_raw)
     
-    fig.add_trace(go.Scatter(x=dn_idx, y=df_slice.loc[dn_idx, 'low'], mode='markers+text',
-                             text="BOS↓", textposition="bottom center", marker=dict(symbol='triangle-down', color='red')))
-
-    # 5. Professional Layout
-    fig.update_layout(
-        height=800,
-        template="plotly_dark",
-        xaxis_rangeslider_visible=False,
-        margin=dict(l=0, r=10, t=30, b=0),
-        paper_bgcolor='#131722', # TradingView Dark Blue
-        plot_bgcolor='#131722',
-        yaxis=dict(side="right", gridcolor='#2a2e39', title="Price"),
-        xaxis=dict(gridcolor='#2a2e39', title="Date")
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+    if "end_idx" not in st.session_state: st.session_state.end_idx = 100
     
-    # Backtest Stats Table
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Structure Break Log")
-        st.write(df_slice[b_up | b_dn][['close', 'ema20']].tail(5))
-    with col2:
-        st.subheader("Active Zones")
-        st.info(f"Detected {len(zones)} total SMC zones in history.")
-
+    c1, c2, c3 = st.columns([1,1,4])
+    if c1.button("⬅️ Prev"): st.session_state.end_idx = max(50, st.session_state.end_idx - 5)
+    if c2.button("Next ➡️"): st.session_state.end_idx = min(len(df), st.session_state.end_idx + 5)
+    
+    # Critical: Slice both Data and Signal Info identically
+    start = max(0, st.session_state.end_idx - 100)
+    df_slice = df.iloc[start : st.session_state.end_idx]
+    info_slice = info_df.iloc[start : st.session_state.end_idx]
+    
+    st.pyplot(plotchart(df_slice, zones, info_slice, df.index))
 else:
-    st.error("Ticker not found. Please verify the symbol.")
+    st.error("Select a valid Ticker.")
