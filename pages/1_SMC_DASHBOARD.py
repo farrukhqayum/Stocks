@@ -624,7 +624,7 @@ def apply_pinescript_logic(df_raw):
         has_bear_fvg.append(bear_fvg_flag)
         inside_zone.append(inside_flag)
 
-    df["has_bull_ob"] = has_bull_ob
+df["has_bull_ob"] = has_bull_ob
     df["has_bear_ob"] = has_bear_ob
     df["has_bull_fvg"] = has_bull_fvg
     df["has_bear_fvg"] = has_bear_fvg
@@ -643,7 +643,7 @@ def apply_pinescript_logic(df_raw):
             fvg_state.append("No FVG Bias")
     df["fvg_state"] = fvg_state
 
-    info = {
+    info_df = pd.DataFrame({
         "pattern_name": df["pattern_name"],
         "pattern_bull": df["pattern_bull"],
         "smc_bullish": df["smc_bullish"],
@@ -652,9 +652,9 @@ def apply_pinescript_logic(df_raw):
         "bos_dn": df["bos_dn"],
         "is_uptrend": df["is_uptrend"],
         "fvg_state": df["fvg_state"],
-    }
+    }, index=df.index)
 
-    return df, zones, info
+    return df, zones, info_df
 
 # ---------------------------------------------------------
 # LAST BROKEN FVG (FOR REGIME ENGINE)
@@ -708,93 +708,59 @@ def get_last_broken_fvg(df_slice):
 # =========================================================
 # BLOCK 3 — PLOTTING ENGINE (MATPLOTLIB)
 # =========================================================
-
-def plotchart(df_slice, zones, info, title="SMC View",
-              exit_long=False, exit_short=False):
-
+def plotchart(df_slice, zones, info_slice, title="SMC View"):
     fig, ax = plt.subplots(figsize=(14, 7))
 
-    open_arr  = df_slice["open"].to_numpy().flatten()
-    close_arr = df_slice["close"].to_numpy().flatten()
-    high_arr  = df_slice["high"].to_numpy().flatten()
-    low_arr   = df_slice["low"].to_numpy().flatten()
+    # Convert to numpy for speed, but keep the index for lookups
+    open_arr  = df_slice["open"].values
+    close_arr = df_slice["close"].values
+    high_arr  = df_slice["high"].values
+    low_arr   = df_slice["low"].values
+    dates     = df_slice.index
 
     for i in range(len(df_slice)):
-        o = open_arr[i]
-        c = close_arr[i]
-        h = high_arr[i]
-        l = low_arr[i]
-
+        o, c, h, l = open_arr[i], close_arr[i], high_arr[i], low_arr[i]
         color = "green" if c >= o else "red"
+        
+        # Draw Wicks and Bodies
         ax.plot([i, i], [l, h], color=color, linewidth=1)
-        ax.add_patch(
-            plt.Rectangle(
-                (i - 0.3, min(o, c)),
-                0.6,
-                abs(c - o),
-                color=color,
-                alpha=0.8
-            )
-        )
+        ax.add_patch(plt.Rectangle((i - 0.3, min(o, c)), 0.6, abs(c - o), color=color, alpha=0.8))
 
-    ax.plot(df_slice["ema20"].values, color="yellow", linewidth=1, label="EMA20")
-    ax.plot(df_slice["ema50"].values, color="orange", linewidth=1.2, label="EMA50")
-    ax.plot(df_slice["ema200"].values, color="purple", linewidth=1.2, label="EMA200")
+        # --- SIGNAL LOOKUPS (Sourced from info_slice) ---
+        current_date = dates[i]
+        
+        if info_slice.loc[current_date, "bos_up"]:
+            ax.text(i, h * 1.002, "BOS↑", color="lime", fontsize=8, ha="center", fontweight='bold')
 
+        if info_slice.loc[current_date, "bos_dn"]:
+            ax.text(i, l * 0.998, "BOS↓", color="red", fontsize=8, ha="center", fontweight='bold')
+
+        p_name = info_slice.loc[current_date, "pattern_name"]
+        if p_name != "None":
+            y_pos = l * 0.995 if info_slice.loc[current_date, "pattern_bull"] else h * 1.005
+            ax.text(i, y_pos, p_name, fontsize=7, color="cyan", ha="center")
+
+    # --- ZONE DRAWING ---
     for z in zones:
-        if z.is_mitigated:
-            continue
+        if z.is_mitigated: continue
+        
+        # Check if the zone started before or during our visible window
+        if z.start_idx in df.index:
+            z_start_dt = df.index[z.start_idx]
+            
+            # If the zone is visible in the current slice
+            if z_start_dt <= dates[-1]:
+                # Calculate where to start drawing (either at its birth or the start of the chart)
+                start_x = max(0, df_slice.index.get_loc(z_start_dt)) if z_start_dt in dates else 0
+                width = len(df_slice) - start_x
+                
+                ax.add_patch(plt.Rectangle(
+                    (start_x, z.bottom), width, z.top - z.bottom,
+                    color=z.color, alpha=0.2, linewidth=0.5, edgecolor=z.color
+                ))
 
-        if z.start_idx < df_slice.index[0] or z.start_idx > df_slice.index[-1]:
-            continue
-
-        rel_idx = df_slice.index.get_loc(z.start_idx)
-
-        height = z.top - z.bottom
-        ax.add_patch(
-            plt.Rectangle(
-                (rel_idx, z.bottom),
-                width=len(df_slice) - rel_idx,
-                height=height,
-                color=z.color,
-                alpha=0.35,
-                linewidth=1.2,
-                edgecolor=z.color
-            )
-        )
-
-    for i in range(len(df_slice)):
-        if info["bos_up"].iloc[i]:
-            ax.text(i, df_slice["high"].iloc[i],
-                    "BOS↑", color="lime", fontsize=8, ha="center")
-
-        if info["bos_dn"].iloc[i]:
-            ax.text(i, df_slice["low"].iloc[i],
-                    "BOS↓", color="red", fontsize=8, ha="center")
-
-    for i in range(len(df_slice)):
-        name = info["pattern_name"].iloc[i]
-        if name != "None":
-            y = df_slice["low"].iloc[i] if info["pattern_bull"].iloc[i] else df_slice["high"].iloc[i]
-            ax.text(i, y,
-                    name,
-                    fontsize=7,
-                    color="yellow" if info["pattern_bull"].iloc[i] else "white",
-                    ha="center")
-
-    if exit_long:
-        ax.text(len(df_slice)-1, df_slice["close"].iloc[-1],
-                "EXIT LONG", color="yellow", fontsize=10)
-
-    if exit_short:
-        ax.text(len(df_slice)-1, df_slice["close"].iloc[-1],
-                "EXIT SHORT", color="yellow", fontsize=10)
-
-    ax.set_title(title, fontsize=14)
-    ax.set_xlim(-1, len(df_slice) + 1)
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-
+    ax.set_title(title)
+    ax.grid(True, alpha=0.2)
     return fig
 
 # =========================================================
@@ -834,7 +800,7 @@ if df is None or df.empty:
     st.error("No data found.")
     st.stop()
 
-df, zones, info = apply_pinescript_logic(df)
+df, zones, info_df = apply_pinescript_logic(df)
 
 col1, col2, col3 = st.columns(3)
 
@@ -870,7 +836,8 @@ end_idx = st.session_state.window_end_idx
 if start_idx > end_idx:
     start_idx, end_idx = end_idx, start_idx
 
-df_slice = df.iloc[start_idx:end_idx + 1]
+df_slice = df.iloc[start_idx : end_idx + 1]
+info_slice = info_df.iloc[start_idx : end_idx + 1]
 
 with col3:
     if len(df_slice) > 0:
@@ -878,6 +845,6 @@ with col3:
     else:
         st.write("Visible Window: —")
 
-if len(df_slice) > 0:
-    fig = plotchart(df_slice, zones, info, title=f"{ticker} — {tf}")
+if not df_slice.empty:
+    fig = plotchart(df_slice, zones, info_slice, title=f"{ticker} — {tf}")
     st.pyplot(fig)
