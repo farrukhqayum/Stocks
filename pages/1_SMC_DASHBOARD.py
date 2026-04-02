@@ -25,44 +25,51 @@ st.set_page_config(layout="wide", page_title="SMC Dashboard (yfinance)")
 # Cached download helper (defensive)
 # -------------------------
 @st.cache_data(ttl=300)
-def download_yf(ticker: str, period_days: int, interval: str) -> pd.DataFrame:
-    """
-    Download OHLCV from yfinance and normalize column names.
-    Defensive: handles MultiIndex columns, missing columns, coerces numeric types.
-    """
+def download_yf(ticker: str, period_days: int, interval: str):
     period = f"{period_days}d"
-    raw = yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=False)
-    if raw is None or raw.empty:
-        return pd.DataFrame()
-    df = raw.copy()
 
-    # Flatten MultiIndex columns if present
+    try:
+        df = yf.download(
+            ticker,
+            period=period,
+            interval=interval,
+            auto_adjust=False,
+            progress=False,
+            threads=True
+        )
+    except Exception as e:
+        st.error(f"yfinance error: {e}")
+        return pd.DataFrame()
+
+    if df is None or df.empty:
+        st.error("Yahoo returned no data. Try another timeframe or ticker.")
+        return pd.DataFrame()
+
+    # Flatten MultiIndex
     if isinstance(df.columns, pd.MultiIndex):
-        df.columns = ['_'.join(map(str, c)).strip() for c in df.columns.values]
+        df.columns = ['_'.join([str(c) for c in col]).strip() for col in df.columns.values]
 
     df = df.reset_index()
-    df.columns = [str(c).lower() for c in df.columns]
 
     # Normalize datetime column
-    if 'date' in df.columns and 'datetime' not in df.columns:
-        df = df.rename(columns={'date': 'datetime'})
-    if 'datetime' not in df.columns:
-        df['datetime'] = pd.to_datetime(df.index)
+    if "Date" in df.columns:
+        df = df.rename(columns={"Date": "datetime"})
+    if "Datetime" in df.columns:
+        df = df.rename(columns={"Datetime": "datetime"})
 
-    # Ensure required columns exist
-    for c in ['open', 'high', 'low', 'close', 'volume']:
-        if c not in df.columns:
-            df[c] = np.nan
+    df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+    df = df.dropna(subset=["datetime"])
 
-    # Coerce numeric columns safely
-    for c in ['open', 'high', 'low', 'close', 'volume']:
-        df[c] = pd.to_numeric(df[c], errors='coerce').astype(float)
+    # Ensure numeric OHLC
+    for col in ["open", "high", "low", "close", "volume"]:
+        if col not in df.columns:
+            df[col] = np.nan
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Ensure datetime dtype and drop invalid rows
-    df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
-    df = df.dropna(subset=['datetime']).reset_index(drop=True)
-    df = df.sort_values('datetime').reset_index(drop=True)
+    df = df.sort_values("datetime").reset_index(drop=True)
+
     return df
+
 
 # -------------------------
 # Indicator helpers
