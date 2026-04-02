@@ -1,23 +1,23 @@
 # streamlit_smc_yfinance.py
 """
-Single-file Streamlit app:
+Single-file Streamlit app (fixed):
 - Downloads 2 years of OHLCV via yfinance (cached)
 - UI: ticker, timeframe (1D/1W/1M), EMA/RSI/ATR params, swing detection, min_gap_frac
-- Computes EMAs, RSI, ATR; detects 3-candle FVG and 3-candle OB using numpy arrays
-- Shows 3-column recommendation (Go Long / Hold / Go Short)
-- Matplotlib price chart with EMAs and semi-transparent zone rectangles
-- Shows market structure (last swing highs/lows and BOS/CHoCH)
-- CSV download of sliced data
+- Computes EMAs, RSI, ATR; detects 3-candle FVG and 3-candle OB using numpy arrays (robust)
+- Uses numpy/pandas conversions to avoid .iat indexing errors
+- Matplotlib plot uses matplotlib.dates for rectangle alignment
+- Three-column recommendation: GO LONG / HOLD / GO SHORT
 Run: streamlit run streamlit_smc_yfinance.py
 """
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+import matplotlib.dates as mdates
 import io
+from datetime import datetime, timedelta
 
 st.set_page_config(layout="wide", page_title="SMC Signals (yfinance)")
 
@@ -33,7 +33,7 @@ def download_yf(ticker: str, period_days: int, interval: str) -> pd.DataFrame:
     """
     period = f"{period_days}d"
     df = yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=False)
-    if df.empty:
+    if df is None or df.empty:
         return pd.DataFrame()
     df = df.reset_index()
     # unify column names to lowercase
@@ -43,12 +43,15 @@ def download_yf(ticker: str, period_days: int, interval: str) -> pd.DataFrame:
         df = df.rename(columns={'date': 'datetime'})
     if 'datetime' not in df.columns:
         df['datetime'] = pd.to_datetime(df.index)
-    # keep only required columns
+    # keep only required columns and coerce numeric types
     cols = ['datetime', 'open', 'high', 'low', 'close', 'volume']
     for c in cols:
         if c not in df.columns:
             df[c] = np.nan
     df = df[cols]
+    # coerce numeric columns to floats (safe)
+    for c in ['open', 'high', 'low', 'close', 'volume']:
+        df[c] = pd.to_numeric(df[c], errors='coerce')
     df = df.sort_values('datetime').reset_index(drop=True)
     return df
 
@@ -70,7 +73,6 @@ def rsi(series: pd.Series, length: int = 14) -> pd.Series:
 def pivot_high_idxs_np(high_np: np.ndarray, left: int = 20, right: int = 5):
     idxs = []
     n = len(high_np)
-    # ensure left/right are within bounds
     left = max(1, int(left))
     right = max(1, int(right))
     for i in range(left, n - right):
@@ -137,7 +139,7 @@ df['ema_med']   = ema(df['close'], ema_med)
 df['ema_long']  = ema(df['close'], ema_long)
 df['rsi'] = rsi(df['close'], rsi_len)
 
-# ATR (True Range then rolling mean)
+# ATR (True Range then rolling mean) - robust numeric handling
 high = df['high']
 low = df['low']
 close = df['close']
@@ -148,17 +150,21 @@ df['tr'] = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
 df['atr'] = df['tr'].rolling(window=atr_len, min_periods=1).mean()
 
 # -------------------------
-# Convert to numpy arrays for zone detection and pivots
+# Convert to numpy arrays for zone detection and pivots (coerced to float)
 # -------------------------
-dt_np = df['datetime'].to_numpy()
-open_np = df['open'].to_numpy()
-high_np = df['high'].to_numpy()
-low_np = df['low'].to_numpy()
-close_np = df['close'].to_numpy()
-atr_np = df['atr'].to_numpy()
+# Use pd.to_numeric with errors='coerce' to ensure numeric dtype and avoid object arrays
+dt_np = pd.to_datetime(df['datetime']).to_numpy()
+open_np = pd.to_numeric(df['open'], errors='coerce').to_numpy(dtype=float)
+high_np = pd.to_numeric(df['high'], errors='coerce').to_numpy(dtype=float)
+low_np = pd.to_numeric(df['low'], errors='coerce').to_numpy(dtype=float)
+close_np = pd.to_numeric(df['close'], errors='coerce').to_numpy(dtype=float)
+atr_np = pd.to_numeric(df['atr'], errors='coerce').to_numpy(dtype=float)
+
+# Precompute matplotlib numeric x values for rectangles (date2num)
+x_nums = mdates.date2num(pd.to_datetime(df['datetime']).to_pydatetime())
 
 # -------------------------
-# Zone detection using numpy arrays (robust indexing)
+# Zone detection using numpy arrays (robust indexing & type-safe)
 # -------------------------
 zones = []  # list of dicts: start, end, top, bot, bull(bool), type
 n = len(df)
@@ -166,8 +172,9 @@ for i in range(2, n):
     # ensure we have required previous indices
     if i-2 < 0 or i-1 < 0:
         continue
-    # compute min_gap safely
-    min_gap = float(atr_np[i]) * float(min_gap_frac) if not np.isnan(atr_np[i]) else 0.0
+    # compute min_gap safely (handle nan)
+    atr_val = atr_np[i] if not np.isnan(atr_np[i]) else 0.0
+    min_gap = float(atr_val) * float(min_gap_frac)
 
     # 3-candle FVG up (bull): low[i] > high[i-2] + min_gap
     if (not np.isnan(low_np[i])) and (not np.isnan(high_np[i-2])) and (low_np[i] > high_np[i-2] + min_gap):
@@ -192,8 +199,15 @@ for i in range(2, n):
         })
 
     # 3-candle OB displacement (bull)
-    if (not np.isnan(close_np[i]) and not np.isnan(high_np[i-1]) and not np.isnan(open_np[i])
-        and close_np[i] > high_np[i-1] and close_np[i] > open_np[i] and (not np.isnan(low_np[i-1]) and not np.isnan(low_np[i-2])) and low_np[i-1] < low_np[i-2]):
+    cond_bull_ob = (
+        (not np.isnan(close_np[i])) and
+        (not np.isnan(high_np[i-1])) and
+        (not np.isnan(open_np[i])) and
+        (not np.isnan(low_np[i-1])) and
+        (not np.isnan(low_np[i-2]))
+        and (close_np[i] > high_np[i-1]) and (close_np[i] > open_np[i]) and (low_np[i-1] < low_np[i-2])
+    )
+    if cond_bull_ob:
         zones.append({
             'start': int(i-1),
             'end': int(i),
@@ -204,8 +218,15 @@ for i in range(2, n):
         })
 
     # 3-candle OB displacement (bear)
-    if (not np.isnan(close_np[i]) and not np.isnan(low_np[i-1]) and not np.isnan(open_np[i])
-        and close_np[i] < low_np[i-1] and close_np[i] < open_np[i] and (not np.isnan(high_np[i-1]) and not np.isnan(high_np[i-2])) and high_np[i-1] > high_np[i-2]):
+    cond_bear_ob = (
+        (not np.isnan(close_np[i])) and
+        (not np.isnan(low_np[i-1])) and
+        (not np.isnan(open_np[i])) and
+        (not np.isnan(high_np[i-1])) and
+        (not np.isnan(high_np[i-2]))
+        and (close_np[i] < low_np[i-1]) and (close_np[i] < open_np[i]) and (high_np[i-1] > high_np[i-2])
+    )
+    if cond_bear_ob:
         zones.append({
             'start': int(i-1),
             'end': int(i),
@@ -226,29 +247,36 @@ ph_idxs = pivot_high_idxs_np(high_np, left=swing_left, right=swing_right)
 pl_idxs = pivot_low_idxs_np(low_np, left=swing_left, right=swing_right)
 last_hi_idx = ph_idxs[-1] if ph_idxs else None
 last_lo_idx = pl_idxs[-1] if pl_idxs else None
-last_hi_price = float(high_np[last_hi_idx]) if last_hi_idx is not None else None
-last_lo_price = float(low_np[last_lo_idx]) if last_lo_idx is not None else None
+last_hi_price = float(high_np[last_hi_idx]) if last_hi_idx is not None and not np.isnan(high_np[last_hi_idx]) else None
+last_lo_price = float(low_np[last_lo_idx]) if last_lo_idx is not None and not np.isnan(low_np[last_lo_idx]) else None
 
 # Detect breakout over last swing high / under last swing low
-close_latest = float(close_np[-1])
+close_latest = float(close_np[-1]) if not np.isnan(close_np[-1]) else None
 bos = "No BOS"
-if last_hi_idx is not None and (last_hi_price is not None) and close_latest > last_hi_price:
-    bos = "BOS Up"
-elif last_lo_idx is not None and (last_lo_price is not None) and close_latest < last_lo_price:
-    bos = "BOS Down"
+if close_latest is not None:
+    if last_hi_price is not None and close_latest > last_hi_price:
+        bos = "BOS Up"
+    elif last_lo_price is not None and close_latest < last_lo_price:
+        bos = "BOS Down"
 
 # -------------------------
 # Signals (middle column)
 # -------------------------
 latest = df.iloc[-1]
-smc_bull = latest['close'] > latest['ema_med']
-ema_bull = latest['ema_short'] > latest['ema_med']
-mom_bull = latest['rsi'] > 50
+# guard against NaNs in latest values
+latest_close = float(latest['close']) if not pd.isna(latest['close']) else np.nan
+latest_ema_short = float(latest['ema_short']) if not pd.isna(latest['ema_short']) else np.nan
+latest_ema_med = float(latest['ema_med']) if not pd.isna(latest['ema_med']) else np.nan
+latest_rsi = float(latest['rsi']) if not pd.isna(latest['rsi']) else np.nan
+
+smc_bull = (latest_close > latest_ema_med) if (not np.isnan(latest_close) and not np.isnan(latest_ema_med)) else False
+ema_bull = (latest_ema_short > latest_ema_med) if (not np.isnan(latest_ema_short) and not np.isnan(latest_ema_med)) else False
+mom_bull = (latest_rsi > 50) if not np.isnan(latest_rsi) else False
 bull_signal = bool(smc_bull and ema_bull and mom_bull)
 
-smc_bear = latest['close'] < latest['ema_med']
-ema_bear = latest['ema_short'] < latest['ema_med']
-mom_bear = latest['rsi'] < 45
+smc_bear = (latest_close < latest_ema_med) if (not np.isnan(latest_close) and not np.isnan(latest_ema_med)) else False
+ema_bear = (latest_ema_short < latest_ema_med) if (not np.isnan(latest_ema_short) and not np.isnan(latest_ema_med)) else False
+mom_bear = (latest_rsi < 45) if not np.isnan(latest_rsi) else False
 bear_signal = bool(smc_bear and ema_bear and mom_bear)
 
 if bull_signal and not bear_signal:
@@ -268,12 +296,12 @@ col_left, col_mid, col_right = st.columns([1,1.2,1])
 
 with col_left:
     st.subheader("Numeric Context")
-    st.write(f"**Latest Close:** {latest['close']:.6f}")
-    st.write(f"**EMA {ema_short}:** {latest['ema_short']:.6f}")
-    st.write(f"**EMA {ema_med}:** {latest['ema_med']:.6f}")
-    st.write(f"**EMA {ema_long}:** {latest['ema_long']:.6f}")
-    st.write(f"**RSI ({rsi_len}):** {latest['rsi']:.2f}")
-    st.write(f"**ATR ({atr_len}):** {latest['atr']:.6f}")
+    st.write(f"**Latest Close:** {latest_close:.6f}" if not np.isnan(latest_close) else "**Latest Close:** N/A")
+    st.write(f"**EMA {ema_short}:** {latest_ema_short:.6f}" if not np.isnan(latest_ema_short) else f"**EMA {ema_short}:** N/A")
+    st.write(f"**EMA {ema_med}:** {latest_ema_med:.6f}" if not np.isnan(latest_ema_med) else f"**EMA {ema_med}:** N/A")
+    st.write(f"**EMA {ema_long}:** {float(latest['ema_long']):.6f}" if not pd.isna(latest['ema_long']) else f"**EMA {ema_long}:** N/A")
+    st.write(f"**RSI ({rsi_len}):** {latest_rsi:.2f}" if not np.isnan(latest_rsi) else f"**RSI ({rsi_len}):** N/A")
+    st.write(f"**ATR ({atr_len}):** {float(latest['atr']):.6f}" if not pd.isna(latest['atr']) else f"**ATR ({atr_len}):** N/A")
 
 with col_mid:
     st.subheader("Recommendation")
@@ -298,30 +326,37 @@ with col_right:
 # -------------------------
 st.subheader("Price Chart (EMAs + Zones)")
 fig, ax = plt.subplots(figsize=(12,5))
+
+# plot using datetime axis
 ax.plot(df['datetime'], df['close'], color='black', linewidth=1, label='Close')
 ax.plot(df['datetime'], df['ema_short'], color='gold', label=f'EMA{ema_short}')
 ax.plot(df['datetime'], df['ema_med'], color='orange', label=f'EMA{ema_med}')
 ax.plot(df['datetime'], df['ema_long'], color='purple', label=f'EMA{ema_long}')
 
-# Draw zones as rectangles aligned to dates
+# Draw zones as rectangles aligned to date2num coordinates
 for z in zones:
     start_idx = z['start']
     end_idx = z['end']
     # safety checks for indices
     if start_idx < 0 or end_idx >= n or start_idx >= n:
         continue
-    x0 = df['datetime'].iat[start_idx]
-    x1 = df['datetime'].iat[end_idx]
-    # width as timedelta works with matplotlib datetime axis
-    width = x1 - x0
+    x0_num = x_nums[start_idx]
+    x1_num = x_nums[end_idx]
+    width_num = x1_num - x0_num
     height = z['top'] - z['bot']
     color = (0.0, 0.6, 0.0, 0.18) if z['bull'] else (0.8, 0.0, 0.0, 0.18)
-    rect = Rectangle((x0, z['bot']), width, height, color=color, linewidth=0)
+    # Rectangle in date2num coordinates
+    rect = Rectangle((x0_num, z['bot']), width_num, height, color=color, linewidth=0, transform=ax.get_xaxis_transform())
+    # The transform above is not correct for y-scaling; instead add patch with data coords:
+    rect = Rectangle((x0_num, z['bot']), width_num, height, color=color, linewidth=0)
     ax.add_patch(rect)
-    # draw borders for clarity (use RGB portion)
-    ax.plot([x0, x1], [z['top'], z['top']], color=color[:3], alpha=0.6, linewidth=1)
-    ax.plot([x0, x1], [z['bot'], z['bot']], color=color[:3], alpha=0.6, linewidth=1)
+    # draw borders for clarity (convert back to datetime for plotting lines)
+    ax.plot([df['datetime'].iat[start_idx], df['datetime'].iat[end_idx]], [z['top'], z['top']], color=color[:3], alpha=0.6, linewidth=1)
+    ax.plot([df['datetime'].iat[start_idx], df['datetime'].iat[end_idx]], [z['bot'], z['bot']], color=color[:3], alpha=0.6, linewidth=1)
 
+# Improve x-axis formatting
+ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(mdates.AutoDateLocator()))
 ax.set_xlabel("Date")
 ax.set_ylabel("Price")
 ax.legend(loc='upper left')
