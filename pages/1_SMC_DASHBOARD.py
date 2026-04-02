@@ -6,129 +6,128 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 # =========================================================
-# 1. CORE STYLE & SETTINGS
+# 1. THE ENGINE (Your Logic, Fixed for Vectorization)
 # =========================================================
-st.set_page_config(page_title="AlphaSMC Terminal", layout="wide")
 
-# Custom CSS for a professional dark look
-st.markdown("""
-    <style>
-    .main { background-color: #0e1117; }
-    div[data-testid="stMetricValue"] { font-size: 1.8rem; color: #26a69a; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# =========================================================
-# 2. DATA & LOGIC (Optimized)
-# =========================================================
-@st.cache_data(show_spinner=False)
-def get_clean_data(ticker, days=365):
-    df = yf.download(ticker, start=datetime.now()-timedelta(days=days), interval="1d")
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.get_level_values(0)
-    df.columns = [c.lower() for c in df.columns]
-    return df.dropna()
-
-def apply_smc(df):
-    # Basic Indicators
+def apply_smc_engine(df):
+    # Ensure 1D arrays to prevent "Ambiguous Truth" errors
+    close = df['close'].values.flatten()
+    high = df['high'].values.flatten()
+    low = df['low'].values.flatten()
+    
+    # 20/50/200 EMA
     df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
     df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
     
-    # Simple Structure (BOS)
-    df['hi_20'] = df['high'].rolling(20, center=True).max()
-    df['lo_20'] = df['low'].rolling(20, center=True).min()
+    # Structure (BOS) - Looking for local swings
+    lb = 15 
+    df['hi_max'] = df['high'].rolling(window=lb, center=True).max()
+    df['lo_min'] = df['low'].rolling(window=lb, center=True).min()
     
-    bos_up = (df['close'] > df['hi_20'].shift(1))
-    bos_dn = (df['close'] < df['lo_20'].shift(1))
-    
-    # FVG Detection
-    fvgs = []
+    bos_up = (df['close'] > df['hi_max'].shift(1))
+    bos_dn = (df['close'] < df['lo_min'].shift(1))
+
+    # Zone Detection (FVG & OB)
+    zones = []
     for i in range(2, len(df)):
-        # Bullish FVG
-        if df['low'].iloc[i] > df['high'].iloc[i-2]:
-            fvgs.append({'type': 'bull', 'top': df['low'].iloc[i], 'bot': df['high'].iloc[i-2], 'idx': df.index[i]})
-        # Bearish FVG
-        if df['high'].iloc[i] < df['low'].iloc[i-2]:
-            fvgs.append({'type': 'bear', 'top': df['low'].iloc[i-2], 'bot': df['high'].iloc[i], 'idx': df.index[i]})
+        # FVG Bull (Gap between Candle i and i-2)
+        if low[i] > high[i-2]:
+            zones.append(dict(t=df.index[i], top=low[i], bot=high[i-2], type='bull', label='FVG'))
+        # FVG Bear
+        elif high[i] < low[i-2]:
+            zones.append(dict(t=df.index[i], top=low[i-2], bot=high[i], type='bear', label='FVG'))
             
-    return df, bos_up, bos_dn, fvgs
+    return df, bos_up, bos_dn, zones
 
 # =========================================================
-# 3. SIDEBAR & UI CONTROLS
+# 2. UI CONFIG & DATA LOAD
 # =========================================================
-st.sidebar.title("⚡ AlphaSMC v2")
-ticker = st.sidebar.text_input("Symbol", "NVDA").upper()
-lookback = st.sidebar.slider("Chart Lookback", 30, 200, 100)
+st.set_page_config(page_title="SMC Backtester Pro", layout="wide")
 
-df_raw = get_clean_data(ticker)
+st.sidebar.title("🛠️ Backtest Controls")
+ticker = st.sidebar.text_input("Ticker", "AAPL").upper()
+timeframe = st.sidebar.selectbox("Interval", ["1d", "1h", "4h", "1wk"])
+zoom_level = st.sidebar.slider("Visible Candles", 50, 500, 150)
 
-if not df_raw.empty:
-    df, bos_up, bos_dn, fvgs = apply_smc(df_raw)
+@st.cache_data
+def load_data(symbol, inter):
+    d = yf.download(symbol, period="2y", interval=inter)
+    if isinstance(d.columns, pd.MultiIndex): d.columns = d.columns.get_level_values(0)
+    d.columns = [c.lower() for c in d.columns]
+    return d.dropna()
+
+data = load_data(ticker, timeframe)
+
+if not data.empty:
+    df, b_up, b_dn, zones = apply_smc_engine(data)
     
-    # Header Metrics
-    last_price = df['close'].iloc[-1]
-    change = last_price - df['close'].iloc[-2]
+    # Slice for "Backtest View"
+    # This mimics your "Next/Prev" behavior but with a smooth slider
+    total_len = len(df)
+    current_pos = st.sidebar.slider("Timeline Position", zoom_level, total_len, total_len)
     
-    m1, m2, m3 = st.columns(3)
-    m1.metric(f"{ticker} Price", f"${last_price:.2f}", f"{change:.2f}")
-    m2.metric("Trend", "BULLISH" if df['ema20'].iloc[-1] > df['ema50'].iloc[-1] else "BEARISH")
-    m3.metric("Volatility (ATR)", f"{ (df['high']-df['low']).rolling(14).mean().iloc[-1]:.2f}")
-
+    df_slice = df.iloc[current_pos - zoom_level : current_pos]
+    
     # =========================================================
-    # 4. THE PLOT (Plotly Interactive)
+    # 3. THE PLOT (TradingView Style)
     # =========================================================
-    df_plot = df.suffix('').tail(lookback)
-    
     fig = go.Figure()
 
-    # Candlesticks
+    # 1. Candlesticks
     fig.add_trace(go.Candlestick(
-        x=df_plot.index, open=df_plot['open'], high=df_plot['high'],
-        low=df_plot['low'], close=df_plot['close'],
+        x=df_slice.index, open=df_slice['open'], high=df_slice['high'],
+        low=df_slice['low'], close=df_slice['close'],
         increasing_line_color='#26a69a', decreasing_line_color='#ef5350',
-        name="Price"
+        increasing_fillcolor='#26a69a', decreasing_fillcolor='#ef5350',
+        name="OHLC"
     ))
 
-    # EMAs
-    fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['ema20'], line=dict(color='#2962ff', width=1), name="EMA 20"))
-    fig.add_trace(go.Scatter(x=df_plot.index, y=df_plot['ema50'], line=dict(color='#ff9800', width=1), name="EMA 50"))
+    # 2. Indicators (EMAs)
+    fig.add_trace(go.Scatter(x=df_slice.index, y=df_slice['ema20'], line=dict(color='#2962ff', width=1.5), name="EMA 20"))
+    fig.add_trace(go.Scatter(x=df_slice.index, y=df_slice['ema50'], line=dict(color='#ff9800', width=1.5), name="EMA 50"))
 
-    # Add FVGs (Rectangles)
-    for f in fvgs:
-        if f['idx'] in df_plot.index:
-            color = "rgba(38, 166, 154, 0.2)" if f['type'] == 'bull' else "rgba(239, 83, 80, 0.2)"
+    # 3. Draw Zones (FVGs)
+    for z in zones:
+        # Only draw if the zone was created before or during the visible slice
+        if z['t'] in df_slice.index:
+            color = "rgba(38, 166, 154, 0.25)" if z['type'] == 'bull' else "rgba(239, 83, 80, 0.25)"
             fig.add_shape(type="rect",
-                x0=f['idx'], x1=df_plot.index[-1], y0=f['bot'], y1=f['top'],
+                x0=z['t'], x1=df_slice.index[-1], y0=z['bot'], y1=z['top'],
                 fillcolor=color, line_width=0, layer="below"
             )
 
-    # Add BOS Labels
-    plot_bos_up = bos_up[df_plot.index]
-    plot_bos_dn = bos_dn[df_plot.index]
-    
-    fig.add_trace(go.Scatter(
-        x=df_plot.index[plot_bos_up], y=df_plot['high'][plot_bos_up],
-        mode='text', text="BOS ↑", textposition="top center",
-        textfont=dict(color="lime", size=10), name="Structure Break"
-    ))
+    # 4. Structure Breaks (BOS)
+    up_idx = df_slice.index[b_up[df_slice.index]]
+    dn_idx = df_slice.index[b_dn[df_slice.index]]
 
-    # Layout Styling
+    fig.add_trace(go.Scatter(x=up_idx, y=df_slice.loc[up_idx, 'high'], mode='markers+text',
+                             text="BOS↑", textposition="top center", marker=dict(symbol='triangle-up', color='lime')))
+    
+    fig.add_trace(go.Scatter(x=dn_idx, y=df_slice.loc[dn_idx, 'low'], mode='markers+text',
+                             text="BOS↓", textposition="bottom center", marker=dict(symbol='triangle-down', color='red')))
+
+    # 5. Professional Layout
     fig.update_layout(
-        height=700,
+        height=800,
         template="plotly_dark",
         xaxis_rangeslider_visible=False,
-        margin=dict(l=10, r=10, t=30, b=10),
-        yaxis=dict(gridcolor='#1e222d', zeroline=False),
-        xaxis=dict(gridcolor='#1e222d', zeroline=False),
-        paper_bgcolor='#0e1117',
-        plot_bgcolor='#0e1117',
+        margin=dict(l=0, r=10, t=30, b=0),
+        paper_bgcolor='#131722', # TradingView Dark Blue
+        plot_bgcolor='#131722',
+        yaxis=dict(side="right", gridcolor='#2a2e39', title="Price"),
+        xaxis=dict(gridcolor='#2a2e39', title="Date")
     )
 
     st.plotly_chart(fig, use_container_width=True)
-
-    # Logic Information
-    with st.expander("Show Raw Signal Data"):
-        st.dataframe(df_plot.tail(10), use_container_width=True)
+    
+    # Backtest Stats Table
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Structure Break Log")
+        st.write(df_slice[b_up | b_dn][['close', 'ema20']].tail(5))
+    with col2:
+        st.subheader("Active Zones")
+        st.info(f"Detected {len(zones)} total SMC zones in history.")
 
 else:
-    st.error("Could not fetch data. Check the ticker symbol.")
+    st.error("Ticker not found. Please verify the symbol.")
