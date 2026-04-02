@@ -1,14 +1,3 @@
-# streamlit_smc_yfinance.py
-"""
-Single-file Streamlit app (fixed):
-- Downloads 2 years of OHLCV via yfinance (cached)
-- UI: ticker, timeframe (1D/1W/1M), EMA/RSI/ATR params, swing detection, min_gap_frac
-- Computes EMAs, RSI, ATR; detects 3-candle FVG and 3-candle OB using numpy arrays (robust)
-- Uses numpy/pandas conversions to avoid .iat indexing errors
-- Matplotlib plot uses matplotlib.dates for rectangle alignment
-- Three-column recommendation: GO LONG / HOLD / GO SHORT
-Run: streamlit run streamlit_smc_yfinance.py
-"""
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -22,37 +11,63 @@ from datetime import datetime, timedelta
 st.set_page_config(layout="wide", page_title="SMC Signals (yfinance)")
 
 # -------------------------
-# Cached download helper
+# Cached download helper (robust)
 # -------------------------
 @st.cache_data(ttl=300)
 def download_yf(ticker: str, period_days: int, interval: str) -> pd.DataFrame:
     """
     Download OHLCV from yfinance and normalize column names.
-    period_days: number of days to request (we pass 365*2 for 2 years)
-    interval: '1d', '1wk', '1mo'
+    This function is defensive: handles MultiIndex columns, missing columns,
+    and coerces numeric types safely.
     """
     period = f"{period_days}d"
-    df = yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=False)
-    if df is None or df.empty:
+    raw = yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=False)
+    if raw is None or raw.empty:
         return pd.DataFrame()
+
+    # If yfinance returns a DataFrame with MultiIndex columns (rare), flatten them
+    df = raw.copy()
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = ['_'.join([str(c) for c in col]).strip() for col in df.columns.values]
+
     df = df.reset_index()
-    # unify column names to lowercase
-    df = df.rename(columns=lambda c: c.lower())
-    # ensure datetime column name
-    if 'date' in df.columns:
+
+    # Normalize column names to lowercase strings
+    df.columns = [str(c).lower() for c in df.columns]
+
+    # Ensure we have a datetime column
+    if 'date' in df.columns and 'datetime' not in df.columns:
         df = df.rename(columns={'date': 'datetime'})
     if 'datetime' not in df.columns:
-        df['datetime'] = pd.to_datetime(df.index)
-    # keep only required columns and coerce numeric types
-    cols = ['datetime', 'open', 'high', 'low', 'close', 'volume']
-    for c in cols:
+        # try common alternatives
+        if 'index' in df.columns:
+            df = df.rename(columns={'index': 'datetime'})
+        else:
+            # fallback: create datetime from index
+            df['datetime'] = pd.to_datetime(df.index)
+
+    # Keep only required columns, create missing ones as NaN
+    required = ['datetime', 'open', 'high', 'low', 'close', 'volume']
+    for c in required:
         if c not in df.columns:
             df[c] = np.nan
-    df = df[cols]
-    # coerce numeric columns to floats (safe)
+
+    # Coerce numeric columns safely (operate on Series only)
     for c in ['open', 'high', 'low', 'close', 'volume']:
-        df[c] = pd.to_numeric(df[c], errors='coerce')
+        # ensure we have a Series object
+        series = df[c] if c in df.columns else pd.Series([np.nan]*len(df))
+        # convert to numeric, coerce errors to NaN
+        df[c] = pd.to_numeric(series, errors='coerce').astype(float)
+
+    # Ensure datetime column is proper dtype
+    df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+
+    # Drop rows with invalid datetimes
+    df = df.dropna(subset=['datetime']).reset_index(drop=True)
+
+    # Sort and reset index
     df = df.sort_values('datetime').reset_index(drop=True)
+
     return df
 
 # -------------------------
@@ -103,7 +118,7 @@ st.title("SMC Signals Dashboard (yfinance)")
 
 with st.sidebar:
     st.header("Data & Parameters")
-    ticker = st.text_input("Ticker", value="AAPL").upper()
+    ticker = st.text_input("Ticker", value="AAPL").upper().strip()
     timeframe = st.selectbox("Timeframe", options=["1D","1W","1M"], index=0)
     interval_map = {"1D":"1d","1W":"1wk","1M":"1mo"}
     yf_interval = interval_map[timeframe]
@@ -152,7 +167,7 @@ df['atr'] = df['tr'].rolling(window=atr_len, min_periods=1).mean()
 # -------------------------
 # Convert to numpy arrays for zone detection and pivots (coerced to float)
 # -------------------------
-# Use pd.to_numeric with errors='coerce' to ensure numeric dtype and avoid object arrays
+# Ensure numeric arrays (float) and datetime array
 dt_np = pd.to_datetime(df['datetime']).to_numpy()
 open_np = pd.to_numeric(df['open'], errors='coerce').to_numpy(dtype=float)
 high_np = pd.to_numeric(df['high'], errors='coerce').to_numpy(dtype=float)
@@ -161,7 +176,9 @@ close_np = pd.to_numeric(df['close'], errors='coerce').to_numpy(dtype=float)
 atr_np = pd.to_numeric(df['atr'], errors='coerce').to_numpy(dtype=float)
 
 # Precompute matplotlib numeric x values for rectangles (date2num)
-x_nums = mdates.date2num(pd.to_datetime(df['datetime']).to_pydatetime())
+# Convert to python datetime objects first to avoid numpy datetime issues
+py_dates = pd.to_datetime(df['datetime']).dt.to_pydatetime()
+x_nums = mdates.date2num(py_dates)
 
 # -------------------------
 # Zone detection using numpy arrays (robust indexing & type-safe)
@@ -333,7 +350,7 @@ ax.plot(df['datetime'], df['ema_short'], color='gold', label=f'EMA{ema_short}')
 ax.plot(df['datetime'], df['ema_med'], color='orange', label=f'EMA{ema_med}')
 ax.plot(df['datetime'], df['ema_long'], color='purple', label=f'EMA{ema_long}')
 
-# Draw zones as rectangles aligned to date2num coordinates
+# Draw zones as rectangles aligned to date2num coordinates (use ax.transData)
 for z in zones:
     start_idx = z['start']
     end_idx = z['end']
@@ -345,12 +362,10 @@ for z in zones:
     width_num = x1_num - x0_num
     height = z['top'] - z['bot']
     color = (0.0, 0.6, 0.0, 0.18) if z['bull'] else (0.8, 0.0, 0.0, 0.18)
-    # Rectangle in date2num coordinates
-    rect = Rectangle((x0_num, z['bot']), width_num, height, color=color, linewidth=0, transform=ax.get_xaxis_transform())
-    # The transform above is not correct for y-scaling; instead add patch with data coords:
-    rect = Rectangle((x0_num, z['bot']), width_num, height, color=color, linewidth=0)
+    # Rectangle in date2num coordinates; set transform to data coordinates
+    rect = Rectangle((x0_num, z['bot']), width_num, height, color=color, linewidth=0, transform=ax.transData)
     ax.add_patch(rect)
-    # draw borders for clarity (convert back to datetime for plotting lines)
+    # draw borders for clarity (use datetime values)
     ax.plot([df['datetime'].iat[start_idx], df['datetime'].iat[end_idx]], [z['top'], z['top']], color=color[:3], alpha=0.6, linewidth=1)
     ax.plot([df['datetime'].iat[start_idx], df['datetime'].iat[end_idx]], [z['bot'], z['bot']], color=color[:3], alpha=0.6, linewidth=1)
 
