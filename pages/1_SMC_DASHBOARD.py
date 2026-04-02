@@ -1,171 +1,198 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
 import numpy as np
-import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from datetime import datetime, timedelta
 
 # =========================================================
-# 1. THE ENGINE: 1:1 PINE SCRIPT V6 LOGIC
+# 1. DATA LOADING
 # =========================================================
+@st.cache_data
+def load_data(ticker, start_date, interval):
+    try:
+        data = yf.download(ticker, start=start_date, interval=interval)
+        if data.empty: return None
+        # Flatten columns if multi-index (common in newer yfinance versions)
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+        return data
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
+        return None
 
-class SMCZone:
-    def __init__(self, top, btm, start_idx, is_bull, is_ob):
-        self.top, self.btm = top, btm
-        self.start_idx = start_idx
-        self.is_bull, self.is_ob = is_bull, is_ob
-        self.is_mitigated = False
-        self.taps = 0
-        self.age = 0
-        self.status = "Active" # Active, Rejected, Invalidated
+# =========================================================
+# 2. SMC LOGIC ENGINE (The "PineScript" Core)
+# =========================================================
+def apply_pinescript_logic(df):
+    # Setup Indicators
+    df['ema20'] = df['Close'].ewm(span=20, adjust=False).mean()
+    df['ema50'] = df['Close'].ewm(span=50, adjust=False).mean()
+    df['ema200'] = df['Close'].ewm(span=200, adjust=False).mean()
+    
+    # ATR for filters
+    high_low = df['High'] - df['Low']
+    high_close = np.abs(df['High'] - df['Close'].shift())
+    low_close = np.abs(df['Low'] - df['Close'].shift())
+    ranges = pd.concat([high_low, high_close, low_close], axis=1)
+    true_range = np.max(ranges, axis=1)
+    df['atr'] = true_range.rolling(14).mean()
 
-def apply_smc_v6(df):
-    df = df.copy()
-    high, low, close, open_p = df['high'].values, df['low'].values, df['close'].values, df['open'].values
-    n = len(df)
-    
-    # Indicators
-    df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
-    df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
-    df['atr'] = (df['high'] - df['low']).rolling(14).mean()
-    
-    # LB Curve (1:1 Logic)
-    lb = np.zeros(n)
-    lb[0] = close[0]
-    for i in range(1, n):
-        prev_h = np.max(close[max(0, i-10):i])
-        prev_l = np.min(close[max(0, i-10):i])
-        if close[i] > prev_h: lb[i] = (high[i] + close[i]) / 2
-        elif close[i] < prev_l: lb[i] = (low[i] + close[i]) / 2
-        else: lb[i] = lb[i-1]
-    df['lb_crv'] = pd.Series(lb, index=df.index).ewm(span=10, adjust=False).mean()
+    zones = [] # List to store Zone dictionaries
 
-    # Structure & Zones
-    zones = []
-    bos_up = np.zeros(n, dtype=bool)
-    bos_dn = np.zeros(n, dtype=bool)
-    
-    for i in range(2, n):
-        # 3-Candle FVG (Gap-Aware)
+    # Sequential scan for Zones (FVG & OB)
+    for i in range(2, len(df)):
+        current_idx = df.index[i]
+        
+        # --- FVG Detection ---
         min_gap = df['atr'].iloc[i] * 0.1
-        if low[i] > high[i-2] + min_gap:
-            zones.append(SMCZone(low[i], high[i-2], i, True, False))
-        if high[i] < low[i-2] - min_gap:
-            zones.append(SMCZone(low[i-2], high[i], i, False, False))
-            
-        # 3-Candle OB (Displacement)
-        if close[i] > high[i-1] and close[i] > open_p[i] and low[i-1] < low[i-2]:
-            zones.append(SMCZone(high[i-1], low[i-1], i, True, True))
-        if close[i] < low[i-1] and close[i] < open_p[i] and high[i-1] > high[i-2]:
-            zones.append(SMCZone(high[i-1], low[i-1], i, False, True))
+        # Bull FVG
+        if df['Low'].iloc[i] > (df['High'].iloc[i-2] + min_gap):
+            zones.append({
+                'type': 'FVG', 'is_bull': True, 'top': df['Low'].iloc[i], 
+                'btm': df['High'].iloc[i-2], 'start_idx': i, 'mitigated': False
+            })
+        # Bear FVG
+        if df['High'].iloc[i] < (df['Low'].iloc[i-2] - min_gap):
+            zones.append({
+                'type': 'FVG', 'is_bull': False, 'top': df['Low'].iloc[i-2], 
+                'btm': df['High'].iloc[i], 'start_idx': i, 'mitigated': False
+            })
 
-        # Mitigation & Age Logic (The 5-Bar Rule)
+        # --- OB Detection (Simplified Displacement) ---
+        # Bull OB
+        if df['Close'].iloc[i] > df['High'].iloc[i-1] and df['Close'].iloc[i] > df['Open'].iloc[i]:
+            zones.append({
+                'type': 'OB', 'is_bull': True, 'top': df['High'].iloc[i-1], 
+                'btm': df['Low'].iloc[i-1], 'start_idx': i, 'mitigated': False
+            })
+        # Bear OB
+        if df['Close'].iloc[i] < df['Low'].iloc[i-1] and df['Close'].iloc[i] < df['Open'].iloc[i]:
+            zones.append({
+                'type': 'OB', 'is_bull': False, 'top': df['High'].iloc[i-1], 
+                'btm': df['Low'].iloc[i-1], 'start_idx': i, 'mitigated': False
+            })
+
+        # --- Mitigation Check (Ongoing) ---
         for z in zones:
-            if not z.is_mitigated:
-                z.age = i - z.start_idx
-                # Mitigation: Close past opposite side
-                if (z.is_bull and close[i] < z.btm) or (not z.is_bull and close[i] > z.top):
-                    z.is_mitigated = True
-                    z.status = "Invalidated"
-                # Tap detection
-                if high[i] > z.btm and low[i] < z.top:
-                    z.taps += 1
-                if z.taps > 5: z.is_mitigated = True
+            if not z['mitigated'] and i > z['start_idx']:
+                if z['is_bull'] and df['Close'].iloc[i] < z['btm']:
+                    z['mitigated'] = True
+                elif not z['is_bull'] and df['Close'].iloc[i] > z['top']:
+                    z['mitigated'] = True
 
+    # Signal Generation (Simplified for Chart Symbols)
+    df['long_sig'] = (df['Close'] > df['ema20']) & (df['Close'].shift(1) <= df['ema20'].shift(1))
+    df['short_sig'] = (df['Close'] < df['ema20']) & (df['Close'].shift(1) >= df['ema20'].shift(1))
+    
     return df, zones
 
 # =========================================================
-# 2. DISPLAY: 1:1 WHITE UI & TABLE
+# 3. PLOTTING ENGINE (Matplotlib)
 # =========================================================
-
-def draw_pine_table(ax, ticker, df_slice):
-    # Precise replica of your Pine Script dashboard
-    last_row = df_slice.iloc[-1]
-    struct = "Bullish" if last_row['close'] > last_row['lb_crv'] else "Bearish"
-    
-    table_data = [
-        ["SMC MTF — " + ticker],
-        ["STRUCTURE: " + struct],
-        ["MOMENTUM: " + ("Bullish" if last_row['ema20'] > last_row['ema50'] else "Bearish")],
-        ["SIGNAL: " + ("ACTIVE" if abs(last_row['close'] - last_row['lb_crv']) < last_row['atr'] else "NONE")]
-    ]
-    
-    # Styling the box exactly like getTablePos
-    props = dict(boxstyle='square,pad=0.5', facecolor='white', edgecolor='#207e85', linewidth=1.5)
-    ax.text(0.02, 0.05, "\n".join([d[0] for d in table_data]), transform=ax.transAxes, 
-            fontsize=9, verticalalignment='bottom', bbox=props, color='#131722', family='monospace')
-
-def plot_1to1(df_slice, zones, start_idx, end_idx, ticker):
-    plt.style.use('fast')
-    fig, ax = plt.subplots(figsize=(12, 7), facecolor='white')
-    ax.set_facecolor('white')
+def plotchart(df_slice, all_zones, info_df, title="Chart"):
+    fig, ax = plt.subplots(figsize=(12, 6), facecolor='#131722')
+    ax.set_facecolor('#131722')
     
     x = np.arange(len(df_slice))
     
-    # Candlesticks
+    # Plot Candlesticks
     for i in range(len(df_slice)):
-        row = df_slice.iloc[i]
-        color = '#26a69a' if row['close'] >= row['open'] else '#ef5350'
-        ax.plot([i, i], [row['low'], row['high']], color=color, linewidth=1)
-        ax.add_patch(patches.Rectangle((i-0.3, min(row['open'], row['close'])), 0.6, abs(row['close']-row['open']), color=color))
+        color = '#26a69a' if df_slice['Close'].iloc[i] >= df_slice['Open'].iloc[i] else '#ef5350'
+        # Wick
+        ax.plot([i, i], [df_slice['Low'].iloc[i], df_slice['High'].iloc[i]], color=color, linewidth=1)
+        # Body
+        ax.add_patch(patches.Rectangle((i - 0.3, min(df_slice['Open'].iloc[i], df_slice['Close'].iloc[i])), 
+                                      0.6, abs(df_slice['Open'].iloc[i] - df_slice['Close'].iloc[i]), 
+                                      color=color, zorder=3))
 
-    # LB Curve
-    ax.plot(x, df_slice['lb_crv'], color='gray', alpha=0.4, linewidth=1, label="LB")
-
-    # Zones (Handling start_idx offset for sliding window)
-    for z in zones:
-        if start_idx <= z.start_idx < end_idx:
-            local_x = z.start_idx - start_idx
-            width = len(df_slice) - local_x
+    # Plot Active Zones
+    slice_start_date = df_slice.index[0]
+    for z in all_zones:
+        # Filter: Only show zones created before slice end and not mitigated yet
+        if not z['mitigated'] and df.index[z['start_idx']] <= df_slice.index[-1]:
+            # Calculate where the zone starts relative to our current slice
+            try:
+                z_start_pos = df_slice.index.get_loc(df.index[z['start_idx']])
+            except KeyError:
+                z_start_pos = 0 # It started before this slice
             
-            # Color Matching from your script
-            if z.is_ob:
-                base_col = '#008950' if z.is_bull else '#883f0e'
-            else:
-                base_col = '#35aa18' if z.is_bull else '#da1313'
-                
-            ax.add_patch(patches.Rectangle((local_x, z.btm), width, z.top-z.btm, 
-                                           facecolor=base_col, alpha=0.15, edgecolor=base_col, 
-                                           linestyle='--' if not z.is_ob else '-'))
+            z_color = 'green' if z['is_bull'] else 'red'
+            z_alpha = 0.15 if z['type'] == 'OB' else 0.08
+            
+            rect = patches.Rectangle((z_start_pos, z['btm']), len(df_slice)-z_start_pos, 
+                                     z['top']-z['btm'], color=z_color, alpha=z_alpha, label=z['type'])
+            ax.add_patch(rect)
 
-    draw_pine_table(ax, ticker, df_slice)
+    # Plot Signals (Symbols)
+    longs = df_slice[df_slice['long_sig']]
+    shorts = df_slice[df_slice['short_sig']]
     
-    # Formatting
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.grid(True, color='#f0f0f0', linestyle='-')
-    ax.set_title(f"{ticker} Backtest - SMC V6", loc='left', color='#131722', fontsize=10)
+    ax.scatter(np.where(df_slice['long_sig'])[0], df_slice.loc[df_slice['long_sig'], 'Low'] * 0.99, 
+               marker='^', color='#00ff00', s=100, label='Long', zorder=5)
+    ax.scatter(np.where(df_slice['short_sig'])[0], df_slice.loc[df_slice['short_sig'], 'High'] * 1.01, 
+               marker='v', color='#ff0000', s=100, label='Short', zorder=5)
+
+    # Styling
+    ax.set_title(title, color='white', loc='left', fontsize=14)
+    ax.tick_params(axis='x', colors='white')
+    ax.tick_params(axis='y', colors='white')
+    ax.grid(color='#2a2e39', linestyle='--', alpha=0.5)
+    plt.xticks(x[::max(1, len(x)//10)], df_slice.index.strftime('%Y-%m-%d')[::max(1, len(x)//10)], rotation=45)
     
     return fig
 
 # =========================================================
-# 3. BACKTEST NAVIGATION (1-BAR SLICING)
+# 4. STREAMLIT UI (FULL APP)
 # =========================================================
+st.set_page_config(page_title="SMC FVG Dashboard", layout="wide")
 
-st.set_page_config(layout="wide")
+st.sidebar.header("Settings")
+ticker = st.sidebar.text_input("Ticker", "ASML")
+tf = st.sidebar.selectbox("Timeframe", ["1D", "1W", "1M"], index=0)
 
-if 'ticker' not in st.session_state: st.session_state.ticker = "AAPL"
-input_ticker = st.sidebar.text_input("Ticker", "AAPL").upper()
+today = datetime.today()
+if tf == "1D":
+    start_date = today - timedelta(days=365)
+    interval = "1d"
+elif tf == "1W":
+    start_date = today - timedelta(days=365*3)
+    interval = "1wk"
+elif tf == "1M":
+    start_date = today - timedelta(days=365*10)
+    interval = "1mo"
 
-# Precompute when ticker changes
-if input_ticker != st.session_state.ticker or 'full_df' not in st.session_state:
-    st.session_state.ticker = input_ticker
-    raw = yf.download(input_ticker, period="2y", interval="1d")
-    if isinstance(raw.columns, pd.MultiIndex): raw.columns = raw.columns.get_level_values(0)
-    raw.columns = [c.lower() for c in raw.columns]
-    st.session_state.full_df, st.session_state.all_zones = apply_smc_v6(raw)
-    st.session_state.bar_pos = 150
+df = load_data(ticker, start_date, interval)
 
-# Controls
-c1, c2, c3, _ = st.columns([1, 1, 1, 5])
-if c1.button("⬅️ Prev Bar"): st.session_state.bar_pos = max(100, st.session_state.bar_pos - 1)
-if c2.button("Next Bar ➡️"): st.session_state.bar_pos = min(len(st.session_state.full_df), st.session_state.bar_pos + 1)
-if c3.button("RESET"): st.session_state.bar_pos = 150
+if df is None or df.empty:
+    st.error("No data found.")
+    st.stop()
 
-# Slicing
-end = st.session_state.bar_pos
-start = end - 100
-df_view = st.session_state.full_df.iloc[start:end]
+# Apply logic once to full DF
+df, all_zones = apply_pinescript_logic(df)
 
-st.pyplot(plot_1to1(df_view, st.session_state.all_zones, start, end, st.session_state.ticker))
+# Slicing / Window Logic
+if "window_end_idx" not in st.session_state:
+    st.session_state.window_end_idx = len(df)
+if "window_size" not in st.session_state:
+    st.session_state.window_size = 100
+
+col1, col2, col3 = st.columns([1, 1, 2])
+
+if col1.button("⬅️ Back"):
+    st.session_state.window_end_idx = max(st.session_state.window_size, st.session_state.window_end_idx - 10)
+
+if col2.button("Next ➡️"):
+    st.session_state.window_end_idx = min(len(df), st.session_state.window_end_idx + 10)
+
+end_idx = st.session_state.window_end_idx
+start_idx = max(0, end_idx - st.session_state.window_size)
+
+df_slice = df.iloc[start_idx : end_idx]
+
+with col3:
+    st.write(f"Showing indices **{start_idx}** to **{end_idx}** (Total: {len(df)})")
+
+fig = plotchart(df_slice, all_zones, None, title=f"{ticker} {tf} - SMC Dashboard")
+st.pyplot(fig)
