@@ -407,9 +407,9 @@ def apply_pinescript_logic(df_raw):
     lowest_lb  = df["close"].rolling(lblen).min()
     
     for i in range(1, len(df)):
-        prev_high = highest_lb.iloc[i-1]
-        prev_low  = lowest_lb.iloc[i-1]
-    
+        prev_high = float(highest_lb.iloc[i-1])
+        prev_low  = float(lowest_lb.iloc[i-1])
+
         # If rolling window not ready yet → just carry forward
         if np.isnan(prev_high) or np.isnan(prev_low):
             lb_new.iloc[i] = lb_new.iloc[i-1]
