@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from matplotlib.patches import Rectangle
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -487,6 +488,30 @@ def plotchart(df, zones, structure: StructureState, pattern: PatternInfo,
     ax.plot(x, df["lb_crv"], color="gray", alpha=0.75, linewidth=1.2)
     ax.plot(x, df["ema20"], color="yellow", alpha=0.75, linewidth=1)
     ax.plot(x, df["ema50"], color="red", alpha=0.75, linewidth=1)
+
+    # ---------------------------------------------------------
+    # SIGNAL MARKERS (TradingView-style)
+    # ---------------------------------------------------------
+    
+    # Go Long
+    long_df = df[df['long_signal'] == True]
+    ax.scatter(long_df.index, long_df['Low'] * 0.995,
+               marker='^', s=120, color='lime', label='Go Long')
+    
+    # Exit Long
+    exit_long_df = df[df['exit_long'] == True]
+    ax.scatter(exit_long_df.index, exit_long_df['High'] * 1.005,
+               marker='o', s=90, color='yellow', label='Exit Long')
+    
+    # Go Short
+    short_df = df[df['short_signal'] == True]
+    ax.scatter(short_df.index, short_df['High'] * 1.005,
+               marker='v', s=120, color='red', label='Go Short')
+    
+    # Exit Short
+    exit_short_df = df[df['exit_short'] == True]
+    ax.scatter(exit_short_df.index, exit_short_df['Low'] * 0.995,
+               marker='o', s=90, color='orange', label='Exit Short')
 
     last_idx = len(df) - 1
     for z in zones:
