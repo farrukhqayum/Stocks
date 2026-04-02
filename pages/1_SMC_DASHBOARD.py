@@ -5,6 +5,7 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from datetime import datetime, timedelta
+from pinescript_engine import apply_pinescript_logic, FVGZone
 
 st.set_page_config(page_title="SMC Dashboard", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS (SMC)")
