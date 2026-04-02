@@ -575,7 +575,7 @@ def draw_smc_box(ax, df, zones):
 # ---------------------------------------------------------
 # CHART
 # ---------------------------------------------------------
-def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False):
+def plotchart(df, zones, info, title="SMC FVG View", exit_long=False, exit_short=False):
     df = df.copy()
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
@@ -703,11 +703,6 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
         bbox=dict(facecolor="white", alpha=0.4, edgecolor="none", boxstyle="round,pad=0.3")
     )
     
-    # -----------------------------
-    # PATTERN + REVERSAL ENGINE
-    # -----------------------------
-    info = pine_candle_engine(df)
-    
     # Draw candlestick pattern label
     plot_pattern_label(
         ax, df,
@@ -821,7 +816,7 @@ elif tf == "1M":
     interval = "1mo"
 
 df = load_data(ticker, start_date, interval)
-zones = detect_fvg_zones(df)
+df, zones, info = apply_pinescript_logic(df)
 
 col1, col2, col3 = st.columns(3)
 # Initialize last_tf if missing
@@ -1039,12 +1034,6 @@ with c4:
 # DRAW CHART
 # ---------------------------------------------------------
 
-fig = plotchart(
-    df_slice,
-    zones,
-    title=f"{ticker} — {tf} SMC FVG Regime View",
-    exit_long=exit_long,
-    exit_short=exit_short
-)
+fig = plotchart(df_slice, zones, info, title="SMC FVG View", exit_long=exit_long, exit_short=exit_short)
 
 st.pyplot(fig)
