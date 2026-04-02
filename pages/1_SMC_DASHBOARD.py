@@ -401,9 +401,11 @@ def apply_pinescript_logic(df_raw):
     df["ema200"] = ema(df["close"], len_ema_long)
 
     # --- LB CURVE (FINAL FIXED VERSION) ---
-    close_arr = df["close"].to_numpy()
-    high_arr  = df["high"].to_numpy()
-    low_arr   = df["low"].to_numpy()
+    
+    # Convert to flat numpy arrays (guaranteed 1D)
+    close_arr = df["close"].to_numpy().flatten()
+    high_arr  = df["high"].to_numpy().flatten()
+    low_arr   = df["low"].to_numpy().flatten()
     
     highest_lb = pd.Series(close_arr).rolling(lblen).max().to_numpy()
     lowest_lb  = pd.Series(close_arr).rolling(lblen).min().to_numpy()
@@ -413,10 +415,13 @@ def apply_pinescript_logic(df_raw):
     for i in range(1, len(close_arr)):
         prev_high = highest_lb[i-1]
         prev_low  = lowest_lb[i-1]
+    
         if np.isnan(prev_high) or np.isnan(prev_low):
             lb_new[i] = lb_new[i-1]
             continue
+    
         close_i = close_arr[i]
+    
         if close_i > prev_high:
             lb_new[i] = (high_arr[i] + close_i) / 2
         elif close_i < prev_low:
@@ -426,6 +431,7 @@ def apply_pinescript_logic(df_raw):
     
     df["lb"] = lb_new
     df["lb_crv"] = pd.Series(lb_new).ewm(span=lblen, adjust=False).mean().to_numpy()
+
 
     # RSI + EMA of RSI
     df["rsi"] = rsi(df["close"], rsi_len)
