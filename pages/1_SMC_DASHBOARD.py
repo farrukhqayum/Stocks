@@ -702,16 +702,29 @@ def plotchart(df, zones, info, title="SMC FVG View", exit_long=False, exit_short
         ha="left", va="bottom",
         bbox=dict(facecolor="white", alpha=0.4, edgecolor="none", boxstyle="round,pad=0.3")
     )
+
+    pattern_idx = info["pattern_idx"]
+
+    if pattern_idx is not None:
+        # Convert global index → local index
+        global_idx = pattern_idx
+        local_idx = global_idx - df.index.get_loc(df_slice.index[0])
     
-    # Draw candlestick pattern label
+        # If local index is outside the slice, ignore pattern
+        if local_idx < 0 or local_idx >= len(df_slice):
+            local_idx = None
+    else:
+        local_idx = None
+
     plot_pattern_label(
-        ax, df,
-        info["pattern_idx"],
+        ax,
+        df_slice,
+        local_idx,
         info["last_pattern"],
         info["pattern_bull"],
         info["rejected"]
     )
-    
+
     # -----------------------------
     # REVERSAL DETECTION
     # -----------------------------
