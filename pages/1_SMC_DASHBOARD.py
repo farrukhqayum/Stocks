@@ -402,17 +402,22 @@ def apply_pinescript_logic(df_raw):
 
     # LB curve (approx)
     lb = df["close"].copy()
-    highest_lb = lb.rolling(lblen).max()
-    lowest_lb = lb.rolling(lblen).min()
-    lb_shift = lb.shift(1)
 
-    cond_up = df["close"] > highest_lb.shift(1)
-    cond_dn = df["close"] < lowest_lb.shift(1)
-
-    lb = np.where(cond_up, (df["high"] + df["close"]) / 2,
-         np.where(cond_dn, (df["low"] + df["close"]) / 2, lb_shift))
-    df["lb"] = pd.Series(lb, index=df.index)
-    df["lb_crv"] = ema(df["lb"], lblen)
+    highest_lb = df["close"].rolling(lblen).max()
+    lowest_lb  = df["close"].rolling(lblen).min()
+    
+    lb_new = lb.copy()
+    
+    for i in range(1, len(df)):
+        if df["close"].iloc[i] > highest_lb.iloc[i-1]:
+            lb_new.iloc[i] = (df["high"].iloc[i] + df["close"].iloc[i]) / 2
+        elif df["close"].iloc[i] < lowest_lb.iloc[i-1]:
+            lb_new.iloc[i] = (df["low"].iloc[i] + df["close"].iloc[i]) / 2
+        else:
+            lb_new.iloc[i] = lb_new.iloc[i-1]
+    
+    df["lb"] = lb_new
+    df["lb_crv"] = df["lb"].ewm(span=lblen, adjust=False).mean()
 
     # RSI + EMA of RSI
     df["rsi"] = rsi(df["close"], rsi_len)
