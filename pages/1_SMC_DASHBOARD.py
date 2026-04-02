@@ -7,163 +7,165 @@ import matplotlib.patches as patches
 from datetime import datetime, timedelta
 
 # =========================================================
-# 1. CORE SMC ENGINE (PINE SCRIPT V6 PORT)
+# 1. THE ENGINE: 1:1 PINE SCRIPT V6 LOGIC
 # =========================================================
 
-def apply_smc_v6_logic(df):
-    n = len(df)
+class SMCZone:
+    def __init__(self, top, btm, start_idx, is_bull, is_ob):
+        self.top, self.btm = top, btm
+        self.start_idx = start_idx
+        self.is_bull, self.is_ob = is_bull, is_ob
+        self.is_mitigated = False
+        self.taps = 0
+        self.age = 0
+        self.status = "Active" # Active, Rejected, Invalidated
+
+def apply_smc_v6(df):
+    df = df.copy()
     high, low, close, open_p = df['high'].values, df['low'].values, df['close'].values, df['open'].values
+    n = len(df)
     
-    # --- Indicators ---
+    # Indicators
     df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
     df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
-    df['ema200'] = df['close'].ewm(span=200, adjust=False).mean()
+    df['atr'] = (df['high'] - df['low']).rolling(14).mean()
     
-    # LB Curve Logic
-    lb_val = np.zeros(n)
-    lb_val[0] = close[0]
+    # LB Curve (1:1 Logic)
+    lb = np.zeros(n)
+    lb[0] = close[0]
     for i in range(1, n):
         prev_h = np.max(close[max(0, i-10):i])
         prev_l = np.min(close[max(0, i-10):i])
-        if close[i] > prev_h: lb_val[i] = (high[i] + close[i]) / 2
-        elif close[i] < prev_l: lb_val[i] = (low[i] + close[i]) / 2
-        else: lb_val[i] = lb_val[i-1]
-    df['lb_crv'] = pd.Series(lb_val, index=df.index).ewm(span=10, adjust=False).mean()
+        if close[i] > prev_h: lb[i] = (high[i] + close[i]) / 2
+        elif close[i] < prev_l: lb[i] = (low[i] + close[i]) / 2
+        else: lb[i] = lb[i-1]
+    df['lb_crv'] = pd.Series(lb, index=df.index).ewm(span=10, adjust=False).mean()
 
-    # --- Market Structure (BOS/CHoCH) ---
+    # Structure & Zones
+    zones = []
     bos_up = np.zeros(n, dtype=bool)
     bos_dn = np.zeros(n, dtype=bool)
-    last_hi, last_lo = np.nan, np.nan
-    is_uptrend = False
     
-    for i in range(20, n-5):
-        if high[i] == np.max(high[i-20:i+6]): last_hi = high[i]
-        if low[i] == np.min(low[i-20:i+6]): last_lo = low[i]
-        if not np.isnan(last_hi) and close[i] > last_hi:
-            bos_up[i], last_hi, is_uptrend = True, np.nan, True
-        if not np.isnan(last_lo) and close[i] < last_lo:
-            bos_dn[i], last_lo, is_uptrend = True, np.nan, False
-
-    # --- 3-Candle FVG & OB Detection ---
-    zones = []
-    atr = (df['high'] - df['low']).rolling(14).mean().values
     for i in range(2, n):
-        # FVG
-        if low[i] > high[i-2] + (atr[i] * 0.1):
-            zones.append({'t': df.index[i], 'top': low[i], 'btm': high[i-2], 'type': 'bull_fvg'})
-        if high[i] < low[i-2] - (atr[i] * 0.1):
-            zones.append({'t': df.index[i], 'top': low[i-2], 'btm': high[i], 'type': 'bear_fvg'})
-        # OB (Displacement)
+        # 3-Candle FVG (Gap-Aware)
+        min_gap = df['atr'].iloc[i] * 0.1
+        if low[i] > high[i-2] + min_gap:
+            zones.append(SMCZone(low[i], high[i-2], i, True, False))
+        if high[i] < low[i-2] - min_gap:
+            zones.append(SMCZone(low[i-2], high[i], i, False, False))
+            
+        # 3-Candle OB (Displacement)
         if close[i] > high[i-1] and close[i] > open_p[i] and low[i-1] < low[i-2]:
-            zones.append({'t': df.index[i], 'top': high[i-1], 'btm': low[i-1], 'type': 'bull_ob'})
+            zones.append(SMCZone(high[i-1], low[i-1], i, True, True))
+        if close[i] < low[i-1] and close[i] < open_p[i] and high[i-1] > high[i-2]:
+            zones.append(SMCZone(high[i-1], low[i-1], i, False, True))
 
-    # --- Candle Patterns ---
-    df['pattern'] = ""
-    for i in range(2, n):
-        if close[i] > open_p[i] and close[i-1] < open_p[i-1] and close[i] >= high[i-1]:
-            df.at[df.index[i], 'pattern'] = "Bull Engulfing"
-        elif close[i] < open_p[i] and close[i-1] > open_p[i-1] and close[i] <= low[i-1]:
-            df.at[df.index[i], 'pattern'] = "Bear Engulfing"
+        # Mitigation & Age Logic (The 5-Bar Rule)
+        for z in zones:
+            if not z.is_mitigated:
+                z.age = i - z.start_idx
+                # Mitigation: Close past opposite side
+                if (z.is_bull and close[i] < z.btm) or (not z.is_bull and close[i] > z.top):
+                    z.is_mitigated = True
+                    z.status = "Invalidated"
+                # Tap detection
+                if high[i] > z.btm and low[i] < z.top:
+                    z.taps += 1
+                if z.taps > 5: z.is_mitigated = True
 
-    return df, zones, bos_up, bos_dn, is_uptrend
+    return df, zones
 
 # =========================================================
-# 2. PLOTTING ENGINE (WHITE BACKGROUND + SMC TABLE)
+# 2. DISPLAY: 1:1 WHITE UI & TABLE
 # =========================================================
 
-def draw_smc_dashboard(ax, ticker, trend, pattern, fvg_status):
-    # Mimics the Pine Script Table
-    text_str = (
-        f"SMC MTF — {ticker}\n"
-        f"STRUCTURE: {'Bullish' if trend else 'Bearish'}\n"
-        f"PATTERN: {pattern if pattern else 'None'}\n"
-        f"FVG BIAS: {fvg_status}"
-    )
-    props = dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='#207e85', linewidth=2)
-    ax.text(0.02, 0.95, text_str, transform=ax.transAxes, fontsize=10,
-            verticalalignment='top', bbox=props, family='monospace')
+def draw_pine_table(ax, ticker, df_slice):
+    # Precise replica of your Pine Script dashboard
+    last_row = df_slice.iloc[-1]
+    struct = "Bullish" if last_row['close'] > last_row['lb_crv'] else "Bearish"
+    
+    table_data = [
+        ["SMC MTF — " + ticker],
+        ["STRUCTURE: " + struct],
+        ["MOMENTUM: " + ("Bullish" if last_row['ema20'] > last_row['ema50'] else "Bearish")],
+        ["SIGNAL: " + ("ACTIVE" if abs(last_row['close'] - last_row['lb_crv']) < last_row['atr'] else "NONE")]
+    ]
+    
+    # Styling the box exactly like getTablePos
+    props = dict(boxstyle='square,pad=0.5', facecolor='white', edgecolor='#207e85', linewidth=1.5)
+    ax.text(0.02, 0.05, "\n".join([d[0] for d in table_data]), transform=ax.transAxes, 
+            fontsize=9, verticalalignment='bottom', bbox=props, color='#131722', family='monospace')
 
-def plot_backtest(df_slice, zones, bos_up_slice, bos_dn_slice, trend):
-    plt.style.use('default')
-    fig, ax = plt.subplots(figsize=(14, 8), facecolor='white')
+def plot_1to1(df_slice, zones, start_idx, end_idx, ticker):
+    plt.style.use('fast')
+    fig, ax = plt.subplots(figsize=(12, 7), facecolor='white')
     ax.set_facecolor('white')
     
-    idx = np.arange(len(df_slice))
-    dates = df_slice.index
+    x = np.arange(len(df_slice))
     
     # Candlesticks
     for i in range(len(df_slice)):
-        o, c, h, l = df_slice.iloc[i][['open', 'close', 'high', 'low']]
-        color = '#26a69a' if c >= o else '#ef5350'
-        ax.plot([i, i], [l, h], color=color, linewidth=1)
-        ax.add_patch(patches.Rectangle((i-0.3, min(o, c)), 0.6, abs(c-o), color=color, alpha=0.8))
-        
-        # Annotate Patterns
-        pat = df_slice['pattern'].iloc[i]
-        if pat:
-            ax.text(i, h*1.002 if 'Bear' in pat else l*0.998, f"● {pat}", 
-                    color='blue', fontsize=7, ha='center', rotation=45)
+        row = df_slice.iloc[i]
+        color = '#26a69a' if row['close'] >= row['open'] else '#ef5350'
+        ax.plot([i, i], [row['low'], row['high']], color=color, linewidth=1)
+        ax.add_patch(patches.Rectangle((i-0.3, min(row['open'], row['close'])), 0.6, abs(row['close']-row['open']), color=color))
 
-    # BOS Annotations
-    for i in range(len(df_slice)):
-        if bos_up_slice[i]:
-            ax.annotate("BOS ↑", xy=(i, df_slice['high'].iloc[i]), xytext=(0, 10),
-                        textcoords='offset points', color='green', fontweight='bold', ha='center')
-        if bos_dn_slice[i]:
-            ax.annotate("BOS ↓", xy=(i, df_slice['low'].iloc[i]), xytext=(0, -15),
-                        textcoords='offset points', color='red', fontweight='bold', ha='center')
+    # LB Curve
+    ax.plot(x, df_slice['lb_crv'], color='gray', alpha=0.4, linewidth=1, label="LB")
 
-    # Draw Indicators
-    ax.plot(idx, df_slice['ema20'], color='blue', alpha=0.3, label='EMA20')
-    ax.plot(idx, df_slice['lb_crv'], color='orange', linestyle='--', alpha=0.5, label='LB Curve')
-
-    # Zones (Active only in window)
+    # Zones (Handling start_idx offset for sliding window)
     for z in zones:
-        if z['t'] in dates:
-            z_idx = dates.get_loc(z['t'])
-            color = 'green' if 'bull' in z['type'] else 'red'
-            ax.add_patch(patches.Rectangle((z_idx, z['btm']), len(df_slice)-z_idx, z['top']-z['btm'], 
-                                           color=color, alpha=0.1, linewidth=0))
+        if start_idx <= z.start_idx < end_idx:
+            local_x = z.start_idx - start_idx
+            width = len(df_slice) - local_x
+            
+            # Color Matching from your script
+            if z.is_ob:
+                base_col = '#008950' if z.is_bull else '#883f0e'
+            else:
+                base_col = '#35aa18' if z.is_bull else '#da1313'
+                
+            ax.add_patch(patches.Rectangle((local_x, z.btm), width, z.top-z.btm, 
+                                           facecolor=base_col, alpha=0.15, edgecolor=base_col, 
+                                           linestyle='--' if not z.is_ob else '-'))
 
-    # SMC Table
-    last_pattern = df_slice['pattern'].replace("", np.nan).ffill().iloc[-1]
-    draw_smc_dashboard(ax, ticker, trend, last_pattern, "Bull Bias" if trend else "Bear Bias")
-
-    ax.grid(True, color='#e0e0e0', linestyle='--', alpha=0.5)
-    ax.set_ylabel("Price")
-    plt.xticks(idx[::10], dates[::10].strftime('%d %b'), rotation=0)
+    draw_pine_table(ax, ticker, df_slice)
+    
+    # Formatting
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.grid(True, color='#f0f0f0', linestyle='-')
+    ax.set_title(f"{ticker} Backtest - SMC V6", loc='left', color='#131722', fontsize=10)
+    
     return fig
 
 # =========================================================
-# 3. STREAMLIT UI & DATA PERSISTENCE
+# 3. BACKTEST NAVIGATION (1-BAR SLICING)
 # =========================================================
 
 st.set_page_config(layout="wide")
-ticker = st.sidebar.text_input("Symbol", "NVDA").upper()
 
-if 'step' not in st.session_state:
-    st.session_state.step = 150
+if 'ticker' not in st.session_state: st.session_state.ticker = "AAPL"
+input_ticker = st.sidebar.text_input("Ticker", "AAPL").upper()
 
-# Preload Data
-df_raw = yf.download(ticker, period="2y", interval="1d")
-if not df_raw.empty:
-    if isinstance(df_raw.columns, pd.MultiIndex): df_raw.columns = df_raw.columns.get_level_values(0)
-    df_raw.columns = [c.lower() for c in df_raw.columns]
-    
-    # Precompute All Logic
-    df, zones, b_up, b_dn, trend = apply_smc_v6_logic(df_raw)
+# Precompute when ticker changes
+if input_ticker != st.session_state.ticker or 'full_df' not in st.session_state:
+    st.session_state.ticker = input_ticker
+    raw = yf.download(input_ticker, period="2y", interval="1d")
+    if isinstance(raw.columns, pd.MultiIndex): raw.columns = raw.columns.get_level_values(0)
+    raw.columns = [c.lower() for c in raw.columns]
+    st.session_state.full_df, st.session_state.all_zones = apply_smc_v6(raw)
+    st.session_state.bar_pos = 150
 
-    # Navigation Controls
-    col1, col2, col3, col4 = st.columns([1,1,1,5])
-    if col1.button("⬅️ Previous Bar"): st.session_state.step -= 1
-    if col2.button("Next Bar ➡️"): st.session_state.step += 1
-    if col3.button("Reset"): st.session_state.step = 150
+# Controls
+c1, c2, c3, _ = st.columns([1, 1, 1, 5])
+if c1.button("⬅️ Prev Bar"): st.session_state.bar_pos = max(100, st.session_state.bar_pos - 1)
+if c2.button("Next Bar ➡️"): st.session_state.bar_pos = min(len(st.session_state.full_df), st.session_state.bar_pos + 1)
+if c3.button("RESET"): st.session_state.bar_pos = 150
 
-    # Slicing
-    end = st.session_state.step
-    start = max(0, end - 100)
-    df_slice = df.iloc[start:end]
-    bos_up_slice = b_up[start:end]
-    bos_dn_slice = b_dn[start:end]
+# Slicing
+end = st.session_state.bar_pos
+start = end - 100
+df_view = st.session_state.full_df.iloc[start:end]
 
-    st.pyplot(plot_backtest(df_slice, zones, bos_up_slice, bos_dn_slice, trend))
+st.pyplot(plot_1to1(df_view, st.session_state.all_zones, start, end, st.session_state.ticker))
