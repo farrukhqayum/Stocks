@@ -1,198 +1,250 @@
+# streamlit_smc_yfinance.py
+"""
+Single-file Streamlit app:
+- Downloads 2 years of OHLCV via yfinance (cached)
+- UI: ticker, timeframe (1D/1W/1M), EMA/RSI/ATR params, swing detection, min_gap_frac
+- Computes EMAs, RSI, ATR; detects 3-candle FVG and 3-candle OB (approx)
+- Shows 3-column recommendation (Go Long / Hold / Go Short)
+- Matplotlib price chart with EMAs and semi-transparent zone rectangles
+- Shows market structure (last swing high/low and BOS/CHoCH)
+- Provides CSV download of sliced data
+"""
 import streamlit as st
-import yfinance as yf
 import pandas as pd
 import numpy as np
+import yfinance as yf
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+from matplotlib.patches import Rectangle
 from datetime import datetime, timedelta
+import io
 
-# =========================================================
-# 1. DATA LOADING
-# =========================================================
-@st.cache_data
-def load_data(ticker, start_date, interval):
-    try:
-        data = yf.download(ticker, start=start_date, interval=interval)
-        if data.empty: return None
-        # Flatten columns if multi-index (common in newer yfinance versions)
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.get_level_values(0)
-        return data
-    except Exception as e:
-        st.error(f"Error fetching data: {e}")
-        return None
+st.set_page_config(layout="wide", page_title="SMC Signals (yfinance)")
 
-# =========================================================
-# 2. SMC LOGIC ENGINE (The "PineScript" Core)
-# =========================================================
-def apply_pinescript_logic(df):
-    # Setup Indicators
-    df['ema20'] = df['Close'].ewm(span=20, adjust=False).mean()
-    df['ema50'] = df['Close'].ewm(span=50, adjust=False).mean()
-    df['ema200'] = df['Close'].ewm(span=200, adjust=False).mean()
-    
-    # ATR for filters
-    high_low = df['High'] - df['Low']
-    high_close = np.abs(df['High'] - df['Close'].shift())
-    low_close = np.abs(df['Low'] - df['Close'].shift())
-    ranges = pd.concat([high_low, high_close, low_close], axis=1)
-    true_range = np.max(ranges, axis=1)
-    df['atr'] = true_range.rolling(14).mean()
+# -------------------------
+# Utility functions
+# -------------------------
+@st.cache_data(ttl=300)
+def download_yf(ticker: str, period_days: int, interval: str):
+    # yfinance interval mapping already handled by caller
+    period = f"{period_days}d"
+    data = yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=False)
+    data = data.reset_index().rename(columns={'Date': 'datetime'})
+    if 'Datetime' in data.columns:
+        data = data.rename(columns={'Datetime': 'datetime'})
+    data = data[['datetime', 'Open', 'High', 'Low', 'Close', 'Volume']].rename(
+        columns={'Open':'open','High':'high','Low':'low','Close':'close','Volume':'volume'})
+    return data
 
-    zones = [] # List to store Zone dictionaries
+def ema(series, span):
+    return series.ewm(span=span, adjust=False).mean()
 
-    # Sequential scan for Zones (FVG & OB)
-    for i in range(2, len(df)):
-        current_idx = df.index[i]
-        
-        # --- FVG Detection ---
-        min_gap = df['atr'].iloc[i] * 0.1
-        # Bull FVG
-        if df['Low'].iloc[i] > (df['High'].iloc[i-2] + min_gap):
-            zones.append({
-                'type': 'FVG', 'is_bull': True, 'top': df['Low'].iloc[i], 
-                'btm': df['High'].iloc[i-2], 'start_idx': i, 'mitigated': False
-            })
-        # Bear FVG
-        if df['High'].iloc[i] < (df['Low'].iloc[i-2] - min_gap):
-            zones.append({
-                'type': 'FVG', 'is_bull': False, 'top': df['Low'].iloc[i-2], 
-                'btm': df['High'].iloc[i], 'start_idx': i, 'mitigated': False
-            })
+def rsi(series, length=14):
+    delta = series.diff()
+    up = delta.clip(lower=0)
+    down = -1 * delta.clip(upper=0)
+    ma_up = up.ewm(alpha=1/length, adjust=False).mean()
+    ma_down = down.ewm(alpha=1/length, adjust=False).mean()
+    rs = ma_up / ma_down
+    return 100 - (100 / (1 + rs))
 
-        # --- OB Detection (Simplified Displacement) ---
-        # Bull OB
-        if df['Close'].iloc[i] > df['High'].iloc[i-1] and df['Close'].iloc[i] > df['Open'].iloc[i]:
-            zones.append({
-                'type': 'OB', 'is_bull': True, 'top': df['High'].iloc[i-1], 
-                'btm': df['Low'].iloc[i-1], 'start_idx': i, 'mitigated': False
-            })
-        # Bear OB
-        if df['Close'].iloc[i] < df['Low'].iloc[i-1] and df['Close'].iloc[i] < df['Open'].iloc[i]:
-            zones.append({
-                'type': 'OB', 'is_bull': False, 'top': df['High'].iloc[i-1], 
-                'btm': df['Low'].iloc[i-1], 'start_idx': i, 'mitigated': False
-            })
+def pivot_high_idxs(high, left=20, right=5):
+    idxs = []
+    for i in range(left, len(high)-right):
+        window = high[i-left:i+right+1]
+        if high[i] == window.max():
+            idxs.append(i)
+    return idxs
 
-        # --- Mitigation Check (Ongoing) ---
-        for z in zones:
-            if not z['mitigated'] and i > z['start_idx']:
-                if z['is_bull'] and df['Close'].iloc[i] < z['btm']:
-                    z['mitigated'] = True
-                elif not z['is_bull'] and df['Close'].iloc[i] > z['top']:
-                    z['mitigated'] = True
+def pivot_low_idxs(low, left=20, right=5):
+    idxs = []
+    for i in range(left, len(low)-right):
+        window = low[i-left:i+right+1]
+        if low[i] == window.min():
+            idxs.append(i)
+    return idxs
 
-    # Signal Generation (Simplified for Chart Symbols)
-    df['long_sig'] = (df['Close'] > df['ema20']) & (df['Close'].shift(1) <= df['ema20'].shift(1))
-    df['short_sig'] = (df['Close'] < df['ema20']) & (df['Close'].shift(1) >= df['ema20'].shift(1))
-    
-    return df, zones
+# -------------------------
+# Sidebar / Controls
+# -------------------------
+st.title("SMC Signals Dashboard (yfinance)")
 
-# =========================================================
-# 3. PLOTTING ENGINE (Matplotlib)
-# =========================================================
-def plotchart(df_slice, all_zones, info_df, title="Chart"):
-    fig, ax = plt.subplots(figsize=(12, 6), facecolor='#131722')
-    ax.set_facecolor('#131722')
-    
-    x = np.arange(len(df_slice))
-    
-    # Plot Candlesticks
-    for i in range(len(df_slice)):
-        color = '#26a69a' if df_slice['Close'].iloc[i] >= df_slice['Open'].iloc[i] else '#ef5350'
-        # Wick
-        ax.plot([i, i], [df_slice['Low'].iloc[i], df_slice['High'].iloc[i]], color=color, linewidth=1)
-        # Body
-        ax.add_patch(patches.Rectangle((i - 0.3, min(df_slice['Open'].iloc[i], df_slice['Close'].iloc[i])), 
-                                      0.6, abs(df_slice['Open'].iloc[i] - df_slice['Close'].iloc[i]), 
-                                      color=color, zorder=3))
+with st.sidebar:
+    st.header("Data & Parameters")
+    ticker = st.text_input("Ticker", value="AAPL").upper()
+    timeframe = st.selectbox("Timeframe", options=["1D","1W","1M"], index=0)
+    # map to yfinance interval
+    interval_map = {"1D":"1d","1W":"1wk","1M":"1mo"}
+    yf_interval = interval_map[timeframe]
+    # always 2 years slice
+    period_days = 365 * 2
+    st.markdown("**Indicator params**")
+    ema_short = st.number_input("EMA Short", value=20, min_value=1)
+    ema_med   = st.number_input("EMA Medium", value=50, min_value=1)
+    ema_long  = st.number_input("EMA Long", value=200, min_value=1)
+    rsi_len   = st.number_input("RSI Length", value=14, min_value=1)
+    atr_len   = st.number_input("ATR Length", value=14, min_value=1)
+    st.markdown("**Zone / Swing params**")
+    swing_left = st.number_input("Swing Left", value=20, min_value=1)
+    swing_right = st.number_input("Swing Right", value=5, min_value=1)
+    min_gap_frac = st.number_input("Min gap (ATR fraction)", value=0.1, step=0.05, min_value=0.0)
+    max_zones = st.number_input("Max Zones to draw", value=200, min_value=1)
 
-    # Plot Active Zones
-    slice_start_date = df_slice.index[0]
-    for z in all_zones:
-        # Filter: Only show zones created before slice end and not mitigated yet
-        if not z['mitigated'] and df.index[z['start_idx']] <= df_slice.index[-1]:
-            # Calculate where the zone starts relative to our current slice
-            try:
-                z_start_pos = df_slice.index.get_loc(df.index[z['start_idx']])
-            except KeyError:
-                z_start_pos = 0 # It started before this slice
-            
-            z_color = 'green' if z['is_bull'] else 'red'
-            z_alpha = 0.15 if z['type'] == 'OB' else 0.08
-            
-            rect = patches.Rectangle((z_start_pos, z['btm']), len(df_slice)-z_start_pos, 
-                                     z['top']-z['btm'], color=z_color, alpha=z_alpha, label=z['type'])
-            ax.add_patch(rect)
+# -------------------------
+# Data download & compute
+# -------------------------
+st.info(f"Downloading 2 years of {ticker} @ {timeframe} (interval={yf_interval}) ...")
+df = download_yf(ticker, period_days, yf_interval)
 
-    # Plot Signals (Symbols)
-    longs = df_slice[df_slice['long_sig']]
-    shorts = df_slice[df_slice['short_sig']]
-    
-    ax.scatter(np.where(df_slice['long_sig'])[0], df_slice.loc[df_slice['long_sig'], 'Low'] * 0.99, 
-               marker='^', color='#00ff00', s=100, label='Long', zorder=5)
-    ax.scatter(np.where(df_slice['short_sig'])[0], df_slice.loc[df_slice['short_sig'], 'High'] * 1.01, 
-               marker='v', color='#ff0000', s=100, label='Short', zorder=5)
-
-    # Styling
-    ax.set_title(title, color='white', loc='left', fontsize=14)
-    ax.tick_params(axis='x', colors='white')
-    ax.tick_params(axis='y', colors='white')
-    ax.grid(color='#2a2e39', linestyle='--', alpha=0.5)
-    plt.xticks(x[::max(1, len(x)//10)], df_slice.index.strftime('%Y-%m-%d')[::max(1, len(x)//10)], rotation=45)
-    
-    return fig
-
-# =========================================================
-# 4. STREAMLIT UI (FULL APP)
-# =========================================================
-st.set_page_config(page_title="SMC FVG Dashboard", layout="wide")
-
-st.sidebar.header("Settings")
-ticker = st.sidebar.text_input("Ticker", "ASML")
-tf = st.sidebar.selectbox("Timeframe", ["1D", "1W", "1M"], index=0)
-
-today = datetime.today()
-if tf == "1D":
-    start_date = today - timedelta(days=365)
-    interval = "1d"
-elif tf == "1W":
-    start_date = today - timedelta(days=365*3)
-    interval = "1wk"
-elif tf == "1M":
-    start_date = today - timedelta(days=365*10)
-    interval = "1mo"
-
-df = load_data(ticker, start_date, interval)
-
-if df is None or df.empty:
-    st.error("No data found.")
+if df.empty:
+    st.error("No data returned for this ticker/timeframe. Try another ticker or timeframe.")
     st.stop()
 
-# Apply logic once to full DF
-df, all_zones = apply_pinescript_logic(df)
+# Ensure datetime is datetime type
+df['datetime'] = pd.to_datetime(df['datetime'])
+df = df.sort_values('datetime').reset_index(drop=True)
 
-# Slicing / Window Logic
-if "window_end_idx" not in st.session_state:
-    st.session_state.window_end_idx = len(df)
-if "window_size" not in st.session_state:
-    st.session_state.window_size = 100
+# Compute indicators
+df['ema_short'] = ema(df['close'], ema_short)
+df['ema_med']   = ema(df['close'], ema_med)
+df['ema_long']  = ema(df['close'], ema_long)
+df['rsi'] = rsi(df['close'], rsi_len)
+# ATR simple (high-low rolling mean as approximation)
+df['tr'] = np.maximum(df['high'] - df['low'], 
+                      np.maximum((df['high'] - df['close'].shift(1)).abs(), (df['low'] - df['close'].shift(1)).abs()))
+df['atr'] = df['tr'].rolling(window=atr_len, min_periods=1).mean()
 
-col1, col2, col3 = st.columns([1, 1, 2])
+# -------------------------
+# Zone detection (loop allowed)
+# -------------------------
+zones = []  # each zone: dict with start_idx, end_idx, top, bot, bull(bool), type 'FVG'/'OB'
+for i in range(2, len(df)):
+    min_gap = df['atr'].iat[i] * min_gap_frac
+    # 3-candle FVG up (bull)
+    if df['low'].iat[i] > df['high'].iat[i-2] + min_gap:
+        zones.append({'start': i-2, 'end': i, 'top': df['high'].iat[i-2], 'bot': df['low'].iat[i], 'bull': True, 'type': 'FVG'})
+    # 3-candle FVG down (bear)
+    if df['high'].iat[i] < df['low'].iat[i-2] - min_gap:
+        zones.append({'start': i-2, 'end': i, 'top': df['high'].iat[i], 'bot': df['low'].iat[i-2], 'bull': False, 'type': 'FVG'})
+    # 3-candle OB displacement (bull)
+    if (df['close'].iat[i] > df['high'].iat[i-1] and df['close'].iat[i] > df['open'].iat[i] and df['low'].iat[i-1] < df['low'].iat[i-2]):
+        zones.append({'start': i-1, 'end': i, 'top': df['high'].iat[i-1], 'bot': df['low'].iat[i-1], 'bull': True, 'type': 'OB'})
+    # 3-candle OB displacement (bear)
+    if (df['close'].iat[i] < df['low'].iat[i-1] and df['close'].iat[i] < df['open'].iat[i] and df['high'].iat[i-1] > df['high'].iat[i-2]):
+        zones.append({'start': i-1, 'end': i, 'top': df['high'].iat[i-1], 'bot': df['low'].iat[i-1], 'bull': False, 'type': 'OB'})
 
-if col1.button("⬅️ Back"):
-    st.session_state.window_end_idx = max(st.session_state.window_size, st.session_state.window_end_idx - 10)
+# Limit zones drawn
+if len(zones) > max_zones:
+    zones = zones[-max_zones:]
 
-if col2.button("Next ➡️"):
-    st.session_state.window_end_idx = min(len(df), st.session_state.window_end_idx + 10)
+# -------------------------
+# Market structure (swings & BOS/CHoCH)
+# -------------------------
+ph_idxs = pivot_high_idxs(df['high'].values, left=swing_left, right=swing_right)
+pl_idxs = pivot_low_idxs(df['low'].values, left=swing_left, right=swing_right)
+last_hi_idx = ph_idxs[-1] if ph_idxs else None
+last_lo_idx = pl_idxs[-1] if pl_idxs else None
+last_hi_price = df['high'].iat[last_hi_idx] if last_hi_idx is not None else None
+last_lo_price = df['low'].iat[last_lo_idx] if last_lo_idx is not None else None
 
-end_idx = st.session_state.window_end_idx
-start_idx = max(0, end_idx - st.session_state.window_size)
+# Detect breakout over last swing high / under last swing low
+close_latest = df['close'].iat[-1]
+bos = None
+if last_hi_idx is not None and close_latest > last_hi_price:
+    bos = "BOS Up"
+elif last_lo_idx is not None and close_latest < last_lo_price:
+    bos = "BOS Down"
+else:
+    bos = "No BOS"
 
-df_slice = df.iloc[start_idx : end_idx]
+# -------------------------
+# Signals (middle column)
+# -------------------------
+latest = df.iloc[-1]
+smc_bull = latest['close'] > latest['ema_med']
+ema_bull = latest['ema_short'] > latest['ema_med']
+mom_bull = latest['rsi'] > 50
+bull_signal = smc_bull and ema_bull and mom_bull
 
-with col3:
-    st.write(f"Showing indices **{start_idx}** to **{end_idx}** (Total: {len(df)})")
+smc_bear = latest['close'] < latest['ema_med']
+ema_bear = latest['ema_short'] < latest['ema_med']
+mom_bear = latest['rsi'] < 45
+bear_signal = smc_bear and ema_bear and mom_bear
 
-fig = plotchart(df_slice, all_zones, None, title=f"{ticker} {tf} - SMC Dashboard")
+if bull_signal and not bear_signal:
+    rec_text = "GO LONG"
+    rec_color = "#16a34a"  # green
+elif bear_signal and not bull_signal:
+    rec_text = "GO SHORT"
+    rec_color = "#dc2626"  # red
+else:
+    rec_text = "HOLD"
+    rec_color = "#f59e0b"  # yellow
+
+# -------------------------
+# Layout: three columns
+# -------------------------
+col_left, col_mid, col_right = st.columns([1,1.2,1])
+
+with col_left:
+    st.subheader("Numeric Context")
+    st.write(f"**Latest Close:** {latest['close']:.4f}")
+    st.write(f"**EMA {ema_short}:** {latest['ema_short']:.4f}")
+    st.write(f"**EMA {ema_med}:** {latest['ema_med']:.4f}")
+    st.write(f"**EMA {ema_long}:** {latest['ema_long']:.4f}")
+    st.write(f"**RSI ({rsi_len}):** {latest['rsi']:.2f}")
+    st.write(f"**ATR ({atr_len}):** {latest['atr']:.4f}")
+
+with col_mid:
+    st.subheader("Recommendation")
+    st.markdown(f"<div style='background:{rec_color};padding:20px;border-radius:8px;text-align:center;'>"
+                f"<h1 style='color:white;margin:0;'>{rec_text}</h1></div>", unsafe_allow_html=True)
+    st.write("**Signal logic:** close vs EMA_med, EMA short vs EMA med, RSI threshold")
+
+with col_right:
+    st.subheader("Market Structure")
+    st.write(f"**Last Swing High idx:** {last_hi_idx if last_hi_idx is not None else 'N/A'}")
+    st.write(f"**Last Swing High price:** {last_hi_price:.4f}" if last_hi_price is not None else "**Last Swing High price:** N/A")
+    st.write(f"**Last Swing Low idx:** {last_lo_idx if last_lo_idx is not None else 'N/A'}")
+    st.write(f"**Last Swing Low price:** {last_lo_price:.4f}" if last_lo_price is not None else "**Last Swing Low price:** N/A")
+    st.write(f"**Breakout (BOS/CHoCH):** {bos}")
+
+# -------------------------
+# Matplotlib plot (consistent across timeframes)
+# -------------------------
+st.subheader("Price Chart (EMAs + Zones)")
+fig, ax = plt.subplots(figsize=(12,5))
+ax.plot(df['datetime'], df['close'], color='black', linewidth=1, label='Close')
+ax.plot(df['datetime'], df['ema_short'], color='gold', label=f'EMA{ema_short}')
+ax.plot(df['datetime'], df['ema_med'], color='orange', label=f'EMA{ema_med}')
+ax.plot(df['datetime'], df['ema_long'], color='purple', label=f'EMA{ema_long}')
+
+# Draw zones as rectangles aligned to dates
+for z in zones:
+    x0 = df['datetime'].iat[z['start']]
+    x1 = df['datetime'].iat[z['end']]
+    width = (x1 - x0)
+    height = z['top'] - z['bot']
+    color = (0.0, 0.6, 0.0, 0.18) if z['bull'] else (0.8, 0.0, 0.0, 0.18)
+    rect = Rectangle((x0, z['bot']), width, height, color=color, linewidth=0)
+    ax.add_patch(rect)
+    # optional border
+    ax.plot([x0, x1], [z['top'], z['top']], color=color[:3], alpha=0.6, linewidth=1)
+    ax.plot([x0, x1], [z['bot'], z['bot']], color=color[:3], alpha=0.6, linewidth=1)
+
+ax.set_xlabel("Date")
+ax.set_ylabel("Price")
+ax.legend(loc='upper left')
+fig.autofmt_xdate()
 st.pyplot(fig)
+
+# -------------------------
+# Data tail and download
+# -------------------------
+st.subheader("Data (tail)")
+st.dataframe(df.tail(10).reset_index(drop=True))
+
+# CSV download
+csv_buf = io.StringIO()
+df.to_csv(csv_buf, index=False)
+csv_bytes = csv_buf.getvalue().encode()
+st.download_button("Download sliced CSV (2 years)", data=csv_bytes, file_name=f"{ticker}_2y_{timeframe}.csv", mime="text/csv")
