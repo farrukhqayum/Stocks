@@ -701,6 +701,10 @@ zones = zone_engine.detect(df_slice)
 structure_state = structure_engine.compute(df_slice)
 pattern_info = pattern_engine.analyze(df_slice)
 signal_state = signal_engine.compute(df_slice, structure_state, pattern_info)
+df_slice['long_signal'] = signal_state.long
+df_slice['exit_long'] = signal_state.exit_long
+df_slice['short_signal'] = signal_state.short
+df_slice['exit_short'] = signal_state.exit_short
 
 # ---------------------------------------------------------
 # UI SIGNALS
