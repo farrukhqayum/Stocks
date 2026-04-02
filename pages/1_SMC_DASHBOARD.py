@@ -3,7 +3,7 @@
 Single-file Streamlit app:
 - Downloads 2 years of OHLCV via yfinance (cached)
 - UI: ticker, timeframe (1D/1W/1M), EMA/RSI/ATR params, swing detection, min_gap_frac
-- Computes EMAs, RSI, ATR; detects 3-candle FVG and 3-candle OB (approx) using numpy arrays
+- Computes EMAs, RSI, ATR; detects 3-candle FVG and 3-candle OB using numpy arrays
 - Shows 3-column recommendation (Go Long / Hold / Go Short)
 - Matplotlib price chart with EMAs and semi-transparent zone rectangles
 - Shows market structure (last swing highs/lows and BOS/CHoCH)
@@ -17,7 +17,6 @@ import numpy as np
 import yfinance as yf
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from datetime import datetime, timedelta
 import io
 
 st.set_page_config(layout="wide", page_title="SMC Signals (yfinance)")
@@ -43,7 +42,6 @@ def download_yf(ticker: str, period_days: int, interval: str) -> pd.DataFrame:
     if 'date' in df.columns:
         df = df.rename(columns={'date': 'datetime'})
     if 'datetime' not in df.columns:
-        # some intervals return 'index' as datetime
         df['datetime'] = pd.to_datetime(df.index)
     # keep only required columns
     cols = ['datetime', 'open', 'high', 'low', 'close', 'volume']
@@ -72,8 +70,13 @@ def rsi(series: pd.Series, length: int = 14) -> pd.Series:
 def pivot_high_idxs_np(high_np: np.ndarray, left: int = 20, right: int = 5):
     idxs = []
     n = len(high_np)
+    # ensure left/right are within bounds
+    left = max(1, int(left))
+    right = max(1, int(right))
     for i in range(left, n - right):
         window = high_np[i-left:i+right+1]
+        if np.isnan(window).any():
+            continue
         if high_np[i] == window.max():
             idxs.append(i)
     return idxs
@@ -81,8 +84,12 @@ def pivot_high_idxs_np(high_np: np.ndarray, left: int = 20, right: int = 5):
 def pivot_low_idxs_np(low_np: np.ndarray, left: int = 20, right: int = 5):
     idxs = []
     n = len(low_np)
+    left = max(1, int(left))
+    right = max(1, int(right))
     for i in range(left, n - right):
         window = low_np[i-left:i+right+1]
+        if np.isnan(window).any():
+            continue
         if low_np[i] == window.min():
             idxs.append(i)
     return idxs
@@ -151,27 +158,62 @@ close_np = df['close'].to_numpy()
 atr_np = df['atr'].to_numpy()
 
 # -------------------------
-# Zone detection using numpy arrays (avoids pandas .iat indexing issues)
+# Zone detection using numpy arrays (robust indexing)
 # -------------------------
 zones = []  # list of dicts: start, end, top, bot, bull(bool), type
 n = len(df)
-# loop is acceptable here; we use numpy arrays for indexing
 for i in range(2, n):
-    min_gap = atr_np[i] * min_gap_frac if not np.isnan(atr_np[i]) else 0.0
-    # 3-candle FVG up (bull)
-    if not np.isnan(low_np[i]) and not np.isnan(high_np[i-2]) and (low_np[i] > high_np[i-2] + min_gap):
-        zones.append({'start': i-2, 'end': i, 'top': float(high_np[i-2]), 'bot': float(low_np[i]), 'bull': True, 'type': 'FVG'})
-    # 3-candle FVG down (bear)
-    if not np.isnan(high_np[i]) and not np.isnan(low_np[i-2]) and (high_np[i] < low_np[i-2] - min_gap):
-        zones.append({'start': i-2, 'end': i, 'top': float(high_np[i]), 'bot': float(low_np[i-2]), 'bull': False, 'type': 'FVG'})
+    # ensure we have required previous indices
+    if i-2 < 0 or i-1 < 0:
+        continue
+    # compute min_gap safely
+    min_gap = float(atr_np[i]) * float(min_gap_frac) if not np.isnan(atr_np[i]) else 0.0
+
+    # 3-candle FVG up (bull): low[i] > high[i-2] + min_gap
+    if (not np.isnan(low_np[i])) and (not np.isnan(high_np[i-2])) and (low_np[i] > high_np[i-2] + min_gap):
+        zones.append({
+            'start': int(i-2),
+            'end': int(i),
+            'top': float(high_np[i-2]),
+            'bot': float(low_np[i]),
+            'bull': True,
+            'type': 'FVG'
+        })
+
+    # 3-candle FVG down (bear): high[i] < low[i-2] - min_gap
+    if (not np.isnan(high_np[i])) and (not np.isnan(low_np[i-2])) and (high_np[i] < low_np[i-2] - min_gap):
+        zones.append({
+            'start': int(i-2),
+            'end': int(i),
+            'top': float(high_np[i]),
+            'bot': float(low_np[i-2]),
+            'bull': False,
+            'type': 'FVG'
+        })
+
     # 3-candle OB displacement (bull)
     if (not np.isnan(close_np[i]) and not np.isnan(high_np[i-1]) and not np.isnan(open_np[i])
-        and close_np[i] > high_np[i-1] and close_np[i] > open_np[i] and low_np[i-1] < low_np[i-2]):
-        zones.append({'start': i-1, 'end': i, 'top': float(high_np[i-1]), 'bot': float(low_np[i-1]), 'bull': True, 'type': 'OB'})
+        and close_np[i] > high_np[i-1] and close_np[i] > open_np[i] and (not np.isnan(low_np[i-1]) and not np.isnan(low_np[i-2])) and low_np[i-1] < low_np[i-2]):
+        zones.append({
+            'start': int(i-1),
+            'end': int(i),
+            'top': float(high_np[i-1]),
+            'bot': float(low_np[i-1]),
+            'bull': True,
+            'type': 'OB'
+        })
+
     # 3-candle OB displacement (bear)
     if (not np.isnan(close_np[i]) and not np.isnan(low_np[i-1]) and not np.isnan(open_np[i])
-        and close_np[i] < low_np[i-1] and close_np[i] < open_np[i] and high_np[i-1] > high_np[i-2]):
-        zones.append({'start': i-1, 'end': i, 'top': float(high_np[i-1]), 'bot': float(low_np[i-1]), 'bull': False, 'type': 'OB'})
+        and close_np[i] < low_np[i-1] and close_np[i] < open_np[i] and (not np.isnan(high_np[i-1]) and not np.isnan(high_np[i-2])) and high_np[i-1] > high_np[i-2]):
+        zones.append({
+            'start': int(i-1),
+            'end': int(i),
+            'top': float(high_np[i-1]),
+            'bot': float(low_np[i-1]),
+            'bull': False,
+            'type': 'OB'
+        })
 
 # limit zones drawn
 if len(zones) > max_zones:
@@ -190,9 +232,9 @@ last_lo_price = float(low_np[last_lo_idx]) if last_lo_idx is not None else None
 # Detect breakout over last swing high / under last swing low
 close_latest = float(close_np[-1])
 bos = "No BOS"
-if last_hi_idx is not None and close_latest > last_hi_price:
+if last_hi_idx is not None and (last_hi_price is not None) and close_latest > last_hi_price:
     bos = "BOS Up"
-elif last_lo_idx is not None and close_latest < last_lo_price:
+elif last_lo_idx is not None and (last_lo_price is not None) and close_latest < last_lo_price:
     bos = "BOS Down"
 
 # -------------------------
@@ -261,19 +303,22 @@ ax.plot(df['datetime'], df['ema_short'], color='gold', label=f'EMA{ema_short}')
 ax.plot(df['datetime'], df['ema_med'], color='orange', label=f'EMA{ema_med}')
 ax.plot(df['datetime'], df['ema_long'], color='purple', label=f'EMA{ema_long}')
 
-# Draw zones as rectangles aligned to dates (use numpy datetime64 -> matplotlib)
+# Draw zones as rectangles aligned to dates
 for z in zones:
     start_idx = z['start']
     end_idx = z['end']
+    # safety checks for indices
+    if start_idx < 0 or end_idx >= n or start_idx >= n:
+        continue
     x0 = df['datetime'].iat[start_idx]
     x1 = df['datetime'].iat[end_idx]
+    # width as timedelta works with matplotlib datetime axis
     width = x1 - x0
     height = z['top'] - z['bot']
     color = (0.0, 0.6, 0.0, 0.18) if z['bull'] else (0.8, 0.0, 0.0, 0.18)
-    # Rectangle expects x,y,width,height where width is a timedelta for datetime axis
     rect = Rectangle((x0, z['bot']), width, height, color=color, linewidth=0)
     ax.add_patch(rect)
-    # draw borders for clarity
+    # draw borders for clarity (use RGB portion)
     ax.plot([x0, x1], [z['top'], z['top']], color=color[:3], alpha=0.6, linewidth=1)
     ax.plot([x0, x1], [z['bot'], z['bot']], color=color[:3], alpha=0.6, linewidth=1)
 
