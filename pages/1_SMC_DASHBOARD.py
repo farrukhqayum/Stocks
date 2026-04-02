@@ -1,7 +1,3 @@
-# =========================================================
-# BLOCK 1 — IMPORTS + HELPERS + DATA LOADER
-# =========================================================
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -35,7 +31,6 @@ def ema(series, length):
 def rsi(series, length=14):
     delta = series.diff()
 
-    # Gains (positive changes) and losses (negative changes)
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
 
@@ -43,23 +38,20 @@ def rsi(series, length=14):
     avg_loss = loss.rolling(length).mean()
 
     rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
+    rsi_val = 100 - (100 / (1 + rs))
+    return rsi_val
 
 def atr(df, length=14):
     high = df["high"]
     low = df["low"]
     close_prev = df["close"].shift()
 
-    tr = pd.concat([
-        (high - low),
-        (high - close_prev).abs(),
-        (low - close_prev).abs()
-    ], axis=1).max(axis=1)
+    high_low = high - low
+    high_close = (high - close_prev).abs()
+    low_close = (low - close_prev).abs()
 
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     return tr.rolling(length).mean()
-
 
 # ---------------------------------------------------------
 # SWING POINTS
@@ -107,28 +99,12 @@ def rgba(hex_color, alpha):
 # BLOCK 2 — FULL ENGINE (ZONES, STRUCTURE, PATTERNS, SIGNALS)
 # =========================================================
 
-# This block ports the core of your Pine Script logic into Python.
-# It builds:
-#   - FVGs (3-candle, gap-aware)
-#   - OBs (displacement + gap-based)
-#   - Zone merging + mitigation
-#   - Market structure (BOS / CHoCH)
-#   - Candlestick patterns (core set)
-#   - Momentum + SMC bias
-#   - Unified "info" dict for plotting / regime logic
-#
-# Main public functions:
-#   apply_pinescript_logic(df) -> (df, zones, info)
-#   get_last_broken_fvg(df_or_slice) -> (last_broken_bear, last_broken_bull)
-
-
 # ---------------------------------------------------------
 # ZONE ENGINE HELPERS
 # ---------------------------------------------------------
 
 def zones_overlap(top1, bottom1, top2, bottom2):
     return not (bottom1 > top2 or bottom2 > top1)
-
 
 def merge_overlapping_zones(zones):
     """Merge overlapping zones, keeping the larger one (by height)."""
@@ -150,7 +126,6 @@ def merge_overlapping_zones(zones):
 
     return merged
 
-
 def add_zone(zones, top, bottom, is_bull, is_ob, start_idx, color, cond=True):
     if not cond:
         return
@@ -161,7 +136,6 @@ def add_zone(zones, top, bottom, is_bull, is_ob, start_idx, color, cond=True):
     if top == bottom:
         return
     zones.append(Zone(top, bottom, start_idx, is_bull, is_ob, color))
-
 
 # ---------------------------------------------------------
 # PATTERN ENGINE (CORE SUBSET)
@@ -326,30 +300,36 @@ def detect_candlestick_patterns(df, lb_crv, body_thresh=0.10,
 
     return pattern_name, pattern_bull
 
+# ---------------------------------------------------------
+# MARKET STRUCTURE (BOS / CHoCH) — SAFE VERSION
+# ---------------------------------------------------------
 
-# ---------------------------------------------------------
-# MARKET STRUCTURE (BOS / CHoCH)
-# ---------------------------------------------------------
 def compute_structure(df, swing_left=20, swing_right=5, bos_ext_bars=20):
+    """
+    Returns:
+        bos_up: Series[bool]
+        bos_dn: Series[bool]
+        is_uptrend: Series[bool]
+    """
     highs = df["high"].to_numpy().flatten()
-    lows  = df["low"].to_numpy().flatten()
+    lows = df["low"].to_numpy().flatten()
     closes = df["close"].to_numpy().flatten()
     n = len(df)
 
-    # Swing points as arrays of floats (NaN where no swing)
     sw_hi = np.full(n, np.nan)
     sw_lo = np.full(n, np.nan)
 
     for i in range(swing_left, n - swing_right):
-        window = highs[i - swing_left : i + swing_right + 1]
-        if highs[i] == window.max():
+        window_h = highs[i - swing_left : i + swing_right + 1]
+        window_l = lows[i - swing_left : i + swing_right + 1]
+        if highs[i] == window_h.max():
             sw_hi[i] = highs[i]
-        if lows[i] == window.min():
+        if lows[i] == window_l.min():
             sw_lo[i] = lows[i]
 
     bos_up = np.zeros(n, dtype=bool)
     bos_dn = np.zeros(n, dtype=bool)
-    trend  = np.zeros(n, dtype=bool)
+    trend = np.zeros(n, dtype=bool)
 
     last_hi = np.nan
     last_lo = np.nan
@@ -363,13 +343,11 @@ def compute_structure(df, swing_left=20, swing_right=5, bos_ext_bars=20):
 
         close_i = closes[i]
 
-        # BOS up
         if not np.isnan(last_hi) and close_i > last_hi:
             bos_up[i] = True
             is_uptrend = True
             last_hi = np.nan
 
-        # BOS down
         if not np.isnan(last_lo) and close_i < last_lo:
             bos_dn[i] = True
             is_uptrend = False
@@ -398,6 +376,11 @@ def apply_pinescript_logic(df_raw):
     """
     df = df_raw.copy()
 
+    # Ensure all OHLCV columns are 1D
+    for col in ["open", "high", "low", "close", "volume"]:
+        if col in df.columns:
+            df[col] = df[col].to_numpy().flatten()
+
     # --- INDICATORS ---
     len_ema_short = 20
     len_ema_med = 50
@@ -414,33 +397,33 @@ def apply_pinescript_logic(df_raw):
     df["ema50"] = ema(df["close"], len_ema_med)
     df["ema200"] = ema(df["close"], len_ema_long)
 
-    # --- LB CURVE (FINAL FIXED VERSION) ---
+    # --- LB CURVE (SAFE NUMPY VERSION) ---
     close_arr = df["close"].to_numpy().flatten()
     high_arr  = df["high"].to_numpy().flatten()
     low_arr   = df["low"].to_numpy().flatten()
-    
+
     highest_lb = pd.Series(close_arr).rolling(lblen).max().to_numpy()
     lowest_lb  = pd.Series(close_arr).rolling(lblen).min().to_numpy()
-    
+
     lb_new = close_arr.copy()
-    
+
     for i in range(1, len(close_arr)):
         prev_high = highest_lb[i-1]
         prev_low  = lowest_lb[i-1]
-    
+
         if np.isnan(prev_high) or np.isnan(prev_low):
             lb_new[i] = lb_new[i-1]
             continue
-    
+
         close_i = close_arr[i]
-    
+
         if close_i > prev_high:
             lb_new[i] = (high_arr[i] + close_i) / 2
         elif close_i < prev_low:
             lb_new[i] = (low_arr[i] + close_i) / 2
         else:
             lb_new[i] = lb_new[i-1]
-    
+
     df["lb"] = lb_new
     df["lb_crv"] = pd.Series(lb_new).ewm(span=lblen, adjust=False).mean().to_numpy()
 
@@ -501,7 +484,6 @@ def apply_pinescript_logic(df_raw):
 
     idx = df.index
 
-    # We'll track per-bar zone awareness flags
     has_bull_ob = []
     has_bear_ob = []
     has_bull_fvg = []
@@ -522,13 +504,12 @@ def apply_pinescript_logic(df_raw):
         atr_fvg = df["atr"].iloc[i]
         min_gap = atr_fvg * 0.1 if not np.isnan(atr_fvg) else 0
 
-        # 3-candle FVG
-        # Bullish FVG: low(i) > high(i-2) + min_gap
-        low_i = df["low"].iloc[i]
-        high_i = df["high"].iloc[i]
-        low_2 = df["low"].iloc[i-2]
-        high_2 = df["high"].iloc[i-2]
+        low_i = float(df["low"].iloc[i])
+        high_i = float(df["high"].iloc[i])
+        low_2 = float(df["low"].iloc[i-2])
+        high_2 = float(df["high"].iloc[i-2])
 
+        # 3-candle FVG
         fvg_up3 = low_i > high_2 + min_gap
         fvg_dn3 = high_i < low_2 - min_gap
 
@@ -543,17 +524,14 @@ def apply_pinescript_logic(df_raw):
                      start_idx=i, color=fvg_bear_col, cond=True)
 
         # 3-candle OB (displacement)
-        close_1 = df["close"].iloc[i-1])
-        open_1 = float(df["open"].iloc[i-1]
+        close_i = float(df["close"].iloc[i])
+        open_i = float(df["open"].iloc[i])
+        close_1 = float(df["close"].iloc[i-1])
+        open_1 = float(df["open"].iloc[i-1])
         high_1 = float(df["high"].iloc[i-1])
         low_1 = float(df["low"].iloc[i-1])
         high_2 = float(df["high"].iloc[i-2])
         low_2 = float(df["low"].iloc[i-2])
-        close_i = float(df["close"].iloc[i])
-        open_i  = float(df["open"].iloc[i])
-        high_1  = float(df["high"].iloc[i-1])
-        low_1   = float(df["low"].iloc[i-1])
-
 
         displacement_up = (close_i > high_1) and (close_i > open_i)
         displacement_dn = (close_i < low_1) and (close_i < open_i)
@@ -572,9 +550,9 @@ def apply_pinescript_logic(df_raw):
                      start_idx=i, color=ob_bear_col, cond=True)
 
         # Gap-based OBs
-        open_i = df["open"].iloc[i]
-        high_prev = df["high"].iloc[i-1]
-        low_prev = df["low"].iloc[i-1]
+        open_i = float(df["open"].iloc[i])
+        high_prev = float(df["high"].iloc[i-1])
+        low_prev = float(df["low"].iloc[i-1])
 
         gap_up_ob = (open_i > high_prev) and (close_i > open_i)
         gap_dn_ob = (open_i < low_prev) and (close_i < open_i)
@@ -599,13 +577,11 @@ def apply_pinescript_logic(df_raw):
         bear_fvg_flag = False
         inside_flag = False
 
-        # Iterate backwards so we can safely remove
         j = len(zones) - 1
         while j >= 0:
             z = zones[j]
             age = i - z.start_idx
 
-            # Failure check (5-bar rule)
             failed = False
             if age <= fail_window:
                 if z.is_bull and close_i < z.bottom and close_1 < z.bottom:
@@ -613,9 +589,7 @@ def apply_pinescript_logic(df_raw):
                 if (not z.is_bull) and close_i > z.top and close_1 > z.top:
                     failed = True
 
-            # Mitigation / taps
             if not z.is_mitigated:
-                # Count taps if price touches zone
                 if (high_i > z.bottom) and (low_i < z.top):
                     z.taps += 1
 
@@ -625,13 +599,11 @@ def apply_pinescript_logic(df_raw):
                 if bull_broken or bear_broken or (z.taps > 5):
                     z.is_mitigated = True
 
-            # Delete old / failed
             if age > max_zone_age or failed:
                 zones.pop(j)
                 j -= 1
                 continue
 
-            # Zone awareness flags
             if z.is_ob and z.is_bull:
                 bull_ob_flag = True
             if z.is_ob and not z.is_bull:
@@ -671,7 +643,6 @@ def apply_pinescript_logic(df_raw):
             fvg_state.append("No FVG Bias")
     df["fvg_state"] = fvg_state
 
-    # Info dict for plotting / regime logic
     info = {
         "pattern_name": df["pattern_name"],
         "pattern_bull": df["pattern_bull"],
@@ -684,7 +655,6 @@ def apply_pinescript_logic(df_raw):
     }
 
     return df, zones, info
-
 
 # ---------------------------------------------------------
 # LAST BROKEN FVG (FOR REGIME ENGINE)
@@ -710,15 +680,12 @@ def get_last_broken_fvg(df_slice):
     highs = df_slice["high"]
     lows = df_slice["low"]
 
-    # We approximate FVG bounds using recent candles where flags are true
     for i in range(2, len(df_slice)):
         idx = df_slice.index[i]
 
-        # Bearish FVG: high(i) < low(i-2)
         if df_slice["has_bear_fvg"].iloc[i]:
             fvg_high = highs.iloc[i]
             fvg_low = lows.iloc[i-2]
-            # Broken if close > high
             if closes.iloc[i] > fvg_high:
                 last_broken_bear = {
                     "index": idx,
@@ -726,11 +693,9 @@ def get_last_broken_fvg(df_slice):
                     "low": float(fvg_low),
                 }
 
-        # Bullish FVG: low(i) > high(i-2)
         if df_slice["has_bull_fvg"].iloc[i]:
             fvg_low = lows.iloc[i]
             fvg_high = highs.iloc[i-2]
-            # Broken if close < low
             if closes.iloc[i] < fvg_low:
                 last_broken_bull = {
                     "index": idx,
@@ -749,15 +714,16 @@ def plotchart(df_slice, zones, info, title="SMC View",
 
     fig, ax = plt.subplots(figsize=(14, 7))
 
-    # -----------------------------------------------------
-    # CANDLESTICKS
-    # -----------------------------------------------------
+    open_arr  = df_slice["open"].to_numpy().flatten()
+    close_arr = df_slice["close"].to_numpy().flatten()
+    high_arr  = df_slice["high"].to_numpy().flatten()
+    low_arr   = df_slice["low"].to_numpy().flatten()
+
     for i in range(len(df_slice)):
-        idx = df_slice.index[i]
-        o = df_slice["open"].iloc[i]
-        c = df_slice["close"].iloc[i]
-        h = df_slice["high"].iloc[i]
-        l = df_slice["low"].iloc[i]
+        o = open_arr[i]
+        c = close_arr[i]
+        h = high_arr[i]
+        l = low_arr[i]
 
         color = "green" if c >= o else "red"
         ax.plot([i, i], [l, h], color=color, linewidth=1)
@@ -771,25 +737,17 @@ def plotchart(df_slice, zones, info, title="SMC View",
             )
         )
 
-    # -----------------------------------------------------
-    # EMAs
-    # -----------------------------------------------------
     ax.plot(df_slice["ema20"].values, color="yellow", linewidth=1, label="EMA20")
     ax.plot(df_slice["ema50"].values, color="orange", linewidth=1.2, label="EMA50")
     ax.plot(df_slice["ema200"].values, color="purple", linewidth=1.2, label="EMA200")
 
-    # -----------------------------------------------------
-    # ACTIVE ZONES ONLY
-    # -----------------------------------------------------
     for z in zones:
         if z.is_mitigated:
-            continue  # only active zones
+            continue
 
-        # Only draw if zone is inside visible window
         if z.start_idx < df_slice.index[0] or z.start_idx > df_slice.index[-1]:
             continue
 
-        # Convert absolute index to slice-relative index
         rel_idx = df_slice.index.get_loc(z.start_idx)
 
         height = z.top - z.bottom
@@ -805,9 +763,6 @@ def plotchart(df_slice, zones, info, title="SMC View",
             )
         )
 
-    # -----------------------------------------------------
-    # BOS / CHoCH LABELS
-    # -----------------------------------------------------
     for i in range(len(df_slice)):
         if info["bos_up"].iloc[i]:
             ax.text(i, df_slice["high"].iloc[i],
@@ -817,9 +772,6 @@ def plotchart(df_slice, zones, info, title="SMC View",
             ax.text(i, df_slice["low"].iloc[i],
                     "BOS↓", color="red", fontsize=8, ha="center")
 
-    # -----------------------------------------------------
-    # PATTERN LABELS
-    # -----------------------------------------------------
     for i in range(len(df_slice)):
         name = info["pattern_name"].iloc[i]
         if name != "None":
@@ -830,9 +782,6 @@ def plotchart(df_slice, zones, info, title="SMC View",
                     color="yellow" if info["pattern_bull"].iloc[i] else "white",
                     ha="center")
 
-    # -----------------------------------------------------
-    # ENTRY / EXIT MARKERS
-    # -----------------------------------------------------
     if exit_long:
         ax.text(len(df_slice)-1, df_slice["close"].iloc[-1],
                 "EXIT LONG", color="yellow", fontsize=10)
@@ -841,9 +790,6 @@ def plotchart(df_slice, zones, info, title="SMC View",
         ax.text(len(df_slice)-1, df_slice["close"].iloc[-1],
                 "EXIT SHORT", color="yellow", fontsize=10)
 
-    # -----------------------------------------------------
-    # FINAL FORMATTING
-    # -----------------------------------------------------
     ax.set_title(title, fontsize=14)
     ax.set_xlim(-1, len(df_slice) + 1)
     ax.grid(True, alpha=0.3)
@@ -882,10 +828,6 @@ elif tf == "1M":
     start_date = today - timedelta(days=365*2)
     interval = "1mo"
 
-# ---------------------------------------------------------
-# LOAD DATA + APPLY ENGINE
-# ---------------------------------------------------------
-
 df = load_data(ticker, start_date, interval)
 
 if df is None or df.empty:
@@ -893,10 +835,6 @@ if df is None or df.empty:
     st.stop()
 
 df, zones, info = apply_pinescript_logic(df)
-
-# ---------------------------------------------------------
-# WINDOW MANAGEMENT
-# ---------------------------------------------------------
 
 col1, col2, col3 = st.columns(3)
 
@@ -914,7 +852,6 @@ if "window_end_idx" not in st.session_state:
 if "window_start_idx" not in st.session_state:
     st.session_state.window_start_idx = 0
 
-# --- BUTTONS ---
 if col1.button("⬅️ Previous"):
     st.session_state.window_end_idx = max(
         st.session_state.window_start_idx + 1,
@@ -927,7 +864,6 @@ if col2.button("Next ➡️"):
         st.session_state.window_end_idx + 1
     )
 
-# --- FINAL SLICE ---
 start_idx = st.session_state.window_start_idx
 end_idx = st.session_state.window_end_idx
 
@@ -942,145 +878,6 @@ with col3:
     else:
         st.write("Visible Window: —")
 
-# ---------------------------------------------------------
-# ADAPTIVE REGIME ENGINE
-# ---------------------------------------------------------
-
-last_broken_bear, last_broken_bull = get_last_broken_fvg(df_slice)
-
-close_last = df_slice["close"].iloc[-1]
-open_last = df_slice["open"].iloc[-1]
-ema20_last = df_slice["ema20"].iloc[-1]
-ema50_last = df_slice["ema50"].iloc[-1]
-
-bullish_candle = close_last > open_last
-bearish_candle = close_last < open_last
-
-bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
-bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
-
-if "in_long" not in st.session_state:
-    st.session_state.in_long = False
-if "in_short" not in st.session_state:
-    st.session_state.in_short = False
-
-long_entry = False
-short_entry = False
-exit_long = False
-exit_short = False
-
-# -----------------------------
-# BULLISH REGIME
-# -----------------------------
-if last_broken_bear is not None:
-    ref_low = last_broken_bear["low"]
-    ref_high = last_broken_bear["high"]
-    fvg_range = ref_high - ref_low
-
-    if not st.session_state.in_long and bull_mask:
-        if close_last > ref_high and bullish_candle:
-            long_entry = True
-        elif bullish_candle and close_last > ref_low:
-            long_entry = True
-        if bullish_candle and close_last > ref_low + 0.05 * fvg_range:
-            long_entry = True
-
-    if st.session_state.in_long:
-        if bearish_candle:
-            exit_long = True
-        if close_last < ref_low:
-            exit_long = True
-        if not bull_mask:
-            exit_long = True
-
-# -----------------------------
-# BEARISH REGIME
-# -----------------------------
-if last_broken_bull is not None:
-    ref_low = last_broken_bull["low"]
-    ref_high = last_broken_bull["high"]
-    fvg_range = ref_high - ref_low
-
-    if not st.session_state.in_short and bear_mask:
-        if close_last < ref_low and bearish_candle:
-            short_entry = True
-        elif bearish_candle and close_last < ref_high:
-            short_entry = True
-        if bearish_candle and close_last < ref_high - 0.05 * fvg_range:
-            short_entry = True
-
-    if st.session_state.in_short:
-        if bullish_candle:
-            exit_short = True
-        if close_last > ref_high:
-            exit_short = True
-        if not bear_mask:
-            exit_short = True
-
-# -----------------------------
-# APPLY STATE CHANGES
-# -----------------------------
-if long_entry:
-    st.session_state.in_long = True
-    st.session_state.in_short = False
-
-if short_entry:
-    st.session_state.in_short = True
-    st.session_state.in_long = False
-
-if exit_long:
-    st.session_state.in_long = False
-    if last_broken_bull is not None:
-        if close_last < last_broken_bull["low"] and bearish_candle:
-            st.session_state.in_short = True
-
-if exit_short:
-    st.session_state.in_short = False
-    if last_broken_bear is not None:
-        if close_last > last_broken_bear["high"] and bullish_candle:
-            st.session_state.in_long = True
-
-# ---------------------------------------------------------
-# UI SIGNALS
-# ---------------------------------------------------------
-
-c1, c2, c3, c4 = st.columns(4)
-
-with c1:
-    if long_entry:
-        st.success("📈 LONG ENTRY")
-    elif st.session_state.in_long:
-        st.info("🟢 LONG ACTIVE")
-    else:
-        st.info("—")
-
-with c2:
-    if short_entry:
-        st.error("📉 SHORT ENTRY")
-    elif st.session_state.in_short:
-        st.info("🔴 SHORT ACTIVE")
-    else:
-        st.info("—")
-
-with c3:
-    if exit_long:
-        st.warning("🔔 EXIT LONG")
-    else:
-        st.info("—")
-
-with c4:
-    if exit_short:
-        st.warning("🔔 EXIT SHORT")
-    else:
-        st.info("—")
-
-# ---------------------------------------------------------
-# DRAW CHART
-# ---------------------------------------------------------
-
-fig = plotchart(df_slice, zones, info,
-                title=f"SMC FVG View — {ticker}",
-                exit_long=exit_long,
-                exit_short=exit_short)
-
-st.pyplot(fig)
+if len(df_slice) > 0:
+    fig = plotchart(df_slice, zones, info, title=f"{ticker} — {tf}")
+    st.pyplot(fig)
