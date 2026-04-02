@@ -400,19 +400,27 @@ def apply_pinescript_logic(df_raw):
     df["ema50"] = ema(df["close"], len_ema_med)
     df["ema200"] = ema(df["close"], len_ema_long)
 
-    # LB curve (approx)
-    lb = df["close"].copy()
-
+    # --- LB CURVE (SAFE 1D VERSION) ---
+    lb_new = df["close"].copy()
+    
     highest_lb = df["close"].rolling(lblen).max()
     lowest_lb  = df["close"].rolling(lblen).min()
     
-    lb_new = lb.copy()
-    
     for i in range(1, len(df)):
-        if df["close"].iloc[i] > highest_lb.iloc[i-1]:
-            lb_new.iloc[i] = (df["high"].iloc[i] + df["close"].iloc[i]) / 2
-        elif df["close"].iloc[i] < lowest_lb.iloc[i-1]:
-            lb_new.iloc[i] = (df["low"].iloc[i] + df["close"].iloc[i]) / 2
+        prev_high = highest_lb.iloc[i-1]
+        prev_low  = lowest_lb.iloc[i-1]
+    
+        # If rolling window not ready yet → just carry forward
+        if np.isnan(prev_high) or np.isnan(prev_low):
+            lb_new.iloc[i] = lb_new.iloc[i-1]
+            continue
+    
+        close_i = df["close"].iloc[i]
+    
+        if close_i > prev_high:
+            lb_new.iloc[i] = (df["high"].iloc[i] + close_i) / 2
+        elif close_i < prev_low:
+            lb_new.iloc[i] = (df["low"].iloc[i] + close_i) / 2
         else:
             lb_new.iloc[i] = lb_new.iloc[i-1]
     
