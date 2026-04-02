@@ -34,12 +34,18 @@ def ema(series, length):
 
 def rsi(series, length=14):
     delta = series.diff()
-    gain = np.where(delta > 0, delta, 0)
-    loss = np.where(delta < 0, -delta, 0)
-    avg_gain = pd.Series(gain).rolling(length).mean()
-    avg_loss = pd.Series(loss).rolling(length).mean()
+
+    # Gains (positive changes) and losses (negative changes)
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+
+    avg_gain = gain.rolling(length).mean()
+    avg_loss = loss.rolling(length).mean()
+
     rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
 
 def atr(df, length=14):
     high_low = df["high"] - df["low"]
