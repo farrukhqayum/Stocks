@@ -1115,7 +1115,10 @@ with col3:
     else:
         st.write("Visible Window: —")
 
-visible_zones = [z for z in zones if start_idx <= z.start_idx <= end_idx]
+visible_zones = []
+for z in zones:
+    if z.start_idx <= end_idx:
+        visible_zones.append(z)
 # ---------------------------------------------------------
 # DRAW CHART
 # ---------------------------------------------------------
