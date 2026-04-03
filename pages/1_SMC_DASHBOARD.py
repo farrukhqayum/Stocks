@@ -1117,8 +1117,9 @@ with col3:
 
 visible_zones = []
 for z in zones:
-    if z.start_idx <= end_idx and (not z.is_mitigated or z.mitigated_idx >= start_idx):
-        visible_zones.append(z)
+    if z.start_idx <= end_idx:
+        if not z.is_mitigated or z.mitigated_idx >= start_idx:
+            visible_zones.append(z)
 # ---------------------------------------------------------
 # DRAW CHART
 # ---------------------------------------------------------
