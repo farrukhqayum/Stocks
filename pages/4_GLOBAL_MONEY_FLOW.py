@@ -143,7 +143,6 @@ def load_data(tickers, start, end, label="Assets"):
 
     return df
 
-
 # ========== LOAD DATA ==========
 data = load_data(tickers, start_date, end_date, label="Selected Assets")
 
@@ -181,13 +180,22 @@ if use_business_days:
         
 # ========== GMF INDEX CALCULATION ==========
 def calculate_gmf_index(data, weights):
-    """Calculate GMF Index as weighted sum of daily percentage changes"""
+    """Calculate GMF Index as weighted sum of daily percentage changes."""
+    if data is None or data.empty:
+        return pd.Series(dtype=float)
+
     daily_pct = data.pct_change().fillna(0)
     weights_series = pd.Series(weights).reindex(data.columns).fillna(0.0)
     weighted_daily = daily_pct.multiply(weights_series, axis=1)
     daily_gmf_change = weighted_daily.sum(axis=1)
     gmf_index = (daily_gmf_change * 100).cumsum()
     return gmf_index
+
+gmf_raw = calculate_gmf_index(data, weights)
+if gmf_raw.empty:
+    st.error("❌ GMF index could not be computed (no valid data).")
+    st.stop()
+
 
 gmf_raw = calculate_gmf_index(data, weights)
 gmf_index = gmf_raw - gmf_raw.iloc[0]
