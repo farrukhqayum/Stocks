@@ -898,7 +898,7 @@ tf = st.sidebar.selectbox(
     ["4H", "1D", "1W", "1M"],
     index=2
 )
-step   = st.sidebar.checkbox("Slice Step(s)", value=False)
+step   = st.sidebar.checkbox("Slice Step(s)", value=5)
 glong  = st.sidebar.checkbox("Go/Stay Long", value=False)
 gshort = st.sidebar.checkbox("Go/Stay Short", value=False)
 elong  = st.sidebar.checkbox("Exit Long", value=False)
