@@ -984,13 +984,14 @@ with col3:
     else:
         st.write("Visible Window: —")
 
+visible_zones = [z for z in zones if start_idx <= z.start_idx <= end_idx]
 # ---------------------------------------------------------
 # DRAW CHART
 # ---------------------------------------------------------
 
 fig = plotchart(
     df_slice,
-    zones,
+    visible_zones,
     title=f"{ticker} — {tf} SMC FVG Regime View",
     glong=glong,
     gshort=gshort,
