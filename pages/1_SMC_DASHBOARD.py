@@ -883,14 +883,13 @@ def precompute_signals(df_slice):
 
     return df_slice
 
-
-
 # ---------------------------------------------------------
 # UI — TIMEFRAME, DATA LOADING, WINDOW MANAGEMENT
 # ---------------------------------------------------------
 
 st.sidebar.header("Settings")
 
+# --- BASIC INPUTS ---
 ticker = st.sidebar.text_input("Ticker", "AAPL")
 
 tf = st.sidebar.selectbox(
@@ -898,243 +897,87 @@ tf = st.sidebar.selectbox(
     ["4H", "1D", "1W", "1M"],
     index=2
 )
-step = st.sidebar.number_input("Slice Step(s)", min_value=1, max_value=10, value=5, step=1)
-glong  = st.sidebar.checkbox("Go/Stay Long", value=False)
-gshort = st.sidebar.checkbox("Go/Stay Short", value=False)
-elong  = st.sidebar.checkbox("Exit Long", value=False)
-eshort = st.sidebar.checkbox("Exit Short", value=False)
 
+step = st.sidebar.number_input(
+    "Slice Step",
+    min_value=1,
+    max_value=50,
+    value=5,
+    step=1
+)
+
+# --- SIGNAL TOGGLES ---
+glong  = st.sidebar.checkbox("Show Long Entries", value=False)
+gshort = st.sidebar.checkbox("Show Short Entries", value=False)
+elong  = st.sidebar.checkbox("Show Long Exits", value=False)
+eshort = st.sidebar.checkbox("Show Short Exits", value=False)
+
+# --- TIMEFRAME CONFIG ---
+TF_CONFIG = {
+    "4H": {"days": 180, "interval": "4h"},
+    "1D": {"days": 365, "interval": "1d"},
+    "1W": {"days": 700, "interval": "1wk"},
+    "1M": {"days": 365 * 5, "interval": "1mo"},
+}
+
+cfg = TF_CONFIG[tf]
 today = datetime.today()
+start_date = today - timedelta(days=cfg["days"])
+interval = cfg["interval"]
 
-if tf == "4H":
-    start_date = today - timedelta(days=180)
-    interval = "4h"
-elif tf == "1D":
-    start_date = today - timedelta(days=365)
-    interval = "1d"
-elif tf == "1W":
-    start_date = today - timedelta(days=700)
-    interval = "1wk"
-elif tf == "1M":
-    start_date = today - timedelta(days=365*5)
-    interval = "1mo"
-
+# --- LOAD DATA ---
 df = load_data(ticker, start_date, interval)
-zones = detect_fvg_zones(df)
-
-# Initialize last_tf if missing
-if "last_tf" not in st.session_state:
-    st.session_state.last_tf = tf
-
-# If timeframe changed → reset window to full dataset
-if st.session_state.last_tf != tf:
-    st.session_state.window_start_idx = 0
-    st.session_state.window_end_idx = len(df) - 1
-    st.session_state.last_tf = tf
 
 if df is None or df.empty:
     st.error("No data found.")
     st.stop()
 
-if "window_end_idx" not in st.session_state:
-    st.session_state.window_end_idx = 50  # start with first 50 candles
+zones = detect_fvg_zones(df)
+
+# --- SESSION STATE INIT ---
+if "last_tf" not in st.session_state:
+    st.session_state.last_tf = tf
+
 if "window_start_idx" not in st.session_state:
     st.session_state.window_start_idx = 0
 
-# --- FINAL SLICE ---
+if "window_end_idx" not in st.session_state:
+    st.session_state.window_end_idx = len(df) - 1
+
+# --- RESET WINDOW ON TF CHANGE ---
+if st.session_state.last_tf != tf:
+    st.session_state.window_start_idx = 0
+    st.session_state.window_end_idx = len(df) - 1
+    st.session_state.last_tf = tf
+
+# --- WINDOW BOUNDS ---
 start_idx = st.session_state.window_start_idx
-end_idx = st.session_state.window_end_idx
-df_slice = df.iloc[start_idx:end_idx + 1]
+end_idx   = st.session_state.window_end_idx
 
-if start_idx > end_idx:
-    start_idx, end_idx = end_idx, start_idx
+start_idx = max(0, min(start_idx, len(df) - 1))
+end_idx   = max(0, min(end_idx, len(df) - 1))
 
-df_slice = df.iloc[start_idx:end_idx + step]
+# --- SLICE DATA ---
+df_slice = df.iloc[start_idx : end_idx + 1 : step]
 df_slice = precompute_signals(df_slice)
 
-st.session_state.window_start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
-st.session_state.window_end_idx = max(0, min(st.session_state.window_end_idx, len(df) - 1))
-
-# ---------------------------------------------------------
-# ADAPTIVE REGIME / STRUCTURAL ENGINE
-# ---------------------------------------------------------
-
-last_broken_bear, last_broken_bull = get_last_broken_fvg(df_slice)
-
-close_last = df_slice["close"].iloc[-1]
-open_last = df_slice["open"].iloc[-1]
-ema20_last = df_slice["ema20"].iloc[-1]
-ema50_last = df_slice["ema50"].iloc[-1]
-
-bullish_candle = close_last > open_last
-bearish_candle = close_last < open_last
-
-bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
-bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
-
-if "in_long" not in st.session_state:
-    st.session_state.in_long = False
-if "in_short" not in st.session_state:
-    st.session_state.in_short = False
-
-long_entry = False
-short_entry = False
-exit_long = False
-exit_short = False
-
-# -----------------------------
-# BULLISH REGIME (Buy the Dip / Breakout)
-# -----------------------------
-if last_broken_bear is not None:
-    ref_bear_low  = last_broken_bear["low"]
-    ref_bear_high = last_broken_bear["high"]
-
-    # LONG ENTRY (can re-activate after exit)
-    if not st.session_state.in_long and bull_mask:
-        fvg_range = ref_bear_high - ref_bear_low
-
-        # Breakout above bearish FVG
-        if close_last > ref_bear_high and bullish_candle:
-            long_entry = True
-
-        # Buy the dip above FVG low
-        elif bullish_candle and close_last > ref_bear_low:
-            long_entry = True
-
-        # 5% reclaim re-entry
-        if bullish_candle and close_last > ref_bear_low + 0.05 * fvg_range:
-            long_entry = True
-
-    # LONG EXIT (state remains active until invalidated)
-    if st.session_state.in_long:
-        # 1) Bearish candle
-        if bearish_candle:
-            exit_long = True
-        # 2) Break below FVG low (structural break)
-        if close_last < ref_bear_low:
-            exit_long = True
-        # 3) Trend mask breaks
-        if not bull_mask:
-            exit_long = True
-
-# -----------------------------
-# BEARISH REGIME (Sell the Rise / Breakdown)
-# -----------------------------
-if last_broken_bull is not None:
-    ref_bull_low  = last_broken_bull["low"]
-    ref_bull_high = last_broken_bull["high"]
-
-    # SHORT ENTRY (can re-activate after exit)
-    if not st.session_state.in_short and bear_mask:
-        fvg_range = ref_bull_high - ref_bull_low
-
-        # Breakdown below bullish FVG
-        if close_last < ref_bull_low and bearish_candle:
-            short_entry = True
-
-        # Sell the rise below FVG high
-        elif bearish_candle and close_last < ref_bull_high:
-            short_entry = True
-
-        # 5% reclaim re-entry
-        if bearish_candle and close_last < ref_bull_high - 0.05 * fvg_range:
-            short_entry = True
-
-    # SHORT EXIT (state remains active until invalidated)
-    if st.session_state.in_short:
-        # 1) Bullish candle
-        if bullish_candle:
-            exit_short = True
-        # 2) Break above FVG high (structural break)
-        if close_last > ref_bull_high:
-            exit_short = True
-        # 3) Trend mask breaks
-        if not bear_mask:
-            exit_short = True
-
-# -----------------------------
-# APPLY ENTRIES / EXITS + REGIME FLIP
-# -----------------------------
-
-# LONG ENTRY
-if long_entry:
-    st.session_state.in_long = True
-    st.session_state.in_short = False
-
-# SHORT ENTRY
-if short_entry:
-    st.session_state.in_short = True
-    st.session_state.in_long = False
-
-# LONG EXIT + possible flip to SHORT
-if exit_long:
-    st.session_state.in_long = False
-    if last_broken_bull is not None:
-        if close_last < last_broken_bull["low"] and bearish_candle:
-            st.session_state.in_short = True
-
-# SHORT EXIT + possible flip to LONG
-if exit_short:
-    st.session_state.in_short = False
-    if last_broken_bear is not None:
-        if close_last > last_broken_bear["high"] and bullish_candle:
-            st.session_state.in_long = True
-
-# ---------------------------------------------------------
-# UI SIGNALS
-# ---------------------------------------------------------
-
-c1, c2, c3, c4 = st.columns(4)
-
-with c1:
-    if long_entry:
-        st.success("📈 LONG ENTRY (FVG/Mask)")
-    elif st.session_state.in_long:
-        st.info("🟢 LONG ACTIVE")
-    else:
-        st.info("—")
-
-with c2:
-    if short_entry:
-        st.error("📉 SHORT ENTRY (FVG/Mask)")
-    elif st.session_state.in_short:
-        st.info("🔴 SHORT ACTIVE")
-    else:
-        st.info("—")
-
-with c3:
-    if exit_long:
-        st.warning("🔔 EXIT LONG")
-    else:
-        st.info("—")
-
-with c4:
-    if exit_short:
-        st.warning("🔔 EXIT SHORT")
-    else:
-        st.info("—")
-
-# --- BUTTON LOGIC ---
+# --- NAVIGATION BUTTONS ---
 col1, col2, col3 = st.columns(3)
-if col1.button("⬅️ Previous"):
-    # Remove last candle (shrink window)
-    st.session_state.window_end_idx = max(
-        st.session_state.window_start_idx + 1,
-        st.session_state.window_end_idx - 1
-    )
 
-if col2.button("Next ➡️"):
-    # Add next candle (expand window)
-    st.session_state.window_end_idx = min(
-        len(df) - 1,
-        st.session_state.window_end_idx + 1
-    )
+with col1:
+    if st.button("⬅️ Previous"):
+        st.session_state.window_end_idx = max(1, st.session_state.window_end_idx - step)
+
+with col2:
+    if st.button("Next ➡️"):
+        st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + step)
 
 with col3:
     if len(df_slice) > 0:
         st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
     else:
         st.write("Visible Window: —")
+
 # ---------------------------------------------------------
 # DRAW CHART
 # ---------------------------------------------------------
