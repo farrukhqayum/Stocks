@@ -574,9 +574,7 @@ def draw_smc_box(ax, df, zones):
 # ---------------------------------------------------------
 # CHART
 # ---------------------------------------------------------
-def plotchart(df, zones, title="SMC FVG View",
-              exit_long=False, exit_short=False,
-              long_entry=False, short_entry=False):
+def plotchart(df, zones, title="SMC FVG View"):
     df = df.copy()
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
@@ -769,15 +767,25 @@ def plotchart(df, zones, title="SMC FVG View",
     # -----------------------------
     # ENTRY MARKERS
     # -----------------------------
-    if long_entry:
-        ax.scatter(last_idx, last_close, color="lime", marker="^", s=120, zorder=22)
-        ax.text(last_idx, last_close * 0.995, "LONG", color="lime",
-                fontsize=8, ha="center", va="top", fontweight="bold")
+    for i in range(len(df)):
+        price = df["close"].iloc[i]
     
-    if short_entry:
-        ax.scatter(last_idx, last_close, color="red", marker="v", s=120, zorder=22)
-        ax.text(last_idx, last_close * 1.005, "SHORT", color="red",
-                fontsize=8, ha="center", va="bottom", fontweight="bold")
+        if df["long_entry_sig"].iloc[i]:
+            ax.scatter(i, price, color="lime", marker="^", s=120, zorder=22)
+            ax.text(i, price * 0.995, "LONG", color="lime",
+                    fontsize=7, ha="center", va="top")
+    
+        if df["short_entry_sig"].iloc[i]:
+            ax.scatter(i, price, color="red", marker="v", s=120, zorder=22)
+            ax.text(i, price * 1.005, "SHORT", color="red",
+                    fontsize=7, ha="center", va="bottom")
+    
+        if df["exit_long_sig"].iloc[i]:
+            ax.scatter(i, price, color="gold", marker="s", s=80, zorder=22)
+    
+        if df["exit_short_sig"].iloc[i]:
+            ax.text(i, price, "❌", color="red", fontsize=14,
+                    ha="center", va="center", zorder=22)
         
     # ---------------------------------------------------------
     # DRAW TURNING POINT ABOVE BAR
@@ -803,6 +811,76 @@ def plotchart(df, zones, title="SMC FVG View",
     plt.tight_layout()
     return fig
 
+def precompute_signals (df_slice):
+    for i in range(2, len(df_slice)):
+    row = df_slice.iloc[i]
+    prev = df_slice.iloc[i-1]
+
+    close_last = row["close"]
+    open_last = row["open"]
+    ema20_last = row["ema20"]
+    ema50_last = row["ema50"]
+
+    bullish_candle = close_last > open_last
+    bearish_candle = close_last < open_last
+
+    bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
+    bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
+
+    lb_bear, lb_bull = get_last_broken_fvg(df_slice.iloc[:i+1])
+
+    long_entry = False
+    short_entry = False
+    exit_long = False
+    exit_short = False
+
+    # -----------------------------
+    # BULLISH REGIME
+    # -----------------------------
+    if lb_bear is not None:
+        ref_low = lb_bear["low"]
+        ref_high = lb_bear["high"]
+        fvg_range = ref_high - ref_low
+
+        if bull_mask:
+            if close_last > ref_high and bullish_candle:
+                long_entry = True
+            elif bullish_candle and close_last > ref_low:
+                long_entry = True
+            elif bullish_candle and close_last > ref_low + 0.05 * fvg_range:
+                long_entry = True
+
+        # exit long
+        if bearish_candle or close_last < ref_low or not bull_mask:
+            exit_long = True
+
+    # -----------------------------
+    # BEARISH REGIME
+    # -----------------------------
+    if lb_bull is not None:
+        ref_low = lb_bull["low"]
+        ref_high = lb_bull["high"]
+        fvg_range = ref_high - ref_low
+
+        if bear_mask:
+            if close_last < ref_low and bearish_candle:
+                short_entry = True
+            elif bearish_candle and close_last < ref_high:
+                short_entry = True
+            elif bearish_candle and close_last < ref_high - 0.05 * fvg_range:
+                short_entry = True
+
+        # exit short
+        if bullish_candle or close_last > ref_high or not bear_mask:
+            exit_short = True
+
+    # store signals
+    df_slice.loc[df_slice.index[i], "long_entry_sig"] = long_entry
+    df_slice.loc[df_slice.index[i], "short_entry_sig"] = short_entry
+    df_slice.loc[df_slice.index[i], "exit_long_sig"] = exit_long
+    df_slice.loc[df_slice.index[i], "exit_short_sig"] = exit_short
+    
+    return df_slice
 
 # ---------------------------------------------------------
 # UI — TIMEFRAME, DATA LOADING, WINDOW MANAGEMENT
@@ -881,6 +959,7 @@ if start_idx > end_idx:
     start_idx, end_idx = end_idx, start_idx
 
 df_slice = df.iloc[start_idx:end_idx + 1]
+df_slice = precompute_signals(df_slice)
 
 with col3:
     if len(df_slice) > 0:
@@ -1056,10 +1135,6 @@ with c4:
 fig = plotchart(
     df_slice,
     zones,
-    title=f"{ticker} — {tf} SMC FVG Regime View",
-    exit_long=exit_long,
-    exit_short=exit_short,
-    long_entry=long_entry,
-    short_entry=short_entry
+    title=f"{ticker} — {tf} SMC FVG Regime View"
 )
 st.pyplot(fig)
