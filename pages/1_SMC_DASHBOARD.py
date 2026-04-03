@@ -1076,7 +1076,7 @@ with c1:
     elif long_active:
         st.info("🟢 LONG ACTIVE")
     else:
-        st.info("—")
+        st.info("Sideline")
 
 with c2:
     if exit_long and long_active:
@@ -1090,7 +1090,7 @@ with c3:
     elif short_active:
         st.info("🔴 SHORT ACTIVE")
     else:
-        st.info("—")
+        st.info("Sideline")
 
 with c4:
     if exit_short and short_active:
