@@ -892,11 +892,6 @@ st.sidebar.header("Settings")
 # --- BASIC INPUTS ---
 ticker = st.sidebar.text_input("Ticker", "AAPL")
 first_load = "initialized" not in st.session_state
-
-if first_load:
-    st.session_state.window_start_idx = 0
-    st.session_state.window_end_idx = len(df) - 1
-    st.session_state.initialized = True
     
 tf = st.sidebar.selectbox(
     "Timeframe",
@@ -933,13 +928,16 @@ interval = cfg["interval"]
 
 # --- LOAD DATA ---
 df = load_data(ticker, start_date, interval)
-
+zones = detect_fvg_zones(df)
+if first_load:
+    st.session_state.window_start_idx = 0
+    st.session_state.window_end_idx = len(df) - 1
+    st.session_state.initialized = True
+    
 if df is None or df.empty:
     st.error("No data found.")
     st.stop()
-
-zones = detect_fvg_zones(df)
-
+    
 # --- SESSION STATE INIT ---
 if "last_tf" not in st.session_state:
     st.session_state.last_tf = tf
