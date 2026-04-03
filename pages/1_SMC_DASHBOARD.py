@@ -622,7 +622,8 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
     last_idx = len(df) - 1
     for z in zones:
         rect_x = z.start_idx - 0.5
-        rect_width = (last_idx - z.start_idx) + 1
+        end_idx = z.mitigated_idx if z.is_mitigated else z.start_idx + 1
+        rect_width = end_idx - z.start_idx
         color = "teal" if z.is_bull else "blue"
         ax.add_patch(Rectangle(
             (rect_x, z.bottom),
