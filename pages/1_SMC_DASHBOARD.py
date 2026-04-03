@@ -679,10 +679,10 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
     last_idx = len(df) - 1
     last_close = df["close"].iloc[-1]
 
-    if exit_long:
+    if elong:
         ax.scatter(last_idx, last_close, color="gold", marker="s", s=60, zorder=21)
 
-    if exit_short:
+    if eshort:
         ax.text(
             last_idx, last_close, "❌",
             color="red", fontsize=16,
