@@ -574,7 +574,7 @@ def draw_smc_box(ax, df, zones):
 # ---------------------------------------------------------
 # CHART
 # ---------------------------------------------------------
-def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = Flse, elong = False, eshort = False):
+def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, elong = False, eshort = False):
     df = df.copy()
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
