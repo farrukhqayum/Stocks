@@ -922,7 +922,6 @@ elif tf == "1M":
 df = load_data(ticker, start_date, interval)
 zones = detect_fvg_zones(df)
 
-col1, col2, col3 = st.columns(3)
 # Initialize last_tf if missing
 if "last_tf" not in st.session_state:
     st.session_state.last_tf = tf
@@ -953,11 +952,6 @@ if start_idx > end_idx:
 df_slice = df.iloc[start_idx:end_idx + 1]
 df_slice = precompute_signals(df_slice)
 
-with col3:
-    if len(df_slice) > 0:
-        st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
-    else:
-        st.write("Visible Window: —")
 
 st.session_state.window_start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
 st.session_state.window_end_idx = max(0, min(st.session_state.window_end_idx, len(df) - 1))
@@ -1122,6 +1116,7 @@ with c4:
         st.info("—")
 
 # --- BUTTON LOGIC ---
+col1, col2, col3 = st.columns(3)
 if col1.button("⬅️ Previous"):
     # Remove last candle (shrink window)
     st.session_state.window_end_idx = max(
@@ -1135,6 +1130,12 @@ if col2.button("Next ➡️"):
         len(df) - 1,
         st.session_state.window_end_idx + 1
     )
+
+with col3:
+    if len(df_slice) > 0:
+        st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
+    else:
+        st.write("Visible Window: —")
 # ---------------------------------------------------------
 # DRAW CHART
 # ---------------------------------------------------------
