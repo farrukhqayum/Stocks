@@ -929,6 +929,8 @@ interval = cfg["interval"]
 # --- LOAD DATA ---
 df = load_data(ticker, start_date, interval)
 zones = detect_fvg_zones(df)
+df = precompute_signals(df)
+
 if first_load:
     st.session_state.window_start_idx = 0
     st.session_state.window_end_idx = len(df) - 1
@@ -959,6 +961,7 @@ start_idx = st.session_state.window_start_idx
 end_idx   = st.session_state.window_end_idx
 start_idx = max(0, min(start_idx, len(df) - 1))
 end_idx   = max(0, min(end_idx, len(df) - 1))
+
 if first_load:
     df_slice = df.copy()
 else:
