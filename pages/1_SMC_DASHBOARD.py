@@ -811,76 +811,89 @@ def plotchart(df, zones, title="SMC FVG View"):
     plt.tight_layout()
     return fig
 
-def precompute_signals (df_slice):
+def precompute_signals(df_slice):
+
+    # Initialize signal columns
+    df_slice["long_entry_sig"] = False
+    df_slice["short_entry_sig"] = False
+    df_slice["exit_long_sig"] = False
+    df_slice["exit_short_sig"] = False
+
+    # Loop through candles
     for i in range(2, len(df_slice)):
-    row = df_slice.iloc[i]
-    prev = df_slice.iloc[i-1]
 
-    close_last = row["close"]
-    open_last = row["open"]
-    ema20_last = row["ema20"]
-    ema50_last = row["ema50"]
+        row = df_slice.iloc[i]
+        prev = df_slice.iloc[i - 1]
 
-    bullish_candle = close_last > open_last
-    bearish_candle = close_last < open_last
+        close_last = row["close"]
+        open_last = row["open"]
+        ema20_last = row["ema20"]
+        ema50_last = row["ema50"]
 
-    bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
-    bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
+        bullish_candle = close_last > open_last
+        bearish_candle = close_last < open_last
 
-    lb_bear, lb_bull = get_last_broken_fvg(df_slice.iloc[:i+1])
+        bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
+        bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
 
-    long_entry = False
-    short_entry = False
-    exit_long = False
-    exit_short = False
+        # Compute structural references up to this candle
+        lb_bear, lb_bull = get_last_broken_fvg(df_slice.iloc[:i+1])
 
-    # -----------------------------
-    # BULLISH REGIME
-    # -----------------------------
-    if lb_bear is not None:
-        ref_low = lb_bear["low"]
-        ref_high = lb_bear["high"]
-        fvg_range = ref_high - ref_low
+        long_entry = False
+        short_entry = False
+        exit_long = False
+        exit_short = False
 
-        if bull_mask:
-            if close_last > ref_high and bullish_candle:
-                long_entry = True
-            elif bullish_candle and close_last > ref_low:
-                long_entry = True
-            elif bullish_candle and close_last > ref_low + 0.05 * fvg_range:
-                long_entry = True
+        # -----------------------------
+        # BULLISH REGIME
+        # -----------------------------
+        if lb_bear is not None:
+            ref_low = lb_bear["low"]
+            ref_high = lb_bear["high"]
+            fvg_range = ref_high - ref_low
 
-        # exit long
-        if bearish_candle or close_last < ref_low or not bull_mask:
-            exit_long = True
+            # Long entries
+            if bull_mask:
+                if close_last > ref_high and bullish_candle:
+                    long_entry = True
+                elif bullish_candle and close_last > ref_low:
+                    long_entry = True
+                elif bullish_candle and close_last > ref_low + 0.05 * fvg_range:
+                    long_entry = True
 
-    # -----------------------------
-    # BEARISH REGIME
-    # -----------------------------
-    if lb_bull is not None:
-        ref_low = lb_bull["low"]
-        ref_high = lb_bull["high"]
-        fvg_range = ref_high - ref_low
+            # Long exits
+            if bearish_candle or close_last < ref_low or not bull_mask:
+                exit_long = True
 
-        if bear_mask:
-            if close_last < ref_low and bearish_candle:
-                short_entry = True
-            elif bearish_candle and close_last < ref_high:
-                short_entry = True
-            elif bearish_candle and close_last < ref_high - 0.05 * fvg_range:
-                short_entry = True
+        # -----------------------------
+        # BEARISH REGIME
+        # -----------------------------
+        if lb_bull is not None:
+            ref_low = lb_bull["low"]
+            ref_high = lb_bull["high"]
+            fvg_range = ref_high - ref_low
 
-        # exit short
-        if bullish_candle or close_last > ref_high or not bear_mask:
-            exit_short = True
+            # Short entries
+            if bear_mask:
+                if close_last < ref_low and bearish_candle:
+                    short_entry = True
+                elif bearish_candle and close_last < ref_high:
+                    short_entry = True
+                elif bearish_candle and close_last < ref_high - 0.05 * fvg_range:
+                    short_entry = True
 
-    # store signals
-    df_slice.loc[df_slice.index[i], "long_entry_sig"] = long_entry
-    df_slice.loc[df_slice.index[i], "short_entry_sig"] = short_entry
-    df_slice.loc[df_slice.index[i], "exit_long_sig"] = exit_long
-    df_slice.loc[df_slice.index[i], "exit_short_sig"] = exit_short
-    
+            # Short exits
+            if bullish_candle or close_last > ref_high or not bear_mask:
+                exit_short = True
+
+        # Store signals
+        df_slice.loc[df_slice.index[i], "long_entry_sig"] = long_entry
+        df_slice.loc[df_slice.index[i], "short_entry_sig"] = short_entry
+        df_slice.loc[df_slice.index[i], "exit_long_sig"] = exit_long
+        df_slice.loc[df_slice.index[i], "exit_short_sig"] = exit_short
+
     return df_slice
+
 
 # ---------------------------------------------------------
 # UI — TIMEFRAME, DATA LOADING, WINDOW MANAGEMENT
