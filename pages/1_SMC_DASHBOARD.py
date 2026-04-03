@@ -902,7 +902,7 @@ tf = st.sidebar.selectbox(
 glong = st.sidebar.checkbox("Go/Stay Long", value=True)
 gshort = st.sidebar.checkbox("Go/Stay Short", value=True)
 elong = st.sidebar.checkbox("Exit Long", value=True)
-eshort = st.sidebar.checkbox("Exit Long", value=True)
+eshort = st.sidebar.checkbox("Exit Short", value=True)
 
 today = datetime.today()
 
