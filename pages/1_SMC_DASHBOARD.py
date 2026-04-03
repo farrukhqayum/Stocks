@@ -1142,7 +1142,10 @@ with c4:
 fig = plotchart(
     df_slice,
     zones,
-    title=f"{ticker} — {tf} SMC FVG Regime View"
-    glong, gshort, elong, eshort
+    title=f"{ticker} — {tf} SMC FVG Regime View",
+    glong=glong,
+    gshort=gshort,
+    elong=elong,
+    eshort=eshort
 )
 st.pyplot(fig)
