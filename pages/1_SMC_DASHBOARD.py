@@ -942,21 +942,6 @@ if "window_end_idx" not in st.session_state:
 if "window_start_idx" not in st.session_state:
     st.session_state.window_start_idx = 0
 
-# --- BUTTON LOGIC ---
-if col1.button("⬅️ Previous"):
-    # Remove last candle (shrink window)
-    st.session_state.window_end_idx = max(
-        st.session_state.window_start_idx + 1,
-        st.session_state.window_end_idx - 1
-    )
-
-if col2.button("Next ➡️"):
-    # Add next candle (expand window)
-    st.session_state.window_end_idx = min(
-        len(df) - 1,
-        st.session_state.window_end_idx + 1
-    )
-
 # --- FINAL SLICE ---
 start_idx = st.session_state.window_start_idx
 end_idx = st.session_state.window_end_idx
@@ -1135,6 +1120,21 @@ with c4:
         st.warning("🔔 EXIT SHORT")
     else:
         st.info("—")
+
+# --- BUTTON LOGIC ---
+if col1.button("⬅️ Previous"):
+    # Remove last candle (shrink window)
+    st.session_state.window_end_idx = max(
+        st.session_state.window_start_idx + 1,
+        st.session_state.window_end_idx - 1
+    )
+
+if col2.button("Next ➡️"):
+    # Add next candle (expand window)
+    st.session_state.window_end_idx = min(
+        len(df) - 1,
+        st.session_state.window_end_idx + 1
+    )
 # ---------------------------------------------------------
 # DRAW CHART
 # ---------------------------------------------------------
