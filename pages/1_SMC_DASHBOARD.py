@@ -891,7 +891,13 @@ st.sidebar.header("Settings")
 
 # --- BASIC INPUTS ---
 ticker = st.sidebar.text_input("Ticker", "AAPL")
+first_load = "initialized" not in st.session_state
 
+if first_load:
+    st.session_state.window_start_idx = 0
+    st.session_state.window_end_idx = len(df) - 1
+    st.session_state.initialized = True
+    
 tf = st.sidebar.selectbox(
     "Timeframe",
     ["4H", "1D", "1W", "1M"],
@@ -950,16 +956,15 @@ if st.session_state.last_tf != tf:
     st.session_state.window_end_idx = len(df) - 1
     st.session_state.last_tf = tf
 
-# --- WINDOW BOUNDS ---
+# --- DATA SLICING ---
 start_idx = st.session_state.window_start_idx
 end_idx   = st.session_state.window_end_idx
-
 start_idx = max(0, min(start_idx, len(df) - 1))
 end_idx   = max(0, min(end_idx, len(df) - 1))
-
-# --- SLICE DATA ---
-df_slice = df.iloc[start_idx : end_idx + 1 : step]
-df_slice = precompute_signals(df_slice)
+if first_load:
+    df_slice = df.copy()
+else:
+    df_slice = df.iloc[start_idx : end_idx + 1 : step]
 
 # --- NAVIGATION BUTTONS ---
 col1, col2, col3 = st.columns(3)
