@@ -86,20 +86,46 @@ st.sidebar.header("💹 Stock Analysis")
 user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
 # ========== DATA LOADING FUNCTIONS ==========
-def load_data(tickers, start, end):
-    """Load data from Yahoo Finance"""
+def validate(df, name):
+    if df is None or df.empty:
+        st.error(f"❌ No data returned for {name}. Check ticker or date range.")
+        return None
+    if df.isna().all().all():
+        st.error(f"❌ All values missing for {name}.")
+        return None
+    return df
+    
+def load_data(tickers, start, end, label="Assets"):
+    """Load data from Yahoo Finance with robust handling."""
+    if not tickers:
+        st.error(f"❌ No tickers selected for {label}.")
+        return pd.DataFrame()
+
     raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
 
-    if isinstance(raw.columns, pd.MultiIndex):
-        if 'Adj Close' in raw.columns.get_level_values(0):
-            df = raw['Adj Close'].copy()
-        elif 'Close' in raw.columns.get_level_values(0):
-            df = raw['Close'].copy()
-        else:
-            raise ValueError("No 'Adj Close' or 'Close' data found.")
-    else:
-        df = raw.copy()
+    if raw is None or raw.empty:
+        st.error(f"❌ No data returned for {label}. Check tickers or date range.")
+        return pd.DataFrame()
 
+    # Handle MultiIndex vs single-level columns
+    if isinstance(raw.columns, pd.MultiIndex):
+        lvl0 = raw.columns.get_level_values(0)
+        if "Adj Close" in lvl0:
+            df = raw["Adj Close"].copy()
+        elif "Close" in lvl0:
+            df = raw["Close"].copy()
+        else:
+            st.error(f"❌ No 'Adj Close' or 'Close' data found for {label}.")
+            return pd.DataFrame()
+    else:
+        if "Adj Close" in raw.columns:
+            df = raw["Adj Close"].copy()
+        elif "Close" in raw.columns:
+            df = raw["Close"].copy()
+        else:
+            df = raw.copy()
+
+    # Rename columns back to friendly asset names
     rename_map = {}
     for name, ticker in tickers.items():
         if ticker in df.columns:
@@ -108,32 +134,51 @@ def load_data(tickers, start, end):
             rename_map[name] = name
     df = df.rename(columns=rename_map)
 
-    df = df.dropna(axis=1, how='all')
+    # Drop columns that are entirely NaN
+    df = df.dropna(axis=1, how="all")
+
+    if df.empty:
+        st.error(f"❌ All series for {label} are empty after cleaning.")
+        return pd.DataFrame()
+
     return df
 
+
 # ========== LOAD DATA ==========
-try:
-    data = load_data(tickers, start_date, end_date)
-    spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
-    
-    if isinstance(spx_raw.columns, pd.MultiIndex) and 'Adj Close' in spx_raw.columns.get_level_values(0):
-        spx_data = spx_raw['Adj Close'].squeeze()
-    elif 'Adj Close' in spx_raw.columns:
-        spx_data = spx_raw['Adj Close'].squeeze()
-    else:
-        spx_data = spx_raw['Close'].squeeze()
-    spx_data.name = "S&P 500 (SPX)"
+data = load_data(tickers, start_date, end_date, label="Selected Assets")
+
+spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
+if spx_raw is None or spx_raw.empty:
+    st.error("❌ No data for S&P 500 (SPX).")
+    st.stop()
+
+if isinstance(spx_raw.columns, pd.MultiIndex) and "Adj Close" in spx_raw.columns.get_level_values(0):
+    spx_data = spx_raw["Adj Close"].squeeze()
+elif "Adj Close" in spx_raw.columns:
+    spx_data = spx_raw["Adj Close"].squeeze()
+else:
+    spx_data = spx_raw["Close"].squeeze()
+
+spx_data.name = "S&P 500 (SPX)"
+  
 
 except Exception as e:
     st.warning(f"⚠️ Error loading data: {e}. Please check ticker availability and date range.")
     st.stop()
 
-if use_business_days:
-    data = data.asfreq('B')
-    data = data.fillna(method='ffill')
-    spx_data = spx_data.asfreq('B')
-    spx_data = spx_data.fillna(method='ffill')
+if data is None or data.empty:
+    st.error("❌ No valid asset data available after download.")
+    st.stop()
 
+if use_business_days:
+    data = data.asfreq("B")
+    if not data.empty:
+        data = data.ffill()
+
+    spx_data = spx_data.asfreq("B")
+    if not spx_data.empty:
+        spx_data = spx_data.ffill()
+        
 # ========== GMF INDEX CALCULATION ==========
 def calculate_gmf_index(data, weights):
     """Calculate GMF Index as weighted sum of daily percentage changes"""
