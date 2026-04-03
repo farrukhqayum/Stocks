@@ -1050,34 +1050,7 @@ with col1:
 with col2:
     if st.button("Next ➡️"):
         st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + step)
-
-last = df_slice.iloc[-1]
-
-if last["long_entry_sig"]:
-    current_signal = "🟢 LONG ENTRY"
-elif last["short_entry_sig"]:
-    current_signal = "🔴 SHORT ENTRY"
-elif last["exit_long_sig"]:
-    current_signal = "🟡 EXIT LONG"
-elif last["exit_short_sig"]:
-    current_signal = "❌ EXIT SHORT"
-else:
-    current_signal = 
-    
-with col3:
-    st.markdown("""
-    **Signal Status**
-    - 🟢 Long entries: {}
-    - 🔴 Short entries: {}
-    - 🟡 Long exits: {}
-    - ❌ Short exits: {}
-    """.format(
-        "ON" if glong else "OFF",
-        "ON" if gshort else "OFF",
-        "ON" if elong else "OFF",
-        "ON" if eshort else "OFF"
-    ))
-    
+        
 with col3:
     if len(df_slice) > 0:
         st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
