@@ -875,7 +875,7 @@ def precompute_signals(df_slice):
                 elif bullish_candle and close_last > ref_low + 0.05 * fvg_range:
                     long_entry = True
 
-            if bearish_candle or close_last < ref_low or not bull_mask:
+            if bearish_candle or close_last < ref_low*0.97 or not bull_mask:
                 exit_long = True
 
         # -----------------------------
