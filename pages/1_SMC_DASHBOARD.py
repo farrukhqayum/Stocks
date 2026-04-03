@@ -574,7 +574,7 @@ def draw_smc_box(ax, df, zones):
 # ---------------------------------------------------------
 # CHART
 # ---------------------------------------------------------
-def plotchart(df, zones, title="SMC FVG View"):
+def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = Flse, elong = False, eshort = False):
     df = df.copy()
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
@@ -770,20 +770,16 @@ def plotchart(df, zones, title="SMC FVG View"):
     for i in range(len(df)):
         price = df["close"].iloc[i]
     
-        if df["long_entry_sig"].iloc[i]:
-            ax.scatter(i, price, color="lime", marker="^", s=120, zorder=22)
-            ax.text(i, price * 0.995, "LONG", color="lime",
-                    fontsize=7, ha="center", va="top")
+        if df["long_entry_sig"].iloc[i] and glong:
+            ax.scatter(i, price, color="lime", marker="^", s=10, zorder=22)
     
-        if df["short_entry_sig"].iloc[i]:
-            ax.scatter(i, price, color="red", marker="v", s=120, zorder=22)
-            ax.text(i, price * 1.005, "SHORT", color="red",
-                    fontsize=7, ha="center", va="bottom")
+        if df["short_entry_sig"].iloc[i] and gshort:
+            ax.scatter(i, price, color="red", marker="v", s=10, zorder=22)
     
-        if df["exit_long_sig"].iloc[i]:
-            ax.scatter(i, price, color="gold", marker="s", s=80, zorder=22)
+        if df["exit_long_sig"].iloc[i] and elong:
+            ax.scatter(i, price, color="gold", marker="s", s=10, zorder=22)
     
-        if df["exit_short_sig"].iloc[i]:
+        if df["exit_short_sig"].iloc[i] and eshort:
             ax.text(i, price, "❌", color="red", fontsize=14,
                     ha="center", va="center", zorder=22)
         
@@ -909,6 +905,10 @@ tf = st.sidebar.selectbox(
     index=2
 )
 
+glong = st.sidebar.checkbox("Go/Stay Long", value=True)
+gshort = st.sidebar.checkbox("Go/Stay Short", value=True)
+eLong = st.sidebar.checkbox("Exit Long", value=True)
+eShort = st.sidebar.checkbox("Exit Long", value=True)
 
 today = datetime.today()
 
@@ -1149,5 +1149,6 @@ fig = plotchart(
     df_slice,
     zones,
     title=f"{ticker} — {tf} SMC FVG Regime View"
+    glong, gshort, elong, eshort
 )
 st.pyplot(fig)
