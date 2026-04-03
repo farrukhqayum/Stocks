@@ -574,7 +574,9 @@ def draw_smc_box(ax, df, zones):
 # ---------------------------------------------------------
 # CHART
 # ---------------------------------------------------------
-def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False):
+def plotchart(df, zones, title="SMC FVG View",
+              exit_long=False, exit_short=False,
+              long_entry=False, short_entry=False):
     df = df.copy()
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
@@ -764,6 +766,19 @@ def plotchart(df, zones, title="SMC FVG View", exit_long=False, exit_short=False
             )
         )
 
+    # -----------------------------
+    # ENTRY MARKERS
+    # -----------------------------
+    if long_entry:
+        ax.scatter(last_idx, last_close, color="lime", marker="^", s=120, zorder=22)
+        ax.text(last_idx, last_close * 0.995, "LONG", color="lime",
+                fontsize=8, ha="center", va="top", fontweight="bold")
+    
+    if short_entry:
+        ax.scatter(last_idx, last_close, color="red", marker="v", s=120, zorder=22)
+        ax.text(last_idx, last_close * 1.005, "SHORT", color="red",
+                fontsize=8, ha="center", va="bottom", fontweight="bold")
+        
     # ---------------------------------------------------------
     # DRAW TURNING POINT ABOVE BAR
     # ---------------------------------------------------------
@@ -1043,7 +1058,8 @@ fig = plotchart(
     zones,
     title=f"{ticker} — {tf} SMC FVG Regime View",
     exit_long=exit_long,
-    exit_short=exit_short
+    exit_short=exit_short,
+    long_entry=long_entry,
+    short_entry=short_entry
 )
-
 st.pyplot(fig)
