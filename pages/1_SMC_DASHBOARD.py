@@ -988,8 +988,60 @@ if first_load:
 else:
     df_slice = df.iloc[start_idx : end_idx + 1 : 1]
 
+last = df_slice.iloc[-1]
+
+long_entry  = bool(last["long_entry_sig"])
+short_entry = bool(last["short_entry_sig"])
+exit_long   = bool(last["exit_long_sig"])
+exit_short  = bool(last["exit_short_sig"])
+if "in_long" not in st.session_state:
+    st.session_state.in_long = False
+
+if "in_short" not in st.session_state:
+    st.session_state.in_short = False
+# Enter long
+if long_entry:
+    st.session_state.in_long = True
+    st.session_state.in_short = False
+# Enter short
+if short_entry:
+    st.session_state.in_short = True
+    st.session_state.in_long = False
+# Exit long
+if exit_long:
+    st.session_state.in_long = False
+# Exit short
+if exit_short:
+    st.session_state.in_short = False
+
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    if long_entry:
+        st.success("📈 LONG ENTRY")
+    elif st.session_state.in_long:
+        st.info("🟢 LONG ACTIVE")
+    else:
+        st.info("—")
+with c2:
+    if exit_long:
+        st.warning("🟡 EXIT LONG")
+    else:
+        st.info("—")
+with c3:
+    if short_entry:
+        st.error("📉 SHORT ENTRY")
+    elif st.session_state.in_short:
+        st.info("🔴 SHORT ACTIVE")
+    else:
+        st.info("—")    
+with c4:
+    if exit_short:
+        st.warning("❌ EXIT SHORT")
+    else:
+        st.info("—")
+
 # --- NAVIGATION BUTTONS ---
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     if st.button("⬅️ Previous"):
@@ -999,6 +1051,19 @@ with col2:
     if st.button("Next ➡️"):
         st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + step)
 
+last = df_slice.iloc[-1]
+
+if last["long_entry_sig"]:
+    current_signal = "🟢 LONG ENTRY"
+elif last["short_entry_sig"]:
+    current_signal = "🔴 SHORT ENTRY"
+elif last["exit_long_sig"]:
+    current_signal = "🟡 EXIT LONG"
+elif last["exit_short_sig"]:
+    current_signal = "❌ EXIT SHORT"
+else:
+    current_signal = 
+    
 with col3:
     st.markdown("""
     **Signal Status**
