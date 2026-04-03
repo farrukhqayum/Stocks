@@ -85,6 +85,16 @@ def load_data(ticker, start_date, interval):
 
     return df
 
+class FVGZone:
+    def __init__(self, top, bottom, start_idx, is_bull):
+        self.top = top
+        self.bottom = bottom
+        self.start_idx = start_idx
+        self.is_bull = is_bull
+        self.is_mitigated = False
+        self.mitigated_idx = None
+        self.touched = False
+        
 # ---------------------------------------------------------
 # CANDLESTICK ENGINE
 # ---------------------------------------------------------
@@ -469,6 +479,7 @@ def detect_fvg_zones(df, max_age=25, fail_window=5):
             if not z.is_mitigated and not failed:
                 if body_high > z.bottom and body_low < z.top:
                     z.is_mitigated = True
+                    z.mitigated_idx = i
 
             if (not z.touched) and (z.bottom < close[i] < z.top):
                 z.touched = True
@@ -620,11 +631,20 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
     # FVG ZONES
     # -----------------------------
     last_idx = len(df) - 1
+    
     for z in zones:
+    
         rect_x = z.start_idx - 0.5
-        end_idx = z.mitigated_idx if z.is_mitigated else z.start_idx + 1
-        rect_width = end_idx - z.start_idx
+    
+        if z.is_mitigated:
+            end_idx = z.mitigated_idx
+        else:
+            end_idx = last_idx  # ACTIVE FVG → extend to current bar
+    
+        rect_width = (end_idx - z.start_idx) + 1
+    
         color = "teal" if z.is_bull else "blue"
+    
         ax.add_patch(Rectangle(
             (rect_x, z.bottom),
             rect_width,
