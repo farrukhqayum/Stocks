@@ -965,7 +965,7 @@ end_idx   = max(0, min(end_idx, len(df) - 1))
 if first_load:
     df_slice = df.copy()
 else:
-    df_slice = df.iloc[start_idx : end_idx + 1 : step]
+    df_slice = df.iloc[start_idx : end_idx + 1 : 1]
 
 # --- NAVIGATION BUTTONS ---
 col1, col2, col3 = st.columns(3)
