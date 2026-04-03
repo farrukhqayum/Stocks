@@ -815,7 +815,6 @@ def precompute_signals(df_slice):
     df_slice["exit_long_sig"] = False
     df_slice["exit_short_sig"] = False
 
-    # Loop through candles
     for i in range(2, len(df_slice)):
 
         row = df_slice.iloc[i]
@@ -832,7 +831,6 @@ def precompute_signals(df_slice):
         bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
         bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
 
-        # Compute structural references up to this candle
         lb_bear, lb_bull = get_last_broken_fvg(df_slice.iloc[:i+1])
 
         long_entry = False
@@ -848,7 +846,6 @@ def precompute_signals(df_slice):
             ref_high = lb_bear["high"]
             fvg_range = ref_high - ref_low
 
-            # Long entries
             if bull_mask:
                 if close_last > ref_high and bullish_candle:
                     long_entry = True
@@ -857,7 +854,6 @@ def precompute_signals(df_slice):
                 elif bullish_candle and close_last > ref_low + 0.05 * fvg_range:
                     long_entry = True
 
-            # Long exits
             if bearish_candle or close_last < ref_low or not bull_mask:
                 exit_long = True
 
@@ -869,7 +865,6 @@ def precompute_signals(df_slice):
             ref_high = lb_bull["high"]
             fvg_range = ref_high - ref_low
 
-            # Short entries
             if bear_mask:
                 if close_last < ref_low and bearish_candle:
                     short_entry = True
@@ -878,17 +873,16 @@ def precompute_signals(df_slice):
                 elif bearish_candle and close_last < ref_high - 0.05 * fvg_range:
                     short_entry = True
 
-            # Short exits
             if bullish_candle or close_last > ref_high or not bear_mask:
                 exit_short = True
 
-        # Store signals
         df_slice.loc[df_slice.index[i], "long_entry_sig"] = long_entry
         df_slice.loc[df_slice.index[i], "short_entry_sig"] = short_entry
         df_slice.loc[df_slice.index[i], "exit_long_sig"] = exit_long
         df_slice.loc[df_slice.index[i], "exit_short_sig"] = exit_short
 
     return df_slice
+
 
 
 # ---------------------------------------------------------
