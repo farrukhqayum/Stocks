@@ -891,32 +891,32 @@ def precompute_signals(df_slice):
 
 st.sidebar.header("Settings")
 
-ticker = st.sidebar.text_input("Ticker", "ASML")
+ticker = st.sidebar.text_input("Ticker", "AAPL")
 
 tf = st.sidebar.selectbox(
     "Timeframe",
     ["4H", "1D", "1W", "1M"],
     index=2
 )
-
-glong = st.sidebar.checkbox("Go/Stay Long", value=False)
+step   = st.sidebar.checkbox("Slice Step(s)", value=False)
+glong  = st.sidebar.checkbox("Go/Stay Long", value=False)
 gshort = st.sidebar.checkbox("Go/Stay Short", value=False)
-elong = st.sidebar.checkbox("Exit Long", value=False)
+elong  = st.sidebar.checkbox("Exit Long", value=False)
 eshort = st.sidebar.checkbox("Exit Short", value=False)
 
 today = datetime.today()
 
 if tf == "4H":
-    start_date = today - timedelta(days=90)
+    start_date = today - timedelta(days=180)
     interval = "4h"
 elif tf == "1D":
-    start_date = today - timedelta(days=180)
+    start_date = today - timedelta(days=365)
     interval = "1d"
 elif tf == "1W":
-    start_date = today - timedelta(days=365)
+    start_date = today - timedelta(days=700)
     interval = "1wk"
 elif tf == "1M":
-    start_date = today - timedelta(days=365*2)
+    start_date = today - timedelta(days=365*5)
     interval = "1mo"
 
 df = load_data(ticker, start_date, interval)
@@ -949,9 +949,8 @@ df_slice = df.iloc[start_idx:end_idx + 1]
 if start_idx > end_idx:
     start_idx, end_idx = end_idx, start_idx
 
-df_slice = df.iloc[start_idx:end_idx + 1]
+df_slice = df.iloc[start_idx:end_idx + step]
 df_slice = precompute_signals(df_slice)
-
 
 st.session_state.window_start_idx = max(0, min(st.session_state.window_start_idx, len(df) - 1))
 st.session_state.window_end_idx = max(0, min(st.session_state.window_end_idx, len(df) - 1))
