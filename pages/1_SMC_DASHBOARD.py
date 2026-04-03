@@ -989,7 +989,7 @@ else:
     df_slice = df.iloc[start_idx : end_idx + 1 : 1]
 
 # --- NAVIGATION BUTTONS ---
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button("⬅️ Previous"):
@@ -999,6 +999,20 @@ with col2:
     if st.button("Next ➡️"):
         st.session_state.window_end_idx = min(len(df) - 1, st.session_state.window_end_idx + step)
 
+with col3:
+    st.markdown("""
+    **Signal Status**
+    - 🟢 Long entries: {}
+    - 🔴 Short entries: {}
+    - 🟡 Long exits: {}
+    - ❌ Short exits: {}
+    """.format(
+        "ON" if glong else "OFF",
+        "ON" if gshort else "OFF",
+        "ON" if elong else "OFF",
+        "ON" if eshort else "OFF"
+    ))
+    
 with col3:
     if len(df_slice) > 0:
         st.write(f"Data from **{df_slice.index[0].date()} → {df_slice.index[-1].date()}**")
