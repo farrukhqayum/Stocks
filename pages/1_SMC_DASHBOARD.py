@@ -1072,7 +1072,7 @@ c1, c2, c3, c4 = st.columns(4)
 
 with c1:
     if long_entry:
-        st.success("📈 LONG ENTRY")
+        st.success("📈 LONG ENTRY/HOLD")
     elif long_active:
         st.info("🟢 LONG ACTIVE")
     else:
@@ -1086,7 +1086,7 @@ with c2:
 
 with c3:
     if short_entry:
-        st.error("📉 SHORT ENTRY")
+        st.error("📉 SHORT ENTRY/HOLD")
     elif short_active:
         st.info("🔴 SHORT ACTIVE")
     else:
