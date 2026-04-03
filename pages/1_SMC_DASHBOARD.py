@@ -830,6 +830,9 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
 
 def precompute_signals(df_slice):
 
+    # Make a copy to avoid SettingWithCopy warnings
+    df_slice = df_slice.copy()
+
     # Initialize signal columns
     df_slice["long_entry_sig"] = False
     df_slice["short_entry_sig"] = False
@@ -838,71 +841,112 @@ def precompute_signals(df_slice):
 
     for i in range(2, len(df_slice)):
 
-        row = df_slice.iloc[i]
+        row  = df_slice.iloc[i]
         prev = df_slice.iloc[i - 1]
 
         close_last = row["close"]
-        open_last = row["open"]
+        open_last  = row["open"]
         ema20_last = row["ema20"]
         ema50_last = row["ema50"]
+        lb_last    = row["lb_crv"]
+        lb_prev    = prev["lb_crv"]
 
         bullish_candle = close_last > open_last
         bearish_candle = close_last < open_last
 
+        # Trend masks (used only for bias, not for exits)
         bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
         bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
 
+        # Last broken FVGs up to this bar
         lb_bear, lb_bull = get_last_broken_fvg(df_slice.iloc[:i+1])
 
-        long_entry = False
+        long_entry  = False
         short_entry = False
-        exit_long = False
-        exit_short = False
+        exit_long   = False
+        exit_short  = False
 
-        # -----------------------------
-        # BULLISH REGIME
-        # -----------------------------
-        if lb_bear is not None:
-            st.session_state.bear_ref = lb_bull
-            ref_low = lb_bear["low"]
+        # -------------------------------------------------
+        # 1) LB-CURVE EARLY ENTRIES
+        # -------------------------------------------------
+        bull_lb_entry = (
+            bullish_candle and
+            close_last > lb_last and
+            lb_last > lb_prev          # LB turning up
+        )
+
+        bear_lb_entry = (
+            bearish_candle and
+            close_last < lb_last and
+            lb_last < lb_prev          # LB turning down
+        )
+
+        # -------------------------------------------------
+        # 2) FVG-BASED STRUCTURAL ENTRIES
+        # -------------------------------------------------
+        fvg_bull_entry = False
+        fvg_bear_entry = False
+
+        if lb_bear is not None and bull_mask:
+            ref_low  = lb_bear["low"]
             ref_high = lb_bear["high"]
             fvg_range = ref_high - ref_low
 
-            if bull_mask:
-                if close_last > ref_high and bullish_candle:
-                    long_entry = True
-                elif bullish_candle and close_last > ref_low:
-                    long_entry = True
-                elif bullish_candle and close_last > ref_low + 0.05 * fvg_range:
-                    long_entry = True
+            # Price accepting above broken bearish FVG
+            if bullish_candle and close_last > ref_low + 0.05 * fvg_range:
+                fvg_bull_entry = True
 
-            if close_last < ref_low*0.97:
-                exit_long = True
-
-        # -----------------------------
-        # BEARISH REGIME
-        # -----------------------------
-        if lb_bull is not None:
-            bear_ref = st.session_state.bear_ref
-            ref_low = lb_bull["low"]
+        if lb_bull is not None and bear_mask:
+            ref_low  = lb_bull["low"]
             ref_high = lb_bull["high"]
             fvg_range = ref_high - ref_low
 
-            if bear_mask:
-                if close_last < ref_low and bearish_candle:
-                    short_entry = True
-                elif bearish_candle and close_last < ref_high:
-                    short_entry = True
-                elif bearish_candle and close_last < ref_high - 0.05 * fvg_range:
-                    short_entry = True
+            # Price accepting below broken bullish FVG
+            if bearish_candle and close_last < ref_high - 0.05 * fvg_range:
+                fvg_bear_entry = True
 
-            if bullish_candle or close_last > ref_high or not bear_mask:
-                exit_short = True
+        # Combine LB + FVG for entries
+        long_entry  = bull_lb_entry or fvg_bull_entry
+        short_entry = bear_lb_entry or fvg_bear_entry
 
-        df_slice.loc[df_slice.index[i], "long_entry_sig"] = long_entry
-        df_slice.loc[df_slice.index[i], "short_entry_sig"] = short_entry
-        df_slice.loc[df_slice.index[i], "exit_long_sig"] = exit_long
-        df_slice.loc[df_slice.index[i], "exit_short_sig"] = exit_short
+        # -------------------------------------------------
+        # 3) CLEAN, EARLY EXITS (LB + STRUCTURE ONLY)
+        # -------------------------------------------------
+        # Exit long: lose LB support OR break FVG low
+        if lb_bear is not None:
+            ref_low  = lb_bear["low"]
+            # Structural break of bullish reference
+            fvg_long_break = close_last < ref_low
+        else:
+            fvg_long_break = False
+
+        exit_long = (
+            close_last < lb_last or     # Lose LB support
+            lb_last < lb_prev or        # LB turns down
+            fvg_long_break              # Structural break
+        )
+
+        # Exit short: lose LB resistance OR break FVG high
+        if lb_bull is not None:
+            ref_high = lb_bull["high"]
+            fvg_short_break = close_last > ref_high
+        else:
+            fvg_short_break = False
+
+        exit_short = (
+            close_last > lb_last or     # Lose LB resistance
+            lb_last > lb_prev or        # LB turns up
+            fvg_short_break             # Structural break
+        )
+
+        # -------------------------------------------------
+        # 4) WRITE SIGNALS
+        # -------------------------------------------------
+        idx = df_slice.index[i]
+        df_slice.loc[idx, "long_entry_sig"]  = long_entry
+        df_slice.loc[idx, "short_entry_sig"] = short_entry
+        df_slice.loc[idx, "exit_long_sig"]   = exit_long
+        df_slice.loc[idx, "exit_short_sig"]  = exit_short
 
     return df_slice
 
