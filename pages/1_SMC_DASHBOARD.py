@@ -1071,7 +1071,7 @@ exit_short  = bool(last["exit_short_sig"])
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    if long_entry:
+    if long_entry and not short_entry:
         st.success("📈 LONG ENTRY/HOLD")
     elif long_active:
         st.info("🟢 LONG ACTIVE")
@@ -1085,7 +1085,7 @@ with c2:
         st.info("—")
 
 with c3:
-    if short_entry:
+    if short_entry and not long_entry:
         st.error("📉 SHORT ENTRY/HOLD")
     elif short_active:
         st.info("🔴 SHORT ACTIVE")
