@@ -997,58 +997,63 @@ if first_load:
 else:
     df_slice = df.iloc[start_idx : end_idx + 1 : 1]
 
+df_sig = df_slice.copy()
+
+# Entries are truthful?
+long_events = df_sig[["long_entry_sig", "exit_long_sig"]].any(axis=1)
+if long_events.any():
+    last_long_idx = df_sig[long_events].index[-1]
+    last_long_row = df_sig.loc[last_long_idx]
+    long_active = bool(last_long_row["long_entry_sig"]) and not bool(last_long_row["exit_long_sig"])
+else:
+    long_active = False
+
+short_events = df_sig[["short_entry_sig", "exit_short_sig"]].any(axis=1)
+if short_events.any():
+    last_short_idx = df_sig[short_events].index[-1]
+    last_short_row = df_sig.loc[last_short_idx]
+    short_active = bool(last_short_row["short_entry_sig"]) and not bool(last_short_row["exit_short_sig"])
+else:
+    short_active = False
+
+
 last = df_slice.iloc[-1]
 
+last = df_slice.iloc[-1]
 long_entry  = bool(last["long_entry_sig"])
 short_entry = bool(last["short_entry_sig"])
 exit_long   = bool(last["exit_long_sig"])
 exit_short  = bool(last["exit_short_sig"])
-if "in_long" not in st.session_state:
-    st.session_state.in_long = False
-
-if "in_short" not in st.session_state:
-    st.session_state.in_short = False
-# Enter long
-if long_entry:
-    st.session_state.in_long = True
-    st.session_state.in_short = False
-# Enter short
-if short_entry:
-    st.session_state.in_short = True
-    st.session_state.in_long = False
-# Exit long
-if exit_long:
-    st.session_state.in_long = False
-# Exit short
-if exit_short:
-    st.session_state.in_short = False
-
 c1, c2, c3, c4 = st.columns(4)
+
 with c1:
     if long_entry:
         st.success("📈 LONG ENTRY")
-    elif st.session_state.in_long:
+    elif long_active:
         st.info("🟢 LONG ACTIVE")
     else:
         st.info("—")
+
 with c2:
-    if exit_long:
+    if exit_long and long_active:
         st.warning("🟡 EXIT LONG")
     else:
         st.info("—")
+
 with c3:
     if short_entry:
         st.error("📉 SHORT ENTRY")
-    elif st.session_state.in_short:
+    elif short_active:
         st.info("🔴 SHORT ACTIVE")
-    else:
-        st.info("—")    
-with c4:
-    if exit_short:
-        st.warning("❌ EXIT SHORT")
     else:
         st.info("—")
 
+with c4:
+    if exit_short and short_active:
+        st.warning("❌ EXIT SHORT")
+    else:
+        st.info("—")
+        
 # --- NAVIGATION BUTTONS ---
 col1, col2, col3 = st.columns(3)
 
