@@ -863,6 +863,7 @@ def precompute_signals(df_slice):
         # BULLISH REGIME
         # -----------------------------
         if lb_bear is not None:
+            st.session_state.bear_ref = lb_bull
             ref_low = lb_bear["low"]
             ref_high = lb_bear["high"]
             fvg_range = ref_high - ref_low
@@ -882,6 +883,7 @@ def precompute_signals(df_slice):
         # BEARISH REGIME
         # -----------------------------
         if lb_bull is not None:
+            bear_ref = st.session_state.bear_ref
             ref_low = lb_bull["low"]
             ref_high = lb_bull["high"]
             fvg_range = ref_high - ref_low
@@ -976,6 +978,13 @@ if st.session_state.last_tf != tf:
     st.session_state.window_start_idx = 0
     st.session_state.window_end_idx = len(df) - 1
     st.session_state.last_tf = tf
+
+# Initialize persistent regime references
+if "bull_ref" not in st.session_state:
+    st.session_state.bull_ref = None
+
+if "bear_ref" not in st.session_state:
+    st.session_state.bear_ref = None
 
 # --- DATA SLICING ---
 start_idx = st.session_state.window_start_idx
