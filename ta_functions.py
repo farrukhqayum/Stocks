@@ -581,11 +581,22 @@ def predict_prices(model, data, scaler, num_days=5, window_size=300):
     return predicted_prices
     
 def add_candlestickpatterns(df):
-    # Ensure df is a copy, not a view, to avoid the SettingWithCopyWarning
     df = df.copy()
-    # Detect candlestick patterns and add to dataframe
-    df['Bullish_Engulfing'] = cs.detect_bullish_engulfing(df)
     df['Doji'] = cs.detect_doji(df)
+    df['Gravestone_Doji'] = cs.detect_gravestone(df, df['Doji'])
+    df['Dragonfly_Doji'] = cs.detect_dragonfly(df, df['Doji'])
+
+    bull_doji, bear_doji = cs.classify_doji(
+        df,
+        df['Doji'],
+        df['Gravestone_Doji'],
+        df['Dragonfly_Doji']
+    )
+
+    df['Bull_Doji'] = bull_doji
+    df['Bear_Doji'] = bear_doji
+
+    df['Bullish_Engulfing'] = cs.detect_bullish_engulfing(df)
     df['Hammer'] = cs.detect_hammer(df)
     df['Hanging_Man'] = cs.detect_hanging_man(df)
     df['Morning_Star'] = cs.detect_morning_star(df)
@@ -594,19 +605,21 @@ def add_candlestickpatterns(df):
     df['Three_White_Soldiers'] = cs.detect_three_white_soldiers(df)
     df['Three_Black_Crows'] = cs.detect_three_black_crows(df)
 
-    # Combine all patterns into one column
-    df['Candlesticks'] = (df['Doji'] +
-                          df['Hammer'] * 2 + 
-                          df['Hanging_Man'] * 3 + 
-                          df['Morning_Star'] * 4 + 
-                          df['Evening_Star'] * 5 +
-                          df['Shooting_Star'] * 6 +
-                          df['Three_White_Soldiers'] * 7 + 
-                          df['Three_Black_Crows'] * 8 + 
-                          df['Bullish_Engulfing'] * 9)
-
+    df['Candlesticks'] = (
+        df['Bull_Doji'] * 1 +
+        df['Bear_Doji'] * 2 +
+        df['Gravestone_Doji'] * 3 +
+        df['Dragonfly_Doji'] * 4 +
+        df['Hammer'] * 5 +
+        df['Hanging_Man'] * 6 +
+        df['Morning_Star'] * 7 +
+        df['Evening_Star'] * 8 +
+        df['Shooting_Star'] * 9 +
+        df['Three_White_Soldiers'] * 10 +
+        df['Three_Black_Crows'] * 11 +
+        df['Bullish_Engulfing'] * 12
+    )
     return df
-
 
 def detect_divergences(df, period=14, max_bar_diff=3):
     """
