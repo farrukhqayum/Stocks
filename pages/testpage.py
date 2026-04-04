@@ -297,4 +297,4 @@ def add_technical_indicators(df, timeframe='1D'):
         st.error(f"Error adding technical indicators: {str(e)}")
         return None
 
-
+df = get_stock_data(ticker, start_date, end_date, interval)
