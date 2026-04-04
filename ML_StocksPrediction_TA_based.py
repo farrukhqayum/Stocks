@@ -249,6 +249,29 @@ def strip_ansi_codes(text):
     return ansi_escape.sub('', text)
 
 def add_technical_indicators(df):
+    st.write("Running DMI...")
+    ta.calculate_dmi(df)
+    st.write("DMI OK")
+    
+    st.write("Running Keltner...")
+    ta.calculate_keltner(df)
+    st.write("Keltner OK")
+    
+    st.write("Running Vortex...")
+    ta.calculate_vortex(df)
+    st.write("Vortex OK")
+    
+    st.write("Running Supertrend...")
+    ta.calculate_supertrend(df)
+    st.write("Supertrend OK")
+    
+    st.write("Running CCI...")
+    ta.calculate_cci(df)
+    st.write("CCI OK")
+    
+    st.write("Running Exhaustion...")
+    ta.add_exhaustion_indicator(df)
+    st.write("Exhaustion OK")
     close = df.Close
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
     df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
@@ -290,6 +313,7 @@ def add_technical_indicators(df):
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+
     # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
