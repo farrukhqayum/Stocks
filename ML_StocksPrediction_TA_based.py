@@ -1083,7 +1083,10 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             df['Hit_Label'] = df['Hit_Label'].fillna(0).astype(int)
             
             dfs[ticker] = df
-            
+            st.write("Columns in df:", df.columns.tolist())
+            missing = [f for f in FEATURES if f not in df.columns]
+            st.write("Missing FEATURES:", missing)
+
             df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
             if len(df_model) < _Nr:
                 st.text(f"Skipping {ticker} due to insufficient data after dropna.")
