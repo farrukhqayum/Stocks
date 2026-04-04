@@ -197,6 +197,13 @@ def add_technical_indicators(df, timeframe='1D'):
         df['RSI']= ta.calculate_rsi(df)
         df['RSI_SMA'] = df['RSI'].rolling(14).mean()
         df = ta.add_candlestickpatterns(df)
+
+        patterns = ta.add_candlestickpatterns(df)
+        print("DEBUG TYPE:", type(patterns))
+        print("DEBUG COLUMNS:", getattr(patterns, "columns", None))
+        st.write("DEBUG TYPE:", type(patterns))
+        st.write("DEBUG COLUMNS:", getattr(patterns, "columns", None))
+
         # Adjust MACD periods for weekly
         if timeframe == '1W':
             ema_short = 9
