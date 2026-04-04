@@ -15,9 +15,12 @@ import math
 import emoji
 import altair as alt
 import sys
+st.write("### Version Information")
+st.write(f"Python: {sys.version}")
+st.write(f"Pandas version: {pd.__version__}")
+st.write(f"Numpy version: {np.__version__}")
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-import time
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
@@ -221,64 +224,33 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    """Fetch stock data with proper error handling"""
     try:
-        print(f"Fetching data for {ticker} from {start_date} to {end_date}")
-        
-        # Try with different parameters
         df = yf.download(
-            ticker, 
-            start=start_date, 
-            end=end_date + timedelta(days=1),
-            progress=False,
-            auto_adjust=True, 
-            actions=False,
-            threads=False  # Add this to avoid threading issues
+        ticker, 
+        start=start_date, 
+        end=end_date + timedelta(days=1),
+        progress=False,
+        auto_adjust=True, 
+        actions=False
         )
-        
-        if df.empty:
-            print(f"No data returned for {ticker}")
-            # Try alternative method
-            ticker_obj = yf.Ticker(ticker)
-            df = ticker_obj.history(start=start_date, end=end_date + timedelta(days=1))
-            
-        if df.empty:
-            print(f"Still no data for {ticker} after second attempt")
-            return None
-            
-        print(f"Successfully fetched {len(df)} rows for {ticker}")
-        
-        # Reset index and process
-        df = df.reset_index()
-        df['Date'] = pd.to_datetime(df['Date'])
-        df.set_index('Date', inplace=True)
-        
-        # Handle column names (for multi-index columns)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-        
-        # Ensure we have required columns
-        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
-        for col in required_cols:
-            if col not in df.columns:
-                print(f"Missing column {col} for {ticker}")
-                return None
-        
-        df = df.dropna()
-        
-        if df.empty:
-            print(f"All data was NaN for {ticker}")
-            return None
-            
-        # Convert to float32 for memory efficiency
-        df = optimize_dataframe(df)
-        
-        print(f"Successfully processed {ticker} with {len(df)} rows")
-        return df
-        
-    except Exception as e:
-        print(f"Error fetching {ticker}: {type(e).__name__}: {str(e)}")
+    
+    except Exception:
         return None
+
+    if df.empty:
+        return None
+
+    df = df.reset_index()
+    df['Date'] = pd.to_datetime(df['Date'])
+    df.set_index('Date', inplace=True)
+    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+    df = df.dropna()
+
+    if df.empty:
+        return None
+
+    df_a = optimize_dataframe(df) # 32-bit
+    return df_a
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
@@ -319,34 +291,13 @@ def add_technical_indicators(df):
     df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
-    st.write("📊 Calculating returns and volatility...")
-    try:
-        # Fixed DD calculation with proper error handling
-        def calculate_dd(series):
-            if len(series) > 0:
-                return series.iloc[-1] - series.max()
-            else:
-                return 0
-        
-        df['DD'] = df['Close'].rolling(14).apply(calculate_dd)
-        
-        # Fixed returns calculations
-        df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
-        df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
-        df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
-        
-        # Fixed volatility calculation
-        df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-        
-        st.write("   Returns done")
-    except Exception as e:
-        st.error(f"   Returns failed: {e}")
-        import traceback
-        st.code(traceback.format_exc())
-        raise
-
+    df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
+    df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
+    df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
+    df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
+    df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-    df[cols] = df[cols].ffill().bfill()
+    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
@@ -435,11 +386,11 @@ def add_pivot_levels(df, window=_DAYS):
     S1 = 2 * PP - high.max()
     R2 = PP + (high.max() - low.min())
     S2 = PP - (high.max() - low.min())
-    df['PP'] = PP.bfill()
-    df['R1'] = R1.bfill()
-    df['S1'] = S1.bfill()
-    df['R2'] = R2.bfill()
-    df['S2'] = S2.bfill()
+    df['PP'] = PP.fillna(method='bfill')
+    df['R1'] = R1.fillna(method='bfill')
+    df['S1'] = S1.fillna(method='bfill')
+    df['R2'] = R2.fillna(method='bfill')
+    df['S2'] = S2.fillna(method='bfill')
     return df
 
 def add_pivots(df, win=windows):
@@ -447,7 +398,7 @@ def add_pivots(df, win=windows):
         roll_high = df['High'].rolling(w)
         roll_low = df['Low'].rolling(w)
         roll_close = df['Close'].rolling(w)
-        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x.iloc[-1])).div(3)
+        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x[-1])).div(3)
         R1 = 2 * PP - roll_low.min()
         S1 = 2 * PP - roll_high.max()
         R2 = PP + (roll_high.max() - roll_low.min())
@@ -1105,6 +1056,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                            
 #  🟡 Make Predictions (Gain/Loss/Confidence)
 def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
+    
     n = 1
     dfs = {}
     results = []
@@ -1113,18 +1065,12 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     for ticker in TICKERS:
         try:
-            st.write(f"Processing {ticker}...")
             df = get_stock_data(ticker, start_date, end_date)
-
-            if df is None:
-                st.warning(f"Skipping {ticker}: Could not fetch data")
-                continue
-                
-            if len(df) < 50:  # Need minimum data for indicators
-                st.warning(f"Skipping {ticker}: Only {len(df)} rows of data (need at least 50)")
-                continue
-                
-            st.write(f"Adding technical indicators for {ticker}...")
+            if not pd.api.types.is_datetime64_any_dtype(df.index):
+                if "Date" in df.columns:
+                    df = df.set_index("Date")
+                else:
+                    raise ValueError("DataFrame must have Date as index or column for plotting!")
             df = add_technical_indicators(df)
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
             df['BuyTime'] = (
@@ -1140,10 +1086,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             df['Hit_Label'] = df['Hit_Label'].fillna(0).astype(int)
             
             dfs[ticker] = df
-            st.write("Columns in df:", df.columns.tolist())
-            missing = [f for f in FEATURES if f not in df.columns]
-            st.write("Missing FEATURES:", missing)
-
+            
             df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
             if len(df_model) < _Nr:
                 st.text(f"Skipping {ticker} due to insufficient data after dropna.")
@@ -1158,8 +1101,8 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 X_scaled_cls, y_cls, test_size=0.2, random_state=42)
             
             model_class = RandomForestClassifier(
-                n_estimators=50, 
-                max_depth=4, 
+                n_estimators=120, 
+                max_depth=12, 
                 min_samples_split=4,
                 min_samples_leaf=3,
                 max_features='sqrt',
@@ -1190,13 +1133,13 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 X_scaled_return, y_return, test_size=0.2, random_state=42)
 
             model_return = RandomForestRegressor(
-                n_estimators=50,
+                n_estimators=120,
                 max_depth=14,
                 min_samples_leaf=3,
                 max_features='sqrt',
                 ccp_alpha=0.001,
                 random_state=42,
-                n_jobs=1
+                n_jobs=-1
             )
             model_return.fit(X_train_ret, y_train_ret)
             
@@ -1207,13 +1150,13 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             X_train_loss, X_val_loss, y_train_loss, y_val_loss = train_test_split(
                 X_scaled_loss, y_loss, test_size=0.2, random_state=42)
             model_loss = RandomForestRegressor(
-                n_estimators=50,
+                n_estimators=120,
                 max_depth=14,
                 min_samples_leaf=3,
                 max_features='sqrt',
                 ccp_alpha=0.001,
                 random_state=42,
-                n_jobs=1
+                n_jobs=-1
             )
             model_loss.fit(X_train_loss, y_train_loss)
             
@@ -1713,32 +1656,3 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
