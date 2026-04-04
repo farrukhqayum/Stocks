@@ -1061,23 +1061,14 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 else:
                     raise ValueError("DataFrame must have Date as index or column for plotting!")
             df = add_technical_indicators(df)
+            st.write("TI done")
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+            st.write("vo done")
             df['BuyTime'] = (
                 (df['Bull'] == 1) &
                 ((df['Close'] - df['EMA1']) / df['EMA1'] <= 0.02)
             )
-            st.write("Running add_pivot_levels...")
-            df = add_pivot_levels(df, window=14)
-            st.write("add_pivot_levels OK")
-            
-            st.write("Running add_pivots...")
-            df = add_pivots(df, windows)
-            st.write("add_pivots OK")
-            
-            st.write("Running average_pivots...")
-            df = average_pivots(df, windows)
-            st.write("average_pivots OK")
-
+            st.write("vol done")
             df = add_pivot_levels(df, window=14)
             df = add_pivots(df, windows)
             df = average_pivots(df, windows)
