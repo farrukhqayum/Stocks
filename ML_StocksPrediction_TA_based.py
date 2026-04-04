@@ -1066,15 +1066,24 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 (df['Bull'] == 1) &
                 ((df['Close'] - df['EMA1']) / df['EMA1'] <= 0.02)
             )
+            st.write("Running add_pivot_levels...")
+            df = add_pivot_levels(df, window=14)
+            st.write("add_pivot_levels OK")
+            
+            st.write("Running add_pivots...")
+            df = add_pivots(df, windows)
+            st.write("add_pivots OK")
+            
+            st.write("Running average_pivots...")
+            df = average_pivots(df, windows)
+            st.write("average_pivots OK")
+
             df = add_pivot_levels(df, window=14)
             df = add_pivots(df, windows)
             df = average_pivots(df, windows)
-            st.write("Pivots done")
             df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
             df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
-            st.write("gain/loss done")
             df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
-            st.write("Hit labels done...")
             df['Hit_Label'] = df['Hit_Label'].fillna(0).astype(int)
             dfs[ticker] = df
             
@@ -1102,7 +1111,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             )
 
             model_class.fit(X_train_cls, y_train_cls)
-            st.write("Model fits")
             # --- Step 2: Extract Full Class Probabilities as Features ---
             cls_probs = model_class.predict_proba(X_scaled_cls)
             # Extract probability columns for all expected classes safely
@@ -1110,7 +1118,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             for i, c in enumerate(model_class.classes_):
                 if c in expected_classes:
                     prob_df[f'Prob_Class_{c}'] = cls_probs[:, i]
-            
             df_model = df_model.reset_index(drop=True)
             df_model = pd.concat([df_model, prob_df], axis=1)
             FEATURES_with_probs = FEATURES + [f'Prob_Class_{c}' for c in expected_classes]
@@ -1150,7 +1157,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 n_jobs=-1
             )
             model_loss.fit(X_train_loss, y_train_loss)
-            st.write("Model Loss done")
             # --- Step 5: Live Prediction ---
             latest = df.iloc[[-1]]
             if latest[FEATURES].isnull().values.any():
@@ -1195,7 +1201,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             predicted_sl = current_price * (1 + predicted_loss)
             entry_price = (current_price + predicted_sl) / 2
             entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
-            st.write("preconf done")
 
             # Confidence calculation
             p_none  = latest_prob_features.get('Prob_Class_0', 0)
