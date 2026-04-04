@@ -284,219 +284,6 @@ def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-def add_technical_indicators_debug(df):
-    # Use st.write for immediate output
-    st.write("🔍 Entering add_technical_indicators")
-    
-    try:
-        close = df.Close
-        st.write("📊 Saved original close prices")
-        
-        st.write("📊 Calculating modified close...")
-        df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
-        st.write(f"   Modified close shape: {df['Close'].shape}")
-        
-        st.write("📊 Calculating EMAs...")
-        df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
-        df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
-        df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
-        df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
-        st.write("   EMAs done")
-        
-        st.write("📊 Calculating ATR...")
-        try:
-            df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
-            st.write(f"   ATR shape: {df['ATR'].shape}")
-        except Exception as e:
-            st.error(f"   ATR failed: {e}")
-            raise
-        
-        st.write("📊 Calculating scaled volatility...")
-        try:
-            df = ta.scaled_volatility(df)
-            st.write("   Scaled volatility done")
-        except Exception as e:
-            st.error(f"   Scaled volatility failed: {e}")
-            raise
-        
-        st.write("📊 Adding candlestick patterns...")
-        try:
-            df = ta.add_candlestickpatterns(df)
-            st.write("   Candlestick patterns done")
-        except Exception as e:
-            st.error(f"   Candlestick patterns failed: {e}")
-            raise
-        
-        st.write("📊 Calculating RSI...")
-        try:
-            df['RSI'] = ta.calculate_rsi(df)
-            df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-            st.write(f"   RSI shape: {df['RSI'].shape}")
-        except Exception as e:
-            st.error(f"   RSI failed: {e}")
-            raise
-        
-        st.write("📊 Calculating MACD...")
-        try:
-            ema12 = df['Close'].ewm(span=12, adjust=False).mean()
-            ema26 = df['Close'].ewm(span=24, adjust=False).mean()
-            df['MACD'] = ema12 - ema26
-            df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
-            st.write("   MACD done")
-        except Exception as e:
-            st.error(f"   MACD failed: {e}")
-            raise
-        
-        st.write("📊 Calculating SMIIO...")
-        try:
-            smiio_result = ta.calculate_smiio(df)
-            st.write(f"   SMIIO result type: {type(smiio_result)}")
-            if isinstance(smiio_result, tuple) and len(smiio_result) == 3:
-                df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = smiio_result
-                st.write("   SMIIO assigned")
-            else:
-                st.warning(f"   SMIIO returned unexpected type, creating zeros")
-                df['SMIIO'] = df['SMIIO_Signal'] = df['SMIIO_Osc'] = 0
-        except Exception as e:
-            st.error(f"   SMIIO failed: {e}")
-            raise
-        
-        st.write("📊 Calculating Bollinger Bands...")
-        try:
-            df['Upper_Band'] = df['EMA1'] + (2 * df['Close'].rolling(20).std())
-            df['Lower_Band'] = df['EMA1'] - (2 * df['Close'].rolling(20).std())
-            df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
-            st.write("   Bollinger bands done")
-        except Exception as e:
-            st.error(f"   Bollinger bands failed: {e}")
-            raise
-        
-        st.write("📊 Calculating volume features...")
-        try:
-            df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
-            df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
-            df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
-            df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
-            df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'], np.where(df['Close'] > df['Open'], 1, -1), 0)
-            df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
-            st.write("   Volume features done")
-        except Exception as e:
-            st.error(f"   Volume features failed: {e}")
-            raise
-        
-        st.write("📊 Calculating MFI and CMF...")
-        try:
-            df['MFI'] = ta.calculate_mfi(df)
-            df['CMF'] = ta.chaikin_money_flow(df, window=20)
-            st.write("   MFI/CMF done")
-        except Exception as e:
-            st.error(f"   MFI/CMF failed: {e}")
-            raise
-        
-        st.write("📊 Calculating CCI and OBV...")
-        try:
-            df['CCI'] = ta.calculate_cci(df)
-            df['OBV'] = ta.calculate_obv(df)
-            st.write("   CCI/OBV done")
-        except Exception as e:
-            st.error(f"   CCI/OBV failed: {e}")
-            raise
-        
-        st.write("📊 Calculating DMI...")
-        try:
-            dmi_result = ta.calculate_dmi(df, n=14)
-            st.write(f"   DMI result type: {type(dmi_result)}")
-            if isinstance(dmi_result, pd.DataFrame):
-                df[['+DI', '-DI', 'ADX']] = dmi_result.rolling(3).mean()
-                st.write("   DMI assigned")
-            else:
-                st.warning("   DMI returned unexpected type, creating zeros")
-                df['+DI'] = df['-DI'] = df['ADX'] = 0
-        except Exception as e:
-            st.error(f"   DMI failed: {e}")
-            raise
-        
-        st.write("📊 Calculating VWMA...")
-        try:
-            df['VWMA'] = ta.calculate_vwma(df)
-            st.write("   VWMA done")
-        except Exception as e:
-            st.error(f"   VWMA failed: {e}")
-            raise
-        
-        st.write("📊 Calculating Keltner Channels...")
-        try:
-            keltner_result = ta.calculate_keltner(df)
-            st.write(f"   Keltner result type: {type(keltner_result)}")
-            if isinstance(keltner_result, pd.DataFrame):
-                df[['KCm', 'KCu', 'KCl', 'KCu_outer', 'KCl_outer', 'Kasym', 'Kcount']] = keltner_result.rolling(3).mean()
-                st.write("   Keltner assigned")
-            else:
-                st.warning("   Keltner returned unexpected type")
-        except Exception as e:
-            st.error(f"   Keltner failed: {e}")
-            raise
-        
-        st.write("📊 Calculating Vortex...")
-        try:
-            vortex_result = ta.calculate_vortex(df)
-            st.write(f"   Vortex result type: {type(vortex_result)}")
-            if isinstance(vortex_result, pd.DataFrame):
-                df[['VI+', 'VI-']] = vortex_result
-                st.write("   Vortex assigned")
-            else:
-                st.warning("   Vortex returned unexpected type")
-        except Exception as e:
-            st.error(f"   Vortex failed: {e}")
-            raise
-        
-        st.write("📊 Calculating Supertrend...")
-        try:
-            supertrend_result = ta.calculate_supertrend(df)
-            st.write(f"   Supertrend result type: {type(supertrend_result)}")
-            if isinstance(supertrend_result, pd.DataFrame):
-                df[['STu', 'STl']] = supertrend_result
-                st.write("   Supertrend assigned")
-            else:
-                st.warning("   Supertrend returned unexpected type")
-        except Exception as e:
-            st.error(f"   Supertrend failed: {e}")
-            raise
-        
-        st.write("📊 Calculating returns and volatility...")
-        try:
-            df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
-            df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
-            df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
-            df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
-            df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-            st.write("   Returns done")
-        except Exception as e:
-            st.error(f"   Returns failed: {e}")
-            raise
-        
-        st.write("📊 Filling NaN values...")
-        try:
-            cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-            df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
-            st.write("   NaN filling done")
-        except Exception as e:
-            st.error(f"   NaN filling failed: {e}")
-            raise
-        
-        st.write("📊 Setting TI conditions...")
-        # Your TI conditions here (keep your existing code)
-        
-        df.Close = close
-        st.write("✅ Successfully completed add_technical_indicators")
-        return df
-        
-    except Exception as e:
-        st.error(f"❌ Exception in add_technical_indicators: {type(e).__name__}: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
-        raise
-        
 def add_technical_indicators(df):
     close = df.Close
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
@@ -532,11 +319,32 @@ def add_technical_indicators(df):
     df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
     df[['VI+', 'VI-']] = ta.calculate_vortex(df)
     df[['STu', 'STl']] = ta.calculate_supertrend(df)
-    df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
-    df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
-    df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
-    df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
-    df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
+    st.write("📊 Calculating returns and volatility...")
+    try:
+        # Fixed DD calculation with proper error handling
+        def calculate_dd(series):
+            if len(series) > 0:
+                return series.iloc[-1] - series.max()
+            else:
+                return 0
+        
+        df['DD'] = df['Close'].rolling(14).apply(calculate_dd)
+        
+        # Fixed returns calculations
+        df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
+        df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
+        df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
+        
+        # Fixed volatility calculation
+        df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
+        
+        st.write("   Returns done")
+    except Exception as e:
+        st.error(f"   Returns failed: {e}")
+        import traceback
+        st.code(traceback.format_exc())
+        raise
+
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     # FIXED CONDITIONS (syntax + enhanced HOLD)
