@@ -17,9 +17,6 @@ import altair as alt
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-import ta_functions as ta
-st.write("TA FUNCTIONS:", dir(ta))
-
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
@@ -222,18 +219,11 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    try:
-        df = yf.download(
-        ticker, 
-        start=start_date, 
-        end=end_date + timedelta(days=1),
-        progress=False,
-        auto_adjust=True, 
-        actions=False
-        )
-    
-    except Exception:
-        return None
+
+    df = yf.download( ticker, start=start_date, end=end_date + timedelta(days=1), progress=False,
+    auto_adjust=True, 
+    actions=False
+    )
 
     if df.empty:
         return None
