@@ -199,8 +199,6 @@ def add_technical_indicators(df, timeframe='1D'):
         st.write("Adding candlesticks df")
         df = ta.add_candlestickpatterns(df)
         st.write("added candlesticks df")
-
-        
         # Adjust MACD periods for weekly
         if timeframe == '1W':
             ema_short = 9
@@ -329,6 +327,7 @@ def add_technical_indicators(df, timeframe='1D'):
         df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
         df['gapStrength'] = ta.compute_gapStrength(df)
         df = ta.add_exhaustion_indicator(df)
+        st.write("added TI df")
         df.Close = close
         return df
         
