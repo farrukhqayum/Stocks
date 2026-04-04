@@ -15,10 +15,6 @@ import math
 import emoji
 import altair as alt
 import sys
-st.write("### Version Information")
-st.write(f"Python: {sys.version}")
-st.write(f"Pandas version: {pd.__version__}")
-st.write(f"Numpy version: {np.__version__}")
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import time
