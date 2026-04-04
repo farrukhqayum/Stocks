@@ -346,7 +346,7 @@ def add_technical_indicators(df):
         raise
 
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    df[cols] = df[cols].ffill().bfill()
     # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
@@ -435,11 +435,11 @@ def add_pivot_levels(df, window=_DAYS):
     S1 = 2 * PP - high.max()
     R2 = PP + (high.max() - low.min())
     S2 = PP - (high.max() - low.min())
-    df['PP'] = PP.fillna(method='bfill')
-    df['R1'] = R1.fillna(method='bfill')
-    df['S1'] = S1.fillna(method='bfill')
-    df['R2'] = R2.fillna(method='bfill')
-    df['S2'] = S2.fillna(method='bfill')
+    df['PP'] = PP.bfill()
+    df['R1'] = R1.bfill()
+    df['S1'] = S1.bfill()
+    df['R2'] = R2.bfill()
+    df['S2'] = S2.bfill()
     return df
 
 def add_pivots(df, win=windows):
