@@ -1092,7 +1092,6 @@ if st.button("Run ML Strategy Backtest"):
                                 'used_ml_tp': used_ml_tp
                             }
                             in_trade = True
-        # ========== END OF FIX ==========
         
         # EXIT LOGIC
         if in_trade:
@@ -1128,7 +1127,6 @@ if st.button("Run ML Strategy Backtest"):
                 exit_reason = 'Max_Hold'
                 exit_price = current_close
             
-            # Process exit
             if exit_reason:
                 total_trades += 1
                 return_pct = (exit_price / entry_price - 1) * 100.0
@@ -1136,14 +1134,12 @@ if st.button("Run ML Strategy Backtest"):
                     wins += 1
                 else: 
                     losses += 1
-                
-                # Track ML TP success
+
                 if (exit_reason in ['TP', 'Gap_TP'] and 
                     current_trade.get('used_ml_tp', False) and 
                     current_trade['ml_signal'] == 'TP'):
                     ml_tp_success_counter += 1
-                
-                # Record trade
+                    
                 trades.append({
                     'EntryDate': entry_date,
                     'ExitDate': current_date,
@@ -1157,11 +1153,9 @@ if st.button("Run ML Strategy Backtest"):
                     'ML_Signal': current_trade['ml_signal']
                 })
                 
-                # Reset trade state
                 in_trade = False
                 current_trade = {}
-    
-    # Handle open trade at end
+
     if in_trade:
         last_date = daily_dates[-1]
         exit_price = float(df_daily.loc[last_date, 'Close'])

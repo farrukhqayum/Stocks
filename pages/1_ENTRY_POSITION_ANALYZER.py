@@ -123,7 +123,7 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
         yf_interval = interval_map.get(interval, interval)
         
         df = yf.download(ticker, start=start_date, end=end_date,
-                        interval=yf_interval, progress=False, auto_adjust=True, actions=False)
+                        interval=yf_interval, progress=False, auto_adjust=True)
         
         if df.empty:
             st.error(f"No data found for {ticker} with interval {interval}")
@@ -920,7 +920,7 @@ def plot_analysis(ticker, df, entry_price, timeframe, assessment, prediction=Non
         entry_desc.txt._text.set_color(cl)
         
         # Assessment annotation
-        color_map = {'Valid': 'green', 'Risky': 'orange', 'Bearish': 'red', 'Wait and See': 'red'}
+        color_map = {'Valid': 'green', 'Risky': 'orange', 'Wait and See': 'red'}
         assessment_color = color_map.get(assessment, 'gray')
         
         ax1.annotate(
@@ -1047,16 +1047,13 @@ def assess_entry(prediction, user_gain, user_loss, entry_price, current_price):
         reasons.append("Entry price close to current")
     
     # Overall assessment
-    bullish_conditions = (will_hit in ['TP', 'Hold'] and confidence > 60 and pred_rr > 1.4)
-    risky_conditions = (will_hit in ['None'] and confidence > 54 and pred_rr > 1.2)
-    bearish = (will_hit in ['SL', 'None'] and confidence < 45)
+    bullish_conditions = (will_hit in ['TP', 'Hold'] and hit_prob > 40 and confidence > 60 and pred_rr > 1.4)
+    risky_conditions = (will_hit in ['TP', 'Hold', 'None'] and confidence > 50 and pred_rr > 1.2)
     
     if bullish_conditions and price_diff_pct <= 10:
         assessment = "Valid"
     elif risky_conditions and price_diff_pct <= 10:
         assessment = "Risky"
-    elif bearish:
-        assessment = 'Bearish'
     else:
         assessment = "Wait and See"
     
