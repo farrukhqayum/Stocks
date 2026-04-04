@@ -1,3 +1,5 @@
+import ta_functions as ta
+st.write("TA FUNCTIONS:", dir(ta))
 from imports import *
 import streamlit as st
 from curl_cffi import requests
