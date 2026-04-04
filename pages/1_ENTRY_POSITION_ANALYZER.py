@@ -1819,6 +1819,7 @@ def main():
                     # Calculate technical indicators
                     with st.spinner("Calculating technical indicators..."):
                         df = add_technical_indicators(df, timeframe)
+                        st.write(df.head, df.shape)
                         df = add_pivot_levels(df, window=14)
                         df = add_pivots(df, windows)
                         df = average_pivots(df, windows)
