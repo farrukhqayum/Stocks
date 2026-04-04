@@ -585,17 +585,14 @@ def add_candlestickpatterns(df):
     df['Doji'] = cs.detect_doji(df)
     df['Gravestone_Doji'] = cs.detect_gravestone(df, df['Doji'])
     df['Dragonfly_Doji'] = cs.detect_dragonfly(df, df['Doji'])
-
     bull_doji, bear_doji = cs.classify_doji(
         df,
         df['Doji'],
         df['Gravestone_Doji'],
         df['Dragonfly_Doji']
     )
-
     df['Bull_Doji'] = bull_doji
     df['Bear_Doji'] = bear_doji
-
     df['Bullish_Engulfing'] = cs.detect_bullish_engulfing(df)
     df['Hammer'] = cs.detect_hammer(df)
     df['Hanging_Man'] = cs.detect_hanging_man(df)
