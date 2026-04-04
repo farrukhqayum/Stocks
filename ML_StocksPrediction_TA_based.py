@@ -1096,7 +1096,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 X_scaled_cls, y_cls, test_size=0.2, random_state=42)
             
             model_class = RandomForestClassifier(
-                n_estimators=120, 
+                n_estimators=50, 
                 max_depth=12, 
                 min_samples_split=4,
                 min_samples_leaf=3,
@@ -1128,13 +1128,13 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 X_scaled_return, y_return, test_size=0.2, random_state=42)
 
             model_return = RandomForestRegressor(
-                n_estimators=120,
+                n_estimators=50,
                 max_depth=14,
                 min_samples_leaf=3,
                 max_features='sqrt',
                 ccp_alpha=0.001,
                 random_state=42,
-                n_jobs=-1
+                n_jobs=1
             )
             model_return.fit(X_train_ret, y_train_ret)
             
@@ -1145,13 +1145,13 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             X_train_loss, X_val_loss, y_train_loss, y_val_loss = train_test_split(
                 X_scaled_loss, y_loss, test_size=0.2, random_state=42)
             model_loss = RandomForestRegressor(
-                n_estimators=120,
+                n_estimators=50,
                 max_depth=14,
                 min_samples_leaf=3,
                 max_features='sqrt',
                 ccp_alpha=0.001,
                 random_state=42,
-                n_jobs=-1
+                n_jobs=1
             )
             model_loss.fit(X_train_loss, y_train_loss)
             
