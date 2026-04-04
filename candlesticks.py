@@ -20,15 +20,38 @@ def candle_components(df):
     total_range = df['High'] - df['Low']
     return body, upper_shadow, lower_shadow, total_range
 
+def detect_gravestone(df, doji_mask, wick_high=0.55, wick_low=0.15):
+    _, upper, lower, total = candle_components(df)
+    return (doji_mask &
+            (upper >= total * wick_high) &
+            (lower <= total * wick_low)).astype(int)
+
+def detect_dragonfly(df, doji_mask, wick_high=0.55, wick_low=0.15):
+    _, upper, lower, total = candle_components(df)
+    return (doji_mask &
+            (lower >= total * wick_high) &
+            (upper <= total * wick_low)).astype(int)
+
+def classify_doji(df, doji_mask, gravestone_mask, dragonfly_mask):
+    neutral = doji_mask & (~gravestone_mask) & (~dragonfly_mask)
+
+    bull_doji = neutral & (df['Close'] > df['Open'])
+    bear_doji = neutral & (df['Close'] < df['Open'])
+
+    return bull_doji.astype(int), bear_doji.astype(int)
 
 # ============================
 # 1. Doji
 # ============================
 
-def detect_doji(df, tolerance=0.1):
-    body, _, _, total_range = candle_components(df)
-    return ((body / total_range) < tolerance).astype(int)
+def detect_doji(df, body_thresh=0.10, wick_limit=0.45, symmetry_limit=0.15):
+    body, upper, lower, total = candle_components(df)
+    body_ok = (body <= total * body_thresh)
+    upper_ok = (upper <= total * wick_limit)
+    lower_ok = (lower <= total * wick_limit)
+    symmetry_ok = (np.abs(upper - lower) <= total * symmetry_limit)
 
+    return (body_ok & upper_ok & lower_ok & symmetry_ok).astype(int)
 
 # ============================
 # 2. Hammer
