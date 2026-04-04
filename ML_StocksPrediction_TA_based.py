@@ -15,9 +15,13 @@ import math
 import emoji
 import altair as alt
 
+st.write("### Version Information")
+st.write(f"Python: {sys.version}")
+st.write(f"Pandas version: {pd.__version__}")
+st.write(f"Numpy version: {np.__version__}")
+
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import time
-st.write("Loaded at:", time.time())
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
@@ -1115,10 +1119,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
         try:
             st.write(f"Processing {ticker}...")
             df = get_stock_data(ticker, start_date, end_date)
-            # DEBUG: Check if df is valid
-            st.write(f"DEBUG: df type = {type(df)}")
-            st.write(f"DEBUG: df shape = {df.shape if df is not None else 'None'}")
-            
+
             if df is None:
                 st.warning(f"Skipping {ticker}: Could not fetch data")
                 continue
@@ -1126,12 +1127,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             if len(df) < 50:  # Need minimum data for indicators
                 st.warning(f"Skipping {ticker}: Only {len(df)} rows of data (need at least 50)")
                 continue
-
-                        
-            # DEBUG: Show first few rows
-            st.write(f"DEBUG: df head:\n{df.head()}")
-            st.write(f"DEBUG: df columns: {df.columns.tolist()}")
-            
+                
             st.write(f"Adding technical indicators for {ticker}...")
             df = add_technical_indicators(df)
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
