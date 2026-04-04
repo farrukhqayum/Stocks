@@ -1,123 +1,169 @@
-# Importing necessary libraries
 import pandas as pd
 import numpy as np
 
-### CANDLESTICK PATTERNS
+# ============================
+# Helper Calculations
+# ============================
 
-# Function to detect Doji pattern
-def detect_doji(df, tolerance=0.001):
-    return np.where(abs(df['Open'] - df['Close']) / df['Open'] < tolerance, 1, 0)
+def candle_components(df):
+    body = (df['Close'] - df['Open']).abs()
+    upper_shadow = np.where(
+        df['Close'] >= df['Open'],
+        df['High'] - df['Close'],
+        df['High'] - df['Open']
+    )
+    lower_shadow = np.where(
+        df['Close'] >= df['Open'],
+        df['Open'] - df['Low'],
+        df['Close'] - df['Low']
+    )
+    total_range = df['High'] - df['Low']
+    return body, upper_shadow, lower_shadow, total_range
 
-# Function to detect Hammer pattern
+
+# ============================
+# 1. Doji
+# ============================
+
+def detect_doji(df, tolerance=0.1):
+    body, _, _, total_range = candle_components(df)
+    return ((body / total_range) < tolerance).astype(int)
+
+
+# ============================
+# 2. Hammer
+# ============================
+
 def detect_hammer(df):
-    body = abs(df['Close'] - df['Open'])
-    lower_shadow = np.where(df['Open'] > df['Close'], df['Open'] - df['Low'], df['Close'] - df['Low'])
-    upper_shadow = np.where(df['Close'] > df['Open'], df['High'] - df['Close'], df['High'] - df['Open'])
-    
-    return np.where((lower_shadow > 2 * body) & (upper_shadow < body), 1, 0)
+    body, upper, lower, _ = candle_components(df)
+    return ((lower >= 2 * body) & (upper <= body)).astype(int)
 
-# Function to detect Hanging Man pattern
+
+# ============================
+# 3. Hanging Man
+# ============================
+
 def detect_hanging_man(df):
-    body = abs(df['Close'] - df['Open'])
-    lower_shadow = np.where(df['Open'] > df['Close'], df['Open'] - df['Low'], df['Close'] - df['Low'])
-    upper_shadow = np.where(df['Close'] > df['Open'], df['High'] - df['Close'], df['High'] - df['Open'])
-    
-    return np.where((lower_shadow > 2 * body) & (upper_shadow < body) & (df['Open'] > df['Close']), 1, 0)
+    body, upper, lower, _ = candle_components(df)
+    bearish = df['Close'] < df['Open']
+    return ((lower >= 2 * body) & (upper <= body) & bearish).astype(int)
 
-# Function to detect Morning Star pattern
-def detect_morning_star(df):
-    pattern = np.zeros(len(df))
-    
-    for i in range(2, len(df)):
-        first_candle = df.iloc[i-2]
-        second_candle = df.iloc[i-1]
-        third_candle = df.iloc[i]
-        
-        if (first_candle['Close'] < first_candle['Open'] and 
-            abs(second_candle['Close'] - second_candle['Open']) < 0.002 * second_candle['Open'] and 
-            third_candle['Close'] > third_candle['Open'] and 
-            third_candle['Close'] > first_candle['Open']):
-            pattern[i] = 1
-            
-    return pattern
 
-# Function to detect Evening Star pattern
-def detect_evening_star(df):
-    pattern = np.zeros(len(df))
-    
-    for i in range(2, len(df)):
-        first_candle = df.iloc[i-2]
-        second_candle = df.iloc[i-1]
-        third_candle = df.iloc[i]
-        
-        if (first_candle['Close'] > first_candle['Open'] and 
-            abs(second_candle['Close'] - second_candle['Open']) < 0.002 * second_candle['Open'] and 
-            third_candle['Close'] < third_candle['Open'] and 
-            third_candle['Close'] < first_candle['Open']):
-            pattern[i] = 1
-    
-    return pattern
+# ============================
+# 4. Shooting Star
+# ============================
 
-# Function to detect Shooting Star pattern
 def detect_shooting_star(df):
-    body = abs(df['Close'] - df['Open'])
-    upper_shadow = np.where(df['Close'] > df['Open'], df['High'] - df['Close'], df['High'] - df['Open'])
-    lower_shadow = np.where(df['Open'] > df['Close'], df['Open'] - df['Low'], df['Close'] - df['Low'])
-    
-    return np.where((upper_shadow > 2 * body) & (lower_shadow < body), 1, 0)
+    body, upper, lower, _ = candle_components(df)
+    return ((upper >= 2 * body) & (lower <= body)).astype(int)
 
-# Function to detect Three White Soldiers pattern
+
+# ============================
+# 5. Morning Star
+# ============================
+
+def detect_morning_star(df):
+    pattern = np.zeros(len(df), dtype=int)
+    for i in range(2, len(df)):
+        c1 = df.iloc[i-2]
+        c2 = df.iloc[i-1]
+        c3 = df.iloc[i]
+
+        body2 = abs(c2['Close'] - c2['Open'])
+
+        if (
+            c1['Close'] < c1['Open'] and
+            body2 < 0.3 * (c2['High'] - c2['Low']) and
+            c3['Close'] > c3['Open'] and
+            c3['Close'] > c1['Open']
+        ):
+            pattern[i] = 1
+    return pattern
+
+
+# ============================
+# 6. Evening Star
+# ============================
+
+def detect_evening_star(df):
+    pattern = np.zeros(len(df), dtype=int)
+    for i in range(2, len(df)):
+        c1 = df.iloc[i-2]
+        c2 = df.iloc[i-1]
+        c3 = df.iloc[i]
+
+        body2 = abs(c2['Close'] - c2['Open'])
+
+        if (
+            c1['Close'] > c1['Open'] and
+            body2 < 0.3 * (c2['High'] - c2['Low']) and
+            c3['Close'] < c3['Open'] and
+            c3['Close'] < c1['Open']
+        ):
+            pattern[i] = 1
+    return pattern
+
+
+# ============================
+# 7. Three White Soldiers
+# ============================
+
 def detect_three_white_soldiers(df):
-    pattern = np.zeros(len(df))
-    
+    pattern = np.zeros(len(df), dtype=int)
     for i in range(2, len(df)):
-        first_candle = df.iloc[i-2]
-        second_candle = df.iloc[i-1]
-        third_candle = df.iloc[i]
-        
-        if (first_candle['Close'] > first_candle['Open'] and 
-            second_candle['Close'] > second_candle['Open'] and 
-            third_candle['Close'] > third_candle['Open'] and 
-            third_candle['Close'] > second_candle['Close'] and 
-            second_candle['Close'] > first_candle['Close']):
+        c1 = df.iloc[i-2]
+        c2 = df.iloc[i-1]
+        c3 = df.iloc[i]
+
+        if (
+            c1['Close'] > c1['Open'] and
+            c2['Close'] > c2['Open'] and
+            c3['Close'] > c3['Open'] and
+            c2['Open'] > c1['Open'] and
+            c3['Open'] > c2['Open'] and
+            c3['Close'] > c2['Close']
+        ):
             pattern[i] = 1
-    
     return pattern
 
-# Function to detect Three Black Crows pattern
+
+# ============================
+# 8. Three Black Crows
+# ============================
+
 def detect_three_black_crows(df):
-    pattern = np.zeros(len(df))
-    
+    pattern = np.zeros(len(df), dtype=int)
     for i in range(2, len(df)):
-        first_candle = df.iloc[i-2]
-        second_candle = df.iloc[i-1]
-        third_candle = df.iloc[i]
-        
-        if (first_candle['Close'] < first_candle['Open'] and 
-            second_candle['Close'] < second_candle['Open'] and 
-            third_candle['Close'] < third_candle['Open'] and 
-            third_candle['Close'] < second_candle['Close'] and 
-            second_candle['Close'] < first_candle['Close']):
+        c1 = df.iloc[i-2]
+        c2 = df.iloc[i-1]
+        c3 = df.iloc[i]
+
+        if (
+            c1['Close'] < c1['Open'] and
+            c2['Close'] < c2['Open'] and
+            c3['Close'] < c3['Open'] and
+            c2['Open'] < c1['Open'] and
+            c3['Open'] < c2['Open'] and
+            c3['Close'] < c2['Close']
+        ):
             pattern[i] = 1
-    
     return pattern
 
-# Function to detect bullish engulfing pattern
+
+# ============================
+# 9. Bullish Engulfing
+# ============================
 
 def detect_bullish_engulfing(df):
-    pattern = np.zeros(len(df), dtype=int)
-    
-    for i in range(1, len(df)):
-        prev_close = df['Close'].iloc[i-1]
-        prev_open = df['Open'].iloc[i-1]
-        curr_close = df['Close'].iloc[i]
-        curr_open = df['Open'].iloc[i]
-        
-        if (prev_open > prev_close and 
-            curr_close > curr_open and 
-            curr_close > prev_open and 
-            curr_open < prev_close):
-            pattern[i] = 1
-    
-    return pd.Series(pattern, index=df.index)
+    prev_open = df['Open'].shift(1)
+    prev_close = df['Close'].shift(1)
 
+    curr_open = df['Open']
+    curr_close = df['Close']
+
+    bearish_prev = prev_close < prev_open
+    bullish_curr = curr_close > curr_open
+
+    engulf = (curr_close > prev_open) & (curr_open < prev_close)
+
+    return (bearish_prev & bullish_curr & engulf).astype(int)
