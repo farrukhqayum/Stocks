@@ -199,11 +199,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df = ta.add_candlestickpatterns(df)
 
         patterns = ta.add_candlestickpatterns(df)
-        print("DEBUG TYPE:", type(patterns))
-        print("DEBUG COLUMNS:", getattr(patterns, "columns", None))
-        st.write("DEBUG TYPE:", type(patterns))
-        st.write("DEBUG COLUMNS:", getattr(patterns, "columns", None))
-
         # Adjust MACD periods for weekly
         if timeframe == '1W':
             ema_short = 9
@@ -217,6 +212,7 @@ def add_technical_indicators(df, timeframe='1D'):
         df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
         
         df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
+        print("DEBUG SMIIO RETURN:", ta.calculate_smiio(df))
         df['Upper_Band'] = df['EMA1'] + (2 * df['Close'].rolling(20).std())
         df['Lower_Band'] = df['EMA1'] - (2 * df['Close'].rolling(20).std())
         df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
