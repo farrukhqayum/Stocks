@@ -194,9 +194,12 @@ def add_technical_indicators(df, timeframe='1D'):
         df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
         df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
         df = ta.scaled_volatility(df)
-        df = ta.add_candlestickpatterns(df)
         df['RSI']= ta.calculate_rsi(df)
         df['RSI_SMA'] = df['RSI'].rolling(14).mean()
+        st.write("Adding candlesticks df")
+        df = ta.add_candlestickpatterns(df)
+        st.write("added candlesticks df")
+
         
         # Adjust MACD periods for weekly
         if timeframe == '1W':
@@ -1818,7 +1821,6 @@ def main():
                     # Calculate technical indicators
                     with st.spinner("Calculating technical indicators..."):
                         df = add_technical_indicators(df, timeframe)
-                        st.write(df.head, df.shape)
                         df = add_pivot_levels(df, window=14)
                         df = add_pivots(df, windows)
                         df = average_pivots(df, windows)
