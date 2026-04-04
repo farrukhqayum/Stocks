@@ -221,33 +221,64 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
+    """Fetch stock data with proper error handling"""
     try:
+        print(f"Fetching data for {ticker} from {start_date} to {end_date}")
+        
+        # Try with different parameters
         df = yf.download(
-        ticker, 
-        start=start_date, 
-        end=end_date + timedelta(days=1),
-        progress=False,
-        auto_adjust=True, 
-        actions=False
+            ticker, 
+            start=start_date, 
+            end=end_date + timedelta(days=1),
+            progress=False,
+            auto_adjust=True, 
+            actions=False,
+            threads=False  # Add this to avoid threading issues
         )
-    
-    except Exception:
+        
+        if df.empty:
+            print(f"No data returned for {ticker}")
+            # Try alternative method
+            ticker_obj = yf.Ticker(ticker)
+            df = ticker_obj.history(start=start_date, end=end_date + timedelta(days=1))
+            
+        if df.empty:
+            print(f"Still no data for {ticker} after second attempt")
+            return None
+            
+        print(f"Successfully fetched {len(df)} rows for {ticker}")
+        
+        # Reset index and process
+        df = df.reset_index()
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.set_index('Date', inplace=True)
+        
+        # Handle column names (for multi-index columns)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+        
+        # Ensure we have required columns
+        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+        for col in required_cols:
+            if col not in df.columns:
+                print(f"Missing column {col} for {ticker}")
+                return None
+        
+        df = df.dropna()
+        
+        if df.empty:
+            print(f"All data was NaN for {ticker}")
+            return None
+            
+        # Convert to float32 for memory efficiency
+        df = optimize_dataframe(df)
+        
+        print(f"Successfully processed {ticker} with {len(df)} rows")
+        return df
+        
+    except Exception as e:
+        print(f"Error fetching {ticker}: {type(e).__name__}: {str(e)}")
         return None
-
-    if df.empty:
-        return None
-
-    df = df.reset_index()
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.set_index('Date', inplace=True)
-    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    df = df.dropna()
-
-    if df.empty:
-        return None
-
-    df_a = optimize_dataframe(df) # 32-bit
-    return df_a
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
