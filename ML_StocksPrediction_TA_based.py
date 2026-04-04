@@ -15,6 +15,10 @@ import math
 import emoji
 import altair as alt
 
+import ta_functions as ta
+st.write("TA FILE PATH:", ta.__file__)
+
+
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
