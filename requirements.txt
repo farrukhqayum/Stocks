@@ -10,6 +10,7 @@ tabulate
 pandas
 emoji
 requests
+altair 
 
 
 
