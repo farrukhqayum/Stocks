@@ -195,8 +195,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
         df = ta.scaled_volatility(df)
         df = ta.add_candlestickpatterns(df)
-        st.write("DEBUG candlestick return type:", type(df))
-        st.write("DEBUG candlestick columns:", getattr(df, "columns", None))
         df['RSI']= ta.calculate_rsi(df)
         df['RSI_SMA'] = df['RSI'].rolling(14).mean()
         
