@@ -1209,6 +1209,9 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
         try:
             st.write(f"Processing {ticker}...")
             df = get_stock_data(ticker, start_date, end_date)
+            # DEBUG: Check if df is valid
+            st.write(f"DEBUG: df type = {type(df)}")
+            st.write(f"DEBUG: df shape = {df.shape if df is not None else 'None'}")
             
             if df is None:
                 st.warning(f"Skipping {ticker}: Could not fetch data")
@@ -1217,7 +1220,12 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             if len(df) < 50:  # Need minimum data for indicators
                 st.warning(f"Skipping {ticker}: Only {len(df)} rows of data (need at least 50)")
                 continue
-                
+
+                        
+            # DEBUG: Show first few rows
+            st.write(f"DEBUG: df head:\n{df.head()}")
+            st.write(f"DEBUG: df columns: {df.columns.tolist()}")
+            
             st.write(f"Adding technical indicators for {ticker}...")
             df = add_technical_indicators_debug(df)
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
