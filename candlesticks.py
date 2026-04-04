@@ -52,13 +52,17 @@ def classify_doji(df, doji_mask, gravestone_mask, dragonfly_mask):
 
 def detect_doji(df, body_thresh=0.10, wick_limit=0.45, symmetry_limit=0.15):
     body, upper, lower, total = candle_components(df)
+
+    # Prevent division-by-zero and invalid masks
     total = np.where(total == 0, 1e-9, total)
+
     body_ok = (body <= total * body_thresh)
     upper_ok = (upper <= total * wick_limit)
     lower_ok = (lower <= total * wick_limit)
     symmetry_ok = (np.abs(upper - lower) <= total * symmetry_limit)
 
     return (body_ok & upper_ok & lower_ok & symmetry_ok).astype(int)
+
 
 # ============================
 # 2. Hammer
