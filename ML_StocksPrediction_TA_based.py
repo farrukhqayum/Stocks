@@ -284,9 +284,10 @@ def add_technical_indicators(df):
     df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
+    st.write("done")
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
-
+    st.write("done")
     # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
@@ -344,11 +345,11 @@ def add_technical_indicators(df):
             )
         )
     ]
-    
+    st.write("done y")
     choices = ['Hold', 'Bull', 'Short', 'Bear']  # ✅ Priority order!
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
- 
+    st.write("done x")
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
     expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
     for col in expected_cols:
@@ -1061,14 +1062,11 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 else:
                     raise ValueError("DataFrame must have Date as index or column for plotting!")
             df = add_technical_indicators(df)
-            st.write("TI done")
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
-            st.write("vo done")
             df['BuyTime'] = (
                 (df['Bull'] == 1) &
                 ((df['Close'] - df['EMA1']) / df['EMA1'] <= 0.02)
             )
-            st.write("vol done")
             df = add_pivot_levels(df, window=14)
             df = add_pivots(df, windows)
             df = average_pivots(df, windows)
