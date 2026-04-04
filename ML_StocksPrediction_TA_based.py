@@ -284,9 +284,7 @@ def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
-
-
-def add_technical_indicators(df):
+def add_technical_indicators_debug(df):
     # Use st.write for immediate output
     st.write("🔍 Entering add_technical_indicators")
     
