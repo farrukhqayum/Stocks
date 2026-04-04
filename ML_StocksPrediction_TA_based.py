@@ -1,4 +1,5 @@
 from imports import *
+st.write("TA FILE PATH:", ta.__file__)
 import streamlit as st
 from curl_cffi import requests
 import time
