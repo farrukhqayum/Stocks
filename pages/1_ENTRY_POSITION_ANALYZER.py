@@ -196,9 +196,7 @@ def add_technical_indicators(df, timeframe='1D'):
         df = ta.scaled_volatility(df)
         df['RSI']= ta.calculate_rsi(df)
         df['RSI_SMA'] = df['RSI'].rolling(14).mean()
-        st.write("Adding candlesticks df")
         df = ta.add_candlestickpatterns(df)
-        st.write("added candlesticks df")
         # Adjust MACD periods for weekly
         if timeframe == '1W':
             ema_short = 9
@@ -206,7 +204,7 @@ def add_technical_indicators(df, timeframe='1D'):
         else:
             ema_short = 12
             ema_long = 26
-            
+        st.write("After candlesticks - computing")
         ema12 = df['Close'].ewm(span=ema_short, adjust=False).mean()
         ema26 = df['Close'].ewm(span=ema_long, adjust=False).mean()
         df['MACD'] = ema12 - ema26
@@ -327,7 +325,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
         df['gapStrength'] = ta.compute_gapStrength(df)
         df = ta.add_exhaustion_indicator(df)
-        st.write("added TI df")
         df.Close = close
         return df
         
