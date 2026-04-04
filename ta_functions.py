@@ -183,6 +183,7 @@ def calcBollingerBands (df):
     
 def calculate_rsi(df, w=14):
     close_prices = df['Close']
+    # Calculate price changes (delta)
     delta = close_prices.diff()
 
     # Separate positive gains (where the price went up) and negative losses (where the price went down)
@@ -278,7 +279,7 @@ def chaikin_money_flow(df, window=20):
     mfm = ((close - low) - (high - close)) / (high - low)
     mfm = mfm.replace([np.inf, -np.inf], 0).fillna(0)
     mfv = mfm * volume
-    cmf = mfv.rolling(window).sum() / volume.rolling(window).sum()
+    cmf = mfv.rolling(window).sum() *-1/ volume.rolling(window).sum()
     return cmf
 
 def calculate_mfi(data, period=20):
@@ -737,5 +738,4 @@ def plot_divergences(df, bullish, bearish, hidden_bull, hidden_bear, double_tops
     # Double bottoms (RSI) with purple dotted lines on RSI only (optional)
     for i1, i2 in double_bottoms:
         ax_rsi.plot([df.index[i1], df.index[i2]], [df['RSI'].iloc[i1], df['RSI'].iloc[i2]], color='purple', alpha=alpha_val, lw=1.2, linestyle='dotted')
-
 
