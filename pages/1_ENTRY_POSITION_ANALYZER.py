@@ -1838,9 +1838,6 @@ def main():
                     with st.spinner("Labeling hit probabilities..."):
                         df = label_hit_prob_past(df, profit_target=user_gain / 100, stop_loss=user_loss / 100)
 
-                    st.write("Columns:", df.columns.tolist())
-                    st.write(df.head())
-
                     # Train models
                     with st.spinner(f"Training {timeframe} ML models..."):
                         models = train_models(df, timeframe)
