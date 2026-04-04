@@ -1084,7 +1084,6 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                            
 #  🟡 Make Predictions (Gain/Loss/Confidence)
 def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
-    
     n = 1
     dfs = {}
     results = []
@@ -1093,12 +1092,18 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     for ticker in TICKERS:
         try:
+            st.write(f"Processing {ticker}...")
             df = get_stock_data(ticker, start_date, end_date)
-            if not pd.api.types.is_datetime64_any_dtype(df.index):
-                if "Date" in df.columns:
-                    df = df.set_index("Date")
-                else:
-                    raise ValueError("DataFrame must have Date as index or column for plotting!")
+            
+            if df is None:
+                st.warning(f"Skipping {ticker}: Could not fetch data")
+                continue
+                
+            if len(df) < 50:  # Need minimum data for indicators
+                st.warning(f"Skipping {ticker}: Only {len(df)} rows of data (need at least 50)")
+                continue
+                
+            st.write(f"Adding technical indicators for {ticker}...")
             df = add_technical_indicators(df)
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
             df['BuyTime'] = (
