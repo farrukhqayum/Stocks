@@ -1799,6 +1799,7 @@ def main():
                     # Fetch data for timeframe
                     with st.spinner(f"Fetching {timeframe} data..."):
                         df = get_stock_data(ticker, start_date, end_date, interval)
+                        st.write(df.head, df.shape)
 
                     if df is None:
                         st.warning(f"No data available for {timeframe} timeframe")
