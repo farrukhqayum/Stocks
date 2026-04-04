@@ -1079,7 +1079,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
             df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
             df['Hit_Label'] = df['Hit_Label'].fillna(0).astype(int)
-            
+            st.write("df defined...")
             dfs[ticker] = df
             
             df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
