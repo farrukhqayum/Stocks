@@ -284,10 +284,8 @@ def add_technical_indicators(df):
     df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
-    st.write("done")
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
-    st.write("done")
     # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
@@ -345,11 +343,9 @@ def add_technical_indicators(df):
             )
         )
     ]
-    st.write("done y")
     choices = ['Hold', 'Bull', 'Short', 'Bear']  # ✅ Priority order!
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
-    st.write("done x")
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
     expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
     for col in expected_cols:
