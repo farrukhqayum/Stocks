@@ -581,28 +581,11 @@ def predict_prices(model, data, scaler, num_days=5, window_size=300):
     return predicted_prices
     
 def add_candlestickpatterns(df):
+    # Ensure df is a copy, not a view, to avoid the SettingWithCopyWarning
     df = df.copy()
-
-    # Doji family
-    doji_mask = cs.detect_doji(df)                 # np.ndarray
-    gravestone_mask = cs.detect_gravestone(df, doji_mask)
-    dragonfly_mask = cs.detect_dragonfly(df, doji_mask)
-
-    bull_doji, bear_doji = cs.classify_doji(
-        df,
-        doji_mask,
-        gravestone_mask,
-        dragonfly_mask
-    )
-
-    df['Doji'] = doji_mask
-    df['Gravestone_Doji'] = gravestone_mask
-    df['Dragonfly_Doji'] = dragonfly_mask
-    df['Bull_Doji'] = bull_doji
-    df['Bear_Doji'] = bear_doji
-
-    # Other patterns
+    # Detect candlestick patterns and add to dataframe
     df['Bullish_Engulfing'] = cs.detect_bullish_engulfing(df)
+    df['Doji'] = cs.detect_doji(df)
     df['Hammer'] = cs.detect_hammer(df)
     df['Hanging_Man'] = cs.detect_hanging_man(df)
     df['Morning_Star'] = cs.detect_morning_star(df)
@@ -611,20 +594,16 @@ def add_candlestickpatterns(df):
     df['Three_White_Soldiers'] = cs.detect_three_white_soldiers(df)
     df['Three_Black_Crows'] = cs.detect_three_black_crows(df)
 
-    df['Candlesticks'] = (
-        df['Bull_Doji'] * 1 +
-        df['Bear_Doji'] * 2 +
-        df['Gravestone_Doji'] * 3 +
-        df['Dragonfly_Doji'] * 4 +
-        df['Hammer'] * 5 +
-        df['Hanging_Man'] * 6 +
-        df['Morning_Star'] * 7 +
-        df['Evening_Star'] * 8 +
-        df['Shooting_Star'] * 9 +
-        df['Three_White_Soldiers'] * 10 +
-        df['Three_Black_Crows'] * 11 +
-        df['Bullish_Engulfing'] * 12
-    )
+    # Combine all patterns into one column
+    df['Candlesticks'] = (df['Doji'] +
+                          df['Hammer'] * 2 + 
+                          df['Hanging_Man'] * 3 + 
+                          df['Morning_Star'] * 4 + 
+                          df['Evening_Star'] * 5 +
+                          df['Shooting_Star'] * 6 +
+                          df['Three_White_Soldiers'] * 7 + 
+                          df['Three_Black_Crows'] * 8 + 
+                          df['Bullish_Engulfing'] * 9)
 
     return df
 
