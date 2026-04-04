@@ -16,6 +16,8 @@ import emoji
 import altair as alt
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import time
+st.write("Loaded at:", time.time())
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
