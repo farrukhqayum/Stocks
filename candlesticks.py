@@ -22,21 +22,27 @@ def candle_components(df):
 
 def detect_gravestone(df, doji_mask, wick_high=0.55, wick_low=0.15):
     _, upper, lower, total = candle_components(df)
-    return (doji_mask &
+    doji_mask = np.asarray(doji_mask)
+    return ((doji_mask) &
             (upper >= total * wick_high) &
             (lower <= total * wick_low)).astype(int)
 
 def detect_dragonfly(df, doji_mask, wick_high=0.55, wick_low=0.15):
     _, upper, lower, total = candle_components(df)
-    return (doji_mask &
+    doji_mask = np.asarray(doji_mask)
+    return ((doji_mask) &
             (lower >= total * wick_high) &
             (upper <= total * wick_low)).astype(int)
 
 def classify_doji(df, doji_mask, gravestone_mask, dragonfly_mask):
+    doji_mask = np.asarray(doji_mask)
+    gravestone_mask = np.asarray(gravestone_mask)
+    dragonfly_mask = np.asarray(dragonfly_mask)
+
     neutral = doji_mask & (~gravestone_mask) & (~dragonfly_mask)
 
-    bull_doji = neutral & (df['Close'] > df['Open'])
-    bear_doji = neutral & (df['Close'] < df['Open'])
+    bull_doji = neutral & (df['Close'].values > df['Open'].values)
+    bear_doji = neutral & (df['Close'].values < df['Open'].values)
 
     return bull_doji.astype(int), bear_doji.astype(int)
 
