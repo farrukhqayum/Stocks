@@ -1133,7 +1133,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             st.write(f"DEBUG: df columns: {df.columns.tolist()}")
             
             st.write(f"Adding technical indicators for {ticker}...")
-            df = add_technical_indicators_debug(df)
+            df = add_technical_indicators(df)
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
             df['BuyTime'] = (
                 (df['Bull'] == 1) &
