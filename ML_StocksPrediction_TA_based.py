@@ -15,10 +15,6 @@ import math
 import emoji
 import altair as alt
 
-import ta_functions as ta
-st.write("TA FILE PATH:", ta.__file__)
-
-
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
@@ -249,29 +245,6 @@ def strip_ansi_codes(text):
     return ansi_escape.sub('', text)
 
 def add_technical_indicators(df):
-    st.write("Running DMI...")
-    ta.calculate_dmi(df)
-    st.write("DMI OK")
-    
-    st.write("Running Keltner...")
-    ta.calculate_keltner(df)
-    st.write("Keltner OK")
-    
-    st.write("Running Vortex...")
-    ta.calculate_vortex(df)
-    st.write("Vortex OK")
-    
-    st.write("Running Supertrend...")
-    ta.calculate_supertrend(df)
-    st.write("Supertrend OK")
-    
-    st.write("Running CCI...")
-    ta.calculate_cci(df)
-    st.write("CCI OK")
-    
-    st.write("Running Exhaustion...")
-    ta.add_exhaustion_indicator(df)
-    st.write("Exhaustion OK")
     close = df.Close
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
     df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
@@ -1096,9 +1069,12 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             df = add_pivot_levels(df, window=14)
             df = add_pivots(df, windows)
             df = average_pivots(df, windows)
+            st.write("Pivots done")
             df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
             df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
+            st.write("gain/loss done")
             df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
+            st.write("Hit labels done...")
             df['Hit_Label'] = df['Hit_Label'].fillna(0).astype(int)
             dfs[ticker] = df
             
@@ -1126,7 +1102,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             )
 
             model_class.fit(X_train_cls, y_train_cls)
-            
+            st.write("Model fits")
             # --- Step 2: Extract Full Class Probabilities as Features ---
             cls_probs = model_class.predict_proba(X_scaled_cls)
             # Extract probability columns for all expected classes safely
@@ -1174,7 +1150,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 n_jobs=-1
             )
             model_loss.fit(X_train_loss, y_train_loss)
-            
+            st.write("Model Loss done")
             # --- Step 5: Live Prediction ---
             latest = df.iloc[[-1]]
             if latest[FEATURES].isnull().values.any():
@@ -1219,6 +1195,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             predicted_sl = current_price * (1 + predicted_loss)
             entry_price = (current_price + predicted_sl) / 2
             entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
+            st.write("preconf done")
 
             # Confidence calculation
             p_none  = latest_prob_features.get('Prob_Class_0', 0)
