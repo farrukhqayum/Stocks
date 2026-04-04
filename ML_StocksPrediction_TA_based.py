@@ -1,5 +1,3 @@
-import ta_functions as ta
-st.write("TA FUNCTIONS:", dir(ta))
 from imports import *
 import streamlit as st
 from curl_cffi import requests
@@ -18,6 +16,9 @@ import emoji
 import altair as alt
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+import ta_functions as ta
+st.write("TA FUNCTIONS:", dir(ta))
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
