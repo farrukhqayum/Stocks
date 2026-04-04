@@ -1097,7 +1097,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             
             model_class = RandomForestClassifier(
                 n_estimators=50, 
-                max_depth=12, 
+                max_depth=4, 
                 min_samples_split=4,
                 min_samples_leaf=3,
                 max_features='sqrt',
