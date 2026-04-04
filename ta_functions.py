@@ -582,17 +582,27 @@ def predict_prices(model, data, scaler, num_days=5, window_size=300):
     
 def add_candlestickpatterns(df):
     df = df.copy()
-    df['Doji'] = cs.detect_doji(df)
-    df['Gravestone_Doji'] = cs.detect_gravestone(df, df['Doji'])
-    df['Dragonfly_Doji'] = cs.detect_dragonfly(df, df['Doji'])
+
+    # Convert Series → NumPy arrays for internal logic
+    doji_mask = cs.detect_doji(df).values
+    gravestone_mask = cs.detect_gravestone(df, doji_mask).values
+    dragonfly_mask = cs.detect_dragonfly(df, doji_mask).values
+
     bull_doji, bear_doji = cs.classify_doji(
         df,
-        df['Doji'],
-        df['Gravestone_Doji'],
-        df['Dragonfly_Doji']
+        doji_mask,
+        gravestone_mask,
+        dragonfly_mask
     )
+
+    # Assign back to DataFrame
+    df['Doji'] = doji_mask
+    df['Gravestone_Doji'] = gravestone_mask
+    df['Dragonfly_Doji'] = dragonfly_mask
     df['Bull_Doji'] = bull_doji
     df['Bear_Doji'] = bear_doji
+
+    # Other patterns (these are fine)
     df['Bullish_Engulfing'] = cs.detect_bullish_engulfing(df)
     df['Hammer'] = cs.detect_hammer(df)
     df['Hanging_Man'] = cs.detect_hanging_man(df)
@@ -602,6 +612,7 @@ def add_candlestickpatterns(df):
     df['Three_White_Soldiers'] = cs.detect_three_white_soldiers(df)
     df['Three_Black_Crows'] = cs.detect_three_black_crows(df)
 
+    # Combined code
     df['Candlesticks'] = (
         df['Bull_Doji'] * 1 +
         df['Bear_Doji'] * 2 +
@@ -616,6 +627,7 @@ def add_candlestickpatterns(df):
         df['Three_Black_Crows'] * 11 +
         df['Bullish_Engulfing'] * 12
     )
+
     return df
 
 def detect_divergences(df, period=14, max_bar_diff=3):
