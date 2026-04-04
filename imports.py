@@ -1,5 +1,6 @@
 # Importing necessary libraries
 import os
+import re
 from datetime import datetime, timedelta
 from time import sleep
 
@@ -8,6 +9,7 @@ import numpy as np
 import openpyxl
 
 import yfinance as yf
+import pandas_datareader.data as web
 import ta_functions as ta
 from scipy.stats import norm
 
@@ -28,6 +30,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score, classification_report, confusion_matrix
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.calibration import CalibratedClassifierCV
+
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
 from tabulate import tabulate

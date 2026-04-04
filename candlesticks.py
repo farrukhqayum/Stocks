@@ -120,3 +120,4 @@ def detect_bullish_engulfing(df):
             pattern[i] = 1
     
     return pd.Series(pattern, index=df.index)
+
