@@ -204,7 +204,6 @@ def add_technical_indicators(df, timeframe='1D'):
         else:
             ema_short = 12
             ema_long = 26
-        st.write("After candlesticks - computing")
         ema12 = df['Close'].ewm(span=ema_short, adjust=False).mean()
         ema26 = df['Close'].ewm(span=ema_long, adjust=False).mean()
         df['MACD'] = ema12 - ema26
