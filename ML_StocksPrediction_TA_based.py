@@ -14,7 +14,7 @@ import matplotlib.dates as mdates
 import math
 import emoji
 import altair as alt
-
+import sys
 st.write("### Version Information")
 st.write(f"Python: {sys.version}")
 st.write(f"Pandas version: {pd.__version__}")
