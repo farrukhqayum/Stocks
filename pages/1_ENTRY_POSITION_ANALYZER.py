@@ -210,7 +210,9 @@ def add_technical_indicators(df, timeframe='1D'):
         ema26 = df['Close'].ewm(span=ema_long, adjust=False).mean()
         df['MACD'] = ema12 - ema26
         df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
-        print("DEBUG SMIIO RETURN:", ta.calculate_smiio(df))
+        st.write("DEBUG BEFORE SMIIO:", df.shape)
+        result = ta.calculate_smiio(df)
+        st.write("DEBUG SMIIO RESULT:", result)
         df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
         df['Upper_Band'] = df['EMA1'] + (2 * df['Close'].rolling(20).std())
         df['Lower_Band'] = df['EMA1'] - (2 * df['Close'].rolling(20).std())
