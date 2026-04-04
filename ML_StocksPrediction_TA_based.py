@@ -284,6 +284,121 @@ def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
+def add_technical_indicators_debug(df):
+    try:
+        print("Starting add_technical_indicators...")
+        close = df.Close
+        df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
+        
+        print("Calculating EMAs...")
+        df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
+        df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
+        df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
+        df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
+        
+        print("Calculating ATR...")
+        df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
+        
+        print("Calculating scaled volatility...")
+        df = ta.scaled_volatility(df)
+        
+        print("Adding candlestick patterns...")
+        df = ta.add_candlestickpatterns(df)
+        
+        print("Calculating RSI...")
+        df['RSI'] = ta.calculate_rsi(df)
+        df['RSI_SMA'] = df['RSI'].rolling(14).mean()
+        
+        print("Calculating MACD...")
+        ema12 = df['Close'].ewm(span=12, adjust=False).mean()
+        ema26 = df['Close'].ewm(span=24, adjust=False).mean()
+        df['MACD'] = ema12 - ema26
+        df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
+        
+        print("Calculating SMIIO...")
+        smiio_result = ta.calculate_smiio(df)
+        if isinstance(smiio_result, tuple) and len(smiio_result) == 3:
+            df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = smiio_result
+        else:
+            print(f"SMIIO returned unexpected type: {type(smiio_result)}")
+            df['SMIIO'] = df['SMIIO_Signal'] = df['SMIIO_Osc'] = 0
+        
+        print("Calculating Bollinger Bands...")
+        df['Upper_Band'] = df['EMA1'] + (2 * df['Close'].rolling(20).std())
+        df['Lower_Band'] = df['EMA1'] - (2 * df['Close'].rolling(20).std())
+        df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
+        
+        print("Calculating volume features...")
+        df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
+        df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
+        df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
+        df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
+        df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'], np.where(df['Close'] > df['Open'], 1, -1), 0)
+        df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
+        
+        print("Calculating MFI and CMF...")
+        df['MFI'] = ta.calculate_mfi(df)
+        df['CMF'] = ta.chaikin_money_flow(df, window=20)
+        
+        print("Calculating CCI and OBV...")
+        df['CCI'] = ta.calculate_cci(df)
+        df['OBV'] = ta.calculate_obv(df)
+        
+        print("Calculating DMI...")
+        dmi_result = ta.calculate_dmi(df, n=14)
+        if isinstance(dmi_result, pd.DataFrame):
+            df[['+DI', '-DI', 'ADX']] = dmi_result.rolling(3).mean()
+        else:
+            print(f"DMI returned unexpected type: {type(dmi_result)}")
+            df['+DI'] = df['-DI'] = df['ADX'] = 0
+        
+        print("Calculating VWMA...")
+        df['VWMA'] = ta.calculate_vwma(df)
+        
+        print("Calculating Keltner Channels...")
+        keltner_result = ta.calculate_keltner(df)
+        if isinstance(keltner_result, pd.DataFrame):
+            df[['KCm', 'KCu', 'KCl', 'KCu_outer', 'KCl_outer', 'Kasym', 'Kcount']] = keltner_result.rolling(3).mean()
+        else:
+            print(f"Keltner returned unexpected type: {type(keltner_result)}")
+        
+        print("Calculating Vortex...")
+        vortex_result = ta.calculate_vortex(df)
+        if isinstance(vortex_result, pd.DataFrame):
+            df[['VI+', 'VI-']] = vortex_result
+        else:
+            print(f"Vortex returned unexpected type: {type(vortex_result)}")
+        
+        print("Calculating Supertrend...")
+        supertrend_result = ta.calculate_supertrend(df)
+        if isinstance(supertrend_result, pd.DataFrame):
+            df[['STu', 'STl']] = supertrend_result
+        else:
+            print(f"Supertrend returned unexpected type: {type(supertrend_result)}")
+        
+        print("Calculating returns and volatility...")
+        df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
+        df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
+        df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
+        df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
+        df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
+        
+        print("Filling NaN values...")
+        cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
+        df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+        
+        print("Setting TI conditions...")
+        # Your TI conditions here...
+        
+        df.Close = close
+        print("Successfully completed add_technical_indicators")
+        return df
+        
+    except Exception as e:
+        print(f"Error in add_technical_indicators: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 def add_technical_indicators(df):
     close = df.Close
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
@@ -1104,7 +1219,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 continue
                 
             st.write(f"Adding technical indicators for {ticker}...")
-            df = add_technical_indicators(df)
+            df = add_technical_indicators_debug(df)
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
             df['BuyTime'] = (
                 (df['Bull'] == 1) &
