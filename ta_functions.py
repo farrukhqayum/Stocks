@@ -290,29 +290,26 @@ def calculate_mfi(data, period=20):
     required_columns = ['High', 'Low', 'Close', 'Volume']
     if not all(column in data.columns for column in required_columns):
         raise ValueError(f"DataFrame must contain the following columns: {required_columns}")
-
+    data = data.copy()
+    
     data['TP'] = (data['High'] + data['Low'] + data['Close']) / 3
     data['RMF'] = data['TP'] * data['Volume']
     data['TP_diff'] = data['TP'].diff()
-
+    
     data['Positive_MF'] = np.where(data['TP_diff'] > 0, data['RMF'], 0)
     data['Negative_MF'] = np.where(data['TP_diff'] < 0, data['RMF'], 0)
 
-    # Step 4: Calculate the rolling sums of Positive and Negative Money Flow
     data['Positive_MF_sum'] = data['Positive_MF'].rolling(window=period).sum()
     data['Negative_MF_sum'] = data['Negative_MF'].rolling(window=period).sum()
 
-    data['MFR'] = data['Positive_MF_sum'] / data['Negative_MF_sum'].replace(0, np.nan)
-    data['MFR'].fillna(100, inplace=True)
-
+    data['MFR'] = np.where(data['Negative_MF_sum'] != 0, 
+                           data['Positive_MF_sum'] / data['Negative_MF_sum'], 
+                           np.nan)
+    
+    data['MFI'] = 100 - (100 / (1 + data['MFR']))
     data['MFI'] = np.where(data['Negative_MF_sum'] == 0, 100, data['MFI'])
-
-    # Drop unnecessary columns before returning MFI
-    data.drop(columns=['TP', 'RMF', 'TP_diff', 'Positive_MF', 
-                       'Negative_MF', 'Positive_MF_sum', 'Negative_MF_sum', 
-                       'MFR'], inplace=True)
-
-    return data['MFI']
+    data['MFI'].fillna(50, inplace=True)
+    return data['MFI'].values 
 
 def calculate_smiio(df, r=13, s=25, u=9):
     price = df['Close']
