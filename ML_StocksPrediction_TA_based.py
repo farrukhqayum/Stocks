@@ -247,7 +247,8 @@ def add_technical_indicators(df):
         df['STl'] = supertrend_result['STl']
         
         # Drawdown
-        df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
+        df['DD'] = df['Close'] - df['Close'].rolling(14).max()
+        df['DD'] = df['DD'].shift(1)
         
         # Returns
         df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
