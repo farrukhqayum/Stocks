@@ -150,24 +150,25 @@ def scaled_volatility(df, window=9):
 # ============================================
 # OSCILLATORS AND MOMENTUM
 # ============================================
-
 def calculate_rsi(df, period=14):
     """Relative Strength Index - returns pandas Series"""
-    # Handle both DataFrame and Series input
     if isinstance(df, pd.DataFrame):
         close = df['Close']
+    elif isinstance(df, pd.Series):
+        close = df
     else:
-        close = pd.Series(df) if not isinstance(df, pd.Series) else df
+        close = pd.Series(df)
     
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
     avg_gain = gain.rolling(window=period, min_periods=1).mean()
     avg_loss = loss.rolling(window=period, min_periods=1).mean()
-    rs = safe_divide(avg_gain, avg_loss, 1)
+
+    rs = avg_gain / avg_loss.where(avg_loss != 0, 1)
     rsi = 100 - (100 / (1 + rs))
-    result = pd.Series(rsi.fillna(50), index=close.index, name='RSI')
-    return result
+    rsi = rsi.fillna(50)
+    return pd.Series(rsi, index=close.index, name='RSI')
 
 def calculate_stochrsi(df, rsi_period=14, stoch_period=20, d_period=9):
     """Stochastic RSI"""
