@@ -332,12 +332,20 @@ def add_technical_indicators(df):
 def add_pivot_levels(df, window=_DAYS):
     high = df['High'].rolling(window)
     low = df['Low'].rolling(window)
-    close = df['Close'].rolling(window)
-    PP = (high.max() + low.min() + close.apply(lambda x: x[-1])).div(3)
-    R1 = 2 * PP - low.min()
-    S1 = 2 * PP - high.max()
-    R2 = PP + (high.max() - low.min())
-    S2 = PP - (high.max() - low.min())
+    close = df['Close']
+    
+    high_max = high.max()
+    low_min = low.min()
+    
+    # Get last close of each window safely
+    close_last = close.rolling(window).apply(lambda x: x.iloc[-1] if len(x) > 0 else x.iloc[0] if len(x) > 0 else 0)
+    
+    PP = (high_max + low_min + close_last).div(3)
+    R1 = 2 * PP - low_min
+    S1 = 2 * PP - high_max
+    R2 = PP + (high_max - low_min)
+    S2 = PP - (high_max - low_min)
+    
     df['PP'] = PP.bfill()
     df['R1'] = R1.bfill()
     df['S1'] = S1.bfill()
@@ -350,18 +358,24 @@ def add_pivots(df, win=windows):
         roll_high = df['High'].rolling(w)
         roll_low = df['Low'].rolling(w)
         roll_close = df['Close'].rolling(w)
-        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x[-1])).div(3)
-        R1 = 2 * PP - roll_low.min()
-        S1 = 2 * PP - roll_high.max()
-        R2 = PP + (roll_high.max() - roll_low.min())
-        S2 = PP - (roll_high.max() - roll_low.min())
+        
+        high_max = roll_high.max()
+        low_min = roll_low.min()
+        close_last = roll_close.apply(lambda x: x.iloc[-1] if len(x) > 0 else 0)
+        
+        PP = (high_max + low_min + close_last).div(3)
+        R1 = 2 * PP - low_min
+        S1 = 2 * PP - high_max
+        R2 = PP + (high_max - low_min)
+        S2 = PP - (high_max - low_min)
+        
         df[f"PP_{w}"] = PP
         df[f"R1_{w}"] = R1
         df[f"S1_{w}"] = S1
         df[f"R2_{w}"] = R2
         df[f"S2_{w}"] = S2
     return df
-
+    
 def average_pivots(df, windows=[5, 10, 14, 20]):
     for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
         cols = [f"{level}_{w}" for w in windows if f"{level}_{w}" in df.columns]
