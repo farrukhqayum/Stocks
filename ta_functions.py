@@ -342,32 +342,31 @@ def calculate_cci(data, period=20):
     return data['CCI']
 
 def calculate_dmi(df, n=14):
-    # Calculate True Range (TR)
+    df = df.copy()
     df['High-Low'] = df['High'] - df['Low']
     df['High-PrevClose'] = np.abs(df['High'] - df['Close'].shift(1))
     df['Low-PrevClose'] = np.abs(df['Low'] - df['Close'].shift(1))
     df['TR'] = df[['High-Low', 'High-PrevClose', 'Low-PrevClose']].max(axis=1)
-
-    # Calculate Directional Movements
-    df['+DM'] = np.where((df['High'] - df['High'].shift(1)) > 
-                               (df['Low'].shift(1) - df['Low']), 
-                               df['High'] - df['High'].shift(1), 0)
-    df['-DM'] = np.where((df['Low'].shift(1) - df['Low']) > 
-                               (df['High'] - df['High'].shift(1)), 
-                               df['Low'].shift(1) - df['Low'], 0)
-
-    # Smooth the True Range, +DM, and -DM with an exponential moving average (EMA)
+    high_diff = df['High'] - df['High'].shift(1)
+    low_diff = df['Low'].shift(1) - df['Low']
+    
+    df['+DM'] = np.where((high_diff > low_diff) & (high_diff > 0), high_diff, 0)
+    df['-DM'] = np.where((low_diff > high_diff) & (low_diff > 0), low_diff, 0)
     df['TR_smooth'] = df['TR'].rolling(window=n).mean()
     df['+DM_smooth'] = df['+DM'].rolling(window=n).mean()
     df['-DM_smooth'] = df['-DM'].rolling(window=n).mean()
-
     df['+DI'] = 100 * (df['+DM_smooth'] / df['TR_smooth'].replace(0, np.nan))
     df['-DI'] = 100 * (df['-DM_smooth'] / df['TR_smooth'].replace(0, np.nan))
-    df['DX'] = 100 * (np.abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI']).replace(0, np.nan))
-    df['+DI'].fillna(0, inplace=True)
-    df['-DI'].fillna(0, inplace=True)
-    df['ADX'].fillna(0, inplace=True)
 
+    # Calculate DX (Directional Index)
+    di_sum = df['+DI'] + df['-DI']
+    di_sum = di_sum.replace(0, np.nan)
+    df['DX'] = 100 * (np.abs(df['+DI'] - df['-DI']) / di_sum)
+    df['ADX'] = df['DX'].rolling(window=n).mean()
+    df['+DI'] = df['+DI'].fillna(0)
+    df['-DI'] = df['-DI'].fillna(0)
+    df['ADX'] = df['ADX'].fillna(0)
+    
     return df[['+DI', '-DI', 'ADX']]
 
 def add_exhaustion_indicator(df, lookback=90, threshold=0.10):
