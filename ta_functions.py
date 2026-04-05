@@ -238,18 +238,22 @@ def calculate_cci(data, period=20):
         return pd.Series([0] * len(data), index=data.index if hasattr(data, 'index') else None, name='CCI')
 
 def calculate_smiio(df, r=13, s=25, u=9):
-    """SMIIO Indicator - returns tuple of Series"""
-    price = df['Close']
+    """SMIIO Indicator - returns tuple of pandas Series"""
+    if isinstance(df, pd.DataFrame):
+        price = df['Close']
+    else:
+        price = pd.Series(df)
+    
     m = price - price.shift(1)
     ema1 = m.ewm(span=r, adjust=False).mean()
     ema2 = ema1.ewm(span=s, adjust=False).mean()
     abs_m = np.abs(m)
     abs_ema1 = abs_m.ewm(span=r, adjust=False).mean()
     abs_ema2 = abs_ema1.ewm(span=s, adjust=False).mean()
-    smiio = 100 * safe_divide(ema2, abs_ema2, 0)
+    smiio = 100 * (ema2 / abs_ema2.where(abs_ema2 != 0, 1))
     signal = smiio.ewm(span=u, adjust=False).mean()
     oscillator = smiio - signal
-    return smiio.fillna(0), signal.fillna(0), oscillator.fillna(0)
+    return (smiio.fillna(0), signal.fillna(0), oscillator.fillna(0))
 
 # ============================================
 # DIRECTIONAL MOVEMENT
