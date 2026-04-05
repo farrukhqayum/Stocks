@@ -249,7 +249,7 @@ def add_technical_indicators(df, timeframe='1D'):
         
         # fill nans
         cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-        df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+        df[cols] = df[cols].ffill().bfill()
         
         # Adjust RSI thresholds for weekly if needed
         rsi_lower = 25 if timeframe == '1W' else 18
@@ -348,11 +348,11 @@ def add_pivot_levels(df, window=_DAYS):
     R2 = PP + (high.max() - low.min())
     S2 = PP - (high.max() - low.min())
     # Assign to DataFrame
-    df['PP'] = PP.fillna(method='bfill')
-    df['R1'] = R1.fillna(method='bfill')
-    df['S1'] = S1.fillna(method='bfill')
-    df['R2'] = R2.fillna(method='bfill')
-    df['S2'] = S2.fillna(method='bfill')
+    df['PP'] = PP.bfill()
+    df['R1'] = R1.bfill()
+    df['S1'] = S1.bfill()
+    df['R2'] = R2.bfill()
+    df['S2'] = S2.bfill()
     return df
 
 def add_pivots(df, win=windows):
