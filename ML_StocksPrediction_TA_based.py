@@ -17,14 +17,6 @@ import altair as alt
 import sys
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-st.write(f"ta module available: {'ta' in sys.modules}")
-try:
-    import ta
-    st.write(f"ta functions available: {[f for f in dir(ta) if not f.startswith('_')][:5]}...")
-except ImportError as e:
-    st.error(f"ta module import error: {e}")
-    st.stop()
-
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
