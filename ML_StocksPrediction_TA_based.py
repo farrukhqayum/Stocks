@@ -398,17 +398,17 @@ def add_pivots(df, win=windows):
         S1 = 2 * PP - roll_high.max()
         R2 = PP + (roll_high.max() - roll_low.min())
         S2 = PP - (roll_high.max() - roll_low.min())
-        df[f'PP_{w}'] = PP
-        df[f'R1_{w}'] = R1
-        df[f'S1_{w}'] = S1
-        df[f'R2_{w}'] = R2
-        df[f'S2_{w}'] = S2
+        df[f"PP_{w}"] = PP
+        df[f"R1_{w}"] = R1
+        df[f"S1_{w}"] = S1
+        df[f"R2_{w}"] = R2
+        df[f"S2_{w}"] = S2
     return df
 
 def average_pivots(df, windows=[5, 10, 14, 20]):
     for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
-        cols = [f'{level}_{w}' for w in windows]
-        df[f'{level}_Avg'] = df[cols].mean(axis=1)
+        cols = [f"{level}_{w}" for w in windows]
+        df[f"{level}_Avg"] = df[cols].mean(axis=1)
     return df
 
 def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
@@ -918,8 +918,8 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
             last_signal = row['Signal']
     kcount_absmax = df['Kcount'].abs().max()
     df['Kcount_sc'] = df['Kcount'] * (df['EMA1'] / kcount_absmax)
-    ax1.plot(df.index, df['EMA1'], label=f'EMA{int(_DAYS*0.5)}', color='gold', alpha=0.7, linewidth=1.2)
-    ax1.plot(df.index, df['EMA2'], label=f'EMA{int(_DAYS*2)}', color='red', alpha=0.7, linewidth=1.2, linestyle='--')
+    ax1.plot(df.index, df['EMA1'], label=f"EMA{int(_DAYS*0.5)}", color='gold', alpha=0.7, linewidth=1.2)
+    ax1.plot(df.index, df['EMA2'], label=f"EMA{int(_DAYS*2)}", color='red', alpha=0.7, linewidth=1.2, linestyle='--')
     ax1.plot(df.index, df['KCu'], color='blue', alpha=0.3, linestyle='--', linewidth=1)
     ax1.plot(df.index, df['KCl'], color='red', alpha=0.3, linestyle='--', linewidth=1)
     ax1_ = ax1.twinx()
@@ -937,19 +937,19 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         fib_colors = {'F:0': 'gray','F:100': 'gray','F:61.8': 'blue','F:125': 'green','F:-125': 'red'}
         for label, value in fibs.items():
             ax1.hlines(value, xmin=fib_start, xmax=fib_end, color=fib_colors[label], linestyle='--', linewidth=1, alpha=0.3)
-            ax1.annotate(f'{label}: ${value:.0f}', xy=(df.index[-5], value), xytext=(-5, 0), textcoords='offset points', va='center', fontsize=8, color=fib_colors[label], alpha=0.5)
+            ax1.annotate(f"{label}: ${value:.0f}", xy=(df.index[-5], value), xytext=(-5, 0), textcoords='offset points', va='center', fontsize=8, color=fib_colors[label], alpha=0.5)
     ax1.plot([last_date, future_date], [avg_price, gain_price], color='green', linestyle=':', linewidth=1.5, alpha=0.5)
     ax1.plot([last_date, future_date], [avg_price, loss_price], color='red', linestyle=':', linewidth=1.5, alpha=0.5)
-    ax1.plot(future_date, gain_price, '^', markersize=_ms, color='green', alpha=0.5, label=f'TP: ${gain_price:.2f}, {gain}%')
-    ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f'SL: ${loss_price:.2f}, {loss}%')
-    ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label=f'E: ${avg_price:.2f}')
-    ax1.annotate(f'E: ${avg_price:.2f}', xy=(last_date, avg_price), xytext=(10, 0), textcoords='offset points', ha='left', va='center', color='orange', fontsize=9, bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    ax1.annotate(f'${current_price:.2f}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%',
+    ax1.plot(future_date, gain_price, '^', markersize=_ms, color='green', alpha=0.5, label=f"TP: ${gain_price:.2f}, {gain}%")
+    ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f"SL: ${loss_price:.2f}, {loss}%")
+    ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label=f"E: ${avg_price:.2f}")
+    ax1.annotate(f"E: ${avg_price:.2f}", xy=(last_date, avg_price), xytext=(10, 0), textcoords='offset points', ha='left', va='center', color='orange', fontsize=9, bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
+    ax1.annotate(f"${current_price:.2f}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%",
                  xy=(future_date, gain_price), 
                  xytext=(10, 10), 
                  textcoords='offset points', ha='left', va='bottom', color='green', 
                  fontsize=9, fontname='DejaVu Sans', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    ax1.annotate(f'${current_price:.2f}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%',
+    ax1.annotate(f"${current_price:.2f}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%",
                  xy=(future_date, loss_price), 
                  xytext=(10, -10), 
                  textcoords='offset points', ha='left', va='top', color='red', 
@@ -961,7 +961,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         'yellow' if 'Hold' in predictions['Signal'] else
         'gray'
     )
-    _sigConf = f'{predictions['Signal']} & ML Action: {predictions.Action}, Conf ({conf:.0f}%)'
+    _sigConf = f"{predictions['Signal']} & ML Action: {predictions.Action}, Conf ({conf:.0f}%)"
     ax1.annotate(
         _sigConf,
         xy=(0.7, 0.95),
@@ -973,11 +973,11 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         fontname='DejaVu Sans',
         bbox=dict(boxstyle='round', facecolor=signal_color, alpha=0.2, edgecolor=signal_color)
     )
-    ax1.text(0.5, 0.5, f'@{ticker}', transform=ax1.transAxes, fontsize=50, color='grey', alpha=0.2, horizontalalignment='center', verticalalignment='center', rotation=0, weight='bold', style='italic')
+    ax1.text(0.5, 0.5, f"@{ticker}", transform=ax1.transAxes, fontsize=50, color='grey', alpha=0.2, horizontalalignment='center', verticalalignment='center', rotation=0, weight='bold', style='italic')
     ax1.yaxis.tick_right()
     ax1.yaxis.set_label_position("right")
     ax1.set_ylabel('Price')
-    ax1.set_title(f'{today}:\t{ticker} - {predictions["Signal"]}', fontdict={'fontname': 'DejaVu Sans', 'fontsize': 16}, pad=20)
+    ax1.set_title(f"{today}:\t{ticker} - {predictions["Signal"]}", fontdict={'fontname': 'DejaVu Sans', 'fontsize': 16}, pad=20)
     ax1.scatter(df.index[df['StrongBull'] == 1], price[df['StrongBull'] == 1], color='lime', marker='^', s=5, alpha=0.4, label='StrongBull', zorder=10)
     ax1.scatter(df.index[df['StrongBear'] == 1], price[df['StrongBear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='StrongBear', zorder=10)
 
@@ -1028,7 +1028,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
         f"Model Signal: {signal} | Expected Gain: +{gain}% (${gain_price:.2f}), Loss: {loss}% (${loss_price:.2f}) | Hit Probability: {round(hit_prob, 1)}%."
     ]
 
-    sig_ = f'{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%'
+    sig_ = f"{signal}\tR/R: {rrr:.1f}\tML Conf: {conf:.0f}%"
     action, cl = generate_action(ticker, clean_label, conf, will_hit_str)
     summary_lines.append(action)
 
@@ -1045,7 +1045,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
   
     plt.tight_layout()
     st.pyplot(fig)
-    with st.expander(f'{action}, {sig_}'):
+    with st.expander(f"{action}, {sig_}"):
         st.code("\n".join(summary_lines))
 
                            
@@ -1110,14 +1110,14 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             # --- Step 2: Extract Full Class Probabilities as Features ---
             cls_probs = model_class.predict_proba(X_scaled_cls)
             # Extract probability columns for all expected classes safely
-            prob_df = pd.DataFrame(0, index=np.arange(len(cls_probs)), columns=[f'Prob_Class_{c}' for c in expected_classes])
+            prob_df = pd.DataFrame(0, index=np.arange(len(cls_probs)), columns=[f"Prob_Class_{c}" for c in expected_classes])
             for i, c in enumerate(model_class.classes_):
                 if c in expected_classes:
-                    prob_df[f'Prob_Class_{c}'] = cls_probs[:, i]
+                    prob_df[f"Prob_Class_{c}"] = cls_probs[:, i]
             
             df_model = df_model.reset_index(drop=True)
             df_model = pd.concat([df_model, prob_df], axis=1)
-            FEATURES_with_probs = FEATURES + [f'Prob_Class_{c}' for c in expected_classes]
+            FEATURES_with_probs = FEATURES + [f"Prob_Class_{c}" for c in expected_classes]
             X_reg = df_model[FEATURES_with_probs]
             
             # --- Step 3: Train Return Model ---
@@ -1171,12 +1171,12 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             for c in expected_classes:
                 if c in model_class.classes_:
                     idx = model_class.classes_.tolist().index(c)
-                    latest_prob_features[f'Prob_Class_{c}'] = latest_probs_raw[idx]
+                    latest_prob_features[f"Prob_Class_{c}"] = latest_probs_raw[idx]
                 else:
-                    latest_prob_features[f'Prob_Class_{c}'] = 0.0
+                    latest_prob_features[f"Prob_Class_{c}"] = 0.0
                     
             # Predict class based on max probability among expected classes
-            probs_of_interest = [latest_prob_features[f'Prob_Class_{c}'] for c in expected_classes]
+            probs_of_interest = [latest_prob_features[f"Prob_Class_{c}"] for c in expected_classes]
             max_prob_index = probs_of_interest.index(max(probs_of_interest))
             pred_class = expected_classes[max_prob_index]
             
@@ -1184,7 +1184,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             if pd.isna(will_hit):
                 will_hit = "None"
                 
-            hit_prob = latest_prob_features[f'Prob_Class_{pred_class}']
+            hit_prob = latest_prob_features[f"Prob_Class_{pred_class}"]
             
             # Prepare latest features including probability features for regressors
             latest_prob_df = pd.DataFrame([latest_prob_features])
@@ -1344,7 +1344,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
                 "Risk": "🔴 High Risk" if (abs(predicted_loss) > STOP_LOSS) else "🟢 Low Risk",
                 "Signal": signal,
                 "Will_Hit": will_hit_str,
-                "Hit_Prob": round(latest_prob_features[f'Prob_Class_{pred_class}'] * 100, 1),
+                "Hit_Prob": round(latest_prob_features[f"Prob_Class_{pred_class}"] * 100, 1),
                 "Confidence": round(confidence_score, 1),
                 "_Extremes": _Extremes,
                 "Action" : action
@@ -1423,9 +1423,9 @@ def PlotPredictions(df_results):
             ProbColor = 'white'
     
         # Top annotations
-        ax1.text(i, row["Max (%)"] + 0.5, f'{row["Max (%)"]:.1f}%',
+        ax1.text(i, row["Max (%)"] + 0.5, f"{row["Max (%)"]:.1f}%",
                  ha='center', va='bottom', fontsize=9)
-        ax2.text(i, row["Loss (%)"] + 0.5, f'{row["Loss (%)"]:.1f}%',
+        ax2.text(i, row["Loss (%)"] + 0.5, f"{row["Loss (%)"]:.1f}%",
                  ha='center', va='top', color='red', fontsize=9)
     
         # Bottom annotations: align with x-tick, just below tick label
@@ -1437,7 +1437,7 @@ def PlotPredictions(df_results):
     
         ax1.text(
             x_coord + x_offset, y_offset1,
-            f'{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}',
+            f"{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}",
             ha='left', va='top', fontsize=7, fontname='DejaVu Sans',
             bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
             transform=ax1.get_xaxis_transform(),
@@ -1447,7 +1447,7 @@ def PlotPredictions(df_results):
             
         ax1.text(
             x_coord + x_offset, y_offset2,
-            f'TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{str(row.Will_Hit).split()[0]}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%',
+            f"TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{str(row.Will_Hit).split()[0]}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%",
             ha='left', va='top', fontsize=7, fontname='DejaVu Sans',
             bbox=dict(facecolor=ProbColor, alpha=0.3, linewidth=0.3),
             transform=ax1.get_xaxis_transform(),
@@ -1471,7 +1471,7 @@ def PlotPredictions(df_results):
     textbox.patch.set_alpha(0.8)
     
     # Space management
-    plt.title(f'{today} - ML Predictions of Tickers (From Current Price)', fontsize=16, color='black', pad=20)
+    plt.title(f"{today} - ML Predictions of Tickers (From Current Price)", fontsize=16, color='black', pad=20)
     plt.tight_layout()
     plt.subplots_adjust(bottom=0.35)
 
@@ -1599,15 +1599,15 @@ def run_app():
                 st.code(f"The indicators use OHLC with a mean of 2-days to suppress noise/spikes")
                 
         row_text = (
-            f'{"#":<2} | '
-            f'{"Ticker":<7} | '
-            f'{"Price":>7} | '
-            f'{"TP":>8} | '
-            f'{"SL":>8} | '
-            f'{"ATR":>10} | '
-            f'{"Action":<12} | '
-            f'{"ML(%)":>10} | '
-            f'{"Extremes":<10}'
+            f"{"#":<2} | "
+            f"{"Ticker":<7} | "
+            f"{"Price":>7} | "
+            f"{"TP":>8} | "
+            f"{"SL":>8} | "
+            f"{"ATR":>10} | "
+            f"{"Action":<12} | "
+            f"{"ML(%)":>10} | "
+            f"{"Extremes":<10}"
         )
 
         st.code(row_text)
