@@ -1,12 +1,8 @@
-"""
-Technical Analysis Functions - Fixed for pandas 2.x, numpy 1.24+, and streamlit
-All functions have proper error handling, division by zero protection, and return types
-"""
-
 import pandas as pd
 import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
+from sklearn.linear_model import LinearRegression
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -83,6 +79,7 @@ def get_next_earnings_date(ticker):
 
 def calSMAs(close):
     """Calculate Simple Moving Averages"""
+    close = pd.Series(close) if not isinstance(close, pd.Series) else close
     sma1 = close.rolling(window=20).mean()
     sma2 = close.rolling(window=50).mean()
     sma3 = close.rolling(window=100).mean()
@@ -90,6 +87,7 @@ def calSMAs(close):
 
 def calEMAs(close):
     """Calculate Exponential Moving Averages"""
+    close = pd.Series(close) if not isinstance(close, pd.Series) else close
     ema1 = close.ewm(span=20, adjust=False).mean()
     ema2 = close.ewm(span=50, adjust=False).mean()
     ema3 = close.ewm(span=100, adjust=False).mean()
@@ -97,21 +95,31 @@ def calEMAs(close):
 
 def calculate_vwma(df, window=20):
     """Volume Weighted Moving Average"""
+    if 'Close' not in df.columns or 'Volume' not in df.columns:
+        return pd.Series(df.index.values if hasattr(df, 'index') else np.arange(len(df)), name='VWMA')
+    
     vwma = (df['Close'] * df['Volume']).rolling(window=window).sum() / df['Volume'].rolling(window=window).sum().replace(0, np.nan)
-    return vwma.fillna(method='ffill').fillna(df['Close'])
+    result = vwma.ffill().bfill().fillna(df['Close'])
+    return result
 
 # ============================================
 # VOLATILITY AND RISK
 # ============================================
 
 def calculate_atr(high, low, close, period=14):
-    """Average True Range"""
+    """Average True Range - returns pandas Series"""
+    # Convert to pandas Series if needed
+    high = pd.Series(high) if not isinstance(high, pd.Series) else high
+    low = pd.Series(low) if not isinstance(low, pd.Series) else low
+    close = pd.Series(close) if not isinstance(close, pd.Series) else close
+    
     hl = high - low
     hc = (high - close.shift(1)).abs()
     lc = (low - close.shift(1)).abs()
     tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
     atr = tr.rolling(window=period).mean()
-    return atr.fillna(0)
+    result = atr.fillna(0)
+    return result
 
 def scaled_volatility(df, window=9):
     """Calculate scaled volatility indicator"""
@@ -144,8 +152,13 @@ def scaled_volatility(df, window=9):
 # ============================================
 
 def calculate_rsi(df, period=14):
-    """Relative Strength Index"""
-    close = df['Close']
+    """Relative Strength Index - returns pandas Series"""
+    # Handle both DataFrame and Series input
+    if isinstance(df, pd.DataFrame):
+        close = df['Close']
+    else:
+        close = pd.Series(df) if not isinstance(df, pd.Series) else df
+    
     delta = close.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -153,11 +166,15 @@ def calculate_rsi(df, period=14):
     avg_loss = loss.rolling(window=period, min_periods=1).mean()
     rs = safe_divide(avg_gain, avg_loss, 1)
     rsi = 100 - (100 / (1 + rs))
-    return rsi.fillna(50)
+    result = pd.Series(rsi.fillna(50), index=close.index, name='RSI')
+    return result
 
 def calculate_stochrsi(df, rsi_period=14, stoch_period=20, d_period=9):
     """Stochastic RSI"""
     df = df.copy()
+    if 'RSI' not in df.columns:
+        df['RSI'] = calculate_rsi(df)
+    
     lowest_low = df['RSI'].rolling(window=stoch_period).min()
     highest_high = df['RSI'].rolling(window=stoch_period).max()
     df['StochRSI'] = safe_divide((df['RSI'] - lowest_low), (highest_high - lowest_low), 0) * 100
@@ -165,16 +182,19 @@ def calculate_stochrsi(df, rsi_period=14, stoch_period=20, d_period=9):
     return df
 
 def calculate_mfi(data, period=20):
-    """Money Flow Index"""
+    """Money Flow Index - returns pandas Series"""
     try:
-        data = data.copy()
+        if isinstance(data, pd.DataFrame):
+            df = data.copy()
+        else:
+            return pd.Series([50] * len(data), index=data.index if hasattr(data, 'index') else None, name='MFI')
         
         required_columns = ['High', 'Low', 'Close', 'Volume']
-        if not all(col in data.columns for col in required_columns):
-            return pd.Series(50, index=data.index)
+        if not all(col in df.columns for col in required_columns):
+            return pd.Series([50] * len(df), index=df.index, name='MFI')
         
-        typical_price = (data['High'] + data['Low'] + data['Close']) / 3
-        raw_money_flow = typical_price * data['Volume']
+        typical_price = (df['High'] + df['Low'] + df['Close']) / 3
+        raw_money_flow = typical_price * df['Volume']
         money_flow_ratio = typical_price.diff()
         
         positive_flow = raw_money_flow.where(money_flow_ratio > 0, 0)
@@ -185,28 +205,39 @@ def calculate_mfi(data, period=20):
         
         money_ratio = safe_divide(positive_sum, negative_sum, 1)
         mfi = 100 - (100 / (1 + money_ratio))
-        mfi = mfi.fillna(50).clip(0, 100)
-        
-        return mfi
-    except Exception:
-        return pd.Series(50, index=data.index)
+        result = pd.Series(mfi.fillna(50).clip(0, 100), index=df.index, name='MFI')
+        return result
+    except Exception as e:
+        print(f"MFI Error: {e}")
+        return pd.Series([50] * len(data), index=data.index if hasattr(data, 'index') else None, name='MFI')
 
 def calculate_cci(data, period=20):
-    """Commodity Channel Index"""
+    """Commodity Channel Index - returns pandas Series"""
     try:
-        data = data.copy()
-        typical_price = (data['High'] + data['Low'] + data['Close']) / 3
+        if isinstance(data, pd.DataFrame):
+            df = data.copy()
+        else:
+            return pd.Series([0] * len(data), index=data.index if hasattr(data, 'index') else None, name='CCI')
+        
+        typical_price = (df['High'] + df['Low'] + df['Close']) / 3
         sma = typical_price.rolling(window=period).mean()
-        mean_deviation = typical_price.rolling(window=period).apply(
-            lambda x: np.abs(x - x.mean()).mean() if len(x) > 0 else 0
-        )
-        cci = safe_divide((typical_price - sma), (0.015 * mean_deviation), 0)
-        return cci.fillna(0)
-    except Exception:
-        return pd.Series(0, index=data.index)
+        
+        # Calculate mean deviation safely
+        def mean_deviation(x):
+            if len(x) == 0:
+                return 0
+            return np.abs(x - x.mean()).mean()
+        
+        mean_deviation_series = typical_price.rolling(window=period).apply(mean_deviation)
+        cci = safe_divide((typical_price - sma), (0.015 * mean_deviation_series), 0)
+        result = pd.Series(cci.fillna(0), index=df.index, name='CCI')
+        return result
+    except Exception as e:
+        print(f"CCI Error: {e}")
+        return pd.Series([0] * len(data), index=data.index if hasattr(data, 'index') else None, name='CCI')
 
 def calculate_smiio(df, r=13, s=25, u=9):
-    """SMIIO Indicator"""
+    """SMIIO Indicator - returns tuple of Series"""
     price = df['Close']
     m = price - price.shift(1)
     ema1 = m.ewm(span=r, adjust=False).mean()
@@ -224,7 +255,7 @@ def calculate_smiio(df, r=13, s=25, u=9):
 # ============================================
 
 def calculate_dmi(df, n=14):
-    """Directional Movement Index (DMI/ADX)"""
+    """Directional Movement Index (DMI/ADX) - returns DataFrame"""
     try:
         df = df.copy()
         
@@ -242,9 +273,9 @@ def calculate_dmi(df, n=14):
         minus_dm = np.where((low_diff > high_diff) & (low_diff > 0), low_diff, 0)
         
         # Smooth with rolling mean
-        tr_smooth = tr.rolling(window=n).mean()
-        plus_dm_smooth = pd.Series(plus_dm, index=df.index).rolling(window=n).mean()
-        minus_dm_smooth = pd.Series(minus_dm, index=df.index).rolling(window=n).mean()
+        tr_smooth = tr.rolling(window=n).mean().fillna(0)
+        plus_dm_smooth = pd.Series(plus_dm, index=df.index).rolling(window=n).mean().fillna(0)
+        minus_dm_smooth = pd.Series(minus_dm, index=df.index).rolling(window=n).mean().fillna(0)
         
         # Calculate DI
         plus_di = 100 * safe_divide(plus_dm_smooth, tr_smooth, 0)
@@ -254,7 +285,7 @@ def calculate_dmi(df, n=14):
         di_sum = plus_di + minus_di
         di_diff = np.abs(plus_di - minus_di)
         dx = 100 * safe_divide(di_diff, di_sum, 0)
-        adx = dx.rolling(window=n).mean()
+        adx = dx.rolling(window=n).mean().fillna(0)
         
         result = pd.DataFrame({
             '+DI': plus_di.fillna(0),
@@ -266,9 +297,9 @@ def calculate_dmi(df, n=14):
     except Exception as e:
         print(f"DMI Error: {e}")
         return pd.DataFrame({
-            '+DI': pd.Series(25, index=df.index),
-            '-DI': pd.Series(25, index=df.index),
-            'ADX': pd.Series(25, index=df.index)
+            '+DI': pd.Series([25] * len(df), index=df.index),
+            '-DI': pd.Series([25] * len(df), index=df.index),
+            'ADX': pd.Series([25] * len(df), index=df.index)
         })
 
 # ============================================
@@ -276,33 +307,42 @@ def calculate_dmi(df, n=14):
 # ============================================
 
 def calculate_obv(data):
-    """On-Balance Volume"""
+    """On-Balance Volume - returns pandas Series"""
     try:
+        if isinstance(data, pd.DataFrame):
+            df = data
+        else:
+            return pd.Series([0] * len(data), index=data.index if hasattr(data, 'index') else None, name='OBV')
+        
         obv = [0]
-        for i in range(1, len(data)):
-            if pd.isna(data['Close'].iloc[i]) or pd.isna(data['Close'].iloc[i-1]) or pd.isna(data['Volume'].iloc[i]):
+        for i in range(1, len(df)):
+            if pd.isna(df['Close'].iloc[i]) or pd.isna(df['Close'].iloc[i-1]) or pd.isna(df['Volume'].iloc[i]):
                 obv.append(obv[-1])
-            elif data['Close'].iloc[i] > data['Close'].iloc[i-1]:
-                obv.append(obv[-1] + data['Volume'].iloc[i])
-            elif data['Close'].iloc[i] < data['Close'].iloc[i-1]:
-                obv.append(obv[-1] - data['Volume'].iloc[i])
+            elif df['Close'].iloc[i] > df['Close'].iloc[i-1]:
+                obv.append(obv[-1] + df['Volume'].iloc[i])
+            elif df['Close'].iloc[i] < df['Close'].iloc[i-1]:
+                obv.append(obv[-1] - df['Volume'].iloc[i])
             else:
                 obv.append(obv[-1])
-        return pd.Series(obv, index=data.index)
-    except Exception:
-        return pd.Series(0, index=data.index)
+        result = pd.Series(obv, index=df.index, name='OBV')
+        return result
+    except Exception as e:
+        print(f"OBV Error: {e}")
+        return pd.Series([0] * len(data), index=data.index if hasattr(data, 'index') else None, name='OBV')
 
 def calculate_pvt(df):
-    """Price Volume Trend"""
+    """Price Volume Trend - returns pandas Series"""
     try:
-        price_change = (df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)
+        price_change = (df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1).replace(0, np.nan)
         pvt = (price_change * df['Volume']).cumsum()
-        return pvt.fillna(0)
-    except Exception:
-        return pd.Series(0, index=df.index)
+        result = pvt.fillna(0)
+        return result
+    except Exception as e:
+        print(f"PVT Error: {e}")
+        return pd.Series([0] * len(df), index=df.index, name='PVT')
 
 def chaikin_money_flow(df, window=20):
-    """Chaikin Money Flow"""
+    """Chaikin Money Flow - returns pandas Series"""
     try:
         high = df['High']
         low = df['Low']
@@ -312,9 +352,11 @@ def chaikin_money_flow(df, window=20):
         mfm = safe_divide((close - low) - (high - close), (high - low), 0)
         mfv = mfm * volume
         cmf = mfv.rolling(window).sum() / volume.rolling(window).sum().replace(0, np.nan)
-        return cmf.fillna(0)
-    except Exception:
-        return pd.Series(0, index=df.index)
+        result = cmf.fillna(0)
+        return result
+    except Exception as e:
+        print(f"CMF Error: {e}")
+        return pd.Series([0] * len(df), index=df.index, name='CMF')
 
 # ============================================
 # BAND AND CHANNEL INDICATORS
@@ -332,7 +374,7 @@ def calcBollingerBands(df, window=20):
     return df
 
 def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2, outer_mult=4):
-    """Keltner Channels"""
+    """Keltner Channels - returns DataFrame"""
     try:
         middle = df['Close'].ewm(span=ema_window).mean()
         atr = calculate_atr(df['High'], df['Low'], df['Close'])
@@ -343,16 +385,16 @@ def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2, outer_mult
         
         hits = []
         counter = 0
-        for close, up, low in zip(df['Close'], upper, lower):
-            if close >= up:
+        for close_val, up, low in zip(df['Close'], upper, lower):
+            if close_val >= up:
                 counter += 1
-            elif close <= low:
+            elif close_val <= low:
                 counter -= 1
             hits.append(counter)
         
         kasym = safe_divide((df['Close'] - middle), (upper - lower), 0)
         
-        return pd.DataFrame({
+        result = pd.DataFrame({
             'KCm': middle,
             'KCu': upper,
             'KCl': lower,
@@ -361,7 +403,9 @@ def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2, outer_mult
             'Kasym': kasym,
             'Kcount': hits
         }, index=df.index)
-    except Exception:
+        return result
+    except Exception as e:
+        print(f"Keltner Error: {e}")
         return pd.DataFrame({
             'KCm': df['Close'],
             'KCu': df['High'],
@@ -373,55 +417,61 @@ def calculate_keltner(df, ema_window=20, atr_window=10, multiplier=2, outer_mult
         }, index=df.index)
 
 def calculate_supertrend(df, multiplier=3, window=10):
-    """Supertrend Indicator"""
+    """Supertrend Indicator - returns DataFrame"""
     try:
         atr = calculate_atr(df['High'], df['Low'], df['Close'])
         middle = (df['High'] + df['Low']) / 2
         upper = middle + multiplier * atr
         lower = middle - multiplier * atr
-        return pd.DataFrame({
+        result = pd.DataFrame({
             'STu': upper,
             'STl': lower
         }, index=df.index)
-    except Exception:
+        return result
+    except Exception as e:
+        print(f"Supertrend Error: {e}")
         return pd.DataFrame({
             'STu': df['High'],
             'STl': df['Low']
         }, index=df.index)
 
 def calculate_vortex(df, window=20):
-    """Vortex Indicator"""
+    """Vortex Indicator - returns DataFrame"""
     try:
         vm_plus = np.abs(df['High'] - df['Low'].shift(1))
         vm_minus = np.abs(df['Low'] - df['High'].shift(1))
         atr = calculate_atr(df['High'], df['Low'], df['Close'])
         vi_plus = vm_plus.rolling(window).sum() / atr.rolling(window).sum().replace(0, np.nan)
         vi_minus = vm_minus.rolling(window).sum() / atr.rolling(window).sum().replace(0, np.nan)
-        return pd.DataFrame({
+        result = pd.DataFrame({
             'VI+': vi_plus.fillna(1),
             'VI-': vi_minus.fillna(1)
         }, index=df.index)
-    except Exception:
+        return result
+    except Exception as e:
+        print(f"Vortex Error: {e}")
         return pd.DataFrame({
-            'VI+': pd.Series(1, index=df.index),
-            'VI-': pd.Series(1, index=df.index)
+            'VI+': pd.Series([1] * len(df), index=df.index),
+            'VI-': pd.Series([1] * len(df), index=df.index)
         })
 
 def calculate_ichimoku(df):
-    """Ichimoku Cloud"""
+    """Ichimoku Cloud - returns DataFrame"""
     try:
-        high, low, close = df['High'], df['Low'], df['Close']
+        high, low = df['High'], df['Low']
         tenkan = (high.rolling(9).max() + low.rolling(9).min()) / 2
         kijun = (high.rolling(26).max() + low.rolling(26).min()) / 2
         senkou_a = ((tenkan + kijun) / 2).shift(26)
         senkou_b = ((high.rolling(52).max() + low.rolling(52).min()) / 2).shift(26)
-        return pd.DataFrame({
+        result = pd.DataFrame({
             'Tenkan': tenkan,
             'Kijun': kijun,
             'Senkou_A': senkou_a,
             'Senkou_B': senkou_b
         }, index=df.index)
-    except Exception:
+        return result
+    except Exception as e:
+        print(f"Ichimoku Error: {e}")
         return pd.DataFrame({
             'Tenkan': df['Close'],
             'Kijun': df['Close'],
@@ -434,13 +484,15 @@ def calculate_ichimoku(df):
 # ============================================
 
 def compute_gapStrength(df):
-    """Calculate gap strength"""
+    """Calculate gap strength - returns pandas Series"""
     try:
-        gap = (df['Open'] - df['Close'].shift(1)) / df['Close'].shift(1)
+        gap = (df['Open'] - df['Close'].shift(1)) / df['Close'].shift(1).replace(0, np.nan)
         strength = np.where(gap > 0.01, 1, np.where(gap < -0.01, -1, 0))
-        return pd.Series(strength, index=df.index, name='strength')
-    except Exception:
-        return pd.Series(0, index=df.index)
+        result = pd.Series(strength, index=df.index, name='gapStrength')
+        return result
+    except Exception as e:
+        print(f"GapStrength Error: {e}")
+        return pd.Series([0] * len(df), index=df.index, name='gapStrength')
 
 def add_exhaustion_indicator(df, lookback=90, threshold=0.10):
     """Add exhaustion indicator"""
@@ -460,7 +512,8 @@ def add_exhaustion_indicator(df, lookback=90, threshold=0.10):
         df['Exhaustion'] = df['Exhaustion'].fillna(0)
         
         return df
-    except Exception:
+    except Exception as e:
+        print(f"Exhaustion Error: {e}")
         df['Exhaustion'] = 0
         return df
 
@@ -501,7 +554,8 @@ def detect_divergences(df, period=20, max_bar_diff=3):
                         bearish_pairs.append((idx1, idx2))
         
         return bullish_pairs, bearish_pairs, hidden_bullish_pairs, hidden_bearish_pairs
-    except Exception:
+    except Exception as e:
+        print(f"Divergence Error: {e}")
         return [], [], [], []
 
 def find_doubleTopBottom(df, rsi_col='RSI', tol=0.5, max_bar_diff=3):
@@ -531,7 +585,8 @@ def find_doubleTopBottom(df, rsi_col='RSI', tol=0.5, max_bar_diff=3):
                     double_bottoms.append((idx1, idx2))
         
         return double_tops, double_bottoms
-    except Exception:
+    except Exception as e:
+        print(f"DoubleTopBottom Error: {e}")
         return [], []
 
 # ============================================
@@ -541,15 +596,18 @@ def find_doubleTopBottom(df, rsi_col='RSI', tol=0.5, max_bar_diff=3):
 def add_regression_forecast(ax, series, last_date, color='orange', days=14):
     """Add linear regression forecast to plot"""
     try:
-        data = series.dropna()
-        y = data.iloc[-days:].values if len(data) >= days else data.values
+        series = series.dropna()
+        if len(series) < days:
+            return
+        y = series.iloc[-days:].values
         x = np.arange(len(y)).reshape(-1, 1)
         model = LinearRegression().fit(x, y)
         x_pred = np.arange(len(y), len(y) + days).reshape(-1, 1)
         y_pred = model.predict(x_pred)
         future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=days)
         ax.plot(future_dates, y_pred, linestyle='dashdot', color=color, alpha=0.5)
-    except Exception:
+    except Exception as e:
+        print(f"Regression Forecast Error: {e}")
         pass
 
 def plot_divergences(df, bullish, bearish, hidden_bull, hidden_bear, double_tops, double_bottoms, ax_price, ax_rsi):
@@ -649,7 +707,7 @@ def add_technical_indicators(df):
 # ============================================
 
 def add_candlestickpatterns(df):
-    """Placeholder for candlestick patterns - to be implemented"""
+    """Placeholder for candlestick patterns"""
     df = df.copy()
     df['Candlesticks'] = 0
     return df
