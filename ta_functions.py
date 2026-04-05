@@ -167,9 +167,12 @@ def calculate_ichimoku(df):
 
 def calculate_supertrend(df, multiplier=3, window=10):
     atr = calculate_atr(df.High, df.Low, df.Close)
-    df['Upper'] = (df['High'] + df['Low']) / 2 + multiplier * atr
-    df['Lower'] = (df['High'] + df['Low']) / 2 - multiplier * atr
-    return df[['Upper', 'Lower']]
+    middle = (df['High'] + df['Low']) / 2
+    df_upper = middle + multiplier * atr
+    df_lower = middle - multiplier * atr
+    return pd.DataFrame({
+        'STu': df_upper,
+        'STl': df_lower}, index=df.index)
 
 def calcBollingerBands (df):
     # Bollinger Bands
@@ -233,7 +236,7 @@ def scaled_volatility(df, window=9):
     df['HL'] = df['High'] - df['Low']
     df['OC'] = df['Open'] - df['Close']
     df['OC'] = df['OC'].replace(0, np.nan)
-    df['Volatility_HL_OC'] = df['HL'] / df['OC']
+    df['Volatility_HL_OC'] = df['HL'] / df['OC'].replace(0, np.nan)
     df['Volatility_HL_OC'].replace([np.inf, -np.inf], np.nan, inplace=True)
     df['Volatility_HL_OC'].fillna(0, inplace=True)
     df['Up_Day'] = df['Close'] > df['Open']
@@ -253,19 +256,19 @@ def scaled_volatility(df, window=9):
     df['Scaled_Volatility'].fillna(0, inplace=True)
     return df
     
+# REPLACE this function:
 def calculate_obv(data):
     obv = [0]  # Initialize OBV with 0
     for i in range(1, len(data)):
-        # Check for NaN explicitly for each value
         if pd.isna(data['Close'].iloc[i]) or pd.isna(data['Close'].iloc[i-1]) or pd.isna(data['Volume'].iloc[i]):
-            obv.append(obv[-1])  # Append the previous OBV value if there is a NaN
+            obv.append(obv[-1])
         elif data['Close'].iloc[i] > data['Close'].iloc[i-1]:
             obv.append(obv[-1] + data['Volume'].iloc[i])
         elif data['Close'].iloc[i] < data['Close'].iloc[i-1]:
             obv.append(obv[-1] - data['Volume'].iloc[i])
         else:
             obv.append(obv[-1])
-    return obv
+    return pd.Series(obv, index=data.index)
 
 def calculate_pvt(df):
     tmp = ((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)) * df['Volume']
@@ -279,7 +282,8 @@ def chaikin_money_flow(df, window=20):
     mfm = ((close - low) - (high - close)) / (high - low)
     mfm = mfm.replace([np.inf, -np.inf], 0).fillna(0)
     mfv = mfm * volume
-    cmf = mfv.rolling(window).sum() *-1/ volume.rolling(window).sum()
+    cmf = mfv.rolling(window).sum() / volume.rolling(window).sum().replace(0, np.nan)
+    cmf.fillna(0, inplace=True)
     return cmf
 
 def calculate_mfi(data, period=20):
@@ -298,8 +302,8 @@ def calculate_mfi(data, period=20):
     data['Positive_MF_sum'] = data['Positive_MF'].rolling(window=period).sum()
     data['Negative_MF_sum'] = data['Negative_MF'].rolling(window=period).sum()
 
-    data['MFR'] = data['Positive_MF_sum'] / data['Negative_MF_sum']
-    data['MFI'] = 100 - (100 / (1 + data['MFR']))
+    data['MFR'] = data['Positive_MF_sum'] / data['Negative_MF_sum'].replace(0, np.nan)
+    data['MFR'].fillna(100, inplace=True)
 
     data['MFI'] = np.where(data['Negative_MF_sum'] == 0, 100, data['MFI'])
 
@@ -330,7 +334,9 @@ def calculate_cci(data, period=20):
 
     data['Typical Price'] = (data['High'] + data['Low'] + data['Close']) / 3
     data['SMA'] = data['Typical Price'].rolling(window=period).mean()
-    data['Mean Deviation'] = data['Typical Price'].rolling(window=period).apply(lambda x: (abs(x - x.mean())).mean(), raw=True)
+    data['Mean Deviation'] = data['Typical Price'].rolling(window=period).apply(
+        lambda x: (abs(x - x.mean())).mean() if len(x) > 0 else 0, raw=True
+    )
     data['CCI'] = (data['Typical Price'] - data['SMA']) / (0.015 * data['Mean Deviation'])
     
     # Drop unnecessary columns before returning 
@@ -358,17 +364,13 @@ def calculate_dmi(df, n=14):
     df['+DM_smooth'] = df['+DM'].rolling(window=n).mean()
     df['-DM_smooth'] = df['-DM'].rolling(window=n).mean()
 
-    # Calculate +DI and -DI
-    df['+DI'] = 100 * (df['+DM_smooth'] / df['TR_smooth'])
-    df['-DI'] = 100 * (df['-DM_smooth'] / df['TR_smooth'])
+    df['+DI'] = 100 * (df['+DM_smooth'] / df['TR_smooth'].replace(0, np.nan))
+    df['-DI'] = 100 * (df['-DM_smooth'] / df['TR_smooth'].replace(0, np.nan))
+    df['DX'] = 100 * (np.abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI']).replace(0, np.nan))
+    df['+DI'].fillna(0, inplace=True)
+    df['-DI'].fillna(0, inplace=True)
+    df['ADX'].fillna(0, inplace=True)
 
-    # Calculate DX (Directional Index)
-    df['DX'] = 100 * (np.abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI']))
-
-    # Calculate ADX (Average Directional Index)
-    df['ADX'] = df['DX'].rolling(window=n).mean()
-
-    # Return relevant columns
     return df[['+DI', '-DI', 'ADX']]
 
 def add_exhaustion_indicator(df, lookback=90, threshold=0.10):
