@@ -739,3 +739,4 @@ def plot_divergences(df, bullish, bearish, hidden_bull, hidden_bear, double_tops
     for i1, i2 in double_bottoms:
         ax_rsi.plot([df.index[i1], df.index[i2]], [df['RSI'].iloc[i1], df['RSI'].iloc[i2]], color='purple', alpha=alpha_val, lw=1.2, linestyle='dotted')
 
+
