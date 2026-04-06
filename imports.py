@@ -32,6 +32,13 @@ from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
 from tabulate import tabulate
 
+from pathlib import Path
+import appdirs as ad
+CACHE_DIR = ".cache"
+ad.user_cache_dir = lambda *arg: CACHE_DIR
+Path(CACHE_DIR).mkdir(exist_ok=True)
+import yfinance as yf
+
 from joblib import Parallel, delayed
 
 import warnings
