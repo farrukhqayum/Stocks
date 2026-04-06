@@ -1115,17 +1115,6 @@ with col3:
     else:
         st.write("Visible Window: —")
 
-st.write("Total FVGs detected:", len(zones))
-
-active_fvgs = [z for z in zones if not z.is_mitigated]
-st.write("Active FVGs:", len(active_fvgs))
-
-st.write("Visible window:", start_idx, "→", end_idx)
-
-visible_zones = [z for z in zones if start_idx <= z.start_idx <= end_idx]
-st.write("Visible FVGs:", len(visible_zones))
-
-
 visible_zones = []
 for z in zones:
     if z.start_idx <= end_idx:
