@@ -17,6 +17,10 @@ import altair as alt
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
+import requests
+st.write(requests.get("https://query1.finance.yahoo.com").status_code)
+
+
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
