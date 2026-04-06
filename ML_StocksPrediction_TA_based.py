@@ -17,9 +17,8 @@ import altair as alt
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-import requests
-st.write(requests.get("https://query1.finance.yahoo.com").status_code)
-
+st.write("Testing TSLA…")
+st.write(yf.download("TSLA", period="5d"
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
@@ -1105,9 +1104,6 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     for ticker in TICKERS:
         try:
-            raw = yf.download(ticker, period="5d")
-            st.write("RAW YF:", raw)
-
             df = get_stock_data(ticker, start_date, end_date)
             st.write(df.head())
 
