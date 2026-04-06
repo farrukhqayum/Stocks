@@ -14,6 +14,11 @@ import matplotlib.dates as mdates
 import math
 import emoji
 import altair as alt
+import sys
+st.write("### Version Information")
+st.write(f"Python: {sys.version}")
+st.write(f"Pandas version: {pd.__version__}")
+st.write(f"Numpy version: {np.__version__}")
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
@@ -209,91 +214,43 @@ def label(text):
     return f"{EMOJI.get(text, '')} {text}"
     
 def optimize_dataframe(df):
-    float_cols = df.select_dtypes(include=["float64"]).columns
-    int_cols   = df.select_dtypes(include=["int64"]).columns
-
-    df.loc[:, float_cols] = df[float_cols].astype("float32")
-    df.loc[:, int_cols]   = df[int_cols].astype("int32")
+    for col in df.select_dtypes(include=['float64']).columns:
+        df[col] = df[col].astype('float32')
+    for col in df.select_dtypes(include=['int64']).columns:
+        df[col] = df[col].astype('int32')
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
 
     return df
-
-
+    
 def get_stock_data(ticker, start_date, end_date):
-
-    # Try normal Yahoo Finance
-    for attempt in range(3):
-        try:
-            if attempt == 0:
-                df = yf.download(
-                    ticker,
-                    start=start_date,
-                    end=end_date + timedelta(days=1),
-                    progress=False,
-                    auto_adjust=True,
-                    actions=False
-                )
-            elif attempt == 1:
-                df = yf.download(
-                    ticker,
-                    start=start_date,
-                    end=end_date + timedelta(days=1),
-                    progress=False,
-                    auto_adjust=True,
-                    actions=False,
-                    proxy="https://query1.finance.yahoo.com"
-                )
-            else:
-                t = yf.Ticker(ticker, session="rapidapi")
-                df = t.history(start=start_date, end=end_date)
-
-            if df is not None and not df.empty:
-                return _clean_yf_df(df)
-
-        except Exception:
-            continue
-
-    return None
-
-def _clean_yf_df(df):
-    # Fix MultiIndex
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.droplevel(0)
-
-    # Normalize column names
-    df.columns = [str(c).strip().lower() for c in df.columns]
-
-    # Map all possible Yahoo names to standard OHLCV
-    rename_map = {
-        "open": "Open",
-        "high": "High",
-        "low": "Low",
-        "close": "Close",
-        "adj close": "Close",   # crypto often only has Adj Close
-        "adjclose": "Close",
-        "volume": "Volume",
-        "vol": "Volume"
-    }
-
-    df = df.rename(columns=rename_map)
-
-    # If Close missing → cannot proceed
-    if "Close" not in df.columns:
+    try:
+        df = yf.download(
+        ticker, 
+        start=start_date, 
+        end=end_date + timedelta(days=1),
+        progress=False,
+        auto_adjust=True, 
+        actions=False
+        )
+    
+    except Exception:
         return None
 
-    # If Volume missing → fill with zeros (crypto)
-    if "Volume" not in df.columns:
-        df["Volume"] = 0
+    if df.empty:
+        return None
 
-    # Reset + set index
     df = df.reset_index()
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df = df.set_index("Date")
+    df['Date'] = pd.to_datetime(df['Date'])
+    df.set_index('Date', inplace=True)
+    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+    df = df.dropna()
 
-    # Safe fill
-    df = df.sort_index().ffill().bfill()
+    if df.empty:
+        return None
 
-    return optimize_dataframe(df)
-
+    df_a = optimize_dataframe(df) # 32-bit
+    return df_a
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
@@ -340,10 +297,7 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-    df.loc[:, cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
-    df.loc[:, cols] = (df[cols].astype("float64").ffill().bfill())
-
-
+    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
@@ -406,8 +360,7 @@ def add_technical_indicators(df):
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
  
-    df_encoded = pd.get_dummies(df['TI'], prefix='TI', prefix_sep='_')
-    df_encoded.columns = df_encoded.columns.str.replace("TI_", "")
+    df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
     expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
     for col in expected_cols:
         if col not in df_encoded.columns:
@@ -428,7 +381,7 @@ def add_pivot_levels(df, window=_DAYS):
     high = df['High'].rolling(window)
     low = df['Low'].rolling(window)
     close = df['Close'].rolling(window)
-    PP = (high.max() + low.min() + close.apply(lambda x: x.iloc[-1])).div(3)
+    PP = (high.max() + low.min() + close.apply(lambda x: x[-1])).div(3)
     R1 = 2 * PP - low.min()
     S1 = 2 * PP - high.max()
     R2 = PP + (high.max() - low.min())
@@ -445,7 +398,7 @@ def add_pivots(df, win=windows):
         roll_high = df['High'].rolling(w)
         roll_low = df['Low'].rolling(w)
         roll_close = df['Close'].rolling(w)
-        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x.iloc[-1])).div(3)
+        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x[-1])).div(3)
         R1 = 2 * PP - roll_low.min()
         S1 = 2 * PP - roll_high.max()
         R2 = PP + (roll_high.max() - roll_low.min())
@@ -694,16 +647,12 @@ def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
 
 def plot_confidence_heatmap(df_results):
     st.subheader("🔥 ML Confidence Heatmap")
-
-    if (
-        df_results is None 
-        or df_results.empty 
-        or "Confidence" not in df_results.columns
-    ):
-        st.warning("No valid ML results available to plot the heatmap.")
-        return
-
+    
     df_plot = df_results.sort_values(by='Confidence', ascending=False).head(16).copy()
+    
+    if len(df_plot) == 0:
+        st.warning("No data available to plot the heatmap.")
+        return
 
     df_plot['Index'] = range(len(df_plot))
     df_plot['Row'] = (df_plot['Index'] // 5).astype(str) 
@@ -1117,12 +1066,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     for ticker in TICKERS:
         try:
             df = get_stock_data(ticker, start_date, end_date)
-
-            if df is None or df.empty:
-                st.text(f"Skipping {ticker}: no data returned.")
-                continue
-
-            if not isinstance(df.index, pd.DatetimeIndex):
+            if not pd.api.types.is_datetime64_any_dtype(df.index):
                 if "Date" in df.columns:
                     df = df.set_index("Date")
                 else:
@@ -1143,8 +1087,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             
             dfs[ticker] = df
             
-            df_model = df.dropna(subset=FEATURES + ['Hit_Label','Expected_Return','Expected_Loss']).copy()
-
+            df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
             if len(df_model) < _Nr:
                 st.text(f"Skipping {ticker} due to insufficient data after dropna.")
                 continue
@@ -1172,15 +1115,13 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             # --- Step 2: Extract Full Class Probabilities as Features ---
             cls_probs = model_class.predict_proba(X_scaled_cls)
             # Extract probability columns for all expected classes safely
-            prob_df = pd.DataFrame(np.zeros((len(cls_probs), len(expected_classes))), columns=[f'Prob_Class_{c}' for c in expected_classes])
-
+            prob_df = pd.DataFrame(0, index=np.arange(len(cls_probs)), columns=[f'Prob_Class_{c}' for c in expected_classes])
             for i, c in enumerate(model_class.classes_):
                 if c in expected_classes:
                     prob_df[f'Prob_Class_{c}'] = cls_probs[:, i]
             
             df_model = df_model.reset_index(drop=True)
-            df_model = df_model.copy()
-            df_model = pd.concat([df_model.reset_index(drop=True), prob_df], axis=1)
+            df_model = pd.concat([df_model, prob_df], axis=1)
             FEATURES_with_probs = FEATURES + [f'Prob_Class_{c}' for c in expected_classes]
             X_reg = df_model[FEATURES_with_probs]
             
@@ -1220,15 +1161,14 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             model_loss.fit(X_train_loss, y_train_loss)
             
             # --- Step 5: Live Prediction ---
-            latest = df.tail(1).copy()
-
+            latest = df.iloc[[-1]]
             if latest[FEATURES].isnull().values.any():
                 st.text(f"Skipping {ticker} for NULL Features")
                 null_features = latest[FEATURES].iloc[0].isnull()
                 st.text(f"NaN features for {ticker}: {list(null_features[null_features].index)}")
                 continue
-
-            latest[FEATURES] = latest[FEATURES].apply(pd.to_numeric, errors='coerce')
+            
+            latest_scaled_cls = scaler_cls.transform(latest[FEATURES])
             latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
     
             # Compute probabilities for all expected classes
@@ -1258,13 +1198,11 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             latest_scaled_loss = scaler_loss.transform(latest_features_with_probs)
             
             current_price = latest['Close'].values[0]
-            predicted_return = model_return.predict(latest_scaled_return.reshape(1, -1))[0]
-            predicted_loss   = model_loss.predict(latest_scaled_loss.reshape(1, -1))[0]
+            predicted_return = model_return.predict(latest_scaled_return)[0]
+            predicted_loss = model_loss.predict(latest_scaled_loss)[0]
             predicted_tp = current_price * (1 + predicted_return)
             predicted_sl = current_price * (1 + predicted_loss)
-            if np.isnan(predicted_sl):
-                predicted_sl = current_price * 0.97
-
+            entry_price = (current_price + predicted_sl) / 2
             entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
 
             # Confidence calculation
@@ -1302,14 +1240,9 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             entry_signal = True
             sc = 'white'
             lookback_n = 5
-            def safe_mode(arr):
-                m = pd.Series(arr).mode()
-                return m.iloc[0] if len(m) else 0
-            
-            bull_mode = safe_mode(df.Bull.values[-lookback_n:])
-            bear_mode = safe_mode(df.Bear.values[-lookback_n:])
-            neutral_mode = safe_mode(df.Neutral.values[-lookback_n:])
-
+            bull_mode = pd.Series(df.Bull.values[-lookback_n:]).mode().iloc[0]
+            bear_mode = pd.Series(df.Bear.values[-lookback_n:]).mode().iloc[0]
+            neutral_mode = pd.Series(df.Neutral.values[-lookback_n:]).mode().iloc[0]
             hit_price = None
 
             TI = df.TI.values[-1]
@@ -1423,7 +1356,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             })
         except Exception as e:
             st.text(f"Error processing {ticker}: {e}")
-    df_results = pd.DataFrame(results).convert_dtypes()
+    df_results = pd.DataFrame(results)
     return dfs, df_results
 
 
@@ -1723,31 +1656,3 @@ def run_app():
 # Call this only in streamlit run mode
 if __name__ == "__main__":
     run_app()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
