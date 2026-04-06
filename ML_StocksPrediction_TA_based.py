@@ -18,7 +18,7 @@ import altair as alt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 st.write("Testing TSLA…")
-st.write(yf.download("TSLA", period="5d"
+st.write(yf.download("TSLA", period="5d")
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
