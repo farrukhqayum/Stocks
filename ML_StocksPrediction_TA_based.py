@@ -100,7 +100,6 @@ def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
         return na_str
 
 def optimize_dataframe(df):
-    df = df.copy()
     for col in df.select_dtypes(include=['float64']).columns:
         df[col] = df[col].astype('float32')
     for col in df.select_dtypes(include=['int64']).columns:
@@ -151,7 +150,6 @@ def is_valid_ticker(ticker):
 def add_technical_indicators(df):
     """Add all technical indicators using ta_functions module"""
     try:
-        df = df.copy()
         close = df['Close']
         
         # Smooth price
@@ -187,8 +185,9 @@ def add_technical_indicators(df):
         df['SMIIO_Osc'] = smiio_result[2]
         
         # Bands
-        df['Upper_Band'] = df['EMA1'] + (2 * df['Close_smooth'].rolling(20).std())
-        df['Lower_Band'] = df['EMA1'] - (2 * df['Close_smooth'].rolling(20).std())
+        df['Upper_Band'] = df['EMA1'] + (2 * df['Close_smooth'].rolling(20).std(ddof=0))
+        df['Lower_Band'] = df['EMA1'] - (2 * df['Close_smooth'].rolling(20).std(ddof=0))
+
         df['Volume_MA20'] = df['Volume'].rolling(window=20).mean()
         
         # Volume features
@@ -199,8 +198,8 @@ def add_technical_indicators(df):
         
         # Volume spikes
         df['vSpike'] = np.where(
-            df['Volume'] > 2 * df['Volume_MA20'], 
-            np.where(df['Close'] > df['Open'], 1, -1), 
+            df['Volume'].astype(float) > 2 * df['Volume_MA20'].astype(float),
+            np.where(df['Close'] > df['Open'], 1, -1),
             0
         )
         
@@ -298,7 +297,7 @@ def add_technical_indicators(df):
         df['TI'] = df['TI'].astype('category')
         
         # One-hot encode TI
-        df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
+        df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='', dtype=int)
         expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
         for col in expected_cols:
             if col not in df_encoded.columns:
@@ -338,7 +337,7 @@ def add_pivot_levels(df, window=_DAYS):
     low_min = low.min()
     
     # Get last close of each window safely
-    close_last = close.rolling(window).apply(lambda x: x.iloc[-1] if len(x) > 0 else x.iloc[0] if len(x) > 0 else 0)
+    close_last = close.rolling(window).apply(lambda x: x[-1] if len(x) > 0 else 0, raw=True)
     
     PP = (high_max + low_min + close_last).div(3)
     R1 = 2 * PP - low_min
@@ -384,7 +383,6 @@ def average_pivots(df, windows=[5, 10, 14, 20]):
     return df
 
 def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
-    df = df.copy()
     df['Expected_Return'] = np.nan
     close_prices = df['Close'].values
     
@@ -397,7 +395,6 @@ def compute_expected_return(df, forward_window=14, r_cols=['R1', 'R2']):
     return df
 
 def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
-    df = df.copy()
     df['Expected_Loss'] = np.nan
     close_prices = df['Close'].values
     
@@ -415,7 +412,6 @@ def compute_expected_loss(df, forward_window=14, s_cols=['S1', 'S2']):
 
 def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05, 
                         lookback=60, tp_thresh=0.35, sl_thresh=0.4):
-    df = df.copy()
     close_prices = df['Close'].values
     bull = (df['TI'] == 'Bull')
     bear = (df['TI'] == 'Bear')
@@ -549,20 +545,24 @@ def plot_confidence_heatmap(df_results):
         tooltip=['Ticker:N', 'Confidence:Q']
     )
     
-    text = base.mark_text(align='center', baseline='middle', lineBreak='\n').encode(
-        text=alt.Text('Display_Text:N'),
+    text = base.mark_text(
+        align='center',
+        baseline='middle'
+    ).encode(
+        text='Display_Text:N',
         color=alt.condition(alt.datum.Confidence > 60, alt.value('white'), alt.value('black'))
     )
+
     
-    chart = (heatmap + text).properties(title='Top ML Confidence', width=600, height=400).interactive()
+    chart = (heatmap + text).properties(title='Top ML Confidence', width=600, height=400)
     st.altair_chart(chart, use_container_width=False)
 
 def plot_single_ticker(ticker, df, df_results, _window=14):
-    predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
-    if predictions.empty:
+    if df_results[df_results['Ticker'] == ticker].empty:
         st.text(f"No prediction results found for ticker {ticker}")
         return
-    
+    predictions = df_results[df_results['Ticker'] == ticker].iloc[0]
+
     signal = predictions['Signal']
     current_price = round(df['Close'].iloc[-1], 2)
     gain = round(predictions['Max (%)'], 1)
@@ -571,7 +571,9 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     loss_price = current_price * (1 + loss/100)
     conf = predictions['Confidence']
     will_hit_str = df_results.loc[df_results['Ticker'] == ticker, 'Will_Hit'].values[0]
-    clean_label = re.sub(r'\(.*?\)|[\d\.]+', '', will_hit_str).strip()
+    clean_label = re.sub(r'\(.*?\)|[\d\.]+', '', str(will_hit_str)).strip()
+    if df.empty:
+        return
     last_date = df.index[-1]
     future_date = last_date + pd.Timedelta(days=_window)
     avg_price = (current_price + loss_price) / 2
