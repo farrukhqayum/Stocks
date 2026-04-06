@@ -1,7 +1,7 @@
-streamlit==1.29.0
+yfinance==0.2.38
 pandas==2.1.4
 numpy==1.24.3
-yfinance
+streamlit==1.29.0
 matplotlib==3.8.2
 seaborn==0.13.0
 scikit-learn==1.3.2
