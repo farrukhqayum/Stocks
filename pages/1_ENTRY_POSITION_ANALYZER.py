@@ -1,24 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
-from imports import *
 import streamlit as st
-import pandas as pd
-import numpy as np
-import yfinance as yf
-from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-import warnings
-import math
-warnings.filterwarnings('ignore')
-
 
 # Configuration
 st.set_page_config(page_title="📊 Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
+
+from imports import *
+import math
+warnings.filterwarnings('ignore')
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
@@ -101,8 +91,13 @@ desc = """
 
 def validate_ticker(ticker: str) -> dict:
     try:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period="1d")
+        ticker = ticker.strip().upper()
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        stock = yf.Ticker(ticker, session=session)
+        hist = stock.history(period="5d")
         if hist.empty:
             return {"valid": False, "reason": "No price history"}
         return {"valid": True, "reason": "Ticker found"}
@@ -113,17 +108,49 @@ def validate_ticker(ticker: str) -> dict:
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     """Get stock data for given timeframe with proper date handling"""
     try:
+        ticker = ticker.strip().upper()
+        
+        # Create curl_cffi session (from your imports.py)
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+        })
+        
         # Map interval names for yfinance
         interval_map = {
-            '4H': '4H',
+            '4H': '4h',  # yfinance uses '4h' not '4H'
             '1D': '1d', 
             '1W': '1wk'
         }
         
         yf_interval = interval_map.get(interval, interval)
         
-        df = yf.download(ticker, start=start_date, end=end_date,
-                        interval=yf_interval, progress=False, auto_adjust=True)
+        # Download data with session
+        df = yf.download(
+            ticker, 
+            start=start_date, 
+            end=end_date,
+            interval=yf_interval, 
+            progress=False, 
+            auto_adjust=True,
+            session=session,
+            threads=False,
+            prepost=False
+        )
+        
+        if df.empty:
+            # Try with period as fallback
+            df = yf.download(
+                ticker, 
+                period="2y",
+                interval=yf_interval,
+                progress=False, 
+                auto_adjust=True,
+                session=session,
+                threads=False
+            )
         
         if df.empty:
             st.error(f"No data found for {ticker} with interval {interval}")
@@ -140,22 +167,35 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
             df['Date'] = pd.to_datetime(df['Datetime'])
             df.set_index('Date', inplace=True)
             df = df.drop('Datetime', axis=1)
+        elif 'index' in df.columns:
+            df['Date'] = pd.to_datetime(df['index'])
+            df.set_index('Date', inplace=True)
+        
+        # Handle MultiIndex columns (fix for yfinance updates)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        
+        # Remove duplicate columns
+        df = df.loc[:, ~df.columns.duplicated()]
         
         # Ensure we have the required columns
-        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
         required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
         for col in required_cols:
             if col not in df.columns:
-                st.error(f"Missing required column: {col}")
+                st.error(f"Missing required column: {col} for {ticker}")
                 return None
         
-        # Clean data
+        # Clean data - only keep required columns
         df = df[required_cols].dropna()
         
         if df.empty:
             st.error(f"No valid data after cleaning for {ticker}")
             return None
-            
+        
+        # Convert to float32 for memory efficiency
+        for col in df.select_dtypes(include=['float64']).columns:
+            df[col] = df[col].astype('float32')
+        
         return df
         
     except Exception as e:
