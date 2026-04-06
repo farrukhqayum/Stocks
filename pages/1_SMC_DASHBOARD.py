@@ -894,7 +894,8 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
                            fontweight='bold')
                     
                     plotted_lows.add(last_low_idx)
-                    is_uptrend = False  last_swing_low = None
+                    is_uptrend = False  
+                    last_swing_low = None
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
