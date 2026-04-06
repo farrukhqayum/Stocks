@@ -215,32 +215,33 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    """
-    Fetch OHLCV data from Yahoo Finance with proper error handling.
-    Returns DataFrame with columns: Open, High, Low, Close, Volume
-    """
     try:
         ticker = ticker.strip().upper()
         
-        # Create a session with proper headers to avoid blocking
-        import requests
+        # Import curl_cffi for proper session
+        from curl_cffi import requests
+        
+        # Create curl_cffi session (not requests session)
         session = requests.Session()
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
         })
         
-        # Method 1: Try with period parameter (most reliable)
+        # Use yfinance with the curl_cffi session
         df = yf.download(
             ticker,
             period="2y",
             progress=False,
             auto_adjust=True,
-            session=session,
+            session=session,  # Use curl_cffi session, NOT requests.Session()
             threads=False
         )
         
-        # Method 2: If empty, try with date range
         if df.empty:
+            # Try with date range as fallback
             df = yf.download(
                 ticker,
                 start=start_date,
@@ -251,60 +252,38 @@ def get_stock_data(ticker, start_date, end_date):
                 threads=False
             )
         
-        # Method 3: Last resort - use Ticker object
-        if df.empty:
-            ticker_obj = yf.Ticker(ticker, session=session)
-            df = ticker_obj.history(start=start_date, end=end_date, auto_adjust=True)
-        
-        # Check if we got data
         if df.empty:
             st.warning(f"No data returned for {ticker}")
             return None
         
-        # Handle MultiIndex columns (Yahoo Finance format change fix) [citation:1]
+        # Handle MultiIndex columns
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         
-        # Remove duplicate columns if any
+        # Remove duplicate columns
         df = df.loc[:, ~df.columns.duplicated()]
         
-        # Ensure we have all required OHLCV columns
-        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
-        for col in required_cols:
-            if col not in df.columns:
-                st.error(f"Missing column '{col}' for {ticker}")
-                return None
-        
-        # Reset index to make Date a column
+        # Reset index and handle Date
         df = df.reset_index()
         
-        # Ensure Date column exists and is proper
         if 'Date' in df.columns:
             df['Date'] = pd.to_datetime(df['Date'])
             df.set_index('Date', inplace=True)
-        elif df.index.name == 'Date':
-            df.index = pd.to_datetime(df.index)
         else:
-            # If no Date column, use index
             df.index = pd.to_datetime(df.index)
         
         # Filter by date range
         df = df[(df.index >= start_date) & (df.index <= end_date)]
         
-        # Check minimum data requirement
         if len(df) < 50:
             st.warning(f"Insufficient data for {ticker}: only {len(df)} rows")
             return None
         
-        # Convert to float32 for memory efficiency
-        df = optimize_dataframe(df)
-        
-        return df
+        return optimize_dataframe(df)
         
     except Exception as e:
-        st.error(f"Error fetching {ticker}: {str(e)[:100]}")
+        st.error(f"Error fetching {ticker}: {e}")
         return None
-
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
