@@ -1066,7 +1066,11 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     for ticker in TICKERS:
         try:
             df = get_stock_data(ticker, start_date, end_date)
-            if not pd.api.types.is_datetime64_any_dtype(df.index):
+            if df is None or df.empty:
+                st.text(f"Skipping {ticker}: no data returned.")
+                continue
+
+            if not isinstance(df.index, pd.DatetimeIndex):
                 if "Date" in df.columns:
                     df = df.set_index("Date")
                 else:
@@ -1087,7 +1091,8 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             
             dfs[ticker] = df
             
-            df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
+            df_model = df.dropna(subset=FEATURES + ['Hit_Label','Expected_Return','Expected_Loss']).copy()
+
             if len(df_model) < _Nr:
                 st.text(f"Skipping {ticker} due to insufficient data after dropna.")
                 continue
@@ -1115,13 +1120,15 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             # --- Step 2: Extract Full Class Probabilities as Features ---
             cls_probs = model_class.predict_proba(X_scaled_cls)
             # Extract probability columns for all expected classes safely
-            prob_df = pd.DataFrame(0, index=np.arange(len(cls_probs)), columns=[f'Prob_Class_{c}' for c in expected_classes])
+            prob_df = pd.DataFrame(np.zeros((len(cls_probs), len(expected_classes))), columns=[f'Prob_Class_{c}' for c in expected_classes])
+
             for i, c in enumerate(model_class.classes_):
                 if c in expected_classes:
                     prob_df[f'Prob_Class_{c}'] = cls_probs[:, i]
             
             df_model = df_model.reset_index(drop=True)
-            df_model = pd.concat([df_model, prob_df], axis=1)
+            df_model = df_model.copy()
+            df_model = pd.concat([df_model.reset_index(drop=True), prob_df], axis=1)
             FEATURES_with_probs = FEATURES + [f'Prob_Class_{c}' for c in expected_classes]
             X_reg = df_model[FEATURES_with_probs]
             
@@ -1161,14 +1168,15 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             model_loss.fit(X_train_loss, y_train_loss)
             
             # --- Step 5: Live Prediction ---
-            latest = df.iloc[[-1]]
+            latest = df.tail(1).copy()
+
             if latest[FEATURES].isnull().values.any():
                 st.text(f"Skipping {ticker} for NULL Features")
                 null_features = latest[FEATURES].iloc[0].isnull()
                 st.text(f"NaN features for {ticker}: {list(null_features[null_features].index)}")
                 continue
-            
-            latest_scaled_cls = scaler_cls.transform(latest[FEATURES])
+
+            latest[FEATURES] = latest[FEATURES].apply(pd.to_numeric, errors='coerce')
             latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
     
             # Compute probabilities for all expected classes
@@ -1198,11 +1206,13 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             latest_scaled_loss = scaler_loss.transform(latest_features_with_probs)
             
             current_price = latest['Close'].values[0]
-            predicted_return = model_return.predict(latest_scaled_return)[0]
-            predicted_loss = model_loss.predict(latest_scaled_loss)[0]
+            predicted_return = model_return.predict(latest_scaled_return.reshape(1, -1))[0]
+            predicted_loss   = model_loss.predict(latest_scaled_loss.reshape(1, -1))[0]
             predicted_tp = current_price * (1 + predicted_return)
             predicted_sl = current_price * (1 + predicted_loss)
-            entry_price = (current_price + predicted_sl) / 2
+            if np.isnan(predicted_sl):
+                predicted_sl = current_price * 0.97
+
             entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
 
             # Confidence calculation
@@ -1240,9 +1250,14 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             entry_signal = True
             sc = 'white'
             lookback_n = 5
-            bull_mode = pd.Series(df.Bull.values[-lookback_n:]).mode().iloc[0]
-            bear_mode = pd.Series(df.Bear.values[-lookback_n:]).mode().iloc[0]
-            neutral_mode = pd.Series(df.Neutral.values[-lookback_n:]).mode().iloc[0]
+            def safe_mode(arr):
+                m = pd.Series(arr).mode()
+                return m.iloc[0] if len(m) else 0
+            
+            bull_mode = safe_mode(df.Bull.values[-lookback_n:])
+            bear_mode = safe_mode(df.Bear.values[-lookback_n:])
+            neutral_mode = safe_mode(df.Neutral.values[-lookback_n:])
+
             hit_price = None
 
             TI = df.TI.values[-1]
@@ -1356,7 +1371,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
             })
         except Exception as e:
             st.text(f"Error processing {ticker}: {e}")
-    df_results = pd.DataFrame(results)
+    df_results = pd.DataFrame(results).convert_dtypes()
     return dfs, df_results
 
 
