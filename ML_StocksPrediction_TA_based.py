@@ -215,44 +215,40 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    for attempt in range(3):
-        try:
-            df = yf.download(
-                ticker, 
-                start=start_date, 
-                end=end_date + timedelta(days=1),
-                progress=False,
-                auto_adjust=True, 
-                actions=False
-            )
+    try:
+        # 1. Download data
+        df = yf.download(
+            ticker, 
+            start=start_date, 
+            end=end_date + timedelta(days=1),
+            progress=False,
+            group_by='column' # Ensures standard structure
+        )
+        
+        if df is None or df.empty:
+            return None
+
+        # 2. Flatten MultiIndex columns if they exist
+        # This is the most common cause of 'NoneType' or Index errors
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
+        # 3. Standardize Index
+        df = df.reset_index()
+        if 'Date' not in df.columns:
+            return None
             
-            if not df.empty:
-                break
-                
-            if attempt < 2:
-                time.sleep(1)  # Wait before retry
-                continue
-                
-        except Exception:
-            if attempt == 2:
-                return None
-            time.sleep(1)
-    
-    if df.empty:
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.set_index('Date', inplace=True)
+        
+        # 4. Final Cleanup
+        df = df.dropna(subset=['Close']) # Ensure we actually have price data
+        
+        return optimize_dataframe(df) if not df.empty else None
+
+    except Exception as e:
+        st.error(f"Error fetching {ticker}: {e}")
         return None
-
-    # Process the dataframe (YOUR WORKING APPROACH)
-    df = df.reset_index()
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.set_index('Date', inplace=True)
-    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    df = df.dropna()
-
-    if df.empty:
-        return None
-
-    df = optimize_dataframe(df)
-    return df
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
