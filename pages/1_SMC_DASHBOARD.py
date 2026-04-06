@@ -25,25 +25,47 @@ def compute_rsi(series, length=14):
     rs = avg_gain / avg_loss
     return 100 - (100 / (1 + rs))
 
-def compute_lb_curve(df, lblen=10):
-    close = df['close']
+def compute_atr(df, length=14):
+    """Average True Range"""
     high = df['high']
     low = df['low']
-    lb = close.copy()
-    for i in range(len(df)):
-        if i == 0:
-            lb.iloc[i] = close.iloc[i]
+    close = df['close']
+    
+    tr1 = high - low
+    tr2 = abs(high - close.shift())
+    tr3 = abs(low - close.shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    
+    return tr.rolling(length).mean()
+
+def compute_lb_curve(df, lblen=10):
+    """Calculate LB Curve without lookahead bias - uses previous bars only"""
+    close = df['close'].values
+    high = df['high'].values
+    low = df['low'].values
+    
+    lb = np.zeros(len(df))
+    lb[0] = close[0]
+    
+    for i in range(1, len(df)):
+        start = max(0, i - lblen + 1)
+        
+        # Use PREVIOUS bar's highest/lowest only (no lookahead)
+        if start < i:
+            highest_lb_prev = lb[start:i].max()
+            lowest_lb_prev = lb[start:i].min()
         else:
-            start = max(0, i - lblen + 1)
-            highest_lb_prev = lb.iloc[start:i].max()
-            lowest_lb_prev = lb.iloc[start:i].min()
-            if close.iloc[i] > highest_lb_prev:
-                lb.iloc[i] = (high.iloc[i] + close.iloc[i]) / 2
-            elif close.iloc[i] < lowest_lb_prev:
-                lb.iloc[i] = (low.iloc[i] + close.iloc[i]) / 2
-            else:
-                lb.iloc[i] = lb.iloc[i-1]
-    return ema(lb, lblen)
+            highest_lb_prev = lb[i-1]
+            lowest_lb_prev = lb[i-1]
+        
+        if close[i] > highest_lb_prev:
+            lb[i] = (high[i] + close[i]) / 2
+        elif close[i] < lowest_lb_prev:
+            lb[i] = (low[i] + close[i]) / 2
+        else:
+            lb[i] = lb[i-1]
+    
+    return pd.Series(ema(lb, lblen), index=df.index)
 
 @st.cache_data
 def load_data(ticker, start_date, interval):
@@ -79,6 +101,7 @@ def load_data(ticker, start_date, interval):
     df['ema200'] = ema(df.close, 200)
     df['rsi'] = compute_rsi(df.close)
     df['rsi_ema'] = ema(df['rsi'], 14)
+    df['atr'] = compute_atr(df, 14)
     df['lb_crv'] = compute_lb_curve(df)
     df = df.bfill()
     df = df.ffill()
@@ -94,10 +117,173 @@ class FVGZone:
         self.is_mitigated = False
         self.mitigated_idx = None
         self.touched = False
+
+class OBZone:
+    def __init__(self, top, bottom, start_idx, is_bull):
+        self.top = top
+        self.bottom = bottom
+        self.start_idx = start_idx
+        self.is_bull = is_bull
+        self.is_mitigated = False
+        self.mitigated_idx = None
+        self.touched = False
+
+# ---------------------------------------------------------
+# FVG DETECTION
+# ---------------------------------------------------------
+
+def detect_fvg_zones(df, max_age=25, fail_window=5):
+    """
+    Detect FVG zones with ATR-based gap tolerance
+    Only mitigate when CLOSE breaches the zone
+    """
+    high = df['high'].values
+    low = df['low'].values
+    close = df['close'].values
+    open_ = df['open'].values
+    
+    # Calculate ATR for gap tolerance
+    atr = df['atr'].values
+    min_gap = atr * 0.1  # 10% of ATR minimum gap
+    
+    zones = []
+    
+    for i in range(len(df)):
+        if i >= 2:
+            # Bullish FVG with gap requirement
+            is_fvg_up = (low[i] > high[i-2] + min_gap[i])
+            # Bearish FVG with gap requirement
+            is_fvg_dn = (high[i] < low[i-2] - min_gap[i])
+            
+            if is_fvg_up:
+                zones.append(FVGZone(high[i-2], low[i], i-2, True))
+            
+            if is_fvg_dn:
+                zones.append(FVGZone(high[i], low[i-2], i-2, False))
         
+        # Update existing zones
+        to_delete = []
+        for j, z in enumerate(zones):
+            age = i - z.start_idx
+            
+            # Check failure within window (requires 2 closes)
+            failed = False
+            if age <= fail_window and i >= 1:
+                if z.is_bull:
+                    if close[i] < z.bottom and close[i-1] < z.bottom:
+                        failed = True
+                else:
+                    if close[i] > z.top and close[i-1] > z.top:
+                        failed = True
+            
+            # Mitigation: CLOSE must be beyond zone (not just touch)
+            if not z.is_mitigated and not failed:
+                if z.is_bull and close[i] < z.bottom:
+                    z.is_mitigated = True
+                    z.mitigated_idx = i
+                if not z.is_bull and close[i] > z.top:
+                    z.is_mitigated = True
+                    z.mitigated_idx = i
+            
+            # Track touches (for potential future mitigation)
+            if not z.touched and (z.bottom < close[i] < z.top):
+                z.touched = True
+            
+            if failed or age > max_age:
+                to_delete.append(j)
+        
+        for j in reversed(to_delete):
+            del zones[j]
+    
+    return [z for z in zones if not z.is_mitigated]
+
+# ---------------------------------------------------------
+# ORDER BLOCK DETECTION
+# ---------------------------------------------------------
+
+def detect_order_blocks(df, max_age=25, fail_window=5):
+    """
+    Detect Order Blocks (3-candle and gap-based)
+    """
+    high = df['high'].values
+    low = df['low'].values
+    close = df['close'].values
+    open_ = df['open'].values
+    volume = df['volume'].values if 'volume' in df.columns else None
+    
+    # Volume SMA for confirmation
+    if volume is not None:
+        vol_sma = pd.Series(volume).rolling(5).mean().values
+        vol_sma = np.nan_to_num(vol_sma, nan=np.median(volume))
+    else:
+        vol_sma = np.ones(len(df)) * 1000000
+    
+    zones = []
+    
+    for i in range(len(df)):
+        if i >= 2:
+            vol_ok = volume[i] > vol_sma[i] * 0.6 if volume is not None else True
+            
+            # 3-candle Bullish OB (displacement up)
+            displacement_up = (close[i] > high[i-1] and 
+                              close[i] > open_[i] and 
+                              low[i-1] < low[i-2])
+            
+            if displacement_up and vol_ok:
+                zones.append(OBZone(high[i-1], low[i-1], i-1, True))
+            
+            # 3-candle Bearish OB (displacement down)
+            displacement_down = (close[i] < low[i-1] and 
+                                close[i] < open_[i] and 
+                                high[i-1] > high[i-2])
+            
+            if displacement_down and vol_ok:
+                zones.append(OBZone(high[i-1], low[i-1], i-1, False))
+            
+            # Gap-based Bullish OB
+            gap_up = (open_[i] > high[i-1] and close[i] > open_[i])
+            if gap_up and vol_ok:
+                zones.append(OBZone(open_[i], low[i-1], i-1, True))
+            
+            # Gap-based Bearish OB
+            gap_down = (open_[i] < low[i-1] and close[i] < open_[i])
+            if gap_down and vol_ok:
+                zones.append(OBZone(high[i-1], open_[i], i-1, False))
+        
+        # Update existing zones
+        to_delete = []
+        for j, z in enumerate(zones):
+            age = i - z.start_idx
+            
+            failed = False
+            if age <= fail_window and i >= 1:
+                if z.is_bull:
+                    if close[i] < z.bottom and close[i-1] < z.bottom:
+                        failed = True
+                else:
+                    if close[i] > z.top and close[i-1] > z.top:
+                        failed = True
+            
+            if not z.is_mitigated and not failed:
+                if z.is_bull and close[i] < z.bottom:
+                    z.is_mitigated = True
+                    z.mitigated_idx = i
+                if not z.is_bull and close[i] > z.top:
+                    z.is_mitigated = True
+                    z.mitigated_idx = i
+            
+            if failed or age > max_age:
+                to_delete.append(j)
+        
+        for j in reversed(to_delete):
+            del zones[j]
+    
+    return [z for z in zones if not z.is_mitigated]
+
 # ---------------------------------------------------------
 # CANDLESTICK ENGINE
 # ---------------------------------------------------------
+
 def pine_candle_engine(df):
     o = df['open'].values
     h = df['high'].values
@@ -127,7 +313,9 @@ def pine_candle_engine(df):
             "mom_bullish": False,
             "mom_bearish": False,
             "strong_bullish": False,
-            "strong_bearish": False
+            "strong_bearish": False,
+            "turning_point": False,
+            "turning_code": None
         }
 
     ema_up = (ema20 > ema50) & (ema50 > ema200)
@@ -321,9 +509,7 @@ def pine_candle_engine(df):
         bullSweep = (l[-1] < l[-2]) and (c[-1] > (h[-1] + l[-1]) / 2)
         bearSweep = (h[-1] > h[-2]) and (c[-1] < (h[-1] + l[-1]) / 2)
 
-    # ---------------------------------------------------------
-    # TURNING POINT ENGINE (Ultra-Compact Codes)
-    # ---------------------------------------------------------
+    # Turning Point Engine
     turning_point = False
     turning_code = None
 
@@ -335,46 +521,39 @@ def pine_candle_engine(df):
 
         # Bearish pattern → look for bullish reversal
         if pattern_bull is False:
-            # Bull Reject  → "Reject Lows"
             if (c[-1] > o[-1]) and (wick_low_last > body_last * 1.2):
                 turning_point = True
                 turning_code = "▲ Rejecting Lows"
 
-            # Bull Engulf → "Bull Shift"
             if (n >= 2 and
-                c[-2] < o[-2] and          # prev bearish
-                c[-1] > o[-1] and          # curr bullish
+                c[-2] < o[-2] and
+                c[-1] > o[-1] and
                 o[-1] <= c[-2] and
                 c[-1] >= o[-2]):
                 turning_point = True
                 turning_code = "▲ Bullish Shift"
 
-            # Bull Body   → "Bull Drive"
             if (c[-1] > o[-1]) and (body_last > 0.55 * range_last):
                 turning_point = True
                 turning_code = "▲ Bullish Drive"
 
         # Bullish pattern → look for bearish reversal
         if pattern_bull is True:
-            # Bear Reject → "Reject Highs"
             if (c[-1] < o[-1]) and (wick_high_last > body_last * 1.2):
                 turning_point = True
                 turning_code = "▼ Rejecting Highs"
 
-            # Bear Engulf → "Bear Shift"
             if (n >= 2 and
-                c[-2] > o[-2] and          # prev bullish
-                c[-1] < o[-1] and          # curr bearish
+                c[-2] > o[-2] and
+                c[-1] < o[-1] and
                 o[-1] >= c[-2] and
                 c[-1] <= o[-2]):
                 turning_point = True
                 turning_code = "▼ Bearish Shift"
 
-            # Bear Body   → "Bear Drive"
             if (c[-1] < o[-1]) and (body_last > 0.55 * range_last):
                 turning_point = True
                 turning_code = "▼ Bearish Drive"
-
 
     return {
         "last_pattern": last_pattern,
@@ -395,7 +574,6 @@ def pine_candle_engine(df):
         "turning_point": turning_point,
         "turning_code": turning_code
     }
-
 
 def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish, rejected):
     if pattern_idx is None or pattern_name is None:
@@ -427,114 +605,10 @@ def plot_pattern_label(ax, df, pattern_idx, pattern_name, pattern_bullish, rejec
     )
 
 # ---------------------------------------------------------
-# FVG DETECTION
+# CHART FUNCTION WITH BOS/CHoCH
 # ---------------------------------------------------------
 
-class FVGZone:
-    def __init__(self, top, bottom, start_idx, is_bull):
-        self.top = top
-        self.bottom = bottom
-        self.start_idx = start_idx
-        self.is_bull = is_bull
-        self.is_mitigated = False
-        self.touched = False
-
-def detect_fvg_zones(df, max_age=25, fail_window=5):
-    high = df['high'].values
-    low = df['low'].values
-    open_ = df['open'].values
-    close = df['close'].values
-
-    zones = []
-
-    for i in range(len(df)):
-        if i >= 2:
-            is_fvg_up = low[i] > high[i-2]   # bullish FVG
-            is_fvg_dn = high[i] < low[i-2]   # bearish FVG
-
-            if is_fvg_up:
-                top = low[i]
-                bottom = high[i-2]
-                zones.append(FVGZone(top, bottom, i, True))
-
-            if is_fvg_dn:
-                top = high[i]
-                bottom = low[i-2]
-                zones.append(FVGZone(top, bottom, i, False))
-
-        to_delete = []
-        for j, z in enumerate(zones):
-            age = i - z.start_idx
-            failed = False
-
-            if age <= fail_window:
-                if z.is_bull and close[i] < z.bottom:
-                    failed = True
-                if not z.is_bull and close[i] > z.top:
-                    failed = True
-
-            body_high = max(open_[i], close[i])
-            body_low = min(open_[i], close[i])
-
-            if not z.is_mitigated and not failed:
-                if body_high > z.bottom and body_low < z.top:
-                    z.is_mitigated = True
-                    z.mitigated_idx = i
-
-            if (not z.touched) and (z.bottom < close[i] < z.top):
-                z.touched = True
-
-            if failed or age > max_age:
-                to_delete.append(j)
-
-        for j in reversed(to_delete):
-            del zones[j]
-
-    return [z for z in zones if not z.is_mitigated]
-
-# ---------------------------------------------------------
-# LAST BROKEN FVG (STRUCTURAL REFERENCES)
-# ---------------------------------------------------------
-
-def get_last_broken_fvg(df):
-    """
-    Returns:
-      last_broken_bear: last bearish FVG that price broke ABOVE (bull reference)
-      last_broken_bull: last bullish FVG that price broke BELOW (bear reference)
-    """
-    o = df["open"].values
-    h = df["high"].values
-    l = df["low"].values
-    c = df["close"].values
-    n = len(df)
-
-    last_broken_bear = None
-    last_broken_bull = None
-
-    for i in range(2, n):
-        # Bearish FVG (for bulls)
-        if h[i] < l[i-2]:
-            top = h[i]
-            bottom = l[i-2]
-            for j in range(i, n):
-                if c[j] > top:
-                    last_broken_bear = {"low": bottom, "high": top, "break_idx": j}
-
-        # Bullish FVG (for bears)
-        if l[i] > h[i-2]:
-            top = l[i]
-            bottom = h[i-2]
-            for j in range(i, n):
-                if c[j] < bottom:
-                    last_broken_bull = {"low": bottom, "high": top, "break_idx": j}
-
-    return last_broken_bear, last_broken_bull
-
-# ---------------------------------------------------------
-# SIMPLE PATTERN BOX (OPTIONAL INFO)
-# ---------------------------------------------------------
-
-def draw_smc_box(ax, df, zones):
+def draw_smc_box(ax, df, fvg_zones, ob_zones):
     last_close = df['close'].iloc[-1]
     ema20_last = df['ema20'].iloc[-1]
     ema50_last = df['ema50'].iloc[-1]
@@ -552,18 +626,20 @@ def draw_smc_box(ax, df, zones):
         trend_text = "TREND: SIDEWAYS"
         trend_color = "gray"
 
-    bull_zones = [z for z in zones if z.is_bull]
-    bear_zones = [z for z in zones if not z.is_bull]
-
-    has_bull_fvg = len(bull_zones) > 0
-    has_bear_fvg = len(bear_zones) > 0
+    # Count zones by type
+    bull_fvg = [z for z in fvg_zones if z.is_bull]
+    bear_fvg = [z for z in fvg_zones if not z.is_bull]
+    bull_ob = [z for z in ob_zones if z.is_bull]
+    bear_ob = [z for z in ob_zones if not z.is_bull]
 
     def yn(flag): return "green" if flag else "red"
 
     zone_lines = [
-        ("ZONE:", "gray"),
-        (f"  BULL FVG: {'✓' if has_bull_fvg else '✗'}", yn(has_bull_fvg)),
-        (f"  BEAR FVG: {'✓' if has_bear_fvg else '✗'}", yn(has_bear_fvg)),
+        ("ZONES:", "gray"),
+        (f"  BULL FVG: {len(bull_fvg)}", "green" if bull_fvg else "red"),
+        (f"  BEAR FVG: {len(bear_fvg)}", "red" if bear_fvg else "green"),
+        (f"  BULL OB: {len(bull_ob)}", "green" if bull_ob else "red"),
+        (f"  BEAR OB: {len(bear_ob)}", "red" if bear_ob else "green"),
     ]
 
     lines = [
@@ -576,21 +652,43 @@ def draw_smc_box(ax, df, zones):
         ax.text(
             0.02, y, text,
             transform=ax.transAxes,
-            fontsize=8,
+            fontsize=7,
             color=color,
             ha="left", va="top"
         )
-        y -= 0.035
+        y -= 0.03
 
-# ---------------------------------------------------------
-# CHART
-# ---------------------------------------------------------
-def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, elong = False, eshort = False):
+def detect_swings_for_chart(df, left_bars=10, right_bars=4):
+    """Simplified swing detection for chart"""
+    high = df['high'].values
+    low = df['low'].values
+    
+    swing_highs = []
+    swing_lows = []
+    
+    for i in range(left_bars, len(df) - right_bars):
+        # Swing high
+        left_ok = all(high[i] > high[i-k] for k in range(1, left_bars+1))
+        right_ok = all(high[i] > high[i+k] for k in range(1, right_bars+1))
+        if left_ok and right_ok:
+            swing_highs.append({'idx': i, 'price': high[i]})
+        
+        # Swing low
+        left_ok = all(low[i] < low[i-k] for k in range(1, left_bars+1))
+        right_ok = all(low[i] < low[i+k] for k in range(1, right_bars+1))
+        if left_ok and right_ok:
+            swing_lows.append({'idx': i, 'price': low[i]})
+    
+    return swing_highs, swing_lows
+
+def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gshort = False, elong = False, eshort = False):
     df = df.copy()
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
     if "rsi_ema" not in df.columns:
         df["rsi_ema"] = ema(df["rsi"], 14)
+    if "atr" not in df.columns:
+        df["atr"] = compute_atr(df, 14)
 
     fig, (ax, ax2) = plt.subplots(
         2, 1,
@@ -606,9 +704,7 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
     up_color = "#26a69a"
     down_color = "#ef5350"
 
-    # -----------------------------
     # CANDLE PLOTTING
-    # -----------------------------
     for i in range(len(df)):
         color = up_color if c.iloc[i] >= o.iloc[i] else down_color
         ax.vlines(i, l.iloc[i], h.iloc[i], color=color, linewidth=1)
@@ -620,26 +716,21 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
             edgecolor=color
         ))
 
-    # -----------------------------
     # INDICATORS
-    # -----------------------------
     ax.plot(x, df["lb_crv"], color="gray", alpha=0.75, linewidth=1.2)
     ax.plot(x, df["ema20"], color="yellow", alpha=0.75, linewidth=1)
     ax.plot(x, df["ema50"], color="red", alpha=0.75, linewidth=1)
 
-    # -----------------------------
-    # FVG ZONES
-    # -----------------------------
+    # FVG ZONES (Teal/Blue, Dashed)
     last_idx = len(df) - 1
     
-    for z in zones:
-    
+    for z in fvg_zones:
         rect_x = z.start_idx - 0.5
     
         if z.is_mitigated:
             end_idx = z.mitigated_idx
         else:
-            end_idx = last_idx  # ACTIVE FVG → extend to current bar
+            end_idx = last_idx
     
         rect_width = (end_idx - z.start_idx) + 1
     
@@ -652,22 +743,94 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
             facecolor=color,
             alpha=0.15,
             edgecolor=color,
-            linestyle="--"
+            linestyle="--",
+            linewidth=1.5
+        ))
+    
+    # ORDER BLOCKS (Green/Orange, Solid)
+    for z in ob_zones:
+        rect_x = z.start_idx - 0.5
+    
+        if z.is_mitigated:
+            end_idx = z.mitigated_idx
+        else:
+            end_idx = last_idx
+    
+        rect_width = (end_idx - z.start_idx) + 1
+    
+        color = "green" if z.is_bull else "orange"
+    
+        ax.add_patch(Rectangle(
+            (rect_x, z.bottom),
+            rect_width,
+            z.top - z.bottom,
+            facecolor=color,
+            alpha=0.2,
+            edgecolor=color,
+            linestyle="-",
+            linewidth=2
         ))
 
-    # -----------------------------
     # SMC BOX
-    # -----------------------------
-    draw_smc_box(ax, df, zones)
+    draw_smc_box(ax, df, fvg_zones, ob_zones)
+
+    # BOS/CHoCH DETECTION (Structure Breaks)
+    swing_highs, swing_lows = detect_swings_for_chart(df)
+    close_vals = df['close'].values
+    atr_vals = df['atr'].values
+    
+    # Track last swing levels
+    last_swing_high = None
+    last_swing_low = None
+    last_high_idx = None
+    last_low_idx = None
+    is_uptrend = False
+    
+    for i in range(len(df)):
+        # Update last swing levels
+        for sh in swing_highs:
+            if sh['idx'] <= i:
+                last_swing_high = sh['price']
+                last_high_idx = sh['idx']
+        
+        for sl in swing_lows:
+            if sl['idx'] <= i:
+                last_swing_low = sl['price']
+                last_low_idx = sl['idx']
+        
+        # Draw BOS/CHoCH lines
+        if last_swing_high is not None and last_high_idx is not None:
+            bos_up = close_vals[i] > last_swing_high + atr_vals[i] * 0.1
+            if bos_up:
+                # Draw horizontal line at break level
+                ax.axhline(y=last_swing_high, xmin=last_high_idx/len(df), 
+                          xmax=i/len(df), color='lime', linestyle='--', 
+                          alpha=0.6, linewidth=1.5)
+                # Add label
+                label_text = "CHoCH ↑" if is_uptrend else "BOS ↑"
+                ax.text(i, last_swing_high, f"  {label_text}", 
+                       fontsize=7, color='lime', va='bottom', alpha=0.8)
+                is_uptrend = True
+                last_swing_high = None
+        
+        if last_swing_low is not None and last_low_idx is not None:
+            bos_down = close_vals[i] < last_swing_low - atr_vals[i] * 0.1
+            if bos_down:
+                ax.axhline(y=last_swing_low, xmin=last_low_idx/len(df),
+                          xmax=i/len(df), color='red', linestyle='--',
+                          alpha=0.6, linewidth=1.5)
+                label_text = "CHoCH ↓" if not is_uptrend else "BOS ↓"
+                ax.text(i, last_swing_low, f"  {label_text}",
+                       fontsize=7, color='red', va='top', alpha=0.8)
+                is_uptrend = False
+                last_swing_low = None
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
     ax.yaxis.tick_right()
     ax.yaxis.set_label_position("right")
 
-    # -----------------------------
     # RSI PANEL
-    # -----------------------------
     rsi = df["rsi"]
     rsi_ema = df["rsi_ema"]
 
@@ -694,10 +857,7 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
             fontsize=8
         )
 
-    # -----------------------------
     # EXIT MARKERS
-    # -----------------------------
-    last_idx = len(df) - 1
     last_close = df["close"].iloc[-1]
 
     if elong:
@@ -711,21 +871,17 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
             fontweight="bold", zorder=21
         )
 
-    # -----------------------------
     # LEGEND
-    # -----------------------------
-    legend_text = "■ EXIT LONG\n❌ EXIT SHORT"
+    legend_text = "■ EXIT LONG\n❌ EXIT SHORT\n🟢 BULL OB\n🟠 BEAR OB\n── BOS/CHoCH"
     ax.text(
         0.02, 0.02, legend_text,
         transform=ax.transAxes,
-        fontsize=8, color="blue",
+        fontsize=7, color="blue",
         ha="left", va="bottom",
         bbox=dict(facecolor="white", alpha=0.4, edgecolor="none", boxstyle="round,pad=0.3")
     )
     
-    # -----------------------------
     # PATTERN + REVERSAL ENGINE
-    # -----------------------------
     info = pine_candle_engine(df)
     
     # Draw candlestick pattern label
@@ -737,9 +893,7 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
         info["rejected"]
     )
     
-    # -----------------------------
     # REVERSAL DETECTION
-    # -----------------------------
     bull_reversal = (
         info["last_pattern"] is not None
         and info["pattern_bull"] is True
@@ -767,9 +921,7 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
     else:
         reversal_text = None
     
-    # -----------------------------
     # DRAW REVERSAL TEXT INSIDE CHART
-    # -----------------------------
     if reversal_text:
         ax.text(
             0.5, 0.1, reversal_text,
@@ -785,9 +937,7 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
             )
         )
 
-    # -----------------------------
     # ENTRY MARKERS
-    # -----------------------------
     for i in range(len(df)):
         price = df["close"].iloc[i]
     
@@ -804,11 +954,9 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
             ax.text(i, price, "❌", color="red", fontsize=14,
                     ha="center", va="center", zorder=22)
         
-    # ---------------------------------------------------------
     # DRAW TURNING POINT ABOVE BAR
-    # ---------------------------------------------------------
-    tp_flag  = info["turning_point"]
-    tp_code  = info["turning_code"]
+    tp_flag = info["turning_point"]
+    tp_code = info["turning_code"]
     
     if tp_flag and tp_code is not None:
         idx = len(df) - 1               
@@ -829,8 +977,8 @@ def plotchart(df, zones, title="SMC FVG View", glong = False, gshort = False, el
     return fig
 
 def precompute_signals(df_slice):
-
-    # Make a copy to avoid SettingWithCopy warnings
+    """Update with proper signal logic"""
+    
     df_slice = df_slice.copy()
 
     # Initialize signal columns
@@ -839,114 +987,76 @@ def precompute_signals(df_slice):
     df_slice["exit_long_sig"] = False
     df_slice["exit_short_sig"] = False
 
-    for i in range(2, len(df_slice)):
+    # Track active positions
+    in_long = False
+    in_short = False
 
-        row  = df_slice.iloc[i]
+    for i in range(50, len(df_slice)):
+        row = df_slice.iloc[i]
         prev = df_slice.iloc[i - 1]
 
         close_last = row["close"]
-        open_last  = row["open"]
         ema20_last = row["ema20"]
         ema50_last = row["ema50"]
-        lb_last    = row["lb_crv"]
-        lb_prev    = prev["lb_crv"]
+        lb_last = row["lb_crv"]
+        lb_prev = prev["lb_crv"]
+        rsi_last = row["rsi"]
+        rsi_ema_last = row["rsi_ema"]
 
-        bullish_candle = close_last > open_last
-        bearish_candle = close_last < open_last
+        # LB conditions
+        lb_up = close_last > lb_last * 1.02
+        lb_down = close_last < lb_last * 0.98
+        
+        # EMA conditions
+        ema_bullish = ema20_last > ema50_last
+        ema_bearish = ema20_last < ema50_last
+        
+        # Momentum
+        mom_bullish = (rsi_last >= 50 and rsi_last > rsi_ema_last) or (close_last > lb_last * 1.02)
+        mom_bearish = (rsi_last <= 44 and rsi_last < rsi_ema_last) or (close_last < lb_last * 0.98)
 
-        # Trend masks (used only for bias, not for exits)
-        bull_mask = (close_last > ema20_last) and (ema20_last > ema50_last)
-        bear_mask = (close_last < ema20_last) and (ema20_last < ema50_last)
+        # Simple pattern detection (oversold/overbought with LB)
+        has_bull_pattern = rsi_last < 35 and lb_down
+        has_bear_pattern = rsi_last > 65 and lb_up
 
-        # Last broken FVGs up to this bar
-        lb_bear, lb_bull = get_last_broken_fvg(df_slice.iloc[:i+1])
+        # Context OK for entries
+        bull_context_ok = ema_bullish and mom_bullish and lb_up
+        bear_context_ok = ema_bearish and mom_bearish and lb_down
 
-        long_entry  = False
+        # Entry signals
+        long_entry = False
         short_entry = False
-        exit_long   = False
-        exit_short  = False
+        
+        if not in_short and bull_context_ok and has_bull_pattern:
+            long_entry = True
+            in_long = True
+            in_short = False
+        
+        if not in_long and bear_context_ok and has_bear_pattern:
+            short_entry = True
+            in_short = True
+            in_long = False
 
-        # -------------------------------------------------
-        # 1) LB-CURVE EARLY ENTRIES
-        # -------------------------------------------------
-        bull_lb_entry = (
-            bullish_candle and
-            close_last > lb_last and
-            lb_last > lb_prev          # LB turning up
-        )
+        # Exit logic
+        exit_long = False
+        exit_short = False
+        
+        if in_long:
+            exit_long = (close_last < lb_last * 0.97) or (lb_last < lb_prev)
+            if exit_long:
+                in_long = False
+        
+        if in_short:
+            exit_short = (close_last > lb_last * 1.05) or (lb_last > lb_prev)
+            if exit_short:
+                in_short = False
 
-        bear_lb_entry = (
-            bearish_candle and
-            close_last < lb_last and
-            lb_last < lb_prev          # LB turning down
-        )
-
-        # -------------------------------------------------
-        # 2) FVG-BASED STRUCTURAL ENTRIES
-        # -------------------------------------------------
-        fvg_bull_entry = False
-        fvg_bear_entry = False
-
-        if lb_bear is not None and bull_mask:
-            ref_low  = lb_bear["low"]
-            ref_high = lb_bear["high"]
-            fvg_range = ref_high - ref_low
-
-            # Price accepting above broken bearish FVG
-            if bullish_candle and close_last > ref_low + 0.05 * fvg_range:
-                fvg_bull_entry = True
-
-        if lb_bull is not None and bear_mask:
-            ref_low  = lb_bull["low"]
-            ref_high = lb_bull["high"]
-            fvg_range = ref_high - ref_low
-
-            # Price accepting below broken bullish FVG
-            if bearish_candle and close_last < ref_high - 0.05 * fvg_range:
-                fvg_bear_entry = True
-
-        # Combine LB + FVG for entries
-        long_entry  = bull_lb_entry or fvg_bull_entry
-        short_entry = bear_lb_entry or fvg_bear_entry
-
-        # -------------------------------------------------
-        # 3) CLEAN, EARLY EXITS (LB + STRUCTURE ONLY)
-        # -------------------------------------------------
-        # Exit long: lose LB support OR break FVG low
-        if lb_bear is not None:
-            ref_low  = lb_bear["low"]
-            # Structural break of bullish reference
-            fvg_long_break = close_last < ref_low
-        else:
-            fvg_long_break = False
-
-        exit_long = (
-            close_last < lb_last or     # Lose LB support
-            lb_last < lb_prev or        # LB turns down
-            fvg_long_break              # Structural break
-        )
-
-        # Exit short: lose LB resistance OR break FVG high
-        if lb_bull is not None:
-            ref_high = lb_bull["high"]
-            fvg_short_break = close_last > ref_high
-        else:
-            fvg_short_break = False
-
-        exit_short = (
-            close_last > lb_last or     # Lose LB resistance
-            lb_last > lb_prev or        # LB turns up
-            fvg_short_break             # Structural break
-        )
-
-        # -------------------------------------------------
-        # 4) WRITE SIGNALS
-        # -------------------------------------------------
+        # Write signals
         idx = df_slice.index[i]
-        df_slice.loc[idx, "long_entry_sig"]  = long_entry
+        df_slice.loc[idx, "long_entry_sig"] = long_entry
         df_slice.loc[idx, "short_entry_sig"] = short_entry
-        df_slice.loc[idx, "exit_long_sig"]   = exit_long
-        df_slice.loc[idx, "exit_short_sig"]  = exit_short
+        df_slice.loc[idx, "exit_long_sig"] = exit_long
+        df_slice.loc[idx, "exit_short_sig"] = exit_short
 
     return df_slice
 
@@ -956,7 +1066,7 @@ def precompute_signals(df_slice):
 
 st.sidebar.header("Settings")
 
-# --- BASIC INPUTS ---
+# BASIC INPUTS
 ticker = st.sidebar.text_input("Ticker", "AAPL")
 first_load = "initialized" not in st.session_state
     
@@ -974,13 +1084,13 @@ step = st.sidebar.number_input(
     step=1
 )
 
-# --- SIGNAL TOGGLES ---
+# SIGNAL TOGGLES
 glong  = st.sidebar.checkbox("Show Long Entries", value=False)
 gshort = st.sidebar.checkbox("Show Short Entries", value=False)
 elong  = st.sidebar.checkbox("Show Long Exits", value=False)
 eshort = st.sidebar.checkbox("Show Short Exits", value=False)
 
-# --- TIMEFRAME CONFIG ---
+# TIMEFRAME CONFIG
 TF_CONFIG = {
     "4H": {"days": 180, "interval": "4h"},
     "1D": {"days": 365, "interval": "1d"},
@@ -993,9 +1103,16 @@ today = datetime.today()
 start_date = today - timedelta(days=cfg["days"])
 interval = cfg["interval"]
 
-# --- LOAD DATA ---
+# LOAD DATA
 df = load_data(ticker, start_date, interval)
-zones = detect_fvg_zones(df)
+
+if df is None or df.empty:
+    st.error("No data found.")
+    st.stop()
+
+# Detect zones
+fvg_zones = detect_fvg_zones(df)
+ob_zones = detect_order_blocks(df)
 df = precompute_signals(df)
 
 if first_load:
@@ -1003,11 +1120,7 @@ if first_load:
     st.session_state.window_end_idx = len(df) - 1
     st.session_state.initialized = True
     
-if df is None or df.empty:
-    st.error("No data found.")
-    st.stop()
-    
-# --- SESSION STATE INIT ---
+# SESSION STATE INIT
 if "last_tf" not in st.session_state:
     st.session_state.last_tf = tf
 
@@ -1017,20 +1130,13 @@ if "window_start_idx" not in st.session_state:
 if "window_end_idx" not in st.session_state:
     st.session_state.window_end_idx = len(df) - 1
 
-# --- RESET WINDOW ON TF CHANGE ---
+# RESET WINDOW ON TF CHANGE
 if st.session_state.last_tf != tf:
     st.session_state.window_start_idx = 0
     st.session_state.window_end_idx = len(df) - 1
     st.session_state.last_tf = tf
 
-# Initialize persistent regime references
-if "bull_ref" not in st.session_state:
-    st.session_state.bull_ref = None
-
-if "bear_ref" not in st.session_state:
-    st.session_state.bear_ref = None
-
-# --- DATA SLICING ---
+# DATA SLICING
 start_idx = st.session_state.window_start_idx
 end_idx   = st.session_state.window_end_idx
 start_idx = max(0, min(start_idx, len(df) - 1))
@@ -1041,33 +1147,29 @@ if first_load:
 else:
     df_slice = df.iloc[start_idx : end_idx + 1 : 1]
 
-df_sig = df_slice.copy()
-
-# Entries are truthful?
-long_events = df_sig[["long_entry_sig", "exit_long_sig"]].any(axis=1)
+# Check active positions
+long_events = df_slice[["long_entry_sig", "exit_long_sig"]].any(axis=1)
 if long_events.any():
-    last_long_idx = df_sig[long_events].index[-1]
-    last_long_row = df_sig.loc[last_long_idx]
+    last_long_idx = df_slice[long_events].index[-1]
+    last_long_row = df_slice.loc[last_long_idx]
     long_active = bool(last_long_row["long_entry_sig"]) and not bool(last_long_row["exit_long_sig"])
 else:
     long_active = False
 
-short_events = df_sig[["short_entry_sig", "exit_short_sig"]].any(axis=1)
+short_events = df_slice[["short_entry_sig", "exit_short_sig"]].any(axis=1)
 if short_events.any():
-    last_short_idx = df_sig[short_events].index[-1]
-    last_short_row = df_sig.loc[last_short_idx]
+    last_short_idx = df_slice[short_events].index[-1]
+    last_short_row = df_slice.loc[last_short_idx]
     short_active = bool(last_short_row["short_entry_sig"]) and not bool(last_short_row["exit_short_sig"])
 else:
     short_active = False
-
-
-last = df_slice.iloc[-1]
 
 last = df_slice.iloc[-1]
 long_entry  = bool(last["long_entry_sig"])
 short_entry = bool(last["short_entry_sig"])
 exit_long   = bool(last["exit_long_sig"])
 exit_short  = bool(last["exit_short_sig"])
+
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
@@ -1098,7 +1200,7 @@ with c4:
     else:
         st.info("—")
         
-# --- NAVIGATION BUTTONS ---
+# NAVIGATION BUTTONS
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -1115,19 +1217,25 @@ with col3:
     else:
         st.write("Visible Window: —")
 
-visible_zones = []
-for z in zones:
+# Filter visible zones
+visible_fvg = []
+for z in fvg_zones:
     if z.start_idx <= end_idx:
-        if not z.is_mitigated or z.mitigated_idx >= start_idx:
-            visible_zones.append(z)
-# ---------------------------------------------------------
-# DRAW CHART
-# ---------------------------------------------------------
+        if not z.is_mitigated or (z.mitigated_idx and z.mitigated_idx >= start_idx):
+            visible_fvg.append(z)
 
+visible_ob = []
+for z in ob_zones:
+    if z.start_idx <= end_idx:
+        if not z.is_mitigated or (z.mitigated_idx and z.mitigated_idx >= start_idx):
+            visible_ob.append(z)
+
+# DRAW CHART
 fig = plotchart(
     df_slice,
-    visible_zones,
-    title=f"{ticker} — {tf} SMC FVG Regime View",
+    visible_fvg,
+    visible_ob,
+    title=f"{ticker} — {tf} SMC Regime View (FVG + OB + BOS)",
     glong=glong,
     gshort=gshort,
     elong=elong,
