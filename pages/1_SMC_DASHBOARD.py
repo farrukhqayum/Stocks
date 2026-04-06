@@ -1218,6 +1218,8 @@ if first_load:
     df_slice = df.copy()
 else:
     df_slice = df.iloc[start_idx : end_idx + 1 : 1]
+    fvg_zones = detect_fvg_zones(df_slice)
+    ob_zones = detect_order_blocks(df_slice)
 
 # Check active positions
 long_events = df_slice[["long_entry_sig", "exit_long_sig"]].any(axis=1)
