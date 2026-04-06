@@ -768,7 +768,7 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
             rect_width,
             z.top - z.bottom,
             facecolor=color,
-            alpha=0.15,
+            alpha=0.07,
             edgecolor=color,
             linestyle="--",
             linewidth=1.5
@@ -792,7 +792,7 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
             rect_width,
             z.top - z.bottom,
             facecolor=color,
-            alpha=0.2,
+            alpha=0.07,
             edgecolor=color,
             linestyle="-",
             linewidth=2
@@ -1141,6 +1141,15 @@ def precompute_signals(df_slice):
 
     return df_slice
 
+def compute_zones_for_slice(df_slice):
+    """Cache zone computation for the same dataframe slice"""
+    df_copy = df_slice.copy()
+    if 'atr' not in df_copy.columns:
+        df_copy['atr'] = compute_atr(df_copy, 14)
+    fvg = detect_fvg_zones(df_copy)
+    ob = detect_order_blocks(df_copy)
+    return fvg, ob
+    
 # ---------------------------------------------------------
 # UI — TIMEFRAME, DATA LOADING, WINDOW MANAGEMENT
 # ---------------------------------------------------------
@@ -1298,20 +1307,7 @@ with col3:
     else:
         st.write("Visible Window: —")
 
-# Filter visible zones - include zones that extend into visible window
-visible_fvg = []
-for z in fvg_zones:
-    zone_end = z.mitigated_idx if z.is_mitigated else len(df) - 1
-    if (z.start_idx >= start_idx and z.start_idx <= end_idx) or \
-       (not z.is_mitigated and zone_end >= start_idx):
-        visible_fvg.append(z)
-
-visible_ob = []
-for z in ob_zones:
-    zone_end = z.mitigated_idx if z.is_mitigated else len(df) - 1
-    if (z.start_idx >= start_idx and z.start_idx <= end_idx) or \
-       (not z.is_mitigated and zone_end >= start_idx):
-        visible_ob.append(z)
+visible_fvg, visible_ob = compute_zones_for_slice(df_slice)
 
 # DRAW CHART
 fig = plotchart(
