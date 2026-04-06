@@ -3,11 +3,18 @@ import os
 from datetime import datetime, timedelta
 from time import sleep
 
+from pathlib import Path
+import appdirs as ad
+CACHE_DIR = ".cache"
+ad.user_cache_dir = lambda *arg: CACHE_DIR
+Path(CACHE_DIR).mkdir(exist_ok=True)
+
 import pandas as pd
 import numpy as np
 import openpyxl
 
 import yfinance as yf
+from curl_cffi import requests
 import ta_functions as ta
 from scipy.stats import norm
 
@@ -31,13 +38,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
 from tabulate import tabulate
-
-from pathlib import Path
-import appdirs as ad
-CACHE_DIR = ".cache"
-ad.user_cache_dir = lambda *arg: CACHE_DIR
-Path(CACHE_DIR).mkdir(exist_ok=True)
-import yfinance as yf
 import emoji
 
 from joblib import Parallel, delayed
