@@ -212,9 +212,6 @@ def label(text):
     return f"{EMOJI.get(text, '')} {text}"
     
 def optimize_dataframe(df):
-    """
-    Downcast floats/ints to reduce memory footprint.
-    """
     float_cols = df.select_dtypes(include=["float64"]).columns
     int_cols   = df.select_dtypes(include=["int64"]).columns
 
@@ -225,95 +222,78 @@ def optimize_dataframe(df):
 
 
 def get_stock_data(ticker, start_date, end_date):
-    """
-    Robust 3‑layer data loader:
-    1) Normal Yahoo Finance
-    2) Yahoo Finance via proxy
-    3) RapidAPI backend
-    Cleans + normalizes + fills missing OHLC safely.
-    """
 
-    # -----------------------------
-    # 1️⃣ Normal Yahoo Finance
-    # -----------------------------
-    try:
-        df = yf.download(
-            ticker,
-            start=start_date,
-            end=end_date + timedelta(days=1),
-            progress=False,
-            auto_adjust=True,
-            actions=False
-        )
-        if df is not None and not df.empty:
-            return _clean_yf_df(df)
-    except Exception:
-        pass
+    # Try normal Yahoo Finance
+    for attempt in range(3):
+        try:
+            if attempt == 0:
+                df = yf.download(
+                    ticker,
+                    start=start_date,
+                    end=end_date + timedelta(days=1),
+                    progress=False,
+                    auto_adjust=True,
+                    actions=False
+                )
+            elif attempt == 1:
+                df = yf.download(
+                    ticker,
+                    start=start_date,
+                    end=end_date + timedelta(days=1),
+                    progress=False,
+                    auto_adjust=True,
+                    actions=False,
+                    proxy="https://query1.finance.yahoo.com"
+                )
+            else:
+                t = yf.Ticker(ticker, session="rapidapi")
+                df = t.history(start=start_date, end=end_date)
 
-    # -----------------------------
-    # 2️⃣ Proxy fallback
-    # -----------------------------
-    try:
-        df = yf.download(
-            ticker,
-            start=start_date,
-            end=end_date + timedelta(days=1),
-            progress=False,
-            auto_adjust=True,
-            actions=False,
-            proxy="https://query1.finance.yahoo.com"
-        )
-        if df is not None and not df.empty:
-            return _clean_yf_df(df)
-    except Exception:
-        pass
+            if df is not None and not df.empty:
+                return _clean_yf_df(df)
 
-    # -----------------------------
-    # 3️⃣ RapidAPI backend
-    # -----------------------------
-    try:
-        t = yf.Ticker(ticker, session="rapidapi")
-        df = t.history(start=start_date, end=end_date)
-        if df is not None and not df.empty:
-            return _clean_yf_df(df)
-    except Exception:
-        pass
+        except Exception:
+            continue
 
     return None
 
 
 def _clean_yf_df(df):
-    """
-    Cleans Yahoo Finance DataFrame:
-    - Fix MultiIndex
-    - Normalize column names
-    - Ensure OHLCV exist
-    - Forward/backward fill safely
-    - Optimize dtypes
-    """
-
-    # Fix MultiIndex columns
+    # Fix MultiIndex
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.droplevel(0)
 
     # Normalize column names
-    df.columns = [str(c).capitalize() for c in df.columns]
+    df.columns = [str(c).strip().lower() for c in df.columns]
 
-    # Required OHLCV
-    required = {"Open", "High", "Low", "Close", "Volume"}
-    if not required.issubset(df.columns):
+    # Map to standard OHLCV
+    rename_map = {
+        "open": "Open",
+        "high": "High",
+        "low": "Low",
+        "close": "Close",
+        "adj close": "Close",   # crypto often only has Adj Close
+        "volume": "Volume"
+    }
+
+    df = df.rename(columns=rename_map)
+
+    # If Close missing → cannot proceed
+    if "Close" not in df.columns:
         return None
+
+    # If Volume missing → fill with zeros (crypto)
+    if "Volume" not in df.columns:
+        df["Volume"] = 0
 
     # Reset + set index
     df = df.reset_index()
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df.set_index("Date")
 
-    # 🚀 SAFE FILL — no dropna()
-    df = df.sort_index()
-    df = df.ffill().bfill()
+    # Safe fill (no dropna)
+    df = df.sort_index().ffill().bfill()
 
-    # Final dtype optimization
     return optimize_dataframe(df)
 
 def strip_ansi_codes(text):
