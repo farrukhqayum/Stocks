@@ -265,9 +265,6 @@ def add_technical_indicators(df, timeframe='1D'):
         df['CCI'] = ta.calculate_cci(df)
         df['OBV'] = ta.calculate_obv(df)
         dmi = ta.calculate_dmi(df, n=14)
-        st.write("DEBUG DMI:", dmi)
-        st.write("DEBUG DMI SHAPE:", dmi.shape)
-
         df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
         df['VWMA'] = ta.calculate_vwma(df)
         df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
