@@ -179,7 +179,7 @@ FEATURES = [
     'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
 
     # Volume Features
-    'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT', 'OBV', 'MFI', 'VWMA', 'CMf",
+    'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT', 'OBV', 'MFI', 'VWMA', 'CMf',
 
     # Candlestick Patterns
     'Candlesticks', 'gapStrength',
@@ -275,7 +275,7 @@ def add_technical_indicators(df):
     df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'], np.where(df['Close'] > df['Open'], 1, -1), 0)
     df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
     df['MFI'] = ta.calculate_mfi(df)
-    df['CMf"] = ta.chaikin_money_flow(df, window=20)
+    df['CMf'] = ta.chaikin_money_flow(df, window=20)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
