@@ -1,6 +1,5 @@
 from imports import *
 import streamlit as st
-from curl_cffi import requests
 import time
 import re
 import warnings
