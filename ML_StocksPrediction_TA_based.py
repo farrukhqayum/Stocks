@@ -216,26 +216,44 @@ def optimize_dataframe(df):
     
 def get_stock_data(ticker, start_date, end_date):
     try:
-        # ✅ Add retry logic
+        # Add user-agent to avoid blocking
+        import requests
+        session = requests.Session()
+        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+        
         for attempt in range(3):
             try:
-                df = yf.download(ticker, start=start_date, end=end_date, 
-                    progress=False, auto_adjust=True, threads=False, prepost=False)
-                break
+                df = yf.download(
+                    ticker, 
+                    start=start_date, 
+                    end=end_date, 
+                    progress=False, 
+                    auto_adjust=True, 
+                    threads=False, 
+                    prepost=False,
+                    session=session  # Add session with headers
+                )
+                if not df.empty:
+                    break
             except Exception as e:
                 if attempt == 2:
                     raise e
-                sleep(1)
+                sleep(2)  # Wait longer between retries
         
         if df.empty: 
+            print(f"No data for {ticker}")
             return None
             
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
+            
+        # Ensure we have OHLCV columns
+        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
+        if not all(col in df.columns for col in required_cols):
+            print(f"Missing columns for {ticker}: {df.columns.tolist()}")
+            return None
+            
         df = df.astype({col: 'float32' for col in df.select_dtypes(include=['float64']).columns})
-        if 'Date' in df.columns:
-            df = df.set_index('Date')
-        
         df.index = pd.to_datetime(df.index)
         return df
         
@@ -1473,9 +1491,15 @@ def PlotPredictions(df_results):
 
 def is_valid_ticker(ticker):
     try:
-        df = yf.Ticker(ticker).history(period="1d")
-        return not df.empty
-    except Exception:
+        ticker_obj = yf.Ticker(ticker)
+        df = ticker_obj.history(period="5d", progress=False)
+        if df.empty:
+            return False
+        if df['Volume'].sum() == 0:
+            return False
+        return True
+    except Exception as e:
+        print(f"Invalid ticker {ticker}: {e}")
         return False
         
 ###### Tabulate Data
