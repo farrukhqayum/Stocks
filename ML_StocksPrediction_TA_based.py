@@ -1082,6 +1082,8 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     for ticker in TICKERS:
         try:
             df = get_stock_data(ticker, start_date, end_date)
+            st.write(df.head())
+
             if df is None or df.empty:
                 st.text(f"Skipping {ticker}: no data returned.")
                 continue
