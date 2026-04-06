@@ -1,23 +1,13 @@
 import streamlit as st
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 
+# NOW import everything
 from imports import *
-import time
-import re
-import warnings
-import os
-import numpy as np
-import pandas as pd
-import yfinance as yf
-from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import math
-import emoji
-import altair as alt
 import sys
-
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import warnings
+import re
+import time
+from datetime import datetime, timedelta
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
