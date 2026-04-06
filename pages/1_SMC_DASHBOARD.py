@@ -4,7 +4,9 @@ import numpy as np
 import yfinance as yf
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from matplotlib.ticker import LogLocator, LogFormatterSciNotation
 from datetime import datetime, timedelta
+
 
 st.set_page_config(page_title="SMC Dashboard", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS (SMC)")
