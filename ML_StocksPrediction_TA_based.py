@@ -219,7 +219,8 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    # 1️⃣ Try normal Yahoo Finance
+
+    # 1️⃣ Normal Yahoo Finance
     try:
         df = yf.download(
             ticker,
@@ -234,7 +235,7 @@ def get_stock_data(ticker, start_date, end_date):
     except:
         pass
 
-    # 2️⃣ Try Yahoo Finance via proxy (bypasses cloud IP block)
+    # 2️⃣ Yahoo Finance via proxy (bypasses cloud IP block)
     try:
         df = yf.download(
             ticker,
@@ -250,7 +251,7 @@ def get_stock_data(ticker, start_date, end_date):
     except:
         pass
 
-    # 3️⃣ Try RapidAPI backend (most reliable)
+    # 3️⃣ RapidAPI backend (most reliable)
     try:
         t = yf.Ticker(ticker, session="rapidapi")
         df = t.history(start=start_date, end=end_date)
@@ -263,11 +264,9 @@ def get_stock_data(ticker, start_date, end_date):
 
 
 def _clean_yf_df(df):
-    # Fix MultiIndex
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.droplevel(0)
 
-    # Normalize names
     df.columns = [c.capitalize() for c in df.columns]
 
     required = {"Open", "High", "Low", "Close", "Volume"}
@@ -280,8 +279,6 @@ def _clean_yf_df(df):
     df = df.dropna(subset=["Open", "High", "Low", "Close"])
 
     return optimize_dataframe(df)
-
-
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
