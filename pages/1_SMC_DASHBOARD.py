@@ -654,9 +654,24 @@ def draw_smc_box(ax, df, fvg_zones, ob_zones):
             ha="left", va="top"
         )
         y -= 0.03
-
+        
+def check_rejection(df, i, swing_level, is_high=True):
+    """Check if price rejected from swing level (Pine style)"""
+    if i < 1:
+        return False
+    
+    close_curr = df['close'].iloc[i]
+    close_prev = df['close'].iloc[i-1]
+    
+    if is_high:
+        # Rejection: prev bar above, current bar below
+        return close_prev > swing_level and close_curr < swing_level
+    else:
+        # Rejection: prev bar below, current bar above
+        return close_prev < swing_level and close_curr > swing_level
+        
 def detect_swings_for_chart(df, left_bars=10, right_bars=4):
-    """Simplified swing detection for chart"""
+    """Match Pine's ta.pivothigh and ta.pivotlow exactly"""
     high = df['high'].values
     low = df['low'].values
     
@@ -664,16 +679,34 @@ def detect_swings_for_chart(df, left_bars=10, right_bars=4):
     swing_lows = []
     
     for i in range(left_bars, len(df) - right_bars):
-        # Swing high
-        left_ok = all(high[i] > high[i-k] for k in range(1, left_bars+1))
-        right_ok = all(high[i] > high[i+k] for k in range(1, right_bars+1))
-        if left_ok and right_ok:
+        # Pivot high: highest in left_bars to the left AND right_bars to the right
+        is_pivot_high = True
+        for k in range(1, left_bars + 1):
+            if high[i] <= high[i - k]:
+                is_pivot_high = False
+                break
+        if is_pivot_high:
+            for k in range(1, right_bars + 1):
+                if high[i] <= high[i + k]:
+                    is_pivot_high = False
+                    break
+        
+        if is_pivot_high:
             swing_highs.append({'idx': i, 'price': high[i]})
         
-        # Swing low
-        left_ok = all(low[i] < low[i-k] for k in range(1, left_bars+1))
-        right_ok = all(low[i] < low[i+k] for k in range(1, right_bars+1))
-        if left_ok and right_ok:
+        # Pivot low
+        is_pivot_low = True
+        for k in range(1, left_bars + 1):
+            if low[i] >= low[i - k]:
+                is_pivot_low = False
+                break
+        if is_pivot_low:
+            for k in range(1, right_bars + 1):
+                if low[i] >= low[i + k]:
+                    is_pivot_low = False
+                    break
+        
+        if is_pivot_low:
             swing_lows.append({'idx': i, 'price': low[i]})
     
     return swing_highs, swing_lows
@@ -771,56 +804,97 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
     # SMC BOX
     draw_smc_box(ax, df, fvg_zones, ob_zones)
 
-    # BOS/CHoCH DETECTION (Structure Breaks)
+    # BOS/CHoCH DETECTION (Fixed - Matches Pine Logic)
     swing_highs, swing_lows = detect_swings_for_chart(df)
     close_vals = df['close'].values
+    open_vals = df['open'].values
+    high_vals = df['high'].values
+    low_vals = df['low'].values
     atr_vals = df['atr'].values
     
-    # Track last swing levels
+    # Track last swing levels (Pine style)
     last_swing_high = None
     last_swing_low = None
     last_high_idx = None
     last_low_idx = None
     is_uptrend = False
     
+    # Track if BOS was already plotted for this swing
+    plotted_highs = set()
+    plotted_lows = set()
+    
     for i in range(len(df)):
-        # Update last swing levels
+        # Update last swing levels (only from confirmed swings)
         for sh in swing_highs:
             if sh['idx'] <= i:
-                last_swing_high = sh['price']
-                last_high_idx = sh['idx']
+                if last_swing_high is None or sh['idx'] > last_high_idx:
+                    last_swing_high = sh['price']
+                    last_high_idx = sh['idx']
         
         for sl in swing_lows:
             if sl['idx'] <= i:
-                last_swing_low = sl['price']
-                last_low_idx = sl['idx']
+                if last_swing_low is None or sl['idx'] > last_low_idx:
+                    last_swing_low = sl['price']
+                    last_low_idx = sl['idx']
         
-        # Draw BOS/CHoCH lines
-        if last_swing_high is not None and last_high_idx is not None:
-            bos_up = close_vals[i] > last_swing_high + atr_vals[i] * 0.1
-            if bos_up:
-                # Draw horizontal line at break level
-                ax.axhline(y=last_swing_high, xmin=last_high_idx/len(df), 
-                          xmax=i/len(df), color='lime', linestyle='--', 
-                          alpha=0.6, linewidth=1.5)
-                # Add label
-                label_text = "CHoCH ↑" if is_uptrend else "BOS ↑"
-                ax.text(i, last_swing_high, f"  {label_text}", 
-                       fontsize=7, color='lime', va='bottom', alpha=0.8)
-                is_uptrend = True
-                last_swing_high = None
+        # Check for BOS up (Pine logic)
+        if last_swing_high is not None and last_high_idx not in plotted_highs:
+            # Valid BOS: close above swing high + ATR buffer
+            bos_up_valid = close_vals[i] > last_swing_high + atr_vals[i] * 0.1
+            
+            # Check for rejection (price tried to break but failed)
+            bos_up_rejected = False
+            if i > 0 and bos_up_valid:
+                # Rejection if previous bar closed above but current closed below
+                if close_vals[i-1] > last_swing_high and close_vals[i] < last_swing_high:
+                    bos_up_rejected = True
+            
+            # Confirmed if valid and not rejected
+            bos_up_confirmed = bos_up_valid and not bos_up_rejected
+            
+            # Mitigated (actual break) - only plot when confirmed AND price held above
+            if bos_up_confirmed and i >= 1:
+                # Check if price has accepted above (low doesn't retrace below swing high)
+                if low_vals[i] <= last_swing_high:
+                    # Plot BOS/CHoCH
+                    label_text = "CHoCH ↑" if is_uptrend else "BOS ↑"
+                    break_col = 'lime'
+                    
+                    # Draw line from swing index to current bar
+                    ax.plot([last_high_idx, i], [last_swing_high, last_swing_high], 
+                           color=break_col, linestyle='--', linewidth=1.5, alpha=0.8)
+                    ax.text(i, last_swing_high, f"  {label_text}", 
+                           fontsize=7, color=break_col, va='bottom', alpha=0.8,
+                           fontweight='bold')
+                    
+                    plotted_highs.add(last_high_idx)
+                    is_uptrend = True
+                    # Don't reset last_swing_high immediately - Pine keeps it
         
-        if last_swing_low is not None and last_low_idx is not None:
-            bos_down = close_vals[i] < last_swing_low - atr_vals[i] * 0.1
-            if bos_down:
-                ax.axhline(y=last_swing_low, xmin=last_low_idx/len(df),
-                          xmax=i/len(df), color='red', linestyle='--',
-                          alpha=0.6, linewidth=1.5)
-                label_text = "CHoCH ↓" if not is_uptrend else "BOS ↓"
-                ax.text(i, last_swing_low, f"  {label_text}",
-                       fontsize=7, color='red', va='top', alpha=0.8)
-                is_uptrend = False
-                last_swing_low = None
+        # Check for BOS down (Pine logic)
+        if last_swing_low is not None and last_low_idx not in plotted_lows:
+            bos_down_valid = close_vals[i] < last_swing_low - atr_vals[i] * 0.1
+            
+            bos_down_rejected = False
+            if i > 0 and bos_down_valid:
+                if close_vals[i-1] < last_swing_low and close_vals[i] > last_swing_low:
+                    bos_down_rejected = True
+            
+            bos_down_confirmed = bos_down_valid and not bos_down_rejected
+            
+            if bos_down_confirmed and i >= 1:
+                if high_vals[i] >= last_swing_low:
+                    label_text = "CHoCH ↓" if not is_uptrend else "BOS ↓"
+                    break_col = 'red'
+                    
+                    ax.plot([last_low_idx, i], [last_swing_low, last_swing_low], 
+                           color=break_col, linestyle='--', linewidth=1.5, alpha=0.8)
+                    ax.text(i, last_swing_low, f"  {label_text}", 
+                           fontsize=7, color=break_col, va='top', alpha=0.8,
+                           fontweight='bold')
+                    
+                    plotted_lows.add(last_low_idx)
+                    is_uptrend = False  last_swing_low = None
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
