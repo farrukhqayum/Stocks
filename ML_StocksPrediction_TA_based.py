@@ -1101,6 +1101,9 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     for ticker in TICKERS:
         try:
+            raw = yf.download(ticker, period="5d")
+            st.write("RAW YF:", raw)
+
             df = get_stock_data(ticker, start_date, end_date)
             st.write(df.head())
 
