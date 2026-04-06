@@ -903,6 +903,8 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
     ax.yaxis.set_label_position("right")
     if log_scale:
         ax.set_yscale('log')
+        if not auto_range and 'y_min' in locals():
+            ax.set_ylim(y_min, y_max)
         ax.text(0.98, 0.98, 'LOG SCALE', transform=ax.transAxes, 
                 fontsize=8, color='blue', ha='right', va='top',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
