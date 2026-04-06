@@ -224,48 +224,17 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    """
-    Fetches stock data with retries and robust column handling.
-    """
-    df = None
-    for attempt in range(3):  # Retry up to 3 times
-        try:
-            df = yf.download(
-                ticker, 
-                start=start_date, 
-                end=end_date + timedelta(days=1),
-                progress=False,
-                auto_adjust=True, 
-                actions=False,
-                timeout=10
-            )
-            if df is not None and not df.empty:
-                break
-            time.sleep(1) # Small delay between retries
-        except Exception as e:
-            if attempt == 2: st.error(f"Error downloading {ticker}: {e}")
-            continue
-
-    if df is None or df.empty:
-        return None
-
-    # Robust MultiIndex handling (Fixes errors with newer yfinance versions)
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.get_level_values(0)
-    
-    # Ensure standard column names
-    df = df.reset_index()
-    if 'Date' not in df.columns:
-        return None
+    try:
+        df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
+        if df.empty: return None
         
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.set_index('Date', inplace=True)
-    df = df.dropna()
-
-    if len(df) < 50: # Ensure enough data for indicators
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+            
+        df = df.dropna()
+        return optimize_dataframe(df)
+    except Exception:
         return None
-
-    return optimize_dataframe(df)
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
