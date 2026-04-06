@@ -221,33 +221,44 @@ def optimize_dataframe(df):
 def get_stock_data(ticker, start_date, end_date):
     try:
         df = yf.download(
-        ticker, 
-        start=start_date, 
-        end=end_date + timedelta(days=1),
-        progress=False,
-        auto_adjust=True, 
-        actions=False
+            ticker,
+            start=start_date,
+            end=end_date + timedelta(days=1),
+            progress=False,
+            auto_adjust=True,
+            actions=False
         )
-    
     except Exception:
         return None
 
-    if df.empty:
+    # If empty → fail early
+    if df is None or df.empty:
         return None
 
-    df = df.reset_index(names="Date")
-    df["Date"] = pd.to_datetime(df["Date"])
-    df = df.set_index("Date")
-
+    # Fix MultiIndex columns (pandas 2.3 / yfinance 0.2.50+)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.droplevel(0)
-    df = df.dropna(axis=0, how="any").copy()
+
+    # Normalize column names (sometimes lowercase)
+    df.columns = [c.capitalize() for c in df.columns]
+
+    required = {"Open", "High", "Low", "Close", "Volume"}
+    if not required.issubset(df.columns):
+        return None
+
+    # Reset index safely
+    df = df.reset_index(names="Date")
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df = df.set_index("Date")
+
+    # Drop rows with missing OHLC
+    df = df.dropna(subset=["Open", "High", "Low", "Close"])
 
     if df.empty:
         return None
 
-    df_a = optimize_dataframe(df) # 32-bit
-    return df_a
+    return optimize_dataframe(df)
+
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
