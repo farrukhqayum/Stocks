@@ -13,7 +13,6 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import altair as alt
-from lukhed_stocks.marketdata import MarketData
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
@@ -216,44 +215,44 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    try:
-        # Initialize market data handler (no API key needed!)
-        md = MarketData()
-        
-        # Get price history - this works with Robinhood/Webull public APIs
-        history = md.get_price_history(ticker, interval='d1', points=800)
-        
-        if not history or len(history) == 0:
-            return None
+    for attempt in range(3):
+        try:
+            df = yf.download(
+                ticker, 
+                start=start_date, 
+                end=end_date + timedelta(days=1),
+                progress=False,
+                auto_adjust=True, 
+                actions=False
+            )
             
-        # Convert to DataFrame
-        df = pd.DataFrame(history)
-        
-        # Ensure datetime index
-        if 't' in df.columns:  # Timestamp column
-            df['Date'] = pd.to_datetime(df['t'], unit='s')
-            df.set_index('Date', inplace=True)
-        
-        # Rename columns to match your expected format
-        df.rename(columns={
-            'c': 'Close',
-            'o': 'Open', 
-            'h': 'High',
-            'l': 'Low',
-            'v': 'Volume'
-        }, inplace=True)
-        
-        # Filter by date range
-        df = df[(df.index >= start_date) & (df.index <= end_date)]
-        
-        if df.empty:
-            return None
-            
-        return optimize_dataframe(df)
-        
-    except Exception as e:
-        st.write(f"Error fetching {ticker}: {e}")
+            if not df.empty:
+                break
+                
+            if attempt < 2:
+                time.sleep(1)  # Wait before retry
+                continue
+                
+        except Exception:
+            if attempt == 2:
+                return None
+            time.sleep(1)
+    
+    if df.empty:
         return None
+
+    # Process the dataframe (YOUR WORKING APPROACH)
+    df = df.reset_index()
+    df['Date'] = pd.to_datetime(df['Date'])
+    df.set_index('Date', inplace=True)
+    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+    df = df.dropna()
+
+    if df.empty:
+        return None
+
+    df = optimize_dataframe(df)
+    return df
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
@@ -1485,15 +1484,9 @@ def PlotPredictions(df_results):
 
 def is_valid_ticker(ticker):
     try:
-        ticker_obj = yf.Ticker(ticker)
-        df = ticker_obj.history(period="5d", progress=False)
-        if df.empty:
-            return False
-        if df['Volume'].sum() == 0:
-            return False
-        return True
-    except Exception as e:
-        print(f"Invalid ticker {ticker}: {e}")
+        df = yf.download(ticker, period="5d", progress=False, auto_adjust=True)
+        return not df.empty
+    except Exception:
         return False
         
 ###### Tabulate Data
