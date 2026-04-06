@@ -863,9 +863,17 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
                     # Draw line from swing index to current bar
                     ax.plot([last_high_idx, i], [last_swing_high, last_swing_high], 
                            color=break_col, linestyle='--', linewidth=1.5, alpha=0.8)
-                    ax.text(i, last_swing_high, f"  {label_text}", 
-                           fontsize=7, color=break_col, va='bottom', alpha=0.8,
-                           fontweight='bold')
+                    
+                    if '↑' in label_text:
+                        y_offset = last_swing_high + (atr_vals[i] * 0.3)  # Above by 30% of ATR
+                        va_position = 'bottom'
+                        ax.text(i, y_offset, f"  {label_text}", 
+                               fontsize=7, color=break_col, va=va_position, alpha=0.8, fontweight='bold')
+                    else:
+                        y_offset = last_swing_low - (atr_vals[i] * 0.3)  # Below by 30% of ATR
+                        va_position = 'top'
+                        ax.text(i, y_offset, f"  {label_text}", 
+                               fontsize=7, color=break_col, va=va_position, alpha=0.8, fontweight='bold')
                     
                     plotted_highs.add(last_high_idx)
                     is_uptrend = True
