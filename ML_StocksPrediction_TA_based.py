@@ -1,5 +1,7 @@
-from imports import *
 import streamlit as st
+st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
+
+from imports import *
 import time
 import re
 import warnings
@@ -14,10 +16,6 @@ import math
 import emoji
 import altair as alt
 import sys
-st.write("### Version Information")
-st.write(f"Python: {sys.version}")
-st.write(f"Pandas version: {pd.__version__}")
-st.write(f"Numpy version: {np.__version__}")
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
