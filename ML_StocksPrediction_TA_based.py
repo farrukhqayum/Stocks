@@ -973,7 +973,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.yaxis.tick_right()
     ax1.yaxis.set_label_position("right")
     ax1.set_ylabel('Price')
-    ax1.set_title(f"{today}:\t{ticker} - {predictions["Signal"]}", fontdict={'fontname': 'DejaVu Sans', 'fontsize': 16}, pad=20)
+    ax1.set_title(f"{today}:\t{ticker} - {predictions['Signal']}", fontdict={'fontname': 'DejaVu Sans', 'fontsize': 16}, pad=20)
     ax1.scatter(df.index[df['StrongBull'] == 1], price[df['StrongBull'] == 1], color='lime', marker='^', s=5, alpha=0.4, label='StrongBull', zorder=10)
     ax1.scatter(df.index[df['StrongBear'] == 1], price[df['StrongBear'] == 1], color='red', marker='v', s=5, alpha=0.4, label='StrongBear', zorder=10)
 
