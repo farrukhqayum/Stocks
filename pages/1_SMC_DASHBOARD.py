@@ -902,23 +902,12 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
     ax.yaxis.tick_right()
     ax.yaxis.set_label_position("right")
     if log_scale:
-        ax.set_yscale('log')
-        
-        # Format y-axis labels as currency/prices (not scientific notation)
-        from matplotlib.ticker import FuncFormatter, LogFormatterSciNotation
-        
-        def price_format(x, pos):
-            """Format price values for y-axis"""
-            if x >= 1000:
-                return f'${x:,.0f}'  # $1,234
-            elif x >= 1:
-                return f'${x:.2f}'   # $123.45
-            else:
-                return f'${x:.4f}'   # $0.1234
-        
-        ax.yaxis.set_major_formatter(FuncFormatter(price_format))
-        from matplotlib.ticker import LogLocator
-        ax.yaxis.set_major_locator(LogLocator(base=10, numticks=20))
+        ax.set_yscale('log')    
+        ax.yaxis.set_major_locator(LogLocator(base=10, subs=[1.0, 2.0, 5.0], numticks=20))
+        from matplotlib.ticker import ScalarFormatter
+        formatter = ScalarFormatter()
+        formatter.set_scientific(False)
+        ax.yaxis.set_major_formatter(formatter)
         ax.text(0.98, 0.98, 'LOG SCALE', transform=ax.transAxes, 
                 fontsize=8, color='blue', ha='right', va='top',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.7),
