@@ -216,41 +216,30 @@ def optimize_dataframe(df):
     
 def get_stock_data(ticker, start_date, end_date):
     try:
-        df = yf.download(
-            ticker, 
-            start=start_date, 
-            end=end_date + timedelta(days=1),
-            progress=False,
-            auto_adjust=True,
-            # Force single-level columns if possible
-            multi_level_index=False 
-        )
+        # 1. Clean ticker
+        ticker = ticker.strip().upper()
         
-        if df is None or df.empty:
+        # 2. Download with explicit grouping
+        df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+        
+        if df.empty:
             return None
 
-        # Robust MultiIndex flattening for pandas 2.1.4
+        # 3. CRITICAL: Flatten MultiIndex for Pandas 3.0
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-
-        df = df.reset_index()
-        # Ensure 'Date' exists before setting index
-        if 'Date' not in df.columns:
-            # Sometimes yfinance names the index 'Datetime' or 'index'
-            df.rename(columns={df.columns[0]: 'Date'}, inplace=True)
             
-        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.reset_index()
         df.set_index('Date', inplace=True)
         
-        # Clean up any potential 'None' values before returning
-        df = df.dropna(subset=['Close'])
-        return optimize_dataframe(df) if not df.empty else None
-
+        # 4. Check for enough data to prevent '-1' calculation errors
+        if len(df) < 50: 
+            return None
+            
+        return optimize_dataframe(df)
     except Exception as e:
-        # Use st.error locally to see what's actually happening
-        print(f"Detailed Error for {ticker}: {str(e)}") 
+        st.error(f"Download failed for {ticker}: {e}")
         return None
-
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
