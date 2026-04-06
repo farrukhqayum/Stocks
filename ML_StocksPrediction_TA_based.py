@@ -13,6 +13,7 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import altair as alt
+from lukhed_stocks.marketdata import MarketData
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
@@ -216,45 +217,42 @@ def optimize_dataframe(df):
     
 def get_stock_data(ticker, start_date, end_date):
     try:
-        # Calculate years difference
-        years = (end_date - start_date).days / 365
-        if years <= 1:
-            period = "1y"
-        elif years <= 2:
-            period = "2y"
-        else:
-            period = "5y"
+        # Initialize market data handler (no API key needed!)
+        md = MarketData()
         
-        df = yf.download(
-            ticker, 
-            period=period,  # Use period instead of start/end
-            progress=False,
-            auto_adjust=True, 
-            actions=False,
-            threads=False
-        )
+        # Get price history - this works with Robinhood/Webull public APIs
+        history = md.get_price_history(ticker, interval='d1', points=800)
         
-        # Filter to your date range after download
+        if not history or len(history) == 0:
+            return None
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(history)
+        
+        # Ensure datetime index
+        if 't' in df.columns:  # Timestamp column
+            df['Date'] = pd.to_datetime(df['t'], unit='s')
+            df.set_index('Date', inplace=True)
+        
+        # Rename columns to match your expected format
+        df.rename(columns={
+            'c': 'Close',
+            'o': 'Open', 
+            'h': 'High',
+            'l': 'Low',
+            'v': 'Volume'
+        }, inplace=True)
+        
+        # Filter by date range
         df = df[(df.index >= start_date) & (df.index <= end_date)]
         
         if df.empty:
             return None
             
-        # Process as before
-        df = df.reset_index()
-        df['Date'] = pd.to_datetime(df['Date'])
-        df.set_index('Date', inplace=True)
-        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-        df = df.dropna()
-        
-        if df.empty:
-            return None
-            
-        df = optimize_dataframe(df)
-        return df
+        return optimize_dataframe(df)
         
     except Exception as e:
-        st.write(f"Error: {e}")
+        st.write(f"Error fetching {ticker}: {e}")
         return None
 
 def strip_ansi_codes(text):
