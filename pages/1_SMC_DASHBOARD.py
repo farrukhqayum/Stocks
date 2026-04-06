@@ -918,7 +918,7 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
         
         ax.yaxis.set_major_formatter(FuncFormatter(price_format))
         from matplotlib.ticker import LogLocator
-        ax.yaxis.set_major_locator(LogLocator(base=10, numticks=8))
+        ax.yaxis.set_major_locator(LogLocator(base=10, numticks=20))
         ax.text(0.98, 0.98, 'LOG SCALE', transform=ax.transAxes, 
                 fontsize=8, color='blue', ha='right', va='top',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.7),
