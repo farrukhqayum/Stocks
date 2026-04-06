@@ -17,9 +17,6 @@ import altair as alt
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-st.write("Testing TSLA…")
-st.write(yf.download("TSLA", period="5d"))
-
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
@@ -257,7 +254,6 @@ def get_stock_data(ticker, start_date, end_date):
 
     return None
 
-
 def _clean_yf_df(df):
     # Fix MultiIndex
     if isinstance(df.columns, pd.MultiIndex):
@@ -266,14 +262,16 @@ def _clean_yf_df(df):
     # Normalize column names
     df.columns = [str(c).strip().lower() for c in df.columns]
 
-    # Map to standard OHLCV
+    # Map all possible Yahoo names to standard OHLCV
     rename_map = {
         "open": "Open",
         "high": "High",
         "low": "Low",
         "close": "Close",
         "adj close": "Close",   # crypto often only has Adj Close
-        "volume": "Volume"
+        "adjclose": "Close",
+        "volume": "Volume",
+        "vol": "Volume"
     }
 
     df = df.rename(columns=rename_map)
@@ -291,10 +289,11 @@ def _clean_yf_df(df):
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df.set_index("Date")
 
-    # Safe fill (no dropna)
+    # Safe fill
     df = df.sort_index().ffill().bfill()
 
     return optimize_dataframe(df)
+
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
