@@ -23,6 +23,7 @@ import matplotlib.dates as mdates
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.collections import LineCollection
 import matplotlib.colors as mcolors
+from matplotlib.ticker import LogLocator, LogFormatterSciNotation
 
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
