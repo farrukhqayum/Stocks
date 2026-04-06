@@ -1,6 +1,5 @@
 import streamlit as st
-st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
-
+#st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 # ALL other imports come AFTER set_page_config
 from imports import *
 import sys
