@@ -212,18 +212,30 @@ def label(text):
     return f"{EMOJI.get(text, '')} {text}"
     
 def optimize_dataframe(df):
-    for col in df.select_dtypes(include=['float64']).columns:
-        df.loc[:, col] = df[col].astype("float32")
-    for col in df.select_dtypes(include=['int64']).columns:
-        df[col] = df[col].astype('int32')
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'])
+    """
+    Downcast floats/ints to reduce memory footprint.
+    """
+    float_cols = df.select_dtypes(include=["float64"]).columns
+    int_cols   = df.select_dtypes(include=["int64"]).columns
+
+    df.loc[:, float_cols] = df[float_cols].astype("float32")
+    df.loc[:, int_cols]   = df[int_cols].astype("int32")
 
     return df
-    
-def get_stock_data(ticker, start_date, end_date):
 
+
+def get_stock_data(ticker, start_date, end_date):
+    """
+    Robust 3‑layer data loader:
+    1) Normal Yahoo Finance
+    2) Yahoo Finance via proxy
+    3) RapidAPI backend
+    Cleans + normalizes + fills missing OHLC safely.
+    """
+
+    # -----------------------------
     # 1️⃣ Normal Yahoo Finance
+    # -----------------------------
     try:
         df = yf.download(
             ticker,
@@ -235,10 +247,12 @@ def get_stock_data(ticker, start_date, end_date):
         )
         if df is not None and not df.empty:
             return _clean_yf_df(df)
-    except:
+    except Exception:
         pass
 
-    # 2️⃣ Yahoo Finance via proxy (bypasses cloud IP block)
+    # -----------------------------
+    # 2️⃣ Proxy fallback
+    # -----------------------------
     try:
         df = yf.download(
             ticker,
@@ -251,36 +265,55 @@ def get_stock_data(ticker, start_date, end_date):
         )
         if df is not None and not df.empty:
             return _clean_yf_df(df)
-    except:
+    except Exception:
         pass
 
-    # 3️⃣ RapidAPI backend (most reliable)
+    # -----------------------------
+    # 3️⃣ RapidAPI backend
+    # -----------------------------
     try:
         t = yf.Ticker(ticker, session="rapidapi")
         df = t.history(start=start_date, end=end_date)
         if df is not None and not df.empty:
             return _clean_yf_df(df)
-    except:
+    except Exception:
         pass
 
     return None
 
 
 def _clean_yf_df(df):
+    """
+    Cleans Yahoo Finance DataFrame:
+    - Fix MultiIndex
+    - Normalize column names
+    - Ensure OHLCV exist
+    - Forward/backward fill safely
+    - Optimize dtypes
+    """
+
+    # Fix MultiIndex columns
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.droplevel(0)
 
-    df.columns = [c.capitalize() for c in df.columns]
+    # Normalize column names
+    df.columns = [str(c).capitalize() for c in df.columns]
 
+    # Required OHLCV
     required = {"Open", "High", "Low", "Close", "Volume"}
     if not required.issubset(df.columns):
         return None
 
-    df = df.reset_index(names="Date")
+    # Reset + set index
+    df = df.reset_index()
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df.set_index("Date")
-    df = df.dropna(subset=["Open", "High", "Low", "Close"])
 
+    # 🚀 SAFE FILL — no dropna()
+    df = df.sort_index()
+    df = df.ffill().bfill()
+
+    # Final dtype optimization
     return optimize_dataframe(df)
 
 def strip_ansi_codes(text):
