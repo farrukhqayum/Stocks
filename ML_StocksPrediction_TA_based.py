@@ -1116,16 +1116,7 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     
     for ticker in TICKERS:
         try:
-            df = yf.download(
-                ticker,
-                start=start_date,
-                end=end_date + timedelta(days=1),
-                progress=False,
-                auto_adjust=True,
-                actions=False,
-                multi_index=False  # Add this to flatten the columns immediately
-            )
-            st.write(df.head())
+            df = get_stock_data(ticker, start_date, end_date)
 
             if df is None or df.empty:
                 st.text(f"Skipping {ticker}: no data returned.")
