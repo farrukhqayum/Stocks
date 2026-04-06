@@ -1549,7 +1549,7 @@ def tabular_display(df_results):
         "Loss (%)": "{:.0f}",
         "Confidence": "{:.0f}",
         "Hit_Prob": "{:.0f}"
-    }))
+    })
 
     st.dataframe(styled_df, height=550, use_container_width=True)
 
