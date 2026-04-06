@@ -216,50 +216,34 @@ def optimize_dataframe(df):
     
 def get_stock_data(ticker, start_date, end_date):
     try:
-        # Add user-agent to avoid blocking
-        import requests
-        session = requests.Session()
-        session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
-        
-        for attempt in range(3):
-            try:
-                df = yf.download(
-                    ticker, 
-                    start=start_date, 
-                    end=end_date, 
-                    progress=False, 
-                    auto_adjust=True, 
-                    threads=False, 
-                    prepost=False,
-                    session=session  # Add session with headers
-                )
-                if not df.empty:
-                    break
-            except Exception as e:
-                if attempt == 2:
-                    raise e
-                sleep(2)  # Wait longer between retries
-        
-        if df.empty: 
-            print(f"No data for {ticker}")
-            return None
-            
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-            
-        # Ensure we have OHLCV columns
-        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
-        if not all(col in df.columns for col in required_cols):
-            print(f"Missing columns for {ticker}: {df.columns.tolist()}")
-            return None
-            
-        df = df.astype({col: 'float32' for col in df.select_dtypes(include=['float64']).columns})
-        df.index = pd.to_datetime(df.index)
-        return df
-        
-    except Exception as e:
-        print(f"Error downloading {ticker}: {e}")
+        df = yf.download(
+            ticker, 
+            start=start_date, 
+            end=end_date + timedelta(days=1),  # ← KEY: Add 1 day
+            progress=False,
+            auto_adjust=True, 
+            actions=False
+        )
+    except Exception:
         return None
+
+    if df.empty:
+        return None
+
+    # KEY: Reset index and handle Date properly
+    df = df.reset_index()
+    df['Date'] = pd.to_datetime(df['Date'])
+    df.set_index('Date', inplace=True)
+    
+    # KEY: Handle MultiIndex columns properly
+    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+    df = df.dropna()
+
+    if df.empty:
+        return None
+
+    df = optimize_dataframe(df)  # 32-bit
+    return df
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
