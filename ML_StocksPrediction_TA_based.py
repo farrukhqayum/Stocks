@@ -647,12 +647,16 @@ def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
 
 def plot_confidence_heatmap(df_results):
     st.subheader("🔥 ML Confidence Heatmap")
-    
-    df_plot = df_results.sort_values(by='Confidence', ascending=False).head(16).copy()
-    
-    if len(df_plot) == 0:
-        st.warning("No data available to plot the heatmap.")
+
+    if (
+        df_results is None 
+        or df_results.empty 
+        or "Confidence" not in df_results.columns
+    ):
+        st.warning("No valid ML results available to plot the heatmap.")
         return
+
+    df_plot = df_results.sort_values(by='Confidence', ascending=False).head(16).copy()
 
     df_plot['Index'] = range(len(df_plot))
     df_plot['Row'] = (df_plot['Index'] // 5).astype(str) 
