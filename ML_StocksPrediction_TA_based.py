@@ -225,20 +225,31 @@ def optimize_dataframe(df):
     
 def get_stock_data(ticker, start_date, end_date):
     try:
-        df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
+        # ✅ Add retry logic
+        for attempt in range(3):
+            try:
+                df = yf.download(ticker, start=start_date, end=end_date, 
+                    progress=False, auto_adjust=True, threads=False, prepost=False)
+                break
+            except Exception as e:
+                if attempt == 2:
+                    raise e
+                sleep(1)
+        
         if df.empty: 
             return None
-        
+            
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-
-        if not pd.api.types.is_datetime64_any_dtype(df.index):
-            df.index = pd.to_datetime(df.index)
+        df = df.astype({col: 'float32' for col in df.select_dtypes(include=['float64']).columns})
+        if 'Date' in df.columns:
+            df = df.set_index('Date')
         
-        df = df.dropna()
-        return optimize_dataframe(df)
+        df.index = pd.to_datetime(df.index)
+        return df
+        
     except Exception as e:
-        st.error(f"Error downloading {ticker}: {e}")
+        print(f"Error downloading {ticker}: {e}")
         return None
 
 def strip_ansi_codes(text):
