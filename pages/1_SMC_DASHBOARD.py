@@ -706,7 +706,7 @@ def detect_swings_for_chart(df, left_bars=10, right_bars=4):
     
     return swing_highs, swing_lows
 
-def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gshort = False, elong = False, eshort = False):
+def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gshort = False, elong = False, eshort = False, log_scale=False):
     from matplotlib.patches import Rectangle
     
     df = df.copy()
@@ -901,6 +901,11 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
     ax.grid(alpha=0.2)
     ax.yaxis.tick_right()
     ax.yaxis.set_label_position("right")
+    if log_scale:
+        ax.set_yscale('log')
+        ax.text(0.98, 0.98, 'LOG SCALE', transform=ax.transAxes, 
+                fontsize=8, color='blue', ha='right', va='top',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     # RSI PANEL
     rsi = df["rsi"]
@@ -1175,6 +1180,8 @@ step = st.sidebar.number_input(
 )
 
 # SIGNAL TOGGLES
+log_scale = st.sidebar.checkbox("📐 Logarithmic Y-Axis", value=False, help="Toggle between linear and logarithmic price scale")
+
 glong  = st.sidebar.checkbox("Show Long Entries", value=False)
 gshort = st.sidebar.checkbox("Show Short Entries", value=False)
 elong  = st.sidebar.checkbox("Show Long Exits", value=False)
@@ -1318,6 +1325,7 @@ fig = plotchart(
     glong=glong,
     gshort=gshort,
     elong=elong,
-    eshort=eshort
+    eshort=eshort,
+    log_scale=log_scale
 )
 st.pyplot(fig)
