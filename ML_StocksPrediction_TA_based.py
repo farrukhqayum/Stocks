@@ -428,9 +428,9 @@ def label_hit_prob_past(df, window=14, profit_target=0.05, stop_loss=0.05,
         tp_hit = any(p >= tp for p in future_prices)
         sl_hit = any(p <= sl for p in future_prices)
         
-        if tp_hit and bull[i]:
+        if tp_hit and bull.iloc[i]:
             labels.append(2)  # TP
-        elif sl_hit and bear[i]:
+        elif sl_hit and bear.iloc[i]:
             labels.append(1)  # SL
         else:
             labels.append(0)  # None
