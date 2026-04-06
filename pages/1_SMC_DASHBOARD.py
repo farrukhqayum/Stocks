@@ -771,7 +771,7 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
             rect_width,
             z.top - z.bottom,
             facecolor=color,
-            alpha=0.15,
+            alpha=0.07,
             edgecolor=color,
             linestyle="--",
             linewidth=1.5
@@ -795,10 +795,10 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
             rect_width,
             z.top - z.bottom,
             facecolor=color,
-            alpha=0.2,
+            alpha=0.07,
             edgecolor=color,
             linestyle="-",
-            linewidth=2
+            linewidth=1
         ))
 
     # SMC BOX
