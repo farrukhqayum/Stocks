@@ -1,8 +1,13 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+import yfinance as yf
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from datetime import datetime, timedelta
+
 st.set_page_config(page_title="SMC Dashboard", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS (SMC)")
-
-from imports import *
 
 # ---------------------------------------------------------
 # INDICATORS
@@ -59,10 +64,10 @@ def compute_lb_curve(df, lblen=10):
             lb[i] = (low[i] + close[i]) / 2
         else:
             lb[i] = lb[i-1]
-
+    
+    # Convert to Series and compute EMA
     lb_series = pd.Series(lb, index=df.index)
-    lb_ema = lb_series.ewm(span=lblen, adjust=False).mean()
-    return lb_ema
+    return lb_series.ewm(span=lblen, adjust=False).mean()
 
 @st.cache_data
 def load_data(ticker, start_date, interval):
@@ -212,7 +217,7 @@ def detect_order_blocks(df, max_age=25, fail_window=5):
     # Volume SMA for confirmation
     if volume is not None:
         vol_sma = pd.Series(volume).rolling(5).mean().values
-        vol_sma = np.nan_to_num(vol_sma, nan=np.median(volume))
+        vol_sma = np.nan_to_num(vol_sma, nan=np.median(volume) if volume is not None else 1000000)
     else:
         vol_sma = np.ones(len(df)) * 1000000
     
@@ -507,7 +512,7 @@ def pine_candle_engine(df):
         bullSweep = (l[-1] < l[-2]) and (c[-1] > (h[-1] + l[-1]) / 2)
         bearSweep = (h[-1] > h[-2]) and (c[-1] < (h[-1] + l[-1]) / 2)
 
-    # Turning Point Engine
+    # Turning Point Engine (FIXED - matches Pine Script)
     turning_point = False
     turning_code = None
 
@@ -517,41 +522,47 @@ def pine_candle_engine(df):
         wick_high_last = h[-1] - max(o[-1], c[-1])
         wick_low_last = min(o[-1], c[-1]) - l[-1]
 
-        # Bearish pattern → look for bullish reversal
-        if pattern_bull is False:
-            if (c[-1] > o[-1]) and (wick_low_last > body_last * 1.2):
-                turning_point = True
-                turning_code = "▲ Rejecting Lows"
-
-            if (n >= 2 and
-                c[-2] < o[-2] and
-                c[-1] > o[-1] and
-                o[-1] <= c[-2] and
-                c[-1] >= o[-2]):
-                turning_point = True
-                turning_code = "▲ Bullish Shift"
-
-            if (c[-1] > o[-1]) and (body_last > 0.55 * range_last):
-                turning_point = True
-                turning_code = "▲ Bullish Drive"
-
-        # Bullish pattern → look for bearish reversal
+        # BULLISH PATTERN (pattern_bull = True) → Look for BEARISH reversal
         if pattern_bull is True:
+            # Bearish Rejection (Rejecting Highs)
             if (c[-1] < o[-1]) and (wick_high_last > body_last * 1.2):
                 turning_point = True
-                turning_code = "▼ Rejecting Highs"
-
+                turning_code = "▼ Rejecting Highs (Bearish Reversal)"
+            
+            # Bearish Engulf (Bearish Shift)
             if (n >= 2 and
-                c[-2] > o[-2] and
-                c[-1] < o[-1] and
+                c[-2] > o[-2] and          # prev bullish
+                c[-1] < o[-1] and          # curr bearish
                 o[-1] >= c[-2] and
                 c[-1] <= o[-2]):
                 turning_point = True
                 turning_code = "▼ Bearish Shift"
-
+            
+            # Bearish Body (Bearish Drive)
             if (c[-1] < o[-1]) and (body_last > 0.55 * range_last):
                 turning_point = True
                 turning_code = "▼ Bearish Drive"
+        
+        # BEARISH PATTERN (pattern_bull = False) → Look for BULLISH reversal
+        if pattern_bull is False:
+            # Bullish Rejection (Rejecting Lows)
+            if (c[-1] > o[-1]) and (wick_low_last > body_last * 1.2):
+                turning_point = True
+                turning_code = "▲ Rejecting Lows (Bullish Reversal)"
+            
+            # Bullish Engulf (Bullish Shift)
+            if (n >= 2 and
+                c[-2] < o[-2] and          # prev bearish
+                c[-1] > o[-1] and          # curr bullish
+                o[-1] <= c[-2] and
+                c[-1] >= o[-2]):
+                turning_point = True
+                turning_code = "▲ Bullish Shift"
+            
+            # Bullish Body (Bullish Drive)
+            if (c[-1] > o[-1]) and (body_last > 0.55 * range_last):
+                turning_point = True
+                turning_code = "▲ Bullish Drive"
 
     return {
         "last_pattern": last_pattern,
@@ -630,8 +641,6 @@ def draw_smc_box(ax, df, fvg_zones, ob_zones):
     bull_ob = [z for z in ob_zones if z.is_bull]
     bear_ob = [z for z in ob_zones if not z.is_bull]
 
-    def yn(flag): return "green" if flag else "red"
-
     zone_lines = [
         ("ZONES:", "gray"),
         (f"  BULL FVG: {len(bull_fvg)}", "green" if bull_fvg else "red"),
@@ -655,22 +664,7 @@ def draw_smc_box(ax, df, fvg_zones, ob_zones):
             ha="left", va="top"
         )
         y -= 0.03
-        
-def check_rejection(df, i, swing_level, is_high=True):
-    """Check if price rejected from swing level (Pine style)"""
-    if i < 1:
-        return False
-    
-    close_curr = df['close'].iloc[i]
-    close_prev = df['close'].iloc[i-1]
-    
-    if is_high:
-        # Rejection: prev bar above, current bar below
-        return close_prev > swing_level and close_curr < swing_level
-    else:
-        # Rejection: prev bar below, current bar above
-        return close_prev < swing_level and close_curr > swing_level
-        
+
 def detect_swings_for_chart(df, left_bars=10, right_bars=4):
     """Match Pine's ta.pivothigh and ta.pivotlow exactly"""
     high = df['high'].values
@@ -713,6 +707,8 @@ def detect_swings_for_chart(df, left_bars=10, right_bars=4):
     return swing_highs, swing_lows
 
 def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gshort = False, elong = False, eshort = False):
+    from matplotlib.patches import Rectangle
+    
     df = df.copy()
     if "rsi" not in df.columns:
         df["rsi"] = compute_rsi(df["close"], 14)
@@ -772,7 +768,7 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
             rect_width,
             z.top - z.bottom,
             facecolor=color,
-            alpha=0.07,
+            alpha=0.15,
             edgecolor=color,
             linestyle="--",
             linewidth=1.5
@@ -796,19 +792,18 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
             rect_width,
             z.top - z.bottom,
             facecolor=color,
-            alpha=0.07,
+            alpha=0.2,
             edgecolor=color,
             linestyle="-",
-            linewidth=1
+            linewidth=2
         ))
 
     # SMC BOX
     draw_smc_box(ax, df, fvg_zones, ob_zones)
 
-    # BOS/CHoCH DETECTION (Fixed - Matches Pine Logic)
+    # BOS/CHoCH DETECTION (Fixed - Matches Pine Logic with proper label positioning)
     swing_highs, swing_lows = detect_swings_for_chart(df)
     close_vals = df['close'].values
-    open_vals = df['open'].values
     high_vals = df['high'].values
     low_vals = df['low'].values
     atr_vals = df['atr'].values
@@ -855,7 +850,7 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
             
             # Mitigated (actual break) - only plot when confirmed AND price held above
             if bos_up_confirmed and i >= 1:
-                # Check if price has accepted above (low doesn't retrace below swing high)
+                # Check if price has accepted above
                 if low_vals[i] <= last_swing_high:
                     # Plot BOS/CHoCH
                     label_text = "CHoCH ↑" if is_uptrend else "BOS ↑"
@@ -865,20 +860,14 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
                     ax.plot([last_high_idx, i], [last_swing_high, last_swing_high], 
                            color=break_col, linestyle='--', linewidth=1.5, alpha=0.8)
                     
-                    if '↑' in label_text:
-                        y_offset = last_swing_high + (atr_vals[i] * 0.3)  # Above by 30% of ATR
-                        va_position = 'bottom'
-                        ax.text(i, y_offset, f"  {label_text}", 
-                               fontsize=7, color=break_col, va=va_position, alpha=0.8, fontweight='bold')
-                    else:
-                        y_offset = last_swing_low - (atr_vals[i] * 0.3)  # Below by 30% of ATR
-                        va_position = 'top'
-                        ax.text(i, y_offset, f"  {label_text}", 
-                               fontsize=7, color=break_col, va=va_position, alpha=0.8, fontweight='bold')
+                    # Position label ABOVE the line for bullish
+                    y_offset = last_swing_high + (atr_vals[i] * 0.3)
+                    ax.text(i, y_offset, f"  {label_text}", 
+                           fontsize=8, color=break_col, va='bottom', alpha=0.9,
+                           fontweight='bold')
                     
                     plotted_highs.add(last_high_idx)
                     is_uptrend = True
-                    # Don't reset last_swing_high immediately - Pine keeps it
         
         # Check for BOS down (Pine logic)
         if last_swing_low is not None and last_low_idx not in plotted_lows:
@@ -898,13 +887,15 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
                     
                     ax.plot([last_low_idx, i], [last_swing_low, last_swing_low], 
                            color=break_col, linestyle='--', linewidth=1.5, alpha=0.8)
-                    ax.text(i, last_swing_low, f"  {label_text}", 
-                           fontsize=7, color=break_col, va='top', alpha=0.8,
+                    
+                    # Position label BELOW the line for bearish
+                    y_offset = last_swing_low - (atr_vals[i] * 0.3)
+                    ax.text(i, y_offset, f"  {label_text}", 
+                           fontsize=8, color=break_col, va='top', alpha=0.9,
                            fontweight='bold')
                     
                     plotted_lows.add(last_low_idx)
-                    is_uptrend = False  
-                    last_swing_low = None
+                    is_uptrend = False
 
     ax.set_title(title)
     ax.grid(alpha=0.2)
@@ -1035,23 +1026,32 @@ def plotchart(df, fvg_zones, ob_zones, title="SMC FVG View", glong = False, gsho
             ax.text(i, price, "❌", color="red", fontsize=14,
                     ha="center", va="center", zorder=22)
         
-    # DRAW TURNING POINT ABOVE BAR
+    # DRAW TURNING POINT ABOVE/BELOW BAR
     tp_flag = info["turning_point"]
     tp_code = info["turning_code"]
     
     if tp_flag and tp_code is not None:
-        idx = len(df) - 1               
+        idx = len(df) - 1
         high_val = df["high"].iloc[idx]
-
+        low_val = df["low"].iloc[idx]
+        
+        # Position turning point text based on direction
+        if "▲" in tp_code:  # Bullish turning point
+            y_pos = low_val * 0.99  # Below the bar
+            va_pos = 'top'
+        else:  # Bearish turning point
+            y_pos = high_val * 1.01  # Above the bar
+            va_pos = 'bottom'
+        
         ax.text(
-            idx, high_val * 1.01,
+            idx, y_pos,
             tp_code,
             color="orange",
-            fontsize=8,
+            fontsize=7,
             ha="center",
-            va="bottom",
+            va=va_pos,
             fontweight="bold",
-            bbox=dict(facecolor="white", alpha=0.6, edgecolor="orange")
+            bbox=dict(facecolor="white", alpha=0.7, edgecolor="orange", boxstyle="round,pad=0.2")
         )
 
     plt.tight_layout()
@@ -1227,8 +1227,6 @@ if first_load:
     df_slice = df.copy()
 else:
     df_slice = df.iloc[start_idx : end_idx + 1 : 1]
-    fvg_zones = detect_fvg_zones(df_slice)
-    ob_zones = detect_order_blocks(df_slice)
 
 # Check active positions
 long_events = df_slice[["long_entry_sig", "exit_long_sig"]].any(axis=1)
@@ -1300,18 +1298,20 @@ with col3:
     else:
         st.write("Visible Window: —")
 
-# Filter visible zones
+# Filter visible zones - include zones that extend into visible window
 visible_fvg = []
 for z in fvg_zones:
-    if z.start_idx <= end_idx:
-        if not z.is_mitigated or (z.mitigated_idx and z.mitigated_idx >= start_idx):
-            visible_fvg.append(z)
+    zone_end = z.mitigated_idx if z.is_mitigated else len(df) - 1
+    if (z.start_idx >= start_idx and z.start_idx <= end_idx) or \
+       (not z.is_mitigated and zone_end >= start_idx):
+        visible_fvg.append(z)
 
 visible_ob = []
 for z in ob_zones:
-    if z.start_idx <= end_idx:
-        if not z.is_mitigated or (z.mitigated_idx and z.mitigated_idx >= start_idx):
-            visible_ob.append(z)
+    zone_end = z.mitigated_idx if z.is_mitigated else len(df) - 1
+    if (z.start_idx >= start_idx and z.start_idx <= end_idx) or \
+       (not z.is_mitigated and zone_end >= start_idx):
+        visible_ob.append(z)
 
 # DRAW CHART
 fig = plotchart(
