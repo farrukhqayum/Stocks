@@ -3,6 +3,8 @@ st.set_page_config(page_title="SMC Dashboard", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS (SMC)")
 
 from imports import *
+yf.pdr_override()
+yf.cache.clear() 
 
 # ---------------------------------------------------------
 # INDICATORS
@@ -66,10 +68,11 @@ def compute_lb_curve(df, lblen=10):
 
 @st.cache_data
 def load_data(ticker, start_date, interval):
+    end_date = datetime.today().strftime("%Y-%m-%d")
     df = yf.download(
         ticker,
         start=start_date,
-        end=datetime.today().strftime("%Y-%m-%d"),
+        end=end_date,
         interval=interval,
         auto_adjust=False,
         progress=False
