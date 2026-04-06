@@ -1,5 +1,5 @@
 import streamlit as st
-#st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
+st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 # ALL other imports come AFTER set_page_config
 from imports import *
 import sys
@@ -16,7 +16,6 @@ import altair as alt
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
-st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 
 bold = '\033[1m'
 end = '\033[0m'
