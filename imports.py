@@ -27,6 +27,7 @@ import matplotlib.colors as mcolors
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from matplotlib.table import Table
+from matplotlib.patches import Rectangle
 
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
