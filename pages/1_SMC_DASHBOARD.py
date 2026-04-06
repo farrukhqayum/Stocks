@@ -3,7 +3,6 @@ st.set_page_config(page_title="SMC Dashboard", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS (SMC)")
 
 from imports import *
-yf.cache.clear() 
 
 # ---------------------------------------------------------
 # INDICATORS
