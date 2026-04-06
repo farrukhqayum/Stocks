@@ -38,6 +38,7 @@ CACHE_DIR = ".cache"
 ad.user_cache_dir = lambda *arg: CACHE_DIR
 Path(CACHE_DIR).mkdir(exist_ok=True)
 import yfinance as yf
+import emoji
 
 from joblib import Parallel, delayed
 
