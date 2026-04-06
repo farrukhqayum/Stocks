@@ -1433,23 +1433,22 @@ def PlotPredictions(df_results):
     
         ax1.text(
             x_coord + x_offset, y_offset1,
-            f"{row["Risk"]}\nP: ${row["Price"]:.2f}\nE: ${row["Entry"]:.2f}\nDip: {row["Dip%"]:.1f}%\n{row["Signal"]}",
+            f"{row['Risk']}\nP: ${row['Price']:.2f}\nE: ${row['Entry']:.2f}\nDip: {row['Dip%']:.1f}%\n{row['Signal']}",
             ha='left', va='top', fontsize=7, fontname='DejaVu Sans',
             bbox=dict(facecolor=fcolor, alpha=0.3, linewidth=0.3),
             transform=ax1.get_xaxis_transform(),
             multialignment='left',
             clip_on=False
         )
-            
+                    
         ax1.text(
             x_coord + x_offset, y_offset2,
-            f"TP: ${row["TP"]:.2f}\nSL: ${row["SL"]:.2f}\n\n{str(row.Will_Hit).split()[0]}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%",
+            f"TP: ${row['TP']:.2f}\nSL: ${row['SL']:.2f}\n\n{str(row.Will_Hit).split()[0]}: {row.Hit_Prob:.0f}%\nConf: {row.Confidence:.0f}%",
             ha='left', va='top', fontsize=7, fontname='DejaVu Sans',
             bbox=dict(facecolor=ProbColor, alpha=0.3, linewidth=0.3),
             transform=ax1.get_xaxis_transform(),
             clip_on=False
         )
-        
     # Strategic hint box
     textbox = AnchoredText(
         "Hint: Buy closer to predicted SL to reduce risk\nand increase the chance of success.",
