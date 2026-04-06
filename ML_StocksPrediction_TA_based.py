@@ -213,7 +213,8 @@ def optimize_dataframe(df):
         df['Date'] = pd.to_datetime(df['Date'])
 
     return df
-    
+
+@st.cache_data
 def get_stock_data(ticker, start_date, end_date):
     try:
         ticker = ticker.strip().upper()
