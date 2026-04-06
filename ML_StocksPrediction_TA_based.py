@@ -294,8 +294,9 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-    #df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
     df.loc[:, cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    df.loc[:, cols] = (df[cols].astype("float64").ffill().bfill())
+
 
     # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
