@@ -1593,15 +1593,15 @@ def run_app():
                 st.code(f"The indicators use OHLC with a mean of 2-days to suppress noise/spikes")
                 
         row_text = (
-            f"{"#":<2} | "
-            f"{"Ticker":<7} | "
-            f"{"Price":>7} | "
-            f"{"TP":>8} | "
-            f"{"SL":>8} | "
-            f"{"ATR":>10} | "
-            f"{"Action":<12} | "
-            f"{"ML(%)":>10} | "
-            f"{"Extremes":<10}"
+            f"{'#':<2} | "
+            f"{'Ticker':<7} | "
+            f"{'Price':>7} | "
+            f"{'TP':>8} | "
+            f"{'SL':>8} | "
+            f"{'ATR':>10} | "
+            f"{'Action':<12} | "
+            f"{'ML(%)':>10} | "
+            f"{'Extremes':<10}"
         )
 
         st.code(row_text)
