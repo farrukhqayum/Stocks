@@ -1544,12 +1544,11 @@ def tabular_display(df_results):
         'Entry': custom_price_format,
         'TP': custom_price_format,
         'SL': custom_price_format,
-        'Dip%' : '{:.1f}",
-        'Max (%)': '{:.0f}",
-        'Loss (%)': '{:.0f}",
-        'Confidence': '{:.0f}",
-        'Hit_Prob': '{:.0f}",
-        'Confidence': '{:.0f}"
+        'Dip%': '{:.1f}',
+        'Max (%)': '{:.0f}',
+        'Loss (%)': '{:.0f}',
+        'Confidence': '{:.0f}',
+        'Hit_Prob': '{:.0f}'
     })
 
     st.dataframe(styled_df, height=550, use_container_width=True)
