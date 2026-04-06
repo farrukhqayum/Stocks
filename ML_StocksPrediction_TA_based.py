@@ -216,42 +216,42 @@ def optimize_dataframe(df):
     
 def get_stock_data(ticker, start_date, end_date):
     try:
-        # 1. Clean ticker
         ticker = ticker.strip().upper()
-        
-        # 2. Download with explicit grouping
-        df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+        df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
         
         if df.empty:
             return None
-
-        # 3. CRITICAL: Flatten MultiIndex for Pandas 3.0
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-            
-        df = df.reset_index()
-        df.set_index('Date', inplace=True)
+
+        df = df.loc[:, ~df.columns.duplicated()]
         
-        # 4. Check for enough data to prevent '-1' calculation errors
+        df = df.reset_index()
+        df.rename(columns={'Date': 'Date', 'index': 'Date'}, inplace=True)
+        df.set_index('Date', inplace=True)
+
         if len(df) < 50: 
             return None
             
         return optimize_dataframe(df)
     except Exception as e:
-        st.error(f"Download failed for {ticker}: {e}")
         return None
+
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
 
 def add_technical_indicators(df):
+    if df is None or df.empty:
+        return None
+    df = df.copy()
     close = df.Close
-    df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
+    df['Close'] = df[['Open', 'High', 'Low', 'Close']].iloc[:, :4].mean(axis=1).rolling(2).mean()
     df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
-    df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
+    df['EMA_Ratio'] = np.where(df['EMA2'] != 0, df['EMA1'] / df['EMA2'], 1.0)
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df = ta.scaled_volatility(df)
     df = ta.add_candlestickpatterns(df)
@@ -343,16 +343,17 @@ def add_technical_indicators(df):
             )
         )
     ]
-    
-    choices = ['Hold', 'Bull', 'Short', 'Bear']  # ✅ Priority order!
+    choices = ['Hold', 'Bull', 'Short', 'Bear']
     df['TI'] = np.select(conditions, choices, default='Neutral')
-    df['TI'] = df['TI'].astype('category')
- 
+    df['TI'] = df['TI'].astype(str)
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
+    df_encoded = df_encoded.astype(int)
+    
     expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
     for col in expected_cols:
         if col not in df_encoded.columns:
             df_encoded[col] = 0
+    
     df = pd.concat([df, df_encoded], axis=1)
 
     strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
