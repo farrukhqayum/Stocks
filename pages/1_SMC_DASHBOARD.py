@@ -1,13 +1,8 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import yfinance as yf
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from datetime import datetime, timedelta
-
 st.set_page_config(page_title="SMC Dashboard", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS (SMC)")
+
+from imports import *
 
 # ---------------------------------------------------------
 # INDICATORS
@@ -64,8 +59,10 @@ def compute_lb_curve(df, lblen=10):
             lb[i] = (low[i] + close[i]) / 2
         else:
             lb[i] = lb[i-1]
-    
-    return pd.Series(ema(lb, lblen), index=df.index)
+
+    lb_series = pd.Series(lb, index=df.index)
+    lb_ema = lb_series.ewm(span=lblen, adjust=False).mean()
+    return lb_ema
 
 @st.cache_data
 def load_data(ticker, start_date, interval):
