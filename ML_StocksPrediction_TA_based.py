@@ -215,48 +215,37 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    st.write(f"Debug: Fetching {ticker} from {start_date} to {end_date}")
-    
-    for attempt in range(3):
-        try:
-            df = yf.download(
-                ticker, 
-                start=start_date, 
-                end=end_date + timedelta(days=1),
-                progress=False,
-                auto_adjust=True, 
-                actions=False,
-                threads=False
-            )
-            
-            st.write(f"Debug: Attempt {attempt + 1} - Downloaded {len(df)} rows for {ticker}")
-            
-            if df.empty:
-                if attempt < 2:
-                    st.write(f"Debug: Empty data, retrying...")
-                    time.sleep(2)
-                    continue
-                st.write(f"Debug: No data for {ticker} after 3 attempts")
-                return None
-                
-            break  # Success
-            
-        except Exception as e:
-            st.write(f"Debug: Error on attempt {attempt + 1}: {e}")
-            if attempt == 2:
-                return None
-            time.sleep(2)
-    
-    # Process the dataframe
     try:
-        st.write(f"Debug: Processing {ticker} dataframe...")
+        # Calculate years difference
+        years = (end_date - start_date).days / 365
+        if years <= 1:
+            period = "1y"
+        elif years <= 2:
+            period = "2y"
+        else:
+            period = "5y"
+        
+        df = yf.download(
+            ticker, 
+            period=period,  # Use period instead of start/end
+            progress=False,
+            auto_adjust=True, 
+            actions=False,
+            threads=False
+        )
+        
+        # Filter to your date range after download
+        df = df[(df.index >= start_date) & (df.index <= end_date)]
+        
+        if df.empty:
+            return None
+            
+        # Process as before
         df = df.reset_index()
         df['Date'] = pd.to_datetime(df['Date'])
         df.set_index('Date', inplace=True)
         df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
         df = df.dropna()
-        
-        st.write(f"Debug: Final rows for {ticker}: {len(df)}")
         
         if df.empty:
             return None
@@ -265,7 +254,7 @@ def get_stock_data(ticker, start_date, end_date):
         return df
         
     except Exception as e:
-        st.write(f"Debug: Processing error for {ticker}: {e}")
+        st.write(f"Error: {e}")
         return None
 
 def strip_ansi_codes(text):
