@@ -215,35 +215,58 @@ def optimize_dataframe(df):
     return df
     
 def get_stock_data(ticker, start_date, end_date):
-    try:
-        df = yf.download(
-            ticker, 
-            start=start_date, 
-            end=end_date + timedelta(days=1),  # ← KEY: Add 1 day
-            progress=False,
-            auto_adjust=True, 
-            actions=False
-        )
-    except Exception:
-        return None
-
-    if df.empty:
-        return None
-
-    # KEY: Reset index and handle Date properly
-    df = df.reset_index()
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.set_index('Date', inplace=True)
+    st.write(f"Debug: Fetching {ticker} from {start_date} to {end_date}")
     
-    # KEY: Handle MultiIndex columns properly
-    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    df = df.dropna()
-
-    if df.empty:
+    for attempt in range(3):
+        try:
+            df = yf.download(
+                ticker, 
+                start=start_date, 
+                end=end_date + timedelta(days=1),
+                progress=False,
+                auto_adjust=True, 
+                actions=False,
+                threads=False
+            )
+            
+            st.write(f"Debug: Attempt {attempt + 1} - Downloaded {len(df)} rows for {ticker}")
+            
+            if df.empty:
+                if attempt < 2:
+                    st.write(f"Debug: Empty data, retrying...")
+                    time.sleep(2)
+                    continue
+                st.write(f"Debug: No data for {ticker} after 3 attempts")
+                return None
+                
+            break  # Success
+            
+        except Exception as e:
+            st.write(f"Debug: Error on attempt {attempt + 1}: {e}")
+            if attempt == 2:
+                return None
+            time.sleep(2)
+    
+    # Process the dataframe
+    try:
+        st.write(f"Debug: Processing {ticker} dataframe...")
+        df = df.reset_index()
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.set_index('Date', inplace=True)
+        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+        df = df.dropna()
+        
+        st.write(f"Debug: Final rows for {ticker}: {len(df)}")
+        
+        if df.empty:
+            return None
+            
+        df = optimize_dataframe(df)
+        return df
+        
+    except Exception as e:
+        st.write(f"Debug: Processing error for {ticker}: {e}")
         return None
-
-    df = optimize_dataframe(df)  # 32-bit
-    return df
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
