@@ -225,14 +225,9 @@ def optimize_dataframe(df):
     
 def get_stock_data(ticker, start_date, end_date):
     try:
-        df = yf.download(
-        ticker, 
-        start=start_date, 
-        end=end_date + timedelta(days=1),
-        progress=False,
-        auto_adjust=True, 
-        actions=False
-        )
+        df = yf.download(ticker, start=start_date, end=end_date, progress = false, auto_adjust=True)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0) # Strictly take the first level
     
     except Exception:
         return None
@@ -297,8 +292,7 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
-    # FIXED CONDITIONS (syntax + enhanced HOLD)
+    df[cols] = df[cols].ffill().bfill()
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
         (
@@ -386,11 +380,11 @@ def add_pivot_levels(df, window=_DAYS):
     S1 = 2 * PP - high.max()
     R2 = PP + (high.max() - low.min())
     S2 = PP - (high.max() - low.min())
-    df['PP'] = PP.fillna(method='bfill')
-    df['R1'] = R1.fillna(method='bfill')
-    df['S1'] = S1.fillna(method='bfill')
-    df['R2'] = R2.fillna(method='bfill')
-    df['S2'] = S2.fillna(method='bfill')
+    df['PP'] = PP.bfill()
+    df['R1'] = R1.bfill()
+    df['S1'] = S1.bfill()
+    df['R2'] = R2.bfill()
+    df['S2'] = S2.bfill()
     return df
 
 def add_pivots(df, win=windows):
@@ -520,13 +514,13 @@ def label_hit_prob_past(
             hist_sl = hist_price * (1 - stop_loss)
             hist_future = close_prices[j + 1: j + 1 + window]
             
-            if bull[j]:
+            if bull.iloc[j]:
                 hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
                 hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
                 hit = hist_tp_hit_idx is not None and (hist_sl_hit_idx is None or hist_tp_hit_idx < hist_sl_hit_idx)
                 history_tp.append(int(hit))
                 
-            if bear[j]:
+            if bear.iloc[j]:
                 hist_tp_hit_idx = next((k for k, p in enumerate(hist_future) if p >= hist_tp), None)
                 hist_sl_hit_idx = next((k for k, p in enumerate(hist_future) if p <= hist_sl), None)
                 hit = hist_sl_hit_idx is not None and (hist_tp_hit_idx is None or hist_sl_hit_idx < hist_tp_hit_idx)
