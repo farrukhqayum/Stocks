@@ -210,7 +210,7 @@ def label(text):
     
 def optimize_dataframe(df):
     for col in df.select_dtypes(include=['float64']).columns:
-        df[col] = df[col].astype('float32')
+        df.loc[:, col] = df[col].astype("float32")
     for col in df.select_dtypes(include=['int64']).columns:
         df[col] = df[col].astype('int32')
     if 'Date' in df.columns:
@@ -235,11 +235,13 @@ def get_stock_data(ticker, start_date, end_date):
     if df.empty:
         return None
 
-    df = df.reset_index()
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.set_index('Date', inplace=True)
-    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    df = df.dropna()
+    df = df.reset_index(names="Date")
+    df["Date"] = pd.to_datetime(df["Date"])
+    df = df.set_index("Date")
+
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.droplevel(0)
+    df = df.dropna(axis=0, how="any").copy()
 
     if df.empty:
         return None
@@ -292,7 +294,9 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    #df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    df.loc[:, cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+
     # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
@@ -355,7 +359,8 @@ def add_technical_indicators(df):
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
  
-    df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
+    df_encoded = pd.get_dummies(df['TI'], prefix='TI', prefix_sep='_')
+    df_encoded.columns = df_encoded.columns.str.replace("TI_", "")
     expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
     for col in expected_cols:
         if col not in df_encoded.columns:
@@ -376,7 +381,7 @@ def add_pivot_levels(df, window=_DAYS):
     high = df['High'].rolling(window)
     low = df['Low'].rolling(window)
     close = df['Close'].rolling(window)
-    PP = (high.max() + low.min() + close.apply(lambda x: x[-1])).div(3)
+    PP = (high.max() + low.min() + close.apply(lambda x: x.iloc[-1])).div(3)
     R1 = 2 * PP - low.min()
     S1 = 2 * PP - high.max()
     R2 = PP + (high.max() - low.min())
@@ -393,7 +398,7 @@ def add_pivots(df, win=windows):
         roll_high = df['High'].rolling(w)
         roll_low = df['Low'].rolling(w)
         roll_close = df['Close'].rolling(w)
-        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x[-1])).div(3)
+        PP = (roll_high.max() + roll_low.min() + roll_close.apply(lambda x: x.iloc[-1])).div(3)
         R1 = 2 * PP - roll_low.min()
         S1 = 2 * PP - roll_high.max()
         R2 = PP + (roll_high.max() - roll_low.min())
