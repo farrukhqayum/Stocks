@@ -216,39 +216,41 @@ def optimize_dataframe(df):
     
 def get_stock_data(ticker, start_date, end_date):
     try:
-        # 1. Download data
         df = yf.download(
             ticker, 
             start=start_date, 
             end=end_date + timedelta(days=1),
             progress=False,
-            group_by='column' # Ensures standard structure
+            auto_adjust=True,
+            # Force single-level columns if possible
+            multi_level_index=False 
         )
         
         if df is None or df.empty:
             return None
 
-        # 2. Flatten MultiIndex columns if they exist
-        # This is the most common cause of 'NoneType' or Index errors
+        # Robust MultiIndex flattening for pandas 2.1.4
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
-        # 3. Standardize Index
         df = df.reset_index()
+        # Ensure 'Date' exists before setting index
         if 'Date' not in df.columns:
-            return None
+            # Sometimes yfinance names the index 'Datetime' or 'index'
+            df.rename(columns={df.columns[0]: 'Date'}, inplace=True)
             
         df['Date'] = pd.to_datetime(df['Date'])
         df.set_index('Date', inplace=True)
         
-        # 4. Final Cleanup
-        df = df.dropna(subset=['Close']) # Ensure we actually have price data
-        
+        # Clean up any potential 'None' values before returning
+        df = df.dropna(subset=['Close'])
         return optimize_dataframe(df) if not df.empty else None
 
     except Exception as e:
-        st.error(f"Error fetching {ticker}: {e}")
+        # Use st.error locally to see what's actually happening
+        print(f"Detailed Error for {ticker}: {str(e)}") 
         return None
+
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
