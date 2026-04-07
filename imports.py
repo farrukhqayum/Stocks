@@ -1,37 +1,34 @@
-# Importing necessary libraries
+# Standard Library
 import os
 from datetime import datetime, timedelta
 from time import sleep
-
 from pathlib import Path
-import appdirs as ad
-CACHE_DIR = ".cache"
-ad.user_cache_dir = lambda *arg: CACHE_DIR
-Path(CACHE_DIR).mkdir(exist_ok=True)
+import warnings
 
+# Third‑Party Libraries
+import appdirs as ad
 import pandas as pd
 import numpy as np
 import openpyxl
-
 import yfinance as yf
 from curl_cffi import requests
 import ta_functions as ta
 from scipy.stats import norm
 
+# Visualization
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.collections import LineCollection
-import matplotlib.colors as mcolors
 from matplotlib.ticker import LogLocator, LogFormatterSciNotation
-
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
-from matplotlib.table import Table
 from matplotlib.patches import Rectangle
+from matplotlib.table import Table
+import matplotlib.colors as mcolors
+import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-
 import seaborn as sns
+
+# Machine Learning
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -40,10 +37,16 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
+
+# Utilities
 from tabulate import tabulate
 import emoji
-
 from joblib import Parallel, delayed
 
-import warnings
+# Settings
 warnings.filterwarnings('ignore')
+
+# Cache Directory Override
+CACHE_DIR = ".cache"
+ad.user_cache_dir = lambda *arg: CACHE_DIR
+Path(CACHE_DIR).mkdir(exist_ok=True)
