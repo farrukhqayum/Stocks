@@ -29,6 +29,7 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 from matplotlib.table import Table
 from matplotlib.patches import Rectangle
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
