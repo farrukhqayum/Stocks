@@ -1,0 +1,1159 @@
+//@version=6
+//@script_ignore_all_warnings
+//@script_ignore_repainting_warnings
+
+indicator("SMC - ENGINE", 
+     overlay = true, 
+     max_boxes_count = 500,
+     scale = scale.none)
+
+//────────────────────────────────────────────
+// 1. INPUTS
+//────────────────────────────────────────────
+groupVis     = "Visibility & Logic"
+showActive   = input.bool(true, "Show Active Zones", group=groupVis)
+showInactive = input.bool(false, "Show Mitigated (Inactive)", group=groupVis)
+showSwings   = input.bool(false, "Show Swings", group=groupVis)
+maxAge       = input.int(26, "Max Zone Age (Bars)", group=groupVis, minval = 5, maxval = 200)
+failWindow   = input.int(5, "Failure Check Window (5-Bar Rule)", minval=1, group=groupVis)
+showLiq      = input.bool(true, "Show Liquidity Sweeps", group=groupVis)
+
+tablePosInput = input.string("Bottom Left", "Dashboard Position",
+    options = ["Top Left", "Top Right", "Bottom Left", "Bottom Center", "Bottom Right"])
+
+groupEma     = "EMA Plots & PIVOTS"
+plotEMA      = input.bool(false, "Show EMAs", group=groupEma)
+lblen        = input.int(10, "LB Length", group=groupEma)
+len          = input.int(20, "EMA Short", group=groupEma)
+len2         = input.int(50, "EMA Medium", group=groupEma)
+len3         = input.int(200, "EMA Long", group=groupEma)
+lenPivot     = input.int(20, title="Pivot Length", group=groupEma)
+
+rsi_len     = input.int(14, "RSI Length", group="Momentum")
+rsi_ema_len = input.int(14, "RSI EMA Length", group="Momentum")
+lb_rsi_limit = input.int(14, "Grab Liquidity (RSI)", group=groupVis, minval = 5, maxval = 30)
+
+
+groupFvg     = "FVG Styling"
+showFVG      = input.bool(true, "Show FVGs", group=groupFvg)
+fvgStyle     = input.string("Dashed", "FVG Border Style", options=["Solid", "Dotted", "Dashed"], group=groupFvg)
+fvgWidth     = input.int(2, "FVG Border Width", minval=1, group=groupFvg)
+fvgBull      = input.color(color.new(#35aa18, 90), "Bull FVG", group=groupFvg)
+fvgBear      = input.color(color.new(#da1313, 90), "Bear FVG", group=groupFvg)
+
+groupOb      = "OB Styling"
+lbl_size     = input.string("Small", options=["Tiny", "Small", "Medium"], title="Label Size", group=groupOb)
+showOB       = input.bool(true, "Show Order Blocks", group=groupOb)
+obStyle      = input.string("Solid", "OB Border Style", options=["Solid", "Dotted", "Dashed"], group=groupOb)
+obWidth      = input.int(2, "OB Border Width", minval=1, group=groupOb)
+obBull       = input.color(color.new(#008950, 90), "Bull OB", group=groupOb)
+obBear       = input.color(color.new(#883f0e, 90), "Bear OB", group=groupOb)
+testCol      = input.color(color.new(color.gray, 95), "Mitigated Color", group=groupOb)
+obDetect     = input.int(4, "OB Detection (%) Range", group=groupOb)
+bosExtBars   = input.int(20, "BOS/CHoCH Extension Bars", minval=1, group=groupOb)
+closeMitigate = input.bool(true, "Mitigate Only on Close Inside Zone", group=groupOb)
+
+groupBOS     = "BOS Style"
+BOStyle      = input.string("Solid", "BOS Style", options=["Solid", "Dotted", "Dashed"], group=groupBOS)
+BOSWidth     = input.int(2, "BOS Width", minval=1, group=groupBOS)
+
+var bool rejected = false
+
+getTablePos(pos) =>
+     pos == "Top Left" ? position.top_left :
+     pos == "Top Right" ? position.top_right :
+     pos == "Bottom Right" ? position.bottom_right :
+     pos == "Bottom Center" ? position.bottom_center :
+     position.bottom_left  
+
+//────────────────────────────────────────────
+// 2. CACHED CONSTANTS
+//────────────────────────────────────────────
+get_label_size() =>
+    lbl_size == "Tiny" ? size.tiny : lbl_size == "Small" ? size.small : size.normal
+
+get_style(s) =>
+    s == "Dotted" ? line.style_dotted : s == "Dashed" ? line.style_dashed : line.style_solid
+
+var label_sz = get_label_size()
+
+// update styles each bar so input changes apply
+line_style_fvg = get_style(fvgStyle)
+line_style_ob  = get_style(obStyle)
+line_style_bos = get_style(BOStyle)
+
+//────────────────────────────────────────────
+// 3. DEFINATIONS, INDICATORS & PIVOTS
+//────────────────────────────────────────────
+var bool smc_bullish = false
+var bool smc_bearish = false
+var bool mom_bullish = false
+var bool mom_bearish = false
+
+src   = close
+ema20 = ta.ema(src, len)
+ema50 = ta.ema(src, len2)
+ema200 = ta.ema(src, len3)
+vol5 = ta.sma(volume, 5) // for volume confirmation
+volConfirmBull = volume > vol5
+volConfirmBear = volume > vol5
+fvgVolOK = volume > vol5 * 0.6
+
+var float lb = close
+float highest_lb = ta.highest(lb, lblen)
+float lowest_lb  = ta.lowest(lb, lblen)
+if close > highest_lb[1]
+    lb := (high + close) / 2
+else if close < lowest_lb[1]
+    lb := (low + close) / 2
+lb_crv = ta.ema(lb, lblen)
+
+plot(lb_crv, "LB", color=color.new(color.gray, 60), linewidth=1)
+plot(ema20,  "EMA20",  color=#ffeb3b59, display=plotEMA ? display.all : display.none)
+plot(ema50,  "EMA50",  color=#ff52523f, linewidth=2, display=plotEMA ? display.all : display.none)
+plot(ema200, "EMA200", color=#9b27b04f, display=plotEMA ? display.all : display.none)
+
+rsi_val = ta.rsi(lb_crv, rsi_len)
+rsi_ema = ta.ema(rsi_val, rsi_ema_len)
+
+float atr = ta.atr(14)
+atrMult = input.float(0.2, "Price Offset (ATR)", 0, step=0.1)
+float offset2 = atr * atrMult
+
+float pHraw = ta.highest(high, lenPivot)
+float pLraw = ta.lowest(low, lenPivot)
+float pCraw = close
+
+pivot  = (pHraw + pLraw + pCraw) / 3
+range1 = pHraw - pLraw
+
+r1 = pivot + 0.382 * range1
+r2 = pivot + 0.618 * range1
+s1 = pivot - 0.382 * range1
+s2 = pivot - 0.618 * range1
+
+pivotDistLabel(level) =>
+    prevClose = close
+    diffPerc = ((level - prevClose) / prevClose) * 100.0
+    str.tostring(math.round(diffPerc)) + "%"
+
+r1p = pivotDistLabel(r1)
+r2p = pivotDistLabel(r2)
+pp  = pivotDistLabel(pivot)
+s1p = pivotDistLabel(s1)
+s2p = pivotDistLabel(s2)
+
+isHourly = timeframe.period == "60" or timeframe.period == "1H"
+barsF = 5
+if barstate.islast
+    label.new(bar_index + barsF, r1 > 0 ? r1 : na, str.tostring(r1, format.mintick) + " (" + r1p + ")", xloc.bar_index, yloc.price, color.new(color.blue, 70), label.style_label_left, size=get_label_size(), textcolor=color.new(color.white, 20))
+    label.new(bar_index + barsF, s1 > 0 ? s1 : na, str.tostring(s1, format.mintick) + " (" + s1p + ")", xloc.bar_index, yloc.price, color.new(color.green, 70), label.style_label_left, size=get_label_size(), textcolor=color.new(color.white, 20))
+    label.new(bar_index + barsF, pivot, "P: "+str.tostring(pivot, format.mintick) + " (" + pp + ")", xloc.bar_index, yloc.price, color.new(color.gray, 70), label.style_label_left, size=get_label_size(), textcolor=color.new(color.white, 20))
+    if not isHourly
+        label.new(bar_index + barsF, r2  > 0 ? r2 : na, str.tostring(r2, format.mintick) + " (" + r2p + ")", xloc.bar_index, yloc.price, color.new(color.red, 70), label.style_label_left, size=get_label_size(), textcolor=color.new(color.white, 20))
+        label.new(bar_index + barsF, s2  > 0 ? s2 : na, str.tostring(s2, format.mintick) + " (" + s2p + ")", xloc.bar_index, yloc.price, color.new(color.orange, 70), label.style_label_left, size=get_label_size(), textcolor=color.new(color.white, 20))
+
+//────────────────────────────────────────────
+// 4. SWINGS & Early Structure Break
+//────────────────────────────────────────────
+swing_l = input.int(6, "Swing Left", group="Swings")
+swing_r = input.int(3, "Swing Right", group="Swings")
+
+sw_hi = ta.pivothigh(high, swing_l, swing_r)
+sw_lo = ta.pivotlow(low, swing_l, swing_r)
+
+if showSwings
+    float pad = (atr * atrMult) + (syminfo.mintick * 20)
+    if not na(sw_hi)
+        label.new(bar_index[swing_r], high[swing_r] + pad,
+            str.tostring(high[swing_r], format.mintick),
+            yloc=yloc.price, style=label.style_none,
+            textcolor=color.rgb(255,105,59,30), size=label_sz)
+    if not na(sw_lo)
+        label.new(bar_index[swing_r], low[swing_r] - pad,
+            str.tostring(low[swing_r], format.mintick),
+            yloc=yloc.price, style=label.style_none,
+            textcolor=color.rgb(33,197,88,30), size=label_sz)
+
+
+var float lastSwingHigh = na
+var float lastSwingLow  = na
+
+if not na(sw_hi)
+    lastSwingHigh := sw_hi
+
+if not na(sw_lo)
+    lastSwingLow := sw_lo
+
+bool sweepBuySide  = high > lastSwingHigh and close < lastSwingHigh
+bool sweepSellSide = low < lastSwingLow  and close > lastSwingLow
+
+//────────────────────────────────────────────
+// 5. ZONE TYPE & STORAGE
+//────────────────────────────────────────────
+type Zone
+    box   bx
+    float top
+    float btm
+    int   startBar
+    bool  isBull
+    bool  isOb
+    color baseCol
+    bool  isMitigated = false
+    int   taps = 0
+
+var Zone[] allZones = array.new<Zone>()
+
+add_zone(top, btm, isBull, isOb, cond, startBar) =>
+    if cond and not na(top) and not na(btm) and top != btm
+        col   = isOb ? (isBull ? obBull : obBear) : (isBull ? fvgBull : fvgBear)
+        style = isOb ? line_style_ob : line_style_fvg
+        width = isOb ? obWidth : fvgWidth
+
+        newBx = box.new(startBar, top, bar_index, btm,
+            bgcolor      = col,
+            border_color = col,
+            border_style = style,
+            border_width = width)
+
+        array.push(allZones, Zone.new(newBx, top, btm, startBar, isBull, isOb, col))
+
+//────────────────────────────────────────────
+// 6. 3‑CANDLE FVG & 3‑CANDLE OB (GAP-AWARE)
+//────────────────────────────────────────────
+
+float atr_fvg = ta.atr(14)
+float min_gap = atr_fvg * 0.1 // Gap must be at least 10% of ATR to count
+
+fvgUp3 = showFVG and (low > high[2] + min_gap) and fvgVolOK
+fvgDn3 = showFVG and (high < low[2] - min_gap) and fvgVolOK
+
+if fvgUp3
+    add_zone(high[2], low, true, false, true, bar_index - 2)
+if fvgDn3
+    add_zone(high, low[2], false, false, true, bar_index - 2)
+
+// 3‑CANDLE OB (Focused on Displacement)
+// Look for a candle that breaks the previous candle's high/low with momentum
+displacementUp = close > high[1] and close > open 
+displacementDn = close < low[1] and close < open
+
+bullOB3 = showOB and displacementUp and low[1] < low[2] and volConfirmBull
+bearOB3 = showOB and displacementDn and high[1] > high[2] and volConfirmBear
+
+if bullOB3
+    add_zone(high[1], low[1], true, true, true, bar_index - 1)
+if bearOB3
+    add_zone(high[1], low[1], false, true, true, bar_index - 1)
+
+// Gap-based OBs (with continuation filter)
+gapUpOB = showOB and bar_index > 1 and open > high[1] and close > open
+gapDnOB = showOB and bar_index > 1 and open < low[1] and close < open
+
+if gapUpOB
+    add_zone(open, low[1], true, true, true, bar_index - 1)
+
+if gapDnOB
+    add_zone(high[1], open, false, true, true, bar_index - 1)
+
+//────────────────────────────────────────────
+// 7. MERGE OVERLAPPING ZONES
+//────────────────────────────────────────────
+zones_overlap(top1, btm1, top2, btm2) =>
+    not (btm1 > top2 or btm2 > top1)
+
+if array.size(allZones) > 1
+    for i = array.size(allZones) - 1 to 1
+        if i >= array.size(allZones)
+            continue
+        z1 = array.get(allZones, i)
+        z2 = array.get(allZones, i - 1)
+        if zones_overlap(z1.top, z1.btm, z2.top, z2.btm)
+            size1 = math.abs(z1.top - z1.btm)
+            size2 = math.abs(z2.top - z2.btm)
+            if size1 >= size2
+                box.delete(z2.bx)
+                array.remove(allZones, i - 1)
+            else
+                box.delete(z1.bx)
+                array.remove(allZones, i)
+
+//────────────────────────────────────────────
+// 8. ZONE ENGINE (MITIGATION, AGE, VISIBILITY)
+//────────────────────────────────────────────
+maxTaps = 2
+
+if array.size(allZones) > 0
+    for i = array.size(allZones) - 1 to 0
+        if i >= array.size(allZones)
+            continue
+
+        z = array.get(allZones, i)
+        bx   = z.bx
+        top  = z.top
+        btm  = z.btm
+        age  = bar_index - z.startBar
+
+        // FAILURE: require 2 closes beyond zone
+        failed = false
+        if age <= failWindow
+            bullFail = z.isBull and close < btm and close[1] < btm
+            bearFail = (not z.isBull) and close > top and close[1] > top
+            if bullFail or bearFail
+                failed := true
+
+        // MITIGATION
+        if not z.isMitigated
+            // A zone is only "Broken" if price closes past the opposite side
+            bool bullBroken = z.isBull and close < z.btm
+            bool bearBroken = (not z.isBull) and close > z.top
+            
+            // Increment taps for touches, but only mitigate on a full breach
+            if (high > z.btm and low < z.top)
+                z.taps += 1
+            
+            if bullBroken or bearBroken or (z.taps > 5)
+                z.isMitigated := true
+
+        // DELETE OLD / FAILED
+        if age > maxAge or failed
+            box.delete(bx)
+            array.remove(allZones, i)
+            continue
+
+        // EXTEND ACTIVE
+        if not z.isMitigated
+            box.set_right(bx, bar_index)
+
+        // VISIBILITY
+        visible = (z.isMitigated and showInactive) or (not z.isMitigated and showActive)
+        col = z.isMitigated ? testCol : z.baseCol
+
+        if visible
+            box.set_bgcolor(bx, col)
+            box.set_border_color(bx, col)
+        else
+            box.set_bgcolor(bx, color.new(color.gray, 100))
+            box.set_border_color(bx, color.new(color.gray, 100))
+
+//────────────────────────────────────────────
+// 9. ZONE AWARENESS FLAGS
+//────────────────────────────────────────────
+hasBullOB  = false
+hasBearOB  = false
+hasBullFVG = false
+hasBearFVG = false
+insideZone = false
+
+zoneCount = array.size(allZones)
+if zoneCount > 0
+    for i = 0 to zoneCount - 1
+        if i >= array.size(allZones)
+            continue
+        z = array.get(allZones, i)
+        if z.isOb and z.isBull
+            hasBullOB := true
+        if z.isOb and not z.isBull
+            hasBearOB := true
+        if not z.isOb and z.isBull
+            hasBullFVG := true
+        if not z.isOb and not z.isBull
+            hasBearFVG := true
+        if close < z.top and close > z.btm
+            insideZone := true
+
+//────────────────────────────────────────────
+// 10. MARKET STRUCTURE
+//────────────────────────────────────────────
+var float last_hi     = na
+var int   last_hi_idx = na
+var float last_lo     = na
+var int   last_lo_idx = na
+var bool  is_uptrend  = false
+var bool bos_up_active = false
+var bool bos_dn_active = false
+
+if not na(sw_hi)
+    last_hi     := lastSwingHigh
+    last_hi_idx := bar_index[swing_r]
+
+if not na(sw_lo)
+    last_lo     := lastSwingLow
+    last_lo_idx := bar_index[swing_r]
+
+bos_up_raw = not na(lastSwingHigh) and high > lastSwingHigh and close > high[1]
+bos_dn_raw = not na(lastSwingLow)  and low < lastSwingLow  and close < low[1]
+
+bos_up_valid = bos_up_raw and close > lastSwingHigh + atr * 0.1
+bos_dn_valid = bos_dn_raw and close < lastSwingLow - atr * 0.1
+
+bos_up_rejected = bos_up_valid and close[1] > lastSwingHigh and close < lastSwingHigh
+bos_dn_rejected = bos_dn_valid and close[1] < lastSwingLow and close > lastSwingLow
+bos_up_confirmed = bos_up_valid and not bos_up_rejected
+bos_dn_confirmed = bos_dn_valid and not bos_dn_rejected
+bos_up_mitigated = bos_up_confirmed and low <= lastSwingHigh
+bos_dn_mitigated = bos_dn_confirmed and high >= lastSwingLow
+
+draw_structure(start_idx, end_idx, price, txt, col, is_up) =>
+    line.new(start_idx, price, end_idx, price,
+        xloc=xloc.bar_index, color=col, width=BOSWidth, style=line_style_bos)
+    mid_bar   = math.round((start_idx + end_idx) / 2)
+    lbl_style = is_up ? label.style_label_down : label.style_label_up
+    label.new(mid_bar, price, txt,
+        xloc=xloc.bar_index, yloc=yloc.price,
+        style=lbl_style, color=color.new(#ffffff, 100),
+        textcolor=col, size=size.small, textalign=text.align_center)
+
+if bos_up_mitigated
+    label_text = is_uptrend ? "BOS ↑" : "CHoCH ↑"
+    break_col  = is_uptrend ? color.rgb(0,230,119,40) : color.rgb(255,255,255,40)
+    draw_structure(last_hi_idx, bar_index, last_hi, label_text, break_col, true)
+    is_uptrend := true
+    last_hi := na
+    last_hi_idx := na
+
+if bos_dn_mitigated
+    label_text = is_uptrend ? "CHoCH ↓" : "BOS ↓"
+    break_col  = is_uptrend ? color.rgb(255,203,59,40) : color.rgb(255,82,82,40)
+    draw_structure(last_lo_idx, bar_index, last_lo, label_text, break_col, false)
+    is_uptrend := false
+    last_lo := na
+    last_lo_idx := na
+
+bool gapDownBreak = not na(last_lo) and open < last_lo and low < last_lo
+
+if gapDownBreak and smc_bullish
+    smc_bullish := false
+    smc_bearish := true
+    is_uptrend  := false
+
+if bos_up_mitigated
+    smc_bullish := true
+    smc_bearish := false
+
+if bos_dn_mitigated
+    smc_bullish := false
+    smc_bearish := true
+
+bool gapUpBreak = not na(last_hi) and open > last_hi and high > last_hi
+
+if gapUpBreak and smc_bearish
+    smc_bearish := false
+    smc_bullish := true
+    is_uptrend  := true
+
+//────────────────────────────────────────────
+// EARLY STRUCTURE FLIP ENGINE (SAFE VERSION)
+//────────────────────────────────────────────
+var bool smc_early_bull = false
+var bool smc_early_bear = false
+
+internalBullBOS = not na(lastSwingHigh) and close > lastSwingHigh
+internalBearBOS = not na(lastSwingLow)  and close < lastSwingLow
+
+if internalBullBOS
+    smc_early_bull := true
+    smc_early_bear := false
+
+if internalBearBOS
+    smc_early_bull := false
+    smc_early_bear := true
+
+bearFVGbroken = false
+if array.size(allZones) > 0
+    for i = 0 to array.size(allZones) - 1
+        z = array.get(allZones, i)
+        if not na(z) and not z.isOb and not z.isBull
+            if not na(z.top) and (high > z.top or close > z.top)
+                bearFVGbroken := true
+                break
+
+if bearFVGbroken
+    smc_early_bull := true
+    smc_early_bear := false
+
+bullOBheld = false
+if array.size(allZones) > 0
+    for i = 0 to array.size(allZones) - 1
+        z = array.get(allZones, i)
+        if not na(z) and z.isOb and z.isBull
+            if not na(z.top) and (high > z.top or close > z.top)
+                bullOBheld := true
+                break
+
+if bullOBheld and mom_bullish
+    smc_early_bull := true
+    smc_early_bear := false
+
+string earlyStructTxt = "EARLY STRUCTURE | ⚪ NONE"
+
+if bullOBheld
+    earlyStructTxt := "EARLY STRUCTURE | 🟩 HELD"
+
+if bearFVGbroken
+    earlyStructTxt := "EARLY STRUCTURE | ⬆️ Reclaimed"
+
+if smc_early_bear
+    earlyStructTxt := "EARLY STRUCTURE | 🟥 WEAK BEARISH"
+
+
+//────────────────────────────────────────────
+// 11. CANDLE PATTERN ENGINE
+//────────────────────────────────────────────
+bodyThresh     = input.float(0.25, "Doji Body %", group="Candles")
+wickThreshHigh = input.float(0.55, "Wick % (Gravestone/Dragonfly)", group="Candles")
+wickThreshLow  = input.float(0.15, "Opp Wick %", group="Candles")
+
+ema_up   = ema20 > ema50 and ema50 > ema200
+ema_down = ema20 < ema50 and ema50 < ema200
+
+lb_up   = close > lb_crv *1.02
+lb_down = close < lb_crv * 0.98
+
+body0 = math.abs(close - open)
+body1 = math.abs(close[1] - open[1])
+body2 = math.abs(close[2] - open[2])
+
+crange0 = high - low
+
+wickHigh = high - math.max(open, close)
+wickLow  = math.min(open, close) - low
+
+bullEngulf =
+     close > open and
+     close[1] < open[1] and
+     close >= high[1] and
+     open <= low[1]
+
+bearEngulf =
+     close < open and
+     close[1] > open[1] and
+     close <= low[1] and
+     open >= high[1]
+
+doji  = body0 <= crange0 * bodyThresh and
+         wickHigh <= crange0 * 0.55 and
+         wickLow  <= crange0 * 0.55 and
+         math.abs(wickHigh - wickLow) <= crange0 * 0.35
+
+gravestone = doji and wickHigh >= crange0 * wickThreshHigh and wickLow <= crange0 * wickThreshLow and lb_up
+dragonfly  = doji and wickLow  >= crange0 * wickThreshHigh and wickHigh <= crange0 * wickThreshLow and lb_down
+
+neutralDoji = doji and not gravestone and not dragonfly
+
+bullPierce = close[1] < open[1] and close > (open[1] + close[1]) / 2
+bearDark   = close[1] > open[1] and close < (open[1] + close[1]) / 2
+
+isHammer = wickLow > body0 * 2 and wickHigh < body0 * 0.5
+isStar   = wickHigh > body0 * 2 and wickLow < body0 * 0.5
+
+isMorning = close[2] < open[2] and body1 < body2 * 0.4 and close > (open[2] + close[2]) / 2
+isEvening = close[2] > open[2] and body1 < body2 * 0.4 and close < (open[2] + close[2]) / 2
+
+tweezerBot = math.abs(low - low[1]) < syminfo.mintick * 2
+tweezerTop = math.abs(high - high[1]) < syminfo.mintick * 2
+
+r3m_c1_bull = close[4] > open[4] and (close[4] - open[4]) > (high[4] - low[4]) * 0.5
+r3m_inside = open[3] > close[3] and high[3] < high[4] and low[3] > low[4] and
+     open[2] > close[2] and high[2] < high[4] and low[2] > low[4] and
+     open[1] > close[1] and high[1] < high[4] and low[1] > low[4]
+r3m_breakout = close > high[4] and close > open
+bull_r3m = r3m_c1_bull and r3m_inside and r3m_breakout
+
+f3m_c1_bear = close[4] < open[4] and (open[4] - close[4]) > (high[4] - low[4]) * 0.5
+f3m_inside = close[3] > open[3] and high[3] < high[4] and low[3] > low[4] and
+     close[2] > open[2] and high[2] < high[4] and low[2] > low[4] and
+     close[1] > open[1] and high[1] < high[4] and low[1] > low[4]
+f3m_breakout = close < low[4] and close < open
+bear_f3m = f3m_c1_bear and f3m_inside and f3m_breakout
+
+if bull_r3m
+    add_zone(high[3], low[3], true, true, true, bar_index - 3)
+ 
+if bear_f3m
+    add_zone(high[3], low[3], false, true, true, bar_index - 3)
+
+bullStrong = bullEngulf or isMorning or bullPierce or bull_r3m
+bearStrong = bearEngulf or isEvening or bearDark or bear_f3m
+
+var string last_pattern = "None"
+var bool   candlesticks_bull = false
+var bool   candlesticks_bear = false
+var int    pattern_bar = 0
+var bool   valid_candle = false
+
+if barstate.isconfirmed
+    valid_candle := false
+
+    if not valid_candle and bull_r3m
+        last_pattern := "Rising 3 Methods"
+        candlesticks_bull := true
+        candlesticks_bear := false
+        pattern_bar := bar_index - 2
+        valid_candle := true
+
+    if not valid_candle and bear_f3m
+        last_pattern := "Falling 3 Methods"
+        candlesticks_bull := false
+        candlesticks_bear := true
+        pattern_bar := bar_index - 2
+        valid_candle := true
+
+    if not valid_candle and isMorning and lb_down
+        last_pattern := "Morning Star"
+        candlesticks_bull := true
+        pattern_bar := bar_index - 1
+        valid_candle := true
+
+    if not valid_candle and isEvening and lb_up
+        last_pattern := "Evening Star"
+        candlesticks_bull := false
+        candlesticks_bear := true
+        pattern_bar := bar_index - 1
+        valid_candle := true
+
+    if not valid_candle and bullEngulf and lb_down
+        last_pattern := "Bull Engulfing"
+        candlesticks_bull := true
+        candlesticks_bear := false
+        pattern_bar := bar_index
+        valid_candle := true
+
+    if not valid_candle and bearEngulf and lb_up
+        last_pattern := "Bear Engulfing"
+        candlesticks_bull := false
+        candlesticks_bear := true
+        pattern_bar := bar_index
+        valid_candle := true
+
+    if not valid_candle and bullPierce and lb_down
+        last_pattern := "Piercing"
+        candlesticks_bull := true
+        candlesticks_bear := false
+        pattern_bar := bar_index
+        valid_candle := true
+
+    if not valid_candle and bearDark and lb_up
+        last_pattern := "Dark Cloud"
+        candlesticks_bull := false
+        candlesticks_bear := true
+        pattern_bar := bar_index
+        valid_candle := true
+
+    if not valid_candle and tweezerBot and lb_down
+        last_pattern := "Tweezer Bottom"
+        candlesticks_bull := true
+        candlesticks_bear := false
+        pattern_bar := bar_index - 1
+        valid_candle := true
+
+    if not valid_candle and tweezerTop and lb_up
+        last_pattern := "Tweezer Top"
+        candlesticks_bull := false
+        candlesticks_bear := true
+        pattern_bar := bar_index - 1
+        valid_candle := true
+
+    if not valid_candle and isHammer and lb_down
+        last_pattern := "Hammer"
+        candlesticks_bull := true
+        candlesticks_bear := false
+        pattern_bar := bar_index
+        valid_candle := true
+
+    if not valid_candle and isStar and lb_up
+        last_pattern := "Shooting Star"
+        candlesticks_bull := false
+        candlesticks_bear := true
+        pattern_bar := bar_index
+        valid_candle := true
+
+    if not valid_candle and gravestone
+        last_pattern := "Gravestone"
+        candlesticks_bull := false
+        candlesticks_bear := true
+        pattern_bar := bar_index
+        valid_candle := true
+
+    if not valid_candle and dragonfly
+        last_pattern := "Dragonfly"
+        candlesticks_bull := true
+        candlesticks_bear := false
+        pattern_bar := bar_index
+        valid_candle := true
+
+    if not valid_candle and doji and neutralDoji
+        last_pattern := close > open ? "Bull Doji" : "Bear Doji"
+        candlesticks_bull := close > open
+        candlesticks_bear := close < open
+        pattern_bar := bar_index
+        valid_candle := true
+
+//────────────────────────────────────────────
+// 12. MOMENTUM + TREND + SMC
+//────────────────────────────────────────────
+ema_bullish = ema20 > ema50
+ema_bearish = ema20 < ema50
+
+mom_bullish := (rsi_val >= 50 and rsi_val > rsi_ema) or (close > lb_crv*1.02)
+mom_bearish := (rsi_val <= 44 and rsi_val < rsi_ema) or (close < lb_crv*0.98)
+
+setup_conflict = (smc_bullish and ema_bearish) or (smc_bearish and ema_bullish)
+
+//────────────────────────────────────────────
+// 13. PATTERN LABEL
+//────────────────────────────────────────────
+var label pattern_label = na
+bool bullInvalid = false
+bool bearInvalid = false
+
+barsAgo = bar_index - pattern_bar
+
+is_expired = barsAgo > 27
+if is_expired
+    last_pattern := "None"
+
+if barstate.islast and last_pattern != "None" and barsAgo >= 0
+    patLow  = low[barsAgo]
+    patHigh = high[barsAgo]
+
+    bullInvalid := close < patLow
+    bearInvalid := close > patHigh
+    rejected := candlesticks_bull ? bullInvalid : bearInvalid
+
+    isInactive = rejected or is_expired
+    patColor   = isInactive ? color.gray : (candlesticks_bull ? color.lime : color.red)
+
+    bool turning_point_label = (candlesticks_bull and bearStrong) or (not candlesticks_bull and bullStrong)
+    if turning_point_label and not isInactive
+        patColor := color.yellow
+
+    patLoc = candlesticks_bull ? yloc.belowbar : yloc.abovebar
+    yPrice = candlesticks_bull ? patLow : patHigh
+
+    if not na(pattern_label)
+        label.delete(pattern_label)
+
+    pattern_label := label.new(
+        pattern_bar, yPrice,
+        (candlesticks_bull ? "↑ " : "↓ ") + last_pattern + (isInactive ? "\n(Rejected)" : "\n(Active)"),
+        yloc = patLoc,
+        style = label.style_none,
+        textcolor = patColor,
+        size = size.small
+    )
+
+//────────────────────────────────────────────
+// 14. TURNING POINT ENGINE
+//────────────────────────────────────────────
+var bool turning_point = false
+var string turning_reason = ""
+turning_point := false
+turning_reason := ""
+turning_col = color.new(color.gray, 80)
+
+if last_pattern != "None" and not rejected and not is_expired
+    if candlesticks_bull
+        if close < open and wickHigh > body0 * 1.2
+            turning_point := true
+            turning_reason := "▼ Rejecting Highs"
+            turning_col := color.new(color.red, 20)
+
+        if bearEngulf
+            turning_point := true
+            turning_reason := "▼ Bearish Shift"
+            turning_col := color.new(#c43c3c, 20)
+
+        if close < open and body0 > (high - low) * 0.55
+            turning_point := true
+            turning_reason := "▼ Bearish Drive"
+            turning_col := color.new(#570e0e, 20)
+
+    if not candlesticks_bull
+        if close > open and wickLow > body0 * 1.2
+            turning_point := true
+            turning_reason := "▲ Rejecting Lows"
+            turning_col := color.new(color.green, 20)
+
+        if bullEngulf
+            turning_point := true
+            turning_reason := "▲ Bullish Shift"
+            turning_col := color.new(#0f5c12, 20)
+
+        if close > open and body0 > (high - low) * 0.55
+            turning_point := true
+            turning_reason := "▲ Bullish Drive"
+            turning_col := color.new(#07960c, 20)
+
+//────────────────────────────────────────────
+// 15. UNIFIED STOP‑LOSS ENGINE
+//────────────────────────────────────────────
+var bool pattern_invalidated = false
+pattern_invalidated := false
+
+if turning_point
+    if candlesticks_bull and turning_reason[0] == "▼"
+        pattern_invalidated := true
+        rejected := true
+
+    if not candlesticks_bull and turning_reason[0] == "▲"
+        pattern_invalidated := true
+        rejected := true
+        
+pattern_exists = last_pattern != "None"
+isBullSetup = pattern_exists and candlesticks_bull
+isBearSetup = pattern_exists and not candlesticks_bull
+
+barsAgoSL = bar_index - pattern_bar
+validCandle = barsAgoSL >= 0 and barsAgoSL <= 20
+
+float pOpen = na
+float pClose = na
+float pLow = na
+float pHigh = na
+float pBodyMid = na
+
+if validCandle and pattern_exists
+    pOpen  := open[barsAgoSL]
+    pClose := close[barsAgoSL]
+    pLow   := low[barsAgoSL]
+    pHigh  := high[barsAgoSL]
+    pBodyMid := (pOpen + pClose) / 2
+
+bool slBullActive = false
+bool slBearActive = false
+var label slPriceLabel = na
+
+if validCandle and not pattern_invalidated
+    slBullActive := isBullSetup and math.min(open, close) > pLow
+    slBearActive := isBearSetup and math.max(open, close) < pHigh
+
+if not (slBullActive or slBearActive)
+    pattern_invalidated := true
+
+if pattern_invalidated
+    if not na(slPriceLabel)
+        label.delete(slPriceLabel)
+        slPriceLabel := na
+
+if not pattern_invalidated and (slBullActive or slBearActive)
+    SL = slBullActive ? (pBodyMid + pLow*.9) / 2 : (pBodyMid + pHigh*1.1) / 2
+    yPriceSL = slBullActive ? SL - syminfo.mintick * 20 : SL + syminfo.mintick * 20
+    txtSL = "$" + str.tostring(SL, format.mintick)
+
+    if na(slPriceLabel)
+        slPriceLabel := label.new(
+            pattern_bar, yPriceSL, txtSL,
+            yloc = yloc.price,
+            style = label.style_label_left,
+            textcolor = color.white,
+            color = slBullActive ? color.new(color.green, 70) : color.new(color.red, 70),
+            size = size.small
+        )
+    else
+        label.set_x(slPriceLabel, pattern_bar)
+        label.set_y(slPriceLabel, yPriceSL)
+        label.set_text(slPriceLabel, txtSL)
+        label.set_color(slPriceLabel, slBullActive ? color.new(color.green, 70) : color.new(color.red, 70))
+        label.set_textcolor(slPriceLabel, color.white)
+
+//─────────────────────────────────────────────
+// 15b. LIQUIDITY SWEEP/GRAB (TURNING POINTS)
+//─────────────────────────────────────────────
+var label btLbl = na
+var int   btIdx = na
+var float btHi  = na
+var float btLo  = na
+var bool  btBull = false
+
+isTop            = valid_candle and candlesticks_bear and lb_up and rsi_val > 75
+isBottom         = valid_candle and candlesticks_bull and lb_down and rsi_val < lb_rsi_limit
+isSweepSellSide  = sweepSellSide and lb_down and candlesticks_bull and mom_bearish
+isSweepBuySide   = sweepBuySide and lb_up and mom_bullish and rsi_val > 75
+
+if bar_index == btIdx + 1 and not na(btLbl)
+    if (btBull and close < btLo) or (not btBull and close > btHi)
+        label.delete(btLbl)
+        btLbl := na
+
+if isSweepSellSide or isBottom
+    btIdx := bar_index, btLo := low, btHi := high, btBull := true
+    btLbl := label.new(bar_index, low - syminfo.mintick * 20, "BOT",
+        style = label.style_label_up, color = color.new(color.green, 70),
+        textcolor = color.white, size = size.tiny)
+
+if isSweepBuySide or isTop
+    btIdx := bar_index, btLo := low, btHi := high, btBull := false
+    btLbl := label.new(bar_index, high + syminfo.mintick * 20, "TOP",
+        style = label.style_label_down, color = color.new(color.red, 70),
+        textcolor = color.white, size = size.tiny)
+
+// ─────────────────────────────────────────────
+// 15c. EARLY + MEDIUM SWEEPS
+// ─────────────────────────────────────────────
+
+// Early exhaustion sweeps (wick-based)
+wickSweepHigh = high > high[1] and close < high[1]     // BSL (early bearish)
+wickSweepLow  = low < low[1] and close > low[1]        // SSL (early bullish)
+
+// Medium displacement sweeps (body-based)
+bodySweepHigh = close > high[1] and close < high       // BSL (medium)
+bodySweepLow  = close < low[1] and close > low         // SSL (medium)
+
+var int lastSweepBar = na
+
+isBSL = high[2] > high[3] and high[2] > high[1]
+isSSL = low[2] < low[3] and low[2] < low[1]
+
+confirmBSL = isBSL and close < open
+confirmSSL = isSSL and close > open
+
+overlapSameBar = confirmBSL and confirmSSL
+canSweep = na(lastSweepBar) or bar_index - lastSweepBar > 2
+
+strongBSL = confirmBSL and not overlapSameBar and canSweep
+strongSSL = confirmSSL and not overlapSameBar and canSweep
+
+liqBSL_wick   = wickSweepHigh
+liqBSL_body   = bodySweepHigh
+liqBSL_strong = strongBSL
+liqSSL_wick   = wickSweepLow
+liqSSL_body   = bodySweepLow
+liqSSL_strong = strongSSL
+
+liqBSL = liqBSL_wick or liqBSL_body or liqBSL_strong
+liqSSL = liqSSL_wick or liqSSL_body or liqSSL_strong
+bool liqBSL_invalid = liqBSL and close > high[2]
+bool liqSSL_invalid = liqSSL and close < low[2]
+bool liqActive = (liqBSL or liqSSL) and not (liqBSL_invalid or liqSSL_invalid)
+
+if showLiq and strongBSL
+    line.new(bar_index - 2, high[2], bar_index, high[2],
+        xloc = xloc.bar_index, extend = extend.none,
+        color = color.new(color.red, 60), width = 4)
+    lastSweepBar := bar_index
+
+if showLiq and strongSSL
+    line.new(bar_index - 2, low[2], bar_index, low[2],
+        xloc = xloc.bar_index, extend = extend.none,
+        color = color.new(color.green,60), width = 4)
+    lastSweepBar := bar_index
+
+string liqTxt =
+     not liqActive ? "No Liquidity Event" :
+     liqBSL_strong ? "▼ Strong Bearish Sweep (BSL)" :
+     liqBSL_body   ? "▽ Mild Bearish Sweep (BSL)" :
+     liqBSL_wick   ? "▿ Weak Bearish Sweep (BSL)" :
+     liqSSL_strong ? "▲ Strong Bullish Grab (SSL)" :
+     liqSSL_body   ? "△ Mild Bullish Grab (SSL)" :
+     liqSSL_wick   ? "▵ Weak Bullish Grab (SSL)" :
+     "No Liquidity Event"
+
+color liqColor =
+     not liqActive      ? color.gray :
+     liqBSL_strong      ? color.rgb(255, 82, 82, 60) :
+     liqSSL_strong      ? color.rgb(76, 175, 80, 60) :
+     liqBSL_body        ? color.rgb(244, 67, 54, 50) :
+     liqSSL_body        ? color.rgb(56, 142, 60, 50) :
+     liqBSL_wick or liqSSL_wick ? color.rgb(230, 207, 8, 50) :
+     color.gray
+
+//────────────────────────────────────────────
+// 16. SIGNAL ENGINE
+//────────────────────────────────────────────
+var bool bull_signal = false
+var bool bear_signal = false
+var bool inLong      = false
+var bool inShort     = false
+
+// Pattern + context logic
+bool hasPattern      = last_pattern != "None"
+bool bullPattern     = hasPattern and candlesticks_bull
+bool bearPattern     = hasPattern and candlesticks_bear
+bool bullContextOK   = smc_bullish and ema_bullish and mom_bullish and lb_up
+bool bearContextOK   = smc_bearish and ema_bearish and mom_bearish and lb_down
+bool notKilled       = not pattern_invalidated and not rejected and not turning_point
+bool longRaw  = rsi_val >= 45 and bullPattern and bullContextOK and notKilled
+bool shortRaw = rsi_val > 50  and bearPattern and bearContextOK and notKilled
+
+bool longSignal  = longRaw  and mom_bullish  and not longRaw[1]
+bool shortSignal = shortRaw and mom_bearish and not shortRaw[1]
+
+if longSignal and not inShort
+    inLong  := true
+    inShort := false
+
+if shortSignal and not inLong
+    inShort := true
+    inLong  := false
+
+// Exit logic
+bool exitLong  = inLong  and (close < pLow  or close < lb_crv * 0.97)
+bool exitShort = inShort and (close > pHigh or close > lb_crv * 1.05)
+
+// Reset states on exit
+if exitLong
+    inLong := false
+
+if exitShort
+    inShort := false
+
+// Plot signals
+plotchar(exitLong,  title="Exit Long",  char="▼", location=location.abovebar, color=color.rgb(255, 59, 59, 68), size=size.tiny)
+plotchar(exitShort, title="Exit Short", char="X", location=location.belowbar, color=color.rgb(255, 235, 59, 77), size=size.tiny)
+
+plotchar(longSignal, title="Go Long", char="▲", location=location.belowbar, color=color.rgb(0, 230, 119, 74), size=size.tiny)
+plotchar(shortSignal, title="Go Short", char="▼", location=location.abovebar, color=color.rgb(255, 82, 82, 74), size=size.tiny)
+
+if exitLong
+    inLong := false
+
+if exitShort
+    inShort := false
+
+if smc_bullish and bear_signal
+    bear_signal := false
+
+if smc_bearish and bull_signal
+    bull_signal := false
+
+if turning_point
+    bull_signal := false
+    bear_signal := false
+
+if is_expired
+    last_pattern := "None"
+
+string patStatus = "None"
+if last_pattern != "None"
+    if rejected
+        patStatus := "Rejected"
+    else if is_expired
+        patStatus := "Expired"
+    else if pattern_invalidated
+        patStatus := "Invalidated"
+    else
+        patStatus := "Active"
+string patDisplay = "None"
+
+if last_pattern != "None"
+    patDisplay := last_pattern + " (" + patStatus + ") — " + str.tostring(barsAgo) + " bars ago"
+
+color candleColor = color.gray
+
+if candlesticks_bull
+    candleColor := color.new(color.green, 0)
+
+if candlesticks_bear
+    candleColor := color.new(color.red, 0)
+
+if patStatus == "Active"
+    candleColor := color.new(candleColor, 10)     // bright
+
+else if patStatus == "Rejected"
+    candleColor := color.new(color.red, 0)        // force red
+
+else
+    candleColor := color.new(candleColor, 60)     // faded
+
+//────────────────────────────────────────────
+// FVG INTERPRETATION (COMPACT)
+//────────────────────────────────────────────
+int bullFVGcount = 0
+int bearFVGcount = 0
+int bullOBcount  = 0
+int bearOBcount  = 0
+
+if zoneCount > 0
+    for i = 0 to zoneCount - 1
+        Zone z = array.get(allZones, i)
+        if not na(z)
+            if not z.isOb and z.isBull
+                bullFVGcount += 1
+            if not z.isOb and not z.isBull
+                bearFVGcount += 1
+            if z.isOb and z.isBull
+                bullOBcount += 1
+            if z.isOb and not z.isBull
+                bearOBcount += 1
+
+string fvgContext =
+      bearFVGcount >= 3 and bearOBcount > 0 ? "Bear FVG + OB → Strong sell flow" :
+      bullFVGcount >= 3 and bullOBcount > 0 ? "Bull FVG + OB → Strong buy flow" :
+      bearFVGcount >= 2 and bullOBcount > 0 ? "Bear FVG + Bull OB → Bears weakening" :
+      bullFVGcount >= 2 and bearOBcount > 0 ? "Bull FVG + Bear OB → Bulls weakening" :
+      bullFVGcount > 0 and bearFVGcount > 0 ? "Mixed FVG → Range / sweeps" :
+      bullFVGcount > 0 ? "Bull FVG → Pullback up" :
+      bearFVGcount > 0 ? "Bear FVG → Pullback down" :
+      "No FVG/OB Bias"
+color zoneCol =
+      bearFVGcount >= 3 and bearOBcount > 0 ? color.new(color.red, 10) :
+      bullFVGcount >= 3 and bullOBcount > 0 ? color.new(color.green, 10) :
+      bearFVGcount >= 2 and bullOBcount > 0 ? color.new(#36332d, 7) :
+      bullFVGcount >= 2 and bearOBcount > 0 ? color.new(#49433a, 10) :
+      bullFVGcount > 0 and bearFVGcount > 0 ? color.new(#152324, 10) :
+      bullFVGcount > 0 ? color.new(color.green, 10) :
+      bearFVGcount > 0 ? color.new(color.red, 10) :
+      color.new(color.gray, 10)
+
+//────────────────────────────────────────────
+// 17. DASHBOARD (REORDERED FOR LOGICAL FLOW)
+//────────────────────────────────────────────
+tablePos = getTablePos(tablePosInput)
+var table board = table.new(tablePos, 1, 15, frame_color=color.rgb(26,27,31), frame_width=1)
+
+if barstate.islast
+    // TITLE
+    title_txt = "SMC CONCEPTS — " + syminfo.ticker
+    table.cell(board, 0, 0, title_txt,
+        text_color=color.white,
+        bgcolor=color.rgb(32, 126, 133),
+        text_size=size.normal)
+
+    // 1. STRUCTURE (BOS/CHoCH)
+    trend_txt = smc_bullish ? "STRUCTURE: ▲ Higher Highs" :
+                 smc_bearish ? "STRUCTURE: ▼ Lower Lows" :
+                 "STRUCTURE: Neutral"
+    trend_bg  = smc_bullish ? color.new(color.green,10) :
+                 smc_bearish ? color.new(color.red,10) :
+                 color.new(color.gray,90)
+    table.cell(board, 0, 1, trend_txt + "\n"+ earlyStructTxt,
+        text_color=color.white,
+        bgcolor=trend_bg,
+        text_size=size.small)
+
+    // 2. LIQUIDITY
+    table.cell(board, 0, 2, liqTxt, text_color=color.white, bgcolor=liqColor, text_size=size.small)
+
+    // 3. CANDLES
+    table.cell(board, 0, 3, patDisplay, text_color = color.white, bgcolor = candleColor, text_size = size.small)
+
+    // 4. MOMENTUM
+    mom_txt = mom_bullish ? "MOMENTUM: Bullish" :
+              mom_bearish ? "MOMENTUM: Bearish" :
+              "MOMENTUM: Mixed"
+    mom_bg  = mom_bullish ? color.new(color.green,10) :
+              mom_bearish ? color.new(color.red,10) :
+              color.new(color.gray,90)
+    table.cell(board, 0, 4, mom_txt,
+        text_color=color.white,
+        bgcolor=mom_bg,
+        text_size=size.small)
+
+    // 5. ZONE CONTEXT
+    table.cell(board, 0, 5, fvgContext,
+        text_color=color.white,
+        bgcolor=zoneCol,
+        text_size=size.small)
+
+    // 6. FINAL SIGNAL
+    string sig_txt = inLong ? "SIGNAL: Long / BTD" :
+                     inShort ? "SIGNAL: Short / STR" :
+                     "SIGNAL: None"
+    color sig_bg = inLong  ? color.new(color.green,10) :
+                   inShort ? color.new(color.red,10) :
+                   color.new(color.black,10)
+    table.cell(board, 0, 6, sig_txt,
+        text_color=color.white,
+        bgcolor=sig_bg,
+        text_size=size.small)
