@@ -13,6 +13,7 @@ except:
 # Now safe to use Streamlit normally
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
+globals().pop("edge_all_open_tabs", None)
 from imports import *
 
 
