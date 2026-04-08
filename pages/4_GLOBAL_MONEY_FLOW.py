@@ -8,6 +8,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+from imports import *
+
 st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
 This app tracks capital flows between **risk-on** and **risk-off** assets 
