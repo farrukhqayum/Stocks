@@ -882,6 +882,9 @@ gf_single = money_flow_s.replace([np.inf, -np.inf], np.nan).dropna()
 # Clean stock series
 stk_single = user_stock_data.ffill().bfill().dropna()
 
+st.write(f"DEBUG: Aligned GMF length = {len(gf_aligned)}")
+st.write(f"DEBUG: Aligned stock length = {len(stk_aligned)}")
+
 # Align
 combined = pd.DataFrame({
     'GMF': gf_single,
@@ -890,29 +893,26 @@ combined = pd.DataFrame({
 gf_aligned = combined['GMF']
 stk_aligned = combined['Stock']
 cw_ = 60
+min_required = 20   # minimum overlapping days for a visible line
+latest_corr = float('nan')
+latest_corr_percent = float('nan')
 
-if len(gf_aligned) >= cw_:
-    rolling_corr_single = (
-        gf_aligned
-        .rolling(cw_, min_periods=cw_//2)
-        .corr(stk_aligned)
-        .replace([np.inf, -np.inf], np.nan)
-        .dropna()
-    )
-
-    if not rolling_corr_single.empty:
-        latest_corr = rolling_corr_single.iloc[-1]
-        latest_corr_percent = round(latest_corr * 100, 1)
-
-        rolling_corr_df = pd.DataFrame({
-            "Date": rolling_corr_single.index,
-            "Correlation": rolling_corr_single * 100
-        }).dropna()
+if len(gf_aligned) >= min_required:
+    # Use a smaller window if not enough data for cw_=60
+    actual_window = min(cw_, len(gf_aligned) // 2)
+    rolling_corr_single = gf_aligned.rolling(actual_window, min_periods=min_required//2).corr(stk_aligned)
+    rolling_corr_df = pd.DataFrame({
+        "Date": rolling_corr_single.index,
+        "Correlation": rolling_corr_single * 100
+    }).dropna()
+    
+    if not rolling_corr_df.empty:
+        latest_corr = rolling_corr_df['Correlation'].iloc[-1] / 100
+        latest_corr_percent = latest_corr * 100
     else:
-        rolling_corr_df = pd.DataFrame({"Date": [], "Correlation": []})
+        rolling_corr_df = pd.DataFrame()  # ensure empty
 else:
-    rolling_corr_df = pd.DataFrame({"Date": [], "Correlation": []})
-
+    rolling_corr_df = pd.DataFrame()
 
 if not gf_aligned.empty and not stk_aligned.empty:
     gf_normalized = (gf_aligned / gf_aligned.iloc[0]) * 100
