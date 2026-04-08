@@ -866,7 +866,7 @@ try:
             st.error("No 'Adj Close' or 'Close' data found.")
             st.stop()
             
-    user_stock_data = user_stock_data.fillna(method='ffill')
+    user_stock_data = user_stock_data.ffill().bfill().dropna()
     user_stock_data = user_stock_data.squeeze()
     
 except Exception as e:
@@ -877,6 +877,8 @@ user_stock_smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
 user_stock_smoothed.iloc[-1] = user_stock_data.iloc[-1]
 
 gf_single = money_flow_s
+gf_single = money_flow_s.replace([np.inf, -np.inf], np.nan).dropna()
+
 stk_single = user_stock_smoothed
 gf_aligned, stk_aligned = gf_single.align(stk_single, join='inner')
 
@@ -1123,7 +1125,7 @@ if tickers_list and st.button("Run 60-Day Correlation Screening"):
                 for idx, (ticker, prices) in enumerate(screener_data.items()):
                     try:
                         if isinstance(prices, pd.Series) and not prices.empty:
-                            prices_clean = prices.fillna(method='ffill').dropna()
+                            prices_clean = prices.ffill().dropna()
                             if len(prices_clean) < 60:
                                 continue
                             
