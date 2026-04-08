@@ -876,31 +876,39 @@ except Exception as e:
 user_stock_smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
 user_stock_smoothed.iloc[-1] = user_stock_data.iloc[-1]
 
-gf_single = money_flow_s
+# Clean GMF series
 gf_single = money_flow_s.replace([np.inf, -np.inf], np.nan).dropna()
 
-stk_single = user_stock_smoothed
+# Clean stock series
+stk_single = user_stock_data.ffill().bfill().dropna()
+
+# Align
 gf_aligned, stk_aligned = gf_single.align(stk_single, join='inner')
 
 cw_ = 60
-latest_corr = float('nan')
-latest_corr_percent = float('nan')
 
 if len(gf_aligned) >= cw_:
-    rolling_corr_single = gf_aligned.rolling(cw_, min_periods=cw_//2).corr(stk_aligned)
+    rolling_corr_single = (
+        gf_aligned
+        .rolling(cw_, min_periods=cw_//2)
+        .corr(stk_aligned)
+        .replace([np.inf, -np.inf], np.nan)
+        .dropna()
+    )
+
     if not rolling_corr_single.empty:
         latest_corr = rolling_corr_single.iloc[-1]
-        if pd.notna(latest_corr):
-            latest_corr_percent = round(latest_corr * 100, 1)
-        else:
-            latest_corr_percent = float('nan')
-    
-    rolling_corr_df = pd.DataFrame({
-        "Date": rolling_corr_single.index,
-        "Correlation": rolling_corr_single * 100
-    }).dropna()
+        latest_corr_percent = round(latest_corr * 100, 1)
+
+        rolling_corr_df = pd.DataFrame({
+            "Date": rolling_corr_single.index,
+            "Correlation": rolling_corr_single * 100
+        }).dropna()
+    else:
+        rolling_corr_df = pd.DataFrame({"Date": [], "Correlation": []})
 else:
     rolling_corr_df = pd.DataFrame({"Date": [], "Correlation": []})
+
 
 if not gf_aligned.empty and not stk_aligned.empty:
     gf_normalized = (gf_aligned / gf_aligned.iloc[0]) * 100
