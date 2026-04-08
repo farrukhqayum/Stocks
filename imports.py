@@ -27,6 +27,7 @@ import matplotlib.colors as mcolors
 import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import seaborn as sns
+import altaire as alt
 
 # Machine Learning
 from sklearn.linear_model import LinearRegression
