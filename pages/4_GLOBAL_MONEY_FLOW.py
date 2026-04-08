@@ -1,14 +1,20 @@
 import streamlit as st
 
+# MUST be the first Streamlit call
+try:
+    st.set_page_config(
+        page_title="Global Money Flow Curve (GMF)",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+except:
+    pass
+
+# Now safe to use Streamlit normally
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
-st.set_page_config(
-    page_title="Global Money Flow Curve (GMF)",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
 from imports import *
+
 
 st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
