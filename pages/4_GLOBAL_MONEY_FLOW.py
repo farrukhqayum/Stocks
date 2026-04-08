@@ -87,9 +87,9 @@ def load_data(tickers, start, end):
 
     if isinstance(raw.columns, pd.MultiIndex):
         if 'Adj Close' in raw.columns.get_level_values(0):
-            df = raw['Adj Close'].copy()
+            df = raw.xs('Adj Close', axis=1, level=0)
         elif 'Close' in raw.columns.get_level_values(0):
-            df = raw['Close'].copy()
+            df = raw.xs('Close', axis=1, level=0)
         else:
             raise ValueError("No 'Adj Close' or 'Close' data found.")
     else:
@@ -112,9 +112,10 @@ try:
     spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
     
     if isinstance(spx_raw.columns, pd.MultiIndex) and 'Adj Close' in spx_raw.columns.get_level_values(0):
-        spx_data = spx_raw['Adj Close'].squeeze()
+        spx_data = spx_raw['Adj Close']
+        spx_data = spx_data.rename("S&P 500 (SPX)")
     elif 'Adj Close' in spx_raw.columns:
-        spx_data = spx_raw['Adj Close'].squeeze()
+        spx_data = spx_raw['Adj Close']
     else:
         spx_data = spx_raw['Close'].squeeze()
     spx_data.name = "S&P 500 (SPX)"
@@ -124,10 +125,8 @@ except Exception as e:
     st.stop()
 
 if use_business_days:
-    data = data.asfreq('B')
-    data = data.fillna(method='ffill')
-    spx_data = spx_data.asfreq('B')
-    spx_data = spx_data.fillna(method='ffill')
+    data = data = data.asfreq('B').ffill()
+    spx_data = spx_data.asfreq('B').ffill()
 
 # ========== GMF INDEX CALCULATION ==========
 def calculate_gmf_index(data, weights):
@@ -149,7 +148,8 @@ money_flow_smooth = money_flow_raw.rolling(smooth_window, min_periods=1).mean()
 
 # Calculate Z-Score
 rolling_mean = money_flow_smooth.rolling(window=z_score_window, min_periods=5).mean()
-rolling_std = money_flow_smooth.rolling(window=z_score_window, min_periods=5).std()
+rolling_std = money_flow_smooth.rolling(z_score_window, min_periods=5).std(ddof=0)
+
 money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std
 money_flow_zscore = money_flow_zscore.replace([np.inf, -np.inf], 0).fillna(0)
 
@@ -725,7 +725,7 @@ with st.expander("⚠️ Divergence Check: S&P 500 vs. GMF Momentum"):
     
     lookback = 60
     if len(spx_aligned) >= lookback:
-        rolling_corr = spx_aligned.rolling(lookback).corr(gmf_aligned)
+        rolling_corr = spx_aligned.rolling(lookback).corr(gmf_aligned.reindex(spx_aligned.index))
         latest_corr = rolling_corr.iloc[-1] if not rolling_corr.empty else 0
         
         if latest_corr < -0.5:
@@ -1206,8 +1206,8 @@ if tickers_list and st.button("Run 60-Day Correlation Screening"):
                 )
                 
                 # Hide the Signal Score column after applying gradient
-                styled_df = styled_df.hide(axis='columns', subset=['Signal Score'])
-                
+                styled_df = styled_df.hide_columns(['Signal Score'])
+
                 # Apply individual column styling
                 styled_df = styled_df.map(style_screener_corr, subset=['60D Corr %'])
                 styled_df = styled_df.map(style_screener_signal, subset=['Signal'])
