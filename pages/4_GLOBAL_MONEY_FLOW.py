@@ -883,8 +883,12 @@ gf_single = money_flow_s.replace([np.inf, -np.inf], np.nan).dropna()
 stk_single = user_stock_data.ffill().bfill().dropna()
 
 # Align
-gf_aligned, stk_aligned = gf_single.align(stk_single, join='inner')
-
+combined = pd.DataFrame({
+    'GMF': gf_single,
+    'Stock': stk_single
+}).dropna(how='any').ffill().dropna()
+gf_aligned = combined['GMF']
+stk_aligned = combined['Stock']
 cw_ = 60
 
 if len(gf_aligned) >= cw_:
