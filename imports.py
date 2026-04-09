@@ -6,7 +6,6 @@ from pathlib import Path
 import warnings
 
 # Third‑Party Libraries
-import appdirs as ad
 import pandas as pd
 import numpy as np
 import openpyxl
@@ -42,12 +41,6 @@ from xgboost import XGBRegressor
 # Utilities
 from tabulate import tabulate
 import emoji
-from joblib import Parallel, delayed
 
 # Settings
 warnings.filterwarnings('ignore')
-
-# Cache Directory Override
-CACHE_DIR = ".cache"
-ad.user_cache_dir = lambda *arg: CACHE_DIR
-Path(CACHE_DIR).mkdir(exist_ok=True)
