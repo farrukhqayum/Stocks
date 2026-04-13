@@ -93,35 +93,30 @@ user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 def safe_download(ticker, start, end):
     df = yf.download(ticker, start=start, end=end, progress=False)
 
+    # If empty, create a placeholder series of NaNs
     if df.empty:
-        st.warning(f"⚠️ No data returned for {ticker}. Skipping.")
-        return None
+        st.warning(f"⚠️ No data for {ticker}. Creating placeholder series.")
+        idx = pd.date_range(start=start, end=end, freq="B")
+        return pd.Series([np.nan] * len(idx), index=idx, name=ticker)
 
     # Extract price
     if isinstance(df.columns, pd.MultiIndex):
-        if "Adj Close" in df.columns.get_level_values(0):
-            s = df["Adj Close"]
-        else:
-            s = df["Close"]
+        s = df["Adj Close"] if "Adj Close" in df.columns.get_level_values(0) else df["Close"]
     else:
         s = df["Adj Close"] if "Adj Close" in df.columns else df["Close"]
 
-    s = s.rename(ticker)
     s.index = pd.to_datetime(s.index)
+    s = s.rename(ticker)
 
     return s
+    
 def load_data(tickers, start, end):
     series_list = []
 
     for name, ticker in tickers.items():
         s = safe_download(ticker, start, end)
-        if s is not None:
-            s = s.rename(name)
-            series_list.append(s)
-
-    if not series_list:
-        st.error("❌ No valid data for any ticker.")
-        st.stop()
+        s = s.rename(name)
+        series_list.append(s)
 
     df = pd.concat(series_list, axis=1)
 
