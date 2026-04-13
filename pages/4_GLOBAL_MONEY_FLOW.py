@@ -133,6 +133,12 @@ except Exception as e:
     st.warning(f"⚠️ Error loading data: {e}. Please check ticker availability and date range.")
     st.stop()
 
+data.index = pd.to_datetime(data.index)
+spx_data.index = pd.to_datetime(spx_data.index)
+
+if use_business_days:
+    data = data.asfreq('B').ffill()
+    spx_data = spx_data.asfreq('B').ffill()
 if use_business_days:
     data = data = data.asfreq('B').ffill()
     spx_data = spx_data.asfreq('B').ffill()
