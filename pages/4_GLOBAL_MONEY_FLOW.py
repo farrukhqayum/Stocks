@@ -90,29 +90,44 @@ st.sidebar.header("💹 Stock Analysis")
 user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
 # ========== DATA LOADING FUNCTIONS ==========
-def load_data(tickers, start, end):
-    """Load data from Yahoo Finance"""
-    raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
+def safe_download(ticker, start, end):
+    df = yf.download(ticker, start=start, end=end, progress=False)
 
-    if isinstance(raw.columns, pd.MultiIndex):
-        if 'Adj Close' in raw.columns.get_level_values(0):
-            df = raw.xs('Adj Close', axis=1, level=0)
-        elif 'Close' in raw.columns.get_level_values(0):
-            df = raw.xs('Close', axis=1, level=0)
+    if df.empty:
+        st.warning(f"⚠️ No data returned for {ticker}. Skipping.")
+        return None
+
+    # Extract price
+    if isinstance(df.columns, pd.MultiIndex):
+        if "Adj Close" in df.columns.get_level_values(0):
+            s = df["Adj Close"]
         else:
-            raise ValueError("No 'Adj Close' or 'Close' data found.")
+            s = df["Close"]
     else:
-        df = raw.copy()
+        s = df["Adj Close"] if "Adj Close" in df.columns else df["Close"]
 
-    rename_map = {}
+    s = s.rename(ticker)
+    s.index = pd.to_datetime(s.index)
+
+    return s
+def load_data(tickers, start, end):
+    series_list = []
+
     for name, ticker in tickers.items():
-        if ticker in df.columns:
-            rename_map[ticker] = name
-        elif name in df.columns:
-            rename_map[name] = name
-    df = df.rename(columns=rename_map)
+        s = safe_download(ticker, start, end)
+        if s is not None:
+            s = s.rename(name)
+            series_list.append(s)
 
-    df = df.dropna(axis=1, how='all')
+    if not series_list:
+        st.error("❌ No valid data for any ticker.")
+        st.stop()
+
+    df = pd.concat(series_list, axis=1)
+
+    # Ensure datetime index
+    df.index = pd.to_datetime(df.index)
+
     return df
 
 # ========== LOAD DATA ==========
@@ -133,15 +148,18 @@ except Exception as e:
     st.warning(f"⚠️ Error loading data: {e}. Please check ticker availability and date range.")
     st.stop()
 
+def enforce_business_days(df):
+    df = df.asfreq("B")  # creates business-day index
+    df = df.ffill()      # forward-fill missing values
+    df = df.bfill()      # back-fill start if needed
+    return df
+
 data.index = pd.to_datetime(data.index)
 spx_data.index = pd.to_datetime(spx_data.index)
 
 if use_business_days:
-    data = data.asfreq('B').ffill()
-    spx_data = spx_data.asfreq('B').ffill()
-if use_business_days:
-    data = data = data.asfreq('B').ffill()
-    spx_data = spx_data.asfreq('B').ffill()
+    data = enforce_business_days(data)
+    spx_data = enforce_business_days(spx_data)
 
 # ========== GMF INDEX CALCULATION ==========
 def calculate_gmf_index(data, weights):
