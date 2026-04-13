@@ -292,14 +292,16 @@ with pos_col1:
     try:
         # Compute positioning_df once, to reuse in expander as well
         positioning_data = {}
-
-        if 'Crude Oil (CL)' in data.columns and 'Emerging Markets (EEM)' in data.columns:
+    
+        if all(col in data.columns for col in ['Crude Oil (CL)', 'Emerging Markets (EEM)']):
             commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
-            positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / commod_em_ratio.iloc[0] * 100)
+            if commod_em_ratio.notna().sum() > 5:
+                positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / commod_em_ratio.iloc[0] * 100)
 
-        if 'US 10Y Treasury (IEF)' in data.columns and 'US Dollar Index (DXY)' in data.columns:
+        if all(col in data.columns for col in ['US 10Y Treasury (IEF)', 'US Dollar Index (DXY)']):
             treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
-            positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / treasury_dollar_ratio.iloc[0] * 100)
+            if treasury_dollar_ratio.notna().sum() > 5:
+                positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / treasury_dollar_ratio.iloc[0] * 100)
 
         positioning_df = pd.DataFrame({
             'Date': data.index,
