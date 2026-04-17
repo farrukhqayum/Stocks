@@ -81,105 +81,102 @@ st.sidebar.markdown("---")
 st.sidebar.header("💹 Stock Analysis")
 user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
-# ========== DATA LOADING FUNCTIONS ==========
+# REPLACE the load_data function with this:
 def load_data(tickers, start, end):
-    """Load data from Yahoo Finance"""
-    try:
-        # Download all tickers at once
-        ticker_list = list(tickers.values())
-        raw = yf.download(ticker_list, start=start, end=end, progress=False, group_by='ticker')
-        
-        # Check if we got any data
-        if raw.empty:
-            st.error("No data downloaded. Please check your internet connection.")
-            return pd.DataFrame()
-        
-        # Handle different data structures
-        if len(ticker_list) == 1:
-            # Single ticker case
-            ticker = ticker_list[0]
-            if 'Adj Close' in raw.columns:
-                df = pd.DataFrame({ticker: raw['Adj Close']})
-            elif 'Close' in raw.columns:
-                df = pd.DataFrame({ticker: raw['Close']})
-            else:
-                return pd.DataFrame()
-        else:
-            # Multiple tickers case
-            data_dict = {}
-            for ticker in ticker_list:
-                if ticker in raw.columns:
-                    # Data is already in columns
-                    if 'Adj Close' in raw.columns.get_level_values(0):
-                        data_dict[ticker] = raw['Adj Close'][ticker]
-                    elif 'Close' in raw.columns.get_level_values(0):
-                        data_dict[ticker] = raw['Close'][ticker]
-                elif hasattr(raw, 'xs') and ticker in raw.columns.levels[0]:
-                    # MultiIndex case
-                    ticker_data = raw.xs(ticker, axis=1, level=0)
-                    if 'Adj Close' in ticker_data.columns:
-                        data_dict[ticker] = ticker_data['Adj Close']
-                    elif 'Close' in ticker_data.columns:
-                        data_dict[ticker] = ticker_data['Close']
-                    else:
-                        data_dict[ticker] = ticker_data.iloc[:, 0] if ticker_data.shape[1] > 0 else None
+    """Load data from Yahoo Finance - handles stocks, futures, indices"""
+    
+    ticker_list = list(tickers.values())
+    data_dict = {}
+    
+    for name, ticker in tickers.items():
+        try:
+            # Download each ticker individually for better error handling
+            raw = yf.download(
+                ticker, 
+                start=start, 
+                end=end, 
+                progress=False,
+                auto_adjust=False
+            )
             
-            # Remove None values and create DataFrame
-            data_dict = {k: v for k, v in data_dict.items() if v is not None}
-            if not data_dict:
-                return pd.DataFrame()
-            df = pd.DataFrame(data_dict)
-        
-        # Rename columns from tickers to asset names
-        rename_map = {}
-        for name, ticker in tickers.items():
-            if ticker in df.columns:
-                rename_map[ticker] = name
-        
-        if rename_map:
-            df = df.rename(columns=rename_map)
-        
-        # Drop columns that are all NaN
-        df = df.dropna(axis=1, how='all')
-        
-        return df
-        
-    except Exception as e:
-        st.warning(f"⚠️ Error loading data: {e}")
-        return pd.DataFrame()
+            if raw.empty:
+                st.warning(f"⚠️ No data for {ticker}. Creating placeholder.")
+                # Create placeholder with NaN values
+                date_range = pd.date_range(start=start, end=end, freq='B')
+                data_dict[name] = pd.Series(np.nan, index=date_range, name=name)
+                continue
+            
+            # Extract the correct price column
+            if 'Adj Close' in raw.columns:
+                price_series = raw['Adj Close']
+            elif 'Close' in raw.columns:
+                price_series = raw['Close']
+            else:
+                # Some futures data might be in the first column
+                price_series = raw.iloc[:, 0] if raw.shape[1] > 0 else pd.Series()
+            
+            # Ensure it's a Series
+            if isinstance(price_series, pd.DataFrame):
+                price_series = price_series.iloc[:, 0]
+            
+            price_series.name = name
+            data_dict[name] = price_series
+            
+            # Small delay to avoid rate limiting
+            time.sleep(0.1)
+            
+        except Exception as e:
+            st.warning(f"⚠️ Error loading {ticker}: {str(e)}")
+            # Create placeholder with NaN values
+            date_range = pd.date_range(start=start, end=end, freq='B')
+            data_dict[name] = pd.Series(np.nan, index=date_range, name=name)
+    
+    # Combine all series into DataFrame
+    df = pd.DataFrame(data_dict)
+    
+    # Drop columns that are completely empty
+    df = df.dropna(axis=1, how='all')
+    
+    return df
 
 # ========== LOAD DATA ==========
 try:
     data = load_data(tickers, start_date, end_date)
     spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
-
-    # CHECK IF DATA IS EMPTY
-    if data.empty:
-        st.error("❌ No data could be loaded. Please check:")
-        st.markdown("""
-        1. **Your internet connection**
-        2. **Yahoo Finance availability** (may be temporarily down)
-        3. **Ticker symbols** are correct
-        4. **Try refreshing** the page
-        """)
-        st.stop()
-
-    if isinstance(spx_raw['Adj Close'], pd.DataFrame):
-        spx_data = spx_raw['Adj Close'].iloc[:, 0]
+    
+    if spx_raw.empty:
+        st.warning("⚠️ Could not load S&P 500 data. Some features may be limited.")
+        spx_data = pd.Series(dtype='float64', name="S&P 500 (SPX)")
     else:
-        spx_data = spx_raw['Adj Close']
-    spx_data = spx_data.copy()
-    spx_data.name = "S&P 500 (SPX)"
+        # Extract price data
+        if 'Adj Close' in spx_raw.columns:
+            spx_data = spx_raw['Adj Close']
+        elif 'Close' in spx_raw.columns:
+            spx_data = spx_raw['Close']
+        else:
+            spx_data = spx_raw.iloc[:, 0]
+        
+        # Ensure it's a Series
+        if isinstance(spx_data, pd.DataFrame):
+            spx_data = spx_data.iloc[:, 0]
+        
+        spx_data.name = "S&P 500 (SPX)"
+        
+        # Forward fill any missing values
+        spx_data = spx_data.ffill()
 
 except Exception as e:
-    st.warning(f"⚠️ Error loading data: {e}. Please check ticker availability and date range.")
-    st.stop()
+    st.warning(f"⚠️ Could not load S&P 500 data: {str(e)}")
+    spx_data = pd.Series(dtype='float64', name="S&P 500 (SPX)")
 
 if use_business_days:
     data = data.asfreq('B')
     data = data.ffill()
-    spx_data = spx_data.asfreq('B')
-    spx_data = spx_data.ffill()
+    data = data.bfill()
+    if not spx_data.empty:
+        spx_data = spx_data.asfreq('B')
+        spx_data = spx_data.ffill()
+        spx_data = spx_data.bfill()
 
 # ========== GMF INDEX CALCULATION ==========
 def calculate_gmf_index(data, weights):
