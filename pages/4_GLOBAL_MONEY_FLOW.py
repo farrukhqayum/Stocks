@@ -1,7 +1,5 @@
 import streamlit as st
 
-st.caption("Data sourced via Yahoo Finance • Updated dynamically")
-
 st.set_page_config(
     page_title="Global Money Flow Curve (GMF)",
     layout="wide",
@@ -10,6 +8,7 @@ st.set_page_config(
 
 from imports import *
 
+st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
 This app tracks capital flows between **risk-on** and **risk-off** assets 
