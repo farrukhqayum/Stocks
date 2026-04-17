@@ -1,4 +1,9 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+import yfinance as yf
+import altair as alt
+from datetime import datetime, timedelta
 
 # MUST be the first Streamlit call
 try:
@@ -13,9 +18,12 @@ except:
 # Now safe to use Streamlit normally
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
-globals().pop("edge_all_open_tabs", None)
-from imports import *
-
+# Import handling - fixed for better compatibility
+try:
+    from imports import *
+except ImportError:
+    # Define any missing imports if imports.py doesn't exist
+    pass
 
 st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
@@ -58,14 +66,14 @@ tickers = {asset: default_tickers[asset] for asset in selected_assets}
 st.sidebar.markdown("### Set Asset Weights (Positive=Risk-On, Negative=Risk-Off)")
 
 default_weights = {
-    "Bitcoin (BTC)": 0.25,      # Strong risk-on
-    "S&P 500 (SPX)": 0.25,      # Strong risk-on  
-    "Emerging Markets (EEM)": 0.20,  # Risk-on
-    "Crude Oil (CL)": 0.20,     # Risk-on
-    "Gold (XAU)": -0.20,        # Risk-off
-    "US Dollar Index (DXY)": -0.20,  # Risk-off
-    "US 10Y Treasury (IEF)": -0.20,  # Risk-off
-    "Volatility Index (VIX)": -0.07  # Risk-off (inverse)
+    "Bitcoin (BTC)": 0.25,
+    "S&P 500 (SPX)": 0.25,  
+    "Emerging Markets (EEM)": 0.20,
+    "Crude Oil (CL)": 0.20,
+    "Gold (XAU)": -0.20,
+    "US Dollar Index (DXY)": -0.20,
+    "US 10Y Treasury (IEF)": -0.20,
+    "Volatility Index (VIX)": -0.07
 }
 
 weights = {}
@@ -91,103 +99,194 @@ user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
 # ========== DATA LOADING FUNCTIONS ==========
 def safe_download(ticker, start, end):
-    df = yf.download(ticker, start=start, end=end, progress=False)
-
-    # If empty, create a placeholder series of NaNs
-    if df.empty:
-        st.warning(f"⚠️ No data for {ticker}. Creating placeholder series.")
+    """Improved safe download with better error handling"""
+    try:
+        df = yf.download(ticker, start=start, end=end, progress=False)
+        
+        # Handle empty DataFrame
+        if df.empty:
+            st.warning(f"⚠️ No data for {ticker}. Creating placeholder series.")
+            idx = pd.date_range(start=start, end=end, freq="B")
+            # Convert to pandas Series with proper NA handling
+            return pd.Series(np.nan, index=idx, name=ticker, dtype='float64')
+        
+        # Extract price with improved MultiIndex handling
+        if isinstance(df.columns, pd.MultiIndex):
+            # Try to get 'Adj Close' or fall back to 'Close'
+            if 'Adj Close' in df.columns.get_level_values(0):
+                s = df['Adj Close'].iloc[:, 0] if df['Adj Close'].shape[1] > 1 else df['Adj Close']
+            elif 'Close' in df.columns.get_level_values(0):
+                s = df['Close'].iloc[:, 0] if df['Close'].shape[1] > 1 else df['Close']
+            else:
+                s = df.iloc[:, 0]  # Take first column as fallback
+        else:
+            if 'Adj Close' in df.columns:
+                s = df['Adj Close']
+            elif 'Close' in df.columns:
+                s = df['Close']
+            else:
+                s = df.iloc[:, 0]  # Take first column as fallback
+        
+        # Ensure we have a Series, not DataFrame
+        if isinstance(s, pd.DataFrame):
+            s = s.iloc[:, 0] if s.shape[1] > 0 else pd.Series()
+        
+        s.index = pd.to_datetime(s.index)
+        s = s.rename(ticker)
+        
+        # Convert to float64 to avoid nullable integer issues
+        return s.astype('float64')
+        
+    except Exception as e:
+        st.warning(f"⚠️ Error downloading {ticker}: {str(e)}")
         idx = pd.date_range(start=start, end=end, freq="B")
-        return pd.Series([np.nan] * len(idx), index=idx, name=ticker)
-
-    # Extract price
-    if isinstance(df.columns, pd.MultiIndex):
-        s = df["Adj Close"] if "Adj Close" in df.columns.get_level_values(0) else df["Close"]
-    else:
-        s = df["Adj Close"] if "Adj Close" in df.columns else df["Close"]
-
-    s.index = pd.to_datetime(s.index)
-    s = s.rename(ticker)
-
-    return s
+        return pd.Series(np.nan, index=idx, name=ticker, dtype='float64')
     
 def load_data(tickers, start, end):
+    """Improved data loading with better concatenation"""
     series_list = []
-
+    
     for name, ticker in tickers.items():
         s = safe_download(ticker, start, end)
         s = s.rename(name)
         series_list.append(s)
-
-    df = pd.concat(series_list, axis=1)
-
+    
+    # Concatenate with proper handling of different indices
+    df = pd.concat(series_list, axis=1, join='outer')
+    
     # Ensure datetime index
     df.index = pd.to_datetime(df.index)
-
+    
+    # Handle any remaining NA values
+    df = df.astype('float64')
+    
     return df
 
 # ========== LOAD DATA ==========
 try:
     data = load_data(tickers, start_date, end_date)
+    
+    # Load SPX data separately with improved handling
     spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
     
-    if isinstance(spx_raw.columns, pd.MultiIndex) and 'Adj Close' in spx_raw.columns.get_level_values(0):
-        spx_data = spx_raw['Adj Close']
-        spx_data = spx_data.rename("S&P 500 (SPX)")
-    elif 'Adj Close' in spx_raw.columns:
-        spx_data = spx_raw['Adj Close']
+    if spx_raw.empty:
+        st.warning("⚠️ Could not load S&P 500 data")
+        spx_data = pd.Series(dtype='float64', name="S&P 500 (SPX)")
     else:
-        spx_data = spx_raw['Close'].squeeze()
-    spx_data.name = "S&P 500 (SPX)"
-
+        if isinstance(spx_raw.columns, pd.MultiIndex):
+            if 'Adj Close' in spx_raw.columns.get_level_values(0):
+                spx_data = spx_raw['Adj Close']
+                spx_data = spx_data.iloc[:, 0] if spx_data.shape[1] > 1 else spx_data
+            elif 'Close' in spx_raw.columns.get_level_values(0):
+                spx_data = spx_raw['Close']
+                spx_data = spx_data.iloc[:, 0] if spx_data.shape[1] > 1 else spx_data
+            else:
+                spx_data = spx_raw.iloc[:, 0]
+        else:
+            if 'Adj Close' in spx_raw.columns:
+                spx_data = spx_raw['Adj Close']
+            elif 'Close' in spx_raw.columns:
+                spx_data = spx_raw['Close']
+            else:
+                spx_data = spx_raw.iloc[:, 0]
+        
+        spx_data = spx_data.rename("S&P 500 (SPX)")
+        spx_data = spx_data.astype('float64')
+    
+    # Check if data loaded successfully
+    if data.empty or data.isnull().all().all():
+        st.error("❌ No data could be loaded. Please check your internet connection and ticker symbols.")
+        st.stop()
+        
 except Exception as e:
-    st.warning(f"⚠️ Error loading data: {e}. Please check ticker availability and date range.")
+    st.error(f"❌ Error loading data: {str(e)}")
     st.stop()
 
 def enforce_business_days(df):
-    df = df.asfreq("B")  # creates business-day index
-    df = df.ffill()      # forward-fill missing values
-    df = df.bfill()      # back-fill start if needed
+    """Improved business days enforcement with proper NA handling"""
+    if df.empty:
+        return df
+    
+    # Create business day index
+    biz_days = pd.date_range(start=df.index.min(), end=df.index.max(), freq='B')
+    
+    # Reindex and fill
+    df = df.reindex(biz_days)
+    
+    # Use forward fill then back fill for NA values
+    df = df.ffill().bfill()
+    
     return df
 
+# Convert indices to datetime and handle NA values
 data.index = pd.to_datetime(data.index)
-spx_data.index = pd.to_datetime(spx_data.index)
+data = data.astype('float64')
 
-if use_business_days:
+if not spx_data.empty:
+    spx_data.index = pd.to_datetime(spx_data.index)
+    spx_data = spx_data.astype('float64')
+
+if use_business_days and not data.empty:
     data = enforce_business_days(data)
-    spx_data = enforce_business_days(spx_data)
+    if not spx_data.empty:
+        spx_data = enforce_business_days(spx_data)
 
 # ========== GMF INDEX CALCULATION ==========
 def calculate_gmf_index(data, weights):
-    """Calculate GMF Index as weighted sum of daily percentage changes"""
-    daily_pct = data.pct_change().fillna(0)
+    """Calculate GMF Index with improved NA handling"""
+    if data.empty:
+        return pd.Series(dtype='float64')
+    
+    # Calculate daily percentage changes, handling NA values
+    daily_pct = data.pct_change()
+    
+    # Replace inf and -inf with NaN, then fill NA values
+    daily_pct = daily_pct.replace([np.inf, -np.inf], np.nan)
+    daily_pct = daily_pct.fillna(0)
+    
+    # Create weights series aligned with data columns
     weights_series = pd.Series(weights).reindex(data.columns).fillna(0.0)
+    
+    # Calculate weighted daily changes
     weighted_daily = daily_pct.multiply(weights_series, axis=1)
-    daily_gmf_change = weighted_daily.sum(axis=1)
+    
+    # Sum across columns, handling NA values
+    daily_gmf_change = weighted_daily.sum(axis=1, skipna=True)
+    
+    # Calculate cumulative sum
     gmf_index = (daily_gmf_change * 100).cumsum()
+    
     return gmf_index
 
+# Calculate GMF index
 gmf_raw = calculate_gmf_index(data, weights)
+
+if gmf_raw.empty:
+    st.error("❌ Could not calculate GMF index. Please check your data.")
+    st.stop()
+
 gmf_index = gmf_raw - gmf_raw.iloc[0]
 
-# Create smoothed versions
+# Create smoothed versions with proper NA handling
 money_flow_raw = gmf_index
 money_flow_s = money_flow_raw.rolling(3, min_periods=1).mean()
 money_flow_smooth = money_flow_raw.rolling(smooth_window, min_periods=1).mean()
 
-# Calculate Z-Score
+# Calculate Z-Score with improved NA handling
 rolling_mean = money_flow_smooth.rolling(window=z_score_window, min_periods=5).mean()
 rolling_std = money_flow_smooth.rolling(z_score_window, min_periods=5).std(ddof=0)
 
-money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std
+# Handle division by zero
+money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std.where(rolling_std != 0, np.nan)
 money_flow_zscore = money_flow_zscore.replace([np.inf, -np.inf], 0).fillna(0)
 
 # Calculate Momentum
 money_flow_momentum = money_flow_smooth.diff(30) / 30 * 100
 money_flow_momentum = money_flow_momentum.fillna(0)
 
-# Get latest values
-latest_momentum = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
-latest_zscore = money_flow_zscore.iloc[-1] if not money_flow_zscore.empty else 0
+# Get latest values with safety checks
+latest_momentum = float(money_flow_momentum.iloc[-1]) if not money_flow_momentum.empty and len(money_flow_momentum) > 0 else 0.0
+latest_zscore = float(money_flow_zscore.iloc[-1]) if not money_flow_zscore.empty and len(money_flow_zscore) > 0 else 0.0
 
 # ========== SENTIMENT LOGIC ==========
 Z_EXTREME = 1.5
@@ -196,64 +295,56 @@ MOM_LOW = -0.5
 Z_NEUTRAL_UPPER = 0.8
 Z_NEUTRAL_LOWER = -0.8
 
-# Sentiment determination
-if latest_zscore >= Z_EXTREME:
-    if latest_momentum > 0:
-        sentiment = "🚨 **EXTREME OVERBOUGHT (Euphoria Climax)**"
-        sentiment_color = "#ff6b6b"
+# Sentiment determination with improved logic
+def determine_sentiment(zscore, momentum):
+    """Determine market sentiment based on z-score and momentum"""
+    if pd.isna(zscore) or pd.isna(momentum):
+        return "⚪ **DATA UNAVAILABLE**", "#9e9e9e"
+    
+    if zscore >= Z_EXTREME:
+        if momentum > 0:
+            return "🚨 **EXTREME OVERBOUGHT (Euphoria Climax)**", "#ff6b6b"
+        else:
+            return "⚠️ **OVERBOUGHT but Losing Momentum**", "#ffa726"
+            
+    elif zscore <= -Z_EXTREME:
+        if momentum < 0:
+            return "📉 **EXTREME OVERSOLD (Panic/Capitulation)**", "#5d4037"
+        else:
+            return "🔄 **OVERSOLD but Recovering**", "#42a5f5"
+            
+    elif momentum > MOM_HIGH:
+        if zscore > 0:
+            return "🚀 **STRONG RISK-ON (Accelerating Higher)**", "#4caf50"
+        else:
+            return "🟢 **RISK-ON (Recovering from Lows)**", "#66bb6a"
+            
+    elif momentum < MOM_LOW:
+        if zscore < 0:
+            return "🔻 **STRONG RISK-OFF (Accelerating Lower)**", "#f44336"
+        else:
+            return "🔴 **RISK-OFF (Pulling Back from Highs)**", "#ef5350"
+            
+    elif momentum > 0:
+        if zscore > Z_NEUTRAL_UPPER:
+            return "🟢 **Risk-On (Above Average)**", "#81c784"
+        elif zscore < Z_NEUTRAL_LOWER:
+            return "🟡 **Cautiously Recovering (From Oversold)**", "#ffd54f"
+        else:
+            return "⚪ **Mildly Risk-On (Neutral Zone)**", "#bdbdbd"
+            
+    elif momentum < 0:
+        if zscore < Z_NEUTRAL_LOWER:
+            return "🔴 **Risk-Off (Below Average)**", "#e57373"
+        elif zscore > Z_NEUTRAL_UPPER:
+            return "🟠 **Correcting (From Overbought)**", "#ffb74d"
+        else:
+            return "⚫ **Mildly Risk-Off (Neutral Zone)**", "#757575"
+            
     else:
-        sentiment = "⚠️ **OVERBOUGHT but Losing Momentum**"
-        sentiment_color = "#ffa726"
-        
-elif latest_zscore <= -Z_EXTREME:
-    if latest_momentum < 0:
-        sentiment = "📉 **EXTREME OVERSOLD (Panic/Capitulation)**"
-        sentiment_color = "#5d4037"
-    else:
-        sentiment = "🔄 **OVERSOLD but Recovering**"
-        sentiment_color = "#42a5f5"
-        
-elif latest_momentum > MOM_HIGH:
-    if latest_zscore > 0:
-        sentiment = "🚀 **STRONG RISK-ON (Accelerating Higher)**"
-        sentiment_color = "#4caf50"
-    else:
-        sentiment = "🟢 **RISK-ON (Recovering from Lows)**"
-        sentiment_color = "#66bb6a"
-        
-elif latest_momentum < MOM_LOW:
-    if latest_zscore < 0:
-        sentiment = "🔻 **STRONG RISK-OFF (Accelerating Lower)**"
-        sentiment_color = "#f44336"
-    else:
-        sentiment = "🔴 **RISK-OFF (Pulling Back from Highs)**"
-        sentiment_color = "#ef5350"
-        
-elif latest_momentum > 0:
-    if latest_zscore > Z_NEUTRAL_UPPER:
-        sentiment = "🟢 **Risk-On (Above Average)**"
-        sentiment_color = "#81c784"
-    elif latest_zscore < Z_NEUTRAL_LOWER:
-        sentiment = "🟡 **Cautiously Recovering (From Oversold)**"
-        sentiment_color = "#ffd54f"
-    else:
-        sentiment = "⚪ **Mildly Risk-On (Neutral Zone)**"
-        sentiment_color = "#bdbdbd"
-        
-elif latest_momentum < 0:
-    if latest_zscore < Z_NEUTRAL_LOWER:
-        sentiment = "🔴 **Risk-Off (Below Average)**"
-        sentiment_color = "#e57373"
-    elif latest_zscore > Z_NEUTRAL_UPPER:
-        sentiment = "🟠 **Correcting (From Overbought)**"
-        sentiment_color = "#ffb74d"
-    else:
-        sentiment = "⚫ **Mildly Risk-Off (Neutral Zone)**"
-        sentiment_color = "#757575"
-        
-else:
-    sentiment = "⚪ **NEUTRAL / SIDEWAYS**"
-    sentiment_color = "#9e9e9e"
+        return "⚪ **NEUTRAL / SIDEWAYS**", "#9e9e9e"
+
+sentiment, sentiment_color = determine_sentiment(latest_zscore, latest_momentum)
 
 # ========== MAIN DISPLAY ==========
 st.markdown(f"""
@@ -271,10 +362,10 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Display metrics
+# Display metrics with safety checks
 col1, col2, col3 = st.columns(3)
 with col1:
-    current_gmf = money_flow_raw.iloc[-1] if not money_flow_raw.empty else 0
+    current_gmf = float(money_flow_raw.iloc[-1]) if not money_flow_raw.empty and len(money_flow_raw) > 0 else 0.0
     st.metric("Current GMF Index", f"{current_gmf:+.2f}")
 with col2:
     st.metric("Z-Score", f"{latest_zscore:+.2f}", 
@@ -286,23 +377,38 @@ with col3:
 # ===== 2nd ROW: POSITIONING & ROTATION SNAPSHOT =====
 pos_col1, pos_col2, pos_col3 = st.columns(3)
 
-# 1) Equity allocation snapshot (reusing logic later in expander)
+# 1) Equity allocation snapshot
 with pos_col1:
     st.subheader("Equity Bias")
     try:
-        # Compute positioning_df once, to reuse in expander as well
+        # Compute positioning data with improved NA handling
         positioning_data = {}
-    
-        if all(col in data.columns for col in ['Crude Oil (CL)', 'Emerging Markets (EEM)']):
+        
+        # Check if required columns exist and have data
+        if ('Crude Oil (CL)' in data.columns and 
+            'Emerging Markets (EEM)' in data.columns and
+            not data['Crude Oil (CL)'].isnull().all() and
+            not data['Emerging Markets (EEM)'].isnull().all()):
+            
             commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
+            # Replace inf/-inf with NaN, then drop NA values
+            commod_em_ratio = commod_em_ratio.replace([np.inf, -np.inf], np.nan)
             if commod_em_ratio.notna().sum() > 5:
-                positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / commod_em_ratio.iloc[0] * 100)
+                first_valid = commod_em_ratio.dropna().iloc[0] if not commod_em_ratio.dropna().empty else 1
+                positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / first_valid * 100)
 
-        if all(col in data.columns for col in ['US 10Y Treasury (IEF)', 'US Dollar Index (DXY)']):
+        if ('US 10Y Treasury (IEF)' in data.columns and 
+            'US Dollar Index (DXY)' in data.columns and
+            not data['US 10Y Treasury (IEF)'].isnull().all() and
+            not data['US Dollar Index (DXY)'].isnull().all()):
+            
             treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
+            treasury_dollar_ratio = treasury_dollar_ratio.replace([np.inf, -np.inf], np.nan)
             if treasury_dollar_ratio.notna().sum() > 5:
-                positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / treasury_dollar_ratio.iloc[0] * 100)
+                first_valid = treasury_dollar_ratio.dropna().iloc[0] if not treasury_dollar_ratio.dropna().empty else 1
+                positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / first_valid * 100)
 
+        # Create positioning DataFrame
         positioning_df = pd.DataFrame({
             'Date': data.index,
             'GMF_Index': money_flow_smooth,
@@ -314,11 +420,11 @@ with pos_col1:
         positioning_label = "N/A"
         sectors_label = "N/A"
 
-        if not positioning_df.empty:
+        if not positioning_df.empty and len(positioning_df) > 20:
             recent_gmf = positioning_df['GMF_Index'].iloc[-20:].mean()
             recent_mom = positioning_df['GMF_Momentum'].iloc[-20:].mean()
 
-            equity_allocation = 50
+            equity_allocation = 50.0
 
             # GMF adjustment
             if recent_gmf > 20:
@@ -348,7 +454,7 @@ with pos_col1:
                 elif recent_commod_em < 90:
                     equity_allocation += 5
 
-            equity_allocation = max(0, min(100, equity_allocation))
+            equity_allocation = max(0.0, min(100.0, equity_allocation))
 
             if equity_allocation >= 70:
                 positioning_label = "Max Risk-On"
@@ -368,7 +474,7 @@ with pos_col1:
 
         st.metric("Equity Allocation", f"{equity_allocation or 0:.0f}%", positioning_label)
 
-    except Exception:
+    except Exception as e:
         st.metric("Equity Allocation", "N/A", "Error")
 
 # 2) Sector rotation snapshot
@@ -407,12 +513,14 @@ with pos_col3:
     st.subheader("Cross-Asset Strength")
     commod_em_text = "N/A"
     treas_dxy_text = "N/A"
-    if 'Commodity/EM_Ratio' in positioning_df.columns:
-        commod_em_latest = positioning_df['Commodity/EM_Ratio'].iloc[-1]
-        commod_em_text = f"{commod_em_latest:.1f}"
-    if 'Treasury/Dollar_Ratio' in positioning_df.columns:
-        treas_dxy_latest = positioning_df['Treasury/Dollar_Ratio'].iloc[-1]
-        treas_dxy_text = f"{treas_dxy_latest:.1f}"
+    
+    if 'positioning_df' in locals() and not positioning_df.empty:
+        if 'Commodity/EM_Ratio' in positioning_df.columns:
+            commod_em_latest = positioning_df['Commodity/EM_Ratio'].iloc[-1]
+            commod_em_text = f"{commod_em_latest:.1f}"
+        if 'Treasury/Dollar_Ratio' in positioning_df.columns:
+            treas_dxy_latest = positioning_df['Treasury/Dollar_Ratio'].iloc[-1]
+            treas_dxy_text = f"{treas_dxy_latest:.1f}"
 
     st.metric("Commodity/Emerging Markets", commod_em_text)
     st.metric("Bond/Dollar Strength", treas_dxy_text)
@@ -441,30 +549,45 @@ with st.expander("📈 Cross-Asset Relative Strength & Stock Positioning"):
     """)
     
     try:
-        # Calculate relative strength ratios
-        positioning_data = {}
-        
-        if 'Crude Oil (CL)' in data.columns and 'Emerging Markets (EEM)' in data.columns:
-            commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
-            positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / commod_em_ratio.iloc[0] * 100)
+        # Recalculate positioning data if not already available
+        if 'positioning_df' not in locals() or positioning_df.empty:
+            positioning_data = {}
             
-        if 'US 10Y Treasury (IEF)' in data.columns and 'US Dollar Index (DXY)' in data.columns:
-            treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
-            positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / treasury_dollar_ratio.iloc[0] * 100)
-        
-        positioning_df = pd.DataFrame({
-            'Date': data.index,
-            'GMF_Index': money_flow_smooth,
-            'GMF_Momentum': money_flow_momentum,
-            **positioning_data
-        }).dropna()
+            if ('Crude Oil (CL)' in data.columns and 
+                'Emerging Markets (EEM)' in data.columns and
+                not data['Crude Oil (CL)'].isnull().all() and
+                not data['Emerging Markets (EEM)'].isnull().all()):
+                
+                commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
+                commod_em_ratio = commod_em_ratio.replace([np.inf, -np.inf], np.nan)
+                if commod_em_ratio.notna().sum() > 5:
+                    first_valid = commod_em_ratio.dropna().iloc[0] if not commod_em_ratio.dropna().empty else 1
+                    positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / first_valid * 100)
+                    
+            if ('US 10Y Treasury (IEF)' in data.columns and 
+                'US Dollar Index (DXY)' in data.columns and
+                not data['US 10Y Treasury (IEF)'].isnull().all() and
+                not data['US Dollar Index (DXY)'].isnull().all()):
+                
+                treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
+                treasury_dollar_ratio = treasury_dollar_ratio.replace([np.inf, -np.inf], np.nan)
+                if treasury_dollar_ratio.notna().sum() > 5:
+                    first_valid = treasury_dollar_ratio.dropna().iloc[0] if not treasury_dollar_ratio.dropna().empty else 1
+                    positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / first_valid * 100)
+            
+            positioning_df = pd.DataFrame({
+                'Date': data.index,
+                'GMF_Index': money_flow_smooth,
+                'GMF_Momentum': money_flow_momentum,
+                **positioning_data
+            }).dropna()
         
         if not positioning_df.empty:
             recent_gmf = positioning_df['GMF_Index'].iloc[-20:].mean()
             recent_mom = positioning_df['GMF_Momentum'].iloc[-20:].mean()
             
             # Determine positioning
-            equity_allocation = 50
+            equity_allocation = 50.0
             
             # GMF adjustment
             if recent_gmf > 20:
@@ -495,7 +618,7 @@ with st.expander("📈 Cross-Asset Relative Strength & Stock Positioning"):
                     equity_allocation += 5
             
             # Clamp between 0 and 100
-            equity_allocation = max(0, min(100, equity_allocation))
+            equity_allocation = max(0.0, min(100.0, equity_allocation))
             
             # Determine positioning strategy
             if equity_allocation >= 70:
@@ -535,7 +658,7 @@ with st.expander("📈 Cross-Asset Relative Strength & Stock Positioning"):
             """)
             
     except Exception as e:
-        st.warning(f"Could not calculate positioning: {e}")
+        st.warning(f"Could not calculate positioning: {str(e)}")
 
 # Sector Rotation
 with st.expander("🏗️ Sector Rotation Matrix"):
