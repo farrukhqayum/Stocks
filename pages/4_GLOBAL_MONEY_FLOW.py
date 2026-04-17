@@ -1,9 +1,5 @@
 import streamlit as st
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import altair as alt
-from datetime import datetime, timedelta
+from imports import *
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
@@ -129,9 +125,9 @@ except Exception as e:
 
 if use_business_days:
     data = data.asfreq('B')
-    data = data..ffill()
+    data = data.ffill()
     spx_data = spx_data.asfreq('B')
-    spx_data = spx_data..ffill()
+    spx_data = spx_data.ffill()
 
 # ========== GMF INDEX CALCULATION ==========
 def calculate_gmf_index(data, weights):
@@ -861,7 +857,7 @@ try:
             st.error("No 'Adj Close' or 'Close' data found.")
             st.stop()
             
-    user_stock_data = user_stock_data..ffill()
+    user_stock_data = user_stock_data.ffill()
     user_stock_data = user_stock_data.squeeze()
     
 except Exception as e:
@@ -1119,7 +1115,7 @@ if tickers_list and st.button("Run 60-Day Correlation Screening"):
                 for idx, (ticker, prices) in enumerate(screener_data.items()):
                     try:
                         if isinstance(prices, pd.Series) and not prices.empty:
-                            prices_clean = prices..ffill().dropna()
+                            prices_clean = prices.ffill().dropna()
                             if len(prices_clean) < 60:
                                 continue
                             
