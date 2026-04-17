@@ -84,33 +84,85 @@ user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 # ========== DATA LOADING FUNCTIONS ==========
 def load_data(tickers, start, end):
     """Load data from Yahoo Finance"""
-    raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
-
-    if isinstance(raw.columns, pd.MultiIndex):
-        if 'Adj Close' in raw.columns.get_level_values(0):
-            df = raw['Adj Close'].copy()
-        elif 'Close' in raw.columns.get_level_values(0):
-            df = raw['Close'].copy()
+    try:
+        # Download all tickers at once
+        ticker_list = list(tickers.values())
+        raw = yf.download(ticker_list, start=start, end=end, progress=False, group_by='ticker')
+        
+        # Check if we got any data
+        if raw.empty:
+            st.error("No data downloaded. Please check your internet connection.")
+            return pd.DataFrame()
+        
+        # Handle different data structures
+        if len(ticker_list) == 1:
+            # Single ticker case
+            ticker = ticker_list[0]
+            if 'Adj Close' in raw.columns:
+                df = pd.DataFrame({ticker: raw['Adj Close']})
+            elif 'Close' in raw.columns:
+                df = pd.DataFrame({ticker: raw['Close']})
+            else:
+                return pd.DataFrame()
         else:
-            raise ValueError("No 'Adj Close' or 'Close' data found.")
-    else:
-        df = raw.copy()
-
-    rename_map = {}
-    for name, ticker in tickers.items():
-        if ticker in df.columns:
-            rename_map[ticker] = name
-        elif name in df.columns:
-            rename_map[name] = name
-    df = df.rename(columns=rename_map)
-
-    df = df.dropna(axis=1, how='all')
-    return df
+            # Multiple tickers case
+            data_dict = {}
+            for ticker in ticker_list:
+                if ticker in raw.columns:
+                    # Data is already in columns
+                    if 'Adj Close' in raw.columns.get_level_values(0):
+                        data_dict[ticker] = raw['Adj Close'][ticker]
+                    elif 'Close' in raw.columns.get_level_values(0):
+                        data_dict[ticker] = raw['Close'][ticker]
+                elif hasattr(raw, 'xs') and ticker in raw.columns.levels[0]:
+                    # MultiIndex case
+                    ticker_data = raw.xs(ticker, axis=1, level=0)
+                    if 'Adj Close' in ticker_data.columns:
+                        data_dict[ticker] = ticker_data['Adj Close']
+                    elif 'Close' in ticker_data.columns:
+                        data_dict[ticker] = ticker_data['Close']
+                    else:
+                        data_dict[ticker] = ticker_data.iloc[:, 0] if ticker_data.shape[1] > 0 else None
+            
+            # Remove None values and create DataFrame
+            data_dict = {k: v for k, v in data_dict.items() if v is not None}
+            if not data_dict:
+                return pd.DataFrame()
+            df = pd.DataFrame(data_dict)
+        
+        # Rename columns from tickers to asset names
+        rename_map = {}
+        for name, ticker in tickers.items():
+            if ticker in df.columns:
+                rename_map[ticker] = name
+        
+        if rename_map:
+            df = df.rename(columns=rename_map)
+        
+        # Drop columns that are all NaN
+        df = df.dropna(axis=1, how='all')
+        
+        return df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Error loading data: {e}")
+        return pd.DataFrame()
 
 # ========== LOAD DATA ==========
 try:
     data = load_data(tickers, start_date, end_date)
     spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
+
+    # CHECK IF DATA IS EMPTY
+    if data.empty:
+        st.error("❌ No data could be loaded. Please check:")
+        st.markdown("""
+        1. **Your internet connection**
+        2. **Yahoo Finance availability** (may be temporarily down)
+        3. **Ticker symbols** are correct
+        4. **Try refreshing** the page
+        """)
+        st.stop()
 
     if isinstance(spx_raw['Adj Close'], pd.DataFrame):
         spx_data = spx_raw['Adj Close'].iloc[:, 0]
