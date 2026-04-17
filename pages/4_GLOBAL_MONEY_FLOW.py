@@ -1,9 +1,4 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import yfinance as yf
-import altair as alt
-from datetime import datetime, timedelta
 
 # MUST be the first Streamlit call
 try:
@@ -18,11 +13,9 @@ except:
 # Now safe to use Streamlit normally
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
-# Import handling - fixed for better compatibility
 try:
     from imports import *
 except ImportError:
-    # Define any missing imports if imports.py doesn't exist
     pass
 
 st.title("🌍 Global Money Flow (GMF)")
