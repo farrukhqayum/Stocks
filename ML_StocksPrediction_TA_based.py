@@ -1,13 +1,14 @@
 import streamlit as st
 st.cache_data.clear()
 st.cache_resource.clear()
-
+st.empty()
+if 'session_initialized' not in st.session_state:
+    st.session_state.session_initialized = True
+    st.session_state.ml_results = None
+    st.session_state.cache_cleared = True
+    
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 from imports import *
-
-if 'initialized' not in st.session_state:
-    st.session_state.initialized = True
-    st.session_state.ml_results = None
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
@@ -1594,10 +1595,6 @@ def tabular_display(df_results):
     st.dataframe(styled_df, height=550, use_container_width=True)
 
 def run_app():
-    
-    if 'ml_results' not in st.session_state:
-        st.session_state['ml_results'] = None
-
     with st.expander("Positional/Swing Trading Guidance"):
         st.write(desc)  
     
