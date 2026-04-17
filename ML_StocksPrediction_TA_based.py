@@ -17,6 +17,10 @@ if 'session_initialized' not in st.session_state:
     st.session_state.cache_cleared = True
     
 from imports import *
+@st.cache_resource
+def load_ta_module():
+    import ta_functions as ta
+    return ta
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
