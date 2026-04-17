@@ -2,17 +2,6 @@ import streamlit as st
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 # ALL other imports come AFTER set_page_config
 from imports import *
-import sys
-import warnings
-import re
-import time
-from datetime import datetime, timedelta
-import numpy as np
-import pandas as pd
-
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import altair as alt
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
@@ -1599,6 +1588,9 @@ def tabular_display(df_results):
     st.dataframe(styled_df, height=550, use_container_width=True)
 
 def run_app():
+    
+    if 'ml_results' not in st.session_state:
+        st.session_state['ml_results'] = None
 
     with st.expander("Positional/Swing Trading Guidance"):
         st.write(desc)  
