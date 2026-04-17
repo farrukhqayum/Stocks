@@ -929,131 +929,192 @@ if len(user_stock_smoothed) > 0 and len(user_stock_data) > 0:
 gf_single = money_flow_s.dropna()
 stk_single = user_stock_smoothed.dropna()
 
-# Align indices
+# CRITICAL FIX: Ensure we have clean, aligned data
 common_idx = gf_single.index.intersection(stk_single.index)
-gf_aligned = gf_single.loc[common_idx]
-stk_aligned = stk_single.loc[common_idx]
+if len(common_idx) == 0:
+    st.error(f"No overlapping dates between {user_ticker} and GMF data")
+    st.stop()
 
+gf_aligned = gf_single.loc[common_idx].copy()
+stk_aligned = stk_single.loc[common_idx].copy()
+
+# Remove any remaining NaN values
+gf_aligned = gf_aligned.dropna()
+stk_aligned = stk_aligned.dropna()
+
+# Ensure they have the exact same index
+common_idx_final = gf_aligned.index.intersection(stk_aligned.index)
+gf_aligned = gf_aligned.loc[common_idx_final]
+stk_aligned = stk_aligned.loc[common_idx_final]
+
+st.write(f"Debug: {len(gf_aligned)} overlapping days found")
+
+if len(gf_aligned) < 30:
+    st.warning(f"Insufficient data: Only {len(gf_aligned)} overlapping days")
+    st.stop()
+
+# Calculate rolling correlation
 cw_ = 60
+rolling_corr = pd.Series(index=gf_aligned.index, dtype='float64')
 
-if len(gf_aligned) >= cw_:
-    # Calculate rolling correlation
-    rolling_corr = pd.Series(index=gf_aligned.index, dtype='float64')
+for i in range(min(cw_, len(gf_aligned)), len(gf_aligned) + 1):
+    window_gf = gf_aligned.iloc[i-cw_:i]
+    window_stk = stk_aligned.iloc[i-cw_:i]
+    if len(window_gf) == cw_ and not window_gf.isna().any() and not window_stk.isna().any():
+        corr_val = window_gf.corr(window_stk)
+        rolling_corr.iloc[i-1] = corr_val
+
+rolling_corr = rolling_corr.dropna()
+
+if len(rolling_corr) > 0:
+    latest_corr = float(rolling_corr.iloc[-1]) if not pd.isna(rolling_corr.iloc[-1]) else np.nan
+    latest_corr_percent = round(latest_corr * 100, 1) if pd.notna(latest_corr) else float('nan')
     
-    for i in range(cw_, len(gf_aligned) + 1):
-        window_gf = gf_aligned.iloc[i-cw_:i]
-        window_stk = stk_aligned.iloc[i-cw_:i]
-        if len(window_gf) == cw_ and not window_gf.isna().any() and not window_stk.isna().any():
-            corr_val = window_gf.corr(window_stk)
-            rolling_corr.iloc[i-1] = corr_val
+    # Create correlation chart
+    rolling_corr_df = pd.DataFrame({
+        "Date": rolling_corr.index,
+        "Correlation": rolling_corr.values * 100
+    }).dropna()
     
-    rolling_corr = rolling_corr.dropna()
-    
-    if len(rolling_corr) > 0:
-        latest_corr = float(rolling_corr.iloc[-1]) if not pd.isna(rolling_corr.iloc[-1]) else np.nan
-        latest_corr_percent = round(latest_corr * 100, 1) if pd.notna(latest_corr) else float('nan')
+    if not rolling_corr_df.empty:
+        corr_chart = alt.Chart(rolling_corr_df).mark_line(
+            color='#1f77b4',
+            strokeWidth=2
+        ).encode(
+            x=alt.X('Date:T', title='Date', axis=alt.Axis(format='%Y-%m-%d')),
+            y=alt.Y('Correlation:Q', 
+                    title=f'Correlation (%)',
+                    scale=alt.Scale(domain=[-100, 100]),
+                    axis=alt.Axis(grid=True)),
+            tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
+        ).properties(
+            title=f"{user_ticker} - {cw_}-Day Rolling Correlation with GMF",
+            height=250
+        )
         
-        # Create DataFrame for correlation plot
-        rolling_corr_df = pd.DataFrame({
-            "Date": rolling_corr.index,
-            "Correlation": rolling_corr.values * 100
-        }).dropna()
+        zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='red', strokeDash=[5, 5]).encode(y='y')
+        pos_line = alt.Chart(pd.DataFrame({'y': [30]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
+        neg_line = alt.Chart(pd.DataFrame({'y': [-30]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
         
-        # Create correlation chart
-        if not rolling_corr_df.empty and len(rolling_corr_df) > 10:
-            # Correlation chart
-            corr_chart = alt.Chart(rolling_corr_df).mark_line(
-                color='#1f77b4',
-                strokeWidth=2
-            ).encode(
-                x=alt.X('Date:T', title='Date', axis=alt.Axis(format='%Y-%m-%d')),
-                y=alt.Y('Correlation:Q', 
-                        title=f'Correlation (%)',
-                        scale=alt.Scale(domain=[-100, 100]),
-                        axis=alt.Axis(grid=True)),
-                tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
-            ).properties(
-                title=f"{user_ticker} - {cw_}-Day Rolling Correlation with GMF",
-                height=250
-            )
-            
-            # Add reference lines
-            zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='red', strokeDash=[5, 5], strokeWidth=1.5).encode(y='y')
-            pos_line = alt.Chart(pd.DataFrame({'y': [30]})).mark_rule(color='gray', strokeDash=[3, 3], strokeWidth=1).encode(y='y')
-            neg_line = alt.Chart(pd.DataFrame({'y': [-30]})).mark_rule(color='gray', strokeDash=[3, 3], strokeWidth=1).encode(y='y')
-            
-            final_corr_chart = corr_chart + zero_line + pos_line + neg_line
-            st.altair_chart(final_corr_chart, use_container_width=True)
-        else:
-            st.info(f"Insufficient correlation data points for {user_ticker}")
-    else:
-        st.info(f"Could not calculate rolling correlation for {user_ticker}")
-        latest_corr = np.nan
-        latest_corr_percent = float('nan')
+        final_corr_chart = corr_chart + zero_line + pos_line + neg_line
+        st.altair_chart(final_corr_chart, use_container_width=True)
 else:
-    st.info(f"Insufficient data for {cw_}-day correlation calculation (need at least {cw_} days)")
+    st.info(f"Insufficient data for correlation calculation")
     latest_corr = np.nan
     latest_corr_percent = float('nan')
 
-# Create normalized price comparison chart
-if len(gf_aligned) > 0 and len(stk_aligned) > 0:
-    # Normalize both series to start at 100
-    gf_normalized = (gf_aligned / gf_aligned.iloc[0]) * 100
-    stk_normalized = (stk_aligned / stk_aligned.iloc[0]) * 100
+# ===== FIXED NORMALIZED PRICE COMPARISON CHART =====
+st.subheader(f"Price Comparison: {user_ticker} vs GMF Index")
+
+# Get the last 500 days or all available data for cleaner view
+if len(gf_aligned) > 500:
+    gf_plot = gf_aligned.iloc[-500:]
+    stk_plot = stk_aligned.iloc[-500:]
+else:
+    gf_plot = gf_aligned
+    stk_plot = stk_aligned
+
+# Normalize to percentage change from start (not just first value)
+# This shows relative performance better
+gf_normalized = (gf_plot / gf_plot.iloc[0]) * 100
+stk_normalized = (stk_plot / stk_plot.iloc[0]) * 100
+
+# Create a clean DataFrame for plotting
+plot_df = pd.DataFrame({
+    'Date': gf_normalized.index,
+    'GMF Index': gf_normalized.values,
+    user_ticker: stk_normalized.values
+})
+
+# Verify we have valid data
+st.write(f"Debug: GMF range: {gf_normalized.min():.2f} - {gf_normalized.max():.2f}")
+st.write(f"Debug: Stock range: {stk_normalized.min():.2f} - {stk_normalized.max():.2f}")
+
+# Melt for Altair
+melted_df = plot_df.melt(id_vars=['Date'], var_name='Series', value_name='Normalized Value')
+
+# Create the comparison chart
+comparison_chart = alt.Chart(melted_df).mark_line(
+    strokeWidth=2,
+    opacity=0.8
+).encode(
+    x=alt.X('Date:T', title='Date', axis=alt.Axis(format='%Y-%m-%d', labelAngle=-45)),
+    y=alt.Y('Normalized Value:Q', 
+            title='Normalized Value (Start = 100)', 
+            axis=alt.Axis(grid=True)),
+    color=alt.Color('Series:N', 
+                   scale=alt.Scale(
+                       domain=['GMF Index', user_ticker],
+                       range=['#1f77b4', '#d62728']
+                   ),
+                   legend=alt.Legend(title='Series', orient='top-left')),
+    tooltip=['Date:T', 'Series:N', alt.Tooltip('Normalized Value:Q', format='.2f')]
+).properties(
+    title=f"{user_ticker} vs GMF Index - Normalized Performance",
+    height=400
+)
+
+st.altair_chart(comparison_chart, use_container_width=True)
+
+# Add a second chart showing percentage change from start
+st.subheader(f"Cumulative Returns Comparison")
+
+# Calculate cumulative returns
+gf_returns = (gf_plot / gf_plot.iloc[0] - 1) * 100
+stk_returns = (stk_plot / stk_plot.iloc[0] - 1) * 100
+
+returns_df = pd.DataFrame({
+    'Date': gf_returns.index,
+    'GMF Index Returns %': gf_returns.values,
+    f'{user_ticker} Returns %': stk_returns.values
+})
+
+returns_melted = returns_df.melt(id_vars=['Date'], var_name='Series', value_name='Return %')
+
+returns_chart = alt.Chart(returns_melted).mark_line(
+    strokeWidth=2,
+    opacity=0.8
+).encode(
+    x=alt.X('Date:T', title='Date', axis=alt.Axis(format='%Y-%m-%d', labelAngle=-45)),
+    y=alt.Y('Return %:Q', 
+            title='Cumulative Return (%)', 
+            axis=alt.Axis(grid=True)),
+    color=alt.Color('Series:N', 
+                   scale=alt.Scale(
+                       domain=['GMF Index Returns %', f'{user_ticker} Returns %'],
+                       range=['#1f77b4', '#d62728']
+                   ),
+                   legend=alt.Legend(title='Series', orient='top-left')),
+    tooltip=['Date:T', 'Series:N', alt.Tooltip('Return %:Q', format='.2f')]
+).properties(
+    title=f"{user_ticker} vs GMF Index - Cumulative Returns",
+    height=300
+)
+
+st.altair_chart(returns_chart, use_container_width=True)
+
+# Display correlation interpretation
+if pd.notna(latest_corr_percent):
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Current Correlation", f"{latest_corr_percent:.1f}%", 
+                 delta="Positive" if latest_corr > 0 else "Negative")
+    with col2:
+        st.metric("GMF Momentum", f"{latest_momentum:+.2f}%/day")
+    with col3:
+        # Calculate stock momentum
+        stock_momentum = ((stk_plot.iloc[-1] / stk_plot.iloc[-30] - 1) * 100) if len(stk_plot) >= 30 else 0
+        st.metric(f"{user_ticker} 30-Day Return", f"{stock_momentum:+.1f}%")
     
-    # Create DataFrame for plotting
-    comparison_df = pd.DataFrame({
-        'Date': gf_normalized.index,
-        'GMF Index (Normalized)': gf_normalized.values,
-        f'{user_ticker} (Normalized)': stk_normalized.values
-    })
+    st.markdown(f"""
+    **📊 Interpretation for {user_ticker}:**
+    - **{cw_}-Day Correlation with GMF: {latest_corr_percent:.1f}%**
+    - {get_correlation_interpretation(latest_corr_percent)}
+    """)
     
-    # Melt the DataFrame for Altair
-    melted_df = comparison_df.melt(
-        id_vars=['Date'], 
-        var_name='Series', 
-        value_name='Value'
-    )
-    
-    # Create the comparison chart
-    comparison_chart = alt.Chart(melted_df).mark_line(
-        strokeWidth=2,
-        opacity=0.8
-    ).encode(
-        x=alt.X('Date:T', title='Date', axis=alt.Axis(format='%Y-%m-%d')),
-        y=alt.Y('Value:Q', title='Normalized Value (Starting at 100)', axis=alt.Axis(grid=True)),
-        color=alt.Color('Series:N', 
-                       scale=alt.Scale(
-                           domain=['GMF Index (Normalized)', f'{user_ticker} (Normalized)'],
-                           range=['#1f77b4', '#d62728']
-                       ),
-                       legend=alt.Legend(title='Series')),
-        tooltip=['Date:T', 'Series:N', alt.Tooltip('Value:Q', format='.2f')]
-    ).properties(
-        title=f"{user_ticker} vs GMF Index (Normalized)",
-        height=350
-    )
-    
-    st.altair_chart(comparison_chart, use_container_width=True)
-    
-    # Display correlation interpretation
-    if pd.notna(latest_corr_percent):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Current Correlation", f"{latest_corr_percent:.1f}%", 
-                     delta="Positive" if latest_corr > 0 else "Negative")
-        with col2:
-            st.metric("GMF Momentum", f"{latest_momentum:+.2f}%/day")
-        
-        st.markdown(f"""
-        **📊 Interpretation for {user_ticker}:**
-        - **{cw_}-Day Correlation with GMF: {latest_corr_percent:.1f}%**
-        - {get_correlation_interpretation(latest_corr_percent)}
-        """)
-        
-        # Trading strategy
-        with st.expander("🎯 Trading Strategy"):
-            st.markdown(get_trading_strategy(latest_corr, latest_momentum))
+    # Trading strategy
+    with st.expander("🎯 Trading Strategy"):
+        st.markdown(get_trading_strategy(latest_corr, latest_momentum))
 else:
     st.warning(f"Insufficient overlapping data between {user_ticker} and GMF index for analysis.")
 
