@@ -1,22 +1,17 @@
 import streamlit as st
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import altair as alt
+from datetime import datetime, timedelta
 
-# MUST be the first Streamlit call
-try:
-    st.set_page_config(
-        page_title="Global Money Flow Curve (GMF)",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-except:
-    pass
-
-# Now safe to use Streamlit normally
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
-try:
-    from imports import *
-except ImportError:
-    pass
+st.set_page_config(
+    page_title="Global Money Flow Curve (GMF)",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
@@ -59,14 +54,14 @@ tickers = {asset: default_tickers[asset] for asset in selected_assets}
 st.sidebar.markdown("### Set Asset Weights (Positive=Risk-On, Negative=Risk-Off)")
 
 default_weights = {
-    "Bitcoin (BTC)": 0.25,
-    "S&P 500 (SPX)": 0.25,  
-    "Emerging Markets (EEM)": 0.20,
-    "Crude Oil (CL)": 0.20,
-    "Gold (XAU)": -0.20,
-    "US Dollar Index (DXY)": -0.20,
-    "US 10Y Treasury (IEF)": -0.20,
-    "Volatility Index (VIX)": -0.07
+    "Bitcoin (BTC)": 0.25,      # Strong risk-on
+    "S&P 500 (SPX)": 0.25,      # Strong risk-on  
+    "Emerging Markets (EEM)": 0.20,  # Risk-on
+    "Crude Oil (CL)": 0.20,     # Risk-on
+    "Gold (XAU)": -0.20,        # Risk-off
+    "US Dollar Index (DXY)": -0.20,  # Risk-off
+    "US 10Y Treasury (IEF)": -0.20,  # Risk-off
+    "Volatility Index (VIX)": -0.07  # Risk-off (inverse)
 }
 
 weights = {}
@@ -90,228 +85,85 @@ st.sidebar.markdown("---")
 st.sidebar.header("💹 Stock Analysis")
 user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
-def extract_price_series(df, ticker_name):
-    """Extract price series from downloaded DataFrame"""
-    
-    if df.empty:
-        idx = pd.date_range(start=start_date, end=end_date, freq="B")
-        return pd.Series(np.nan, index=idx, name=ticker_name, dtype='float64')
-    
-    # Try different column names
-    price_column = None
-    for col in ['Close', 'Adj Close', 'Price']:
-        if col in df.columns:
-            price_column = col
-            break
-    
-    if price_column is None:
-        # If no standard column, take the first numeric column
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        if len(numeric_cols) > 0:
-            price_column = numeric_cols[0]
+# ========== DATA LOADING FUNCTIONS ==========
+def load_data(tickers, start, end):
+    """Load data from Yahoo Finance"""
+    raw = yf.download(list(tickers.values()), start=start, end=end, progress=False)
+
+    if isinstance(raw.columns, pd.MultiIndex):
+        if 'Adj Close' in raw.columns.get_level_values(0):
+            df = raw['Adj Close'].copy()
+        elif 'Close' in raw.columns.get_level_values(0):
+            df = raw['Close'].copy()
         else:
-            # Create empty series
-            idx = pd.date_range(start=start_date, end=end_date, freq="B")
-            return pd.Series(np.nan, index=idx, name=ticker_name, dtype='float64')
-    
-    # Extract the series
-    s = df[price_column].copy()
-    
-    # Handle MultiIndex
-    if isinstance(s, pd.DataFrame):
-        s = s.iloc[:, 0] if s.shape[1] > 0 else pd.Series()
-    
-    # Ensure we have a Series
-    if not isinstance(s, pd.Series):
-        s = pd.Series(s)
-    
-    s.index = pd.to_datetime(s.index)
-    s = s.rename(ticker_name)
-    
-    return s.astype('float64')
-    
-def safe_download(ticker, start, end, max_retries=3):
-    """Improved safe download with retry logic and proper headers"""
-    
-    # Add a small delay to avoid rate limiting
-    time.sleep(0.5)
-    
-    for attempt in range(max_retries):
-        try:
-            # Create a Ticker object instead of using yf.download directly
-            ticker_obj = yf.Ticker(ticker)
-            
-            # Try to get history with proper parameters
-            df = ticker_obj.history(
-                start=start, 
-                end=end,
-                auto_adjust=False,  # Don't auto-adjust to get more data
-                actions=False,
-                timeout=30
-            )
-            
-            if not df.empty:
-                return df
-                
-        except Exception as e:
-            if attempt < max_retries - 1:
-                time.sleep(2)  # Wait before retry
-                continue
-            else:
-                st.warning(f"⚠️ Could not download {ticker} after {max_retries} attempts: {str(e)}")
-    
-    # Return empty DataFrame with proper structure
-    idx = pd.date_range(start=start, end=end, freq="B")
-    return pd.DataFrame(index=idx)
-    
-def load_data(tickers, start, end, use_alternative=False):
-    """Load data with alternative source option"""
-    series_list = []
-    
+            raise ValueError("No 'Adj Close' or 'Close' data found.")
+    else:
+        df = raw.copy()
+
+    rename_map = {}
     for name, ticker in tickers.items():
-        df = safe_download(ticker, start, end, use_alternative=use_alternative)
-        s = extract_price_series(df, name)
-        series_list.append(s)
-    
-    df = pd.concat(series_list, axis=1, join='outer')
-    df.index = pd.to_datetime(df.index)
-    
+        if ticker in df.columns:
+            rename_map[ticker] = name
+        elif name in df.columns:
+            rename_map[name] = name
+    df = df.rename(columns=rename_map)
+
+    df = df.dropna(axis=1, how='all')
     return df
 
-# In the main execution, replace the data loading with:
-use_alternative = st.sidebar.checkbox("Use demo data if Yahoo fails", value=False)
-
-try:
-    data = load_data(tickers, start_date, end_date, use_alternative=use_alternative)
-    
-    spx_df = safe_download("^GSPC", start_date, end_date, use_alternative=use_alternative)
-    spx_data = extract_price_series(spx_df, "S&P 500 (SPX)")
-    
 # ========== LOAD DATA ==========
 try:
     data = load_data(tickers, start_date, end_date)
-    
-    # Load SPX data separately with improved handling
     spx_raw = yf.download("^GSPC", start=start_date, end=end_date, progress=False)
-    
-    if spx_raw.empty:
-        st.warning("⚠️ Could not load S&P 500 data")
-        spx_data = pd.Series(dtype='float64', name="S&P 500 (SPX)")
+
+    if isinstance(spx_raw['Adj Close'], pd.DataFrame):
+        spx_data = spx_raw['Adj Close'].iloc[:, 0]
     else:
-        if isinstance(spx_raw.columns, pd.MultiIndex):
-            if 'Adj Close' in spx_raw.columns.get_level_values(0):
-                spx_data = spx_raw['Adj Close']
-                spx_data = spx_data.iloc[:, 0] if spx_data.shape[1] > 1 else spx_data
-            elif 'Close' in spx_raw.columns.get_level_values(0):
-                spx_data = spx_raw['Close']
-                spx_data = spx_data.iloc[:, 0] if spx_data.shape[1] > 1 else spx_data
-            else:
-                spx_data = spx_raw.iloc[:, 0]
-        else:
-            if 'Adj Close' in spx_raw.columns:
-                spx_data = spx_raw['Adj Close']
-            elif 'Close' in spx_raw.columns:
-                spx_data = spx_raw['Close']
-            else:
-                spx_data = spx_raw.iloc[:, 0]
-        
-        spx_data = spx_data.rename("S&P 500 (SPX)")
-        spx_data = spx_data.astype('float64')
-    
-    # Check if data loaded successfully
-    if data.empty or data.isnull().all().all():
-        st.error("❌ No data could be loaded. Please check your internet connection and ticker symbols.")
-        st.stop()
-        
+        spx_data = spx_raw['Adj Close']
+    spx_data = spx_data.copy()
+    spx_data.name = "S&P 500 (SPX)"
+
 except Exception as e:
-    st.error(f"❌ Error loading data: {str(e)}")
+    st.warning(f"⚠️ Error loading data: {e}. Please check ticker availability and date range.")
     st.stop()
 
-def enforce_business_days(df):
-    """Improved business days enforcement with proper NA handling"""
-    if df.empty:
-        return df
-    
-    # Create business day index
-    biz_days = pd.date_range(start=df.index.min(), end=df.index.max(), freq='B')
-    
-    # Reindex and fill
-    df = df.reindex(biz_days)
-    
-    # Use forward fill then back fill for NA values
-    df = df.ffill().bfill()
-    
-    return df
-
-# Convert indices to datetime and handle NA values
-data.index = pd.to_datetime(data.index)
-data = data.astype('float64')
-
-if not spx_data.empty:
-    spx_data.index = pd.to_datetime(spx_data.index)
-    spx_data = spx_data.astype('float64')
-
-if use_business_days and not data.empty:
-    data = enforce_business_days(data)
-    if not spx_data.empty:
-        spx_data = enforce_business_days(spx_data)
+if use_business_days:
+    data = data.asfreq('B')
+    data = data..ffill()
+    spx_data = spx_data.asfreq('B')
+    spx_data = spx_data..ffill()
 
 # ========== GMF INDEX CALCULATION ==========
 def calculate_gmf_index(data, weights):
-    """Calculate GMF Index with improved NA handling"""
-    if data.empty:
-        return pd.Series(dtype='float64')
-    
-    # Calculate daily percentage changes, handling NA values
-    daily_pct = data.pct_change()
-    
-    # Replace inf and -inf with NaN, then fill NA values
-    daily_pct = daily_pct.replace([np.inf, -np.inf], np.nan)
-    daily_pct = daily_pct.fillna(0)
-    
-    # Create weights series aligned with data columns
+    """Calculate GMF Index as weighted sum of daily percentage changes"""
+    daily_pct = data.pct_change().fillna(0)
     weights_series = pd.Series(weights).reindex(data.columns).fillna(0.0)
-    
-    # Calculate weighted daily changes
     weighted_daily = daily_pct.multiply(weights_series, axis=1)
-    
-    # Sum across columns, handling NA values
-    daily_gmf_change = weighted_daily.sum(axis=1, skipna=True)
-    
-    # Calculate cumulative sum
+    daily_gmf_change = weighted_daily.sum(axis=1)
     gmf_index = (daily_gmf_change * 100).cumsum()
-    
     return gmf_index
 
-# Calculate GMF index
 gmf_raw = calculate_gmf_index(data, weights)
-
-if gmf_raw.empty:
-    st.error("❌ Could not calculate GMF index. Please check your data.")
-    st.stop()
-
 gmf_index = gmf_raw - gmf_raw.iloc[0]
 
-# Create smoothed versions with proper NA handling
+# Create smoothed versions
 money_flow_raw = gmf_index
 money_flow_s = money_flow_raw.rolling(3, min_periods=1).mean()
 money_flow_smooth = money_flow_raw.rolling(smooth_window, min_periods=1).mean()
 
-# Calculate Z-Score with improved NA handling
+# Calculate Z-Score
 rolling_mean = money_flow_smooth.rolling(window=z_score_window, min_periods=5).mean()
-rolling_std = money_flow_smooth.rolling(z_score_window, min_periods=5).std(ddof=0)
-
-# Handle division by zero
-money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std.where(rolling_std != 0, np.nan)
+rolling_std = money_flow_smooth.rolling(window=z_score_window, min_periods=5).std()
+money_flow_zscore = (money_flow_smooth - rolling_mean) / rolling_std
 money_flow_zscore = money_flow_zscore.replace([np.inf, -np.inf], 0).fillna(0)
 
 # Calculate Momentum
 money_flow_momentum = money_flow_smooth.diff(30) / 30 * 100
 money_flow_momentum = money_flow_momentum.fillna(0)
 
-# Get latest values with safety checks
-latest_momentum = float(money_flow_momentum.iloc[-1]) if not money_flow_momentum.empty and len(money_flow_momentum) > 0 else 0.0
-latest_zscore = float(money_flow_zscore.iloc[-1]) if not money_flow_zscore.empty and len(money_flow_zscore) > 0 else 0.0
+# Get latest values
+latest_momentum = float(money_flow_momentum.iloc[-1]) if len(money_flow_momentum) > 0 else 0.0
+latest_zscore = float(money_flow_zscore.iloc[-1]) if len(money_flow_zscore) > 0 else 0.0
 
 # ========== SENTIMENT LOGIC ==========
 Z_EXTREME = 1.5
@@ -320,56 +172,64 @@ MOM_LOW = -0.5
 Z_NEUTRAL_UPPER = 0.8
 Z_NEUTRAL_LOWER = -0.8
 
-# Sentiment determination with improved logic
-def determine_sentiment(zscore, momentum):
-    """Determine market sentiment based on z-score and momentum"""
-    if pd.isna(zscore) or pd.isna(momentum):
-        return "⚪ **DATA UNAVAILABLE**", "#9e9e9e"
-    
-    if zscore >= Z_EXTREME:
-        if momentum > 0:
-            return "🚨 **EXTREME OVERBOUGHT (Euphoria Climax)**", "#ff6b6b"
-        else:
-            return "⚠️ **OVERBOUGHT but Losing Momentum**", "#ffa726"
-            
-    elif zscore <= -Z_EXTREME:
-        if momentum < 0:
-            return "📉 **EXTREME OVERSOLD (Panic/Capitulation)**", "#5d4037"
-        else:
-            return "🔄 **OVERSOLD but Recovering**", "#42a5f5"
-            
-    elif momentum > MOM_HIGH:
-        if zscore > 0:
-            return "🚀 **STRONG RISK-ON (Accelerating Higher)**", "#4caf50"
-        else:
-            return "🟢 **RISK-ON (Recovering from Lows)**", "#66bb6a"
-            
-    elif momentum < MOM_LOW:
-        if zscore < 0:
-            return "🔻 **STRONG RISK-OFF (Accelerating Lower)**", "#f44336"
-        else:
-            return "🔴 **RISK-OFF (Pulling Back from Highs)**", "#ef5350"
-            
-    elif momentum > 0:
-        if zscore > Z_NEUTRAL_UPPER:
-            return "🟢 **Risk-On (Above Average)**", "#81c784"
-        elif zscore < Z_NEUTRAL_LOWER:
-            return "🟡 **Cautiously Recovering (From Oversold)**", "#ffd54f"
-        else:
-            return "⚪ **Mildly Risk-On (Neutral Zone)**", "#bdbdbd"
-            
-    elif momentum < 0:
-        if zscore < Z_NEUTRAL_LOWER:
-            return "🔴 **Risk-Off (Below Average)**", "#e57373"
-        elif zscore > Z_NEUTRAL_UPPER:
-            return "🟠 **Correcting (From Overbought)**", "#ffb74d"
-        else:
-            return "⚫ **Mildly Risk-Off (Neutral Zone)**", "#757575"
-            
+# Sentiment determination
+if latest_zscore >= Z_EXTREME:
+    if latest_momentum > 0:
+        sentiment = "🚨 **EXTREME OVERBOUGHT (Euphoria Climax)**"
+        sentiment_color = "#ff6b6b"
     else:
-        return "⚪ **NEUTRAL / SIDEWAYS**", "#9e9e9e"
-
-sentiment, sentiment_color = determine_sentiment(latest_zscore, latest_momentum)
+        sentiment = "⚠️ **OVERBOUGHT but Losing Momentum**"
+        sentiment_color = "#ffa726"
+        
+elif latest_zscore <= -Z_EXTREME:
+    if latest_momentum < 0:
+        sentiment = "📉 **EXTREME OVERSOLD (Panic/Capitulation)**"
+        sentiment_color = "#5d4037"
+    else:
+        sentiment = "🔄 **OVERSOLD but Recovering**"
+        sentiment_color = "#42a5f5"
+        
+elif latest_momentum > MOM_HIGH:
+    if latest_zscore > 0:
+        sentiment = "🚀 **STRONG RISK-ON (Accelerating Higher)**"
+        sentiment_color = "#4caf50"
+    else:
+        sentiment = "🟢 **RISK-ON (Recovering from Lows)**"
+        sentiment_color = "#66bb6a"
+        
+elif latest_momentum < MOM_LOW:
+    if latest_zscore < 0:
+        sentiment = "🔻 **STRONG RISK-OFF (Accelerating Lower)**"
+        sentiment_color = "#f44336"
+    else:
+        sentiment = "🔴 **RISK-OFF (Pulling Back from Highs)**"
+        sentiment_color = "#ef5350"
+        
+elif latest_momentum > 0:
+    if latest_zscore > Z_NEUTRAL_UPPER:
+        sentiment = "🟢 **Risk-On (Above Average)**"
+        sentiment_color = "#81c784"
+    elif latest_zscore < Z_NEUTRAL_LOWER:
+        sentiment = "🟡 **Cautiously Recovering (From Oversold)**"
+        sentiment_color = "#ffd54f"
+    else:
+        sentiment = "⚪ **Mildly Risk-On (Neutral Zone)**"
+        sentiment_color = "#bdbdbd"
+        
+elif latest_momentum < 0:
+    if latest_zscore < Z_NEUTRAL_LOWER:
+        sentiment = "🔴 **Risk-Off (Below Average)**"
+        sentiment_color = "#e57373"
+    elif latest_zscore > Z_NEUTRAL_UPPER:
+        sentiment = "🟠 **Correcting (From Overbought)**"
+        sentiment_color = "#ffb74d"
+    else:
+        sentiment = "⚫ **Mildly Risk-Off (Neutral Zone)**"
+        sentiment_color = "#757575"
+        
+else:
+    sentiment = "⚪ **NEUTRAL / SIDEWAYS**"
+    sentiment_color = "#9e9e9e"
 
 # ========== MAIN DISPLAY ==========
 st.markdown(f"""
@@ -387,10 +247,10 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Display metrics with safety checks
+# Display metrics
 col1, col2, col3 = st.columns(3)
 with col1:
-    current_gmf = float(money_flow_raw.iloc[-1]) if not money_flow_raw.empty and len(money_flow_raw) > 0 else 0.0
+    current_gmf = money_flow_raw.iloc[-1] if not money_flow_raw.empty else 0
     st.metric("Current GMF Index", f"{current_gmf:+.2f}")
 with col2:
     st.metric("Z-Score", f"{latest_zscore:+.2f}", 
@@ -402,38 +262,21 @@ with col3:
 # ===== 2nd ROW: POSITIONING & ROTATION SNAPSHOT =====
 pos_col1, pos_col2, pos_col3 = st.columns(3)
 
-# 1) Equity allocation snapshot
+# 1) Equity allocation snapshot (reusing logic later in expander)
 with pos_col1:
     st.subheader("Equity Bias")
     try:
-        # Compute positioning data with improved NA handling
+        # Compute positioning_df once, to reuse in expander as well
         positioning_data = {}
-        
-        # Check if required columns exist and have data
-        if ('Crude Oil (CL)' in data.columns and 
-            'Emerging Markets (EEM)' in data.columns and
-            not data['Crude Oil (CL)'].isnull().all() and
-            not data['Emerging Markets (EEM)'].isnull().all()):
-            
+
+        if 'Crude Oil (CL)' in data.columns and 'Emerging Markets (EEM)' in data.columns:
             commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
-            # Replace inf/-inf with NaN, then drop NA values
-            commod_em_ratio = commod_em_ratio.replace([np.inf, -np.inf], np.nan)
-            if commod_em_ratio.notna().sum() > 5:
-                first_valid = commod_em_ratio.dropna().iloc[0] if not commod_em_ratio.dropna().empty else 1
-                positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / first_valid * 100)
+            positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / commod_em_ratio.iloc[0] * 100)
 
-        if ('US 10Y Treasury (IEF)' in data.columns and 
-            'US Dollar Index (DXY)' in data.columns and
-            not data['US 10Y Treasury (IEF)'].isnull().all() and
-            not data['US Dollar Index (DXY)'].isnull().all()):
-            
+        if 'US 10Y Treasury (IEF)' in data.columns and 'US Dollar Index (DXY)' in data.columns:
             treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
-            treasury_dollar_ratio = treasury_dollar_ratio.replace([np.inf, -np.inf], np.nan)
-            if treasury_dollar_ratio.notna().sum() > 5:
-                first_valid = treasury_dollar_ratio.dropna().iloc[0] if not treasury_dollar_ratio.dropna().empty else 1
-                positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / first_valid * 100)
+            positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / treasury_dollar_ratio.iloc[0] * 100)
 
-        # Create positioning DataFrame
         positioning_df = pd.DataFrame({
             'Date': data.index,
             'GMF_Index': money_flow_smooth,
@@ -445,11 +288,11 @@ with pos_col1:
         positioning_label = "N/A"
         sectors_label = "N/A"
 
-        if not positioning_df.empty and len(positioning_df) > 20:
+        if not positioning_df.empty:
             recent_gmf = positioning_df['GMF_Index'].iloc[-20:].mean()
             recent_mom = positioning_df['GMF_Momentum'].iloc[-20:].mean()
 
-            equity_allocation = 50.0
+            equity_allocation = 50
 
             # GMF adjustment
             if recent_gmf > 20:
@@ -472,14 +315,14 @@ with pos_col1:
                 equity_allocation -= 5
 
             # Commodity/EM adjustment
-            if 'Commodity/EM_Ratio' in positioning_df.columns:
+            if len(positioning_df) > 0 and 'Commodity/EM_Ratio' in positioning_df.columns:
                 recent_commod_em = positioning_df['Commodity/EM_Ratio'].iloc[-1]
                 if recent_commod_em > 110:
                     equity_allocation -= 10
                 elif recent_commod_em < 90:
                     equity_allocation += 5
 
-            equity_allocation = max(0.0, min(100.0, equity_allocation))
+            equity_allocation = max(0, min(100, equity_allocation))
 
             if equity_allocation >= 70:
                 positioning_label = "Max Risk-On"
@@ -499,7 +342,7 @@ with pos_col1:
 
         st.metric("Equity Allocation", f"{equity_allocation or 0:.0f}%", positioning_label)
 
-    except Exception as e:
+    except Exception:
         st.metric("Equity Allocation", "N/A", "Error")
 
 # 2) Sector rotation snapshot
@@ -538,14 +381,12 @@ with pos_col3:
     st.subheader("Cross-Asset Strength")
     commod_em_text = "N/A"
     treas_dxy_text = "N/A"
-    
-    if 'positioning_df' in locals() and not positioning_df.empty:
-        if 'Commodity/EM_Ratio' in positioning_df.columns:
-            commod_em_latest = positioning_df['Commodity/EM_Ratio'].iloc[-1]
-            commod_em_text = f"{commod_em_latest:.1f}"
-        if 'Treasury/Dollar_Ratio' in positioning_df.columns:
-            treas_dxy_latest = positioning_df['Treasury/Dollar_Ratio'].iloc[-1]
-            treas_dxy_text = f"{treas_dxy_latest:.1f}"
+    if 'Commodity/EM_Ratio' in positioning_df.columns:
+        commod_em_latest = positioning_df['Commodity/EM_Ratio'].iloc[-1]
+        commod_em_text = f"{commod_em_latest:.1f}"
+    if 'Treasury/Dollar_Ratio' in positioning_df.columns:
+        treas_dxy_latest = positioning_df['Treasury/Dollar_Ratio'].iloc[-1]
+        treas_dxy_text = f"{treas_dxy_latest:.1f}"
 
     st.metric("Commodity/Emerging Markets", commod_em_text)
     st.metric("Bond/Dollar Strength", treas_dxy_text)
@@ -574,45 +415,30 @@ with st.expander("📈 Cross-Asset Relative Strength & Stock Positioning"):
     """)
     
     try:
-        # Recalculate positioning data if not already available
-        if 'positioning_df' not in locals() or positioning_df.empty:
-            positioning_data = {}
+        # Calculate relative strength ratios
+        positioning_data = {}
+        
+        if 'Crude Oil (CL)' in data.columns and 'Emerging Markets (EEM)' in data.columns:
+            commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
+            positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / commod_em_ratio.iloc[0] * 100)
             
-            if ('Crude Oil (CL)' in data.columns and 
-                'Emerging Markets (EEM)' in data.columns and
-                not data['Crude Oil (CL)'].isnull().all() and
-                not data['Emerging Markets (EEM)'].isnull().all()):
-                
-                commod_em_ratio = data['Crude Oil (CL)'] / data['Emerging Markets (EEM)']
-                commod_em_ratio = commod_em_ratio.replace([np.inf, -np.inf], np.nan)
-                if commod_em_ratio.notna().sum() > 5:
-                    first_valid = commod_em_ratio.dropna().iloc[0] if not commod_em_ratio.dropna().empty else 1
-                    positioning_data['Commodity/EM_Ratio'] = (commod_em_ratio / first_valid * 100)
-                    
-            if ('US 10Y Treasury (IEF)' in data.columns and 
-                'US Dollar Index (DXY)' in data.columns and
-                not data['US 10Y Treasury (IEF)'].isnull().all() and
-                not data['US Dollar Index (DXY)'].isnull().all()):
-                
-                treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
-                treasury_dollar_ratio = treasury_dollar_ratio.replace([np.inf, -np.inf], np.nan)
-                if treasury_dollar_ratio.notna().sum() > 5:
-                    first_valid = treasury_dollar_ratio.dropna().iloc[0] if not treasury_dollar_ratio.dropna().empty else 1
-                    positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / first_valid * 100)
-            
-            positioning_df = pd.DataFrame({
-                'Date': data.index,
-                'GMF_Index': money_flow_smooth,
-                'GMF_Momentum': money_flow_momentum,
-                **positioning_data
-            }).dropna()
+        if 'US 10Y Treasury (IEF)' in data.columns and 'US Dollar Index (DXY)' in data.columns:
+            treasury_dollar_ratio = data['US 10Y Treasury (IEF)'] / data['US Dollar Index (DXY)']
+            positioning_data['Treasury/Dollar_Ratio'] = (treasury_dollar_ratio / treasury_dollar_ratio.iloc[0] * 100)
+        
+        positioning_df = pd.DataFrame({
+            'Date': data.index,
+            'GMF_Index': money_flow_smooth,
+            'GMF_Momentum': money_flow_momentum,
+            **positioning_data
+        }).dropna()
         
         if not positioning_df.empty:
             recent_gmf = positioning_df['GMF_Index'].iloc[-20:].mean()
             recent_mom = positioning_df['GMF_Momentum'].iloc[-20:].mean()
             
             # Determine positioning
-            equity_allocation = 50.0
+            equity_allocation = 50
             
             # GMF adjustment
             if recent_gmf > 20:
@@ -643,7 +469,7 @@ with st.expander("📈 Cross-Asset Relative Strength & Stock Positioning"):
                     equity_allocation += 5
             
             # Clamp between 0 and 100
-            equity_allocation = max(0.0, min(100.0, equity_allocation))
+            equity_allocation = max(0, min(100, equity_allocation))
             
             # Determine positioning strategy
             if equity_allocation >= 70:
@@ -683,7 +509,7 @@ with st.expander("📈 Cross-Asset Relative Strength & Stock Positioning"):
             """)
             
     except Exception as e:
-        st.warning(f"Could not calculate positioning: {str(e)}")
+        st.warning(f"Could not calculate positioning: {e}")
 
 # Sector Rotation
 with st.expander("🏗️ Sector Rotation Matrix"):
@@ -903,8 +729,8 @@ with st.expander("⚠️ Divergence Check: S&P 500 vs. GMF Momentum"):
     
     lookback = 60
     if len(spx_aligned) >= lookback:
-        rolling_corr = spx_aligned.rolling(lookback).corr(gmf_aligned.reindex(spx_aligned.index))
-        latest_corr = rolling_corr.iloc[-1] if not rolling_corr.empty else 0
+        rolling_corr = spx_aligned.rolling(lookback).corr(gmf_aligned)
+        latest_corr = float(rolling_corr.iloc[-1]) if len(rolling_corr) > 0 else 0.0
         
         if latest_corr < -0.5:
             divergence_signal = "🚨 **STRONG NEGATIVE CORRELATION**: SPX and GMF moving opposite directions"
@@ -1035,7 +861,7 @@ try:
             st.error("No 'Adj Close' or 'Close' data found.")
             st.stop()
             
-    user_stock_data = user_stock_data.ffill().bfill().dropna()
+    user_stock_data = user_stock_data..ffill()
     user_stock_data = user_stock_data.squeeze()
     
 except Exception as e:
@@ -1043,45 +869,32 @@ except Exception as e:
     st.stop()
 
 user_stock_smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
-user_stock_smoothed.iloc[-1] = user_stock_data.iloc[-1]
+if len(user_stock_smoothed) > 0 and len(user_stock_data) > 0:
+    user_stock_smoothed.iloc[-1] = user_stock_data.iloc[-1]
 
-# Clean GMF series
-gf_single = money_flow_s.replace([np.inf, -np.inf], np.nan).dropna()
+gf_single = money_flow_s
+stk_single = user_stock_smoothed
+gf_aligned, stk_aligned = gf_single.align(stk_single, join='inner')
 
-# Clean stock series
-stk_single = user_stock_data.ffill().bfill().dropna()
-
-st.write(f"DEBUG: Aligned GMF length = {len(gf_aligned)}")
-st.write(f"DEBUG: Aligned stock length = {len(stk_aligned)}")
-
-# Align
-combined = pd.DataFrame({
-    'GMF': gf_single,
-    'Stock': stk_single
-}).dropna(how='any').ffill().dropna()
-gf_aligned = combined['GMF']
-stk_aligned = combined['Stock']
 cw_ = 60
-min_required = 20   # minimum overlapping days for a visible line
 latest_corr = float('nan')
 latest_corr_percent = float('nan')
 
-if len(gf_aligned) >= min_required:
-    # Use a smaller window if not enough data for cw_=60
-    actual_window = min(cw_, len(gf_aligned) // 2)
-    rolling_corr_single = gf_aligned.rolling(actual_window, min_periods=min_required//2).corr(stk_aligned)
+if len(gf_aligned) >= cw_:
+    rolling_corr_single = gf_aligned.rolling(cw_, min_periods=cw_//2).corr(stk_aligned)
+    if not rolling_corr_single.empty:
+        latest_corr = float(rolling_corr_single.iloc[-1]) if len(rolling_corr_single) > 0 else np.nan
+        if pd.notna(latest_corr):
+            latest_corr_percent = round(latest_corr * 100, 1)
+        else:
+            latest_corr_percent = float('nan')
+    
     rolling_corr_df = pd.DataFrame({
         "Date": rolling_corr_single.index,
         "Correlation": rolling_corr_single * 100
     }).dropna()
-    
-    if not rolling_corr_df.empty:
-        latest_corr = rolling_corr_df['Correlation'].iloc[-1] / 100
-        latest_corr_percent = latest_corr * 100
-    else:
-        rolling_corr_df = pd.DataFrame()  # ensure empty
 else:
-    rolling_corr_df = pd.DataFrame()
+    rolling_corr_df = pd.DataFrame({"Date": [], "Correlation": []})
 
 if not gf_aligned.empty and not stk_aligned.empty:
     gf_normalized = (gf_aligned / gf_aligned.iloc[0]) * 100
@@ -1306,7 +1119,7 @@ if tickers_list and st.button("Run 60-Day Correlation Screening"):
                 for idx, (ticker, prices) in enumerate(screener_data.items()):
                     try:
                         if isinstance(prices, pd.Series) and not prices.empty:
-                            prices_clean = prices.ffill().dropna()
+                            prices_clean = prices..ffill().dropna()
                             if len(prices_clean) < 60:
                                 continue
                             
@@ -1319,11 +1132,11 @@ if tickers_list and st.button("Run 60-Day Correlation Screening"):
                                 corr_series = stock_aligned.rolling(60, min_periods=30).corr(gmf_aligned)
                                 
                                 if not corr_series.empty:
-                                    latest_corr = corr_series.iloc[-1]
+                                    latest_corr = float(corr_series.iloc[-1]) if len(corr_series) > 0 else np.nan
                                     if pd.notna(latest_corr):
                                         correlation_history[ticker] = corr_series
                                         
-                                        gmf_momentum_current = money_flow_momentum.iloc[-1] if not money_flow_momentum.empty else 0
+                                        gmf_momentum_current = float(money_flow_momentum.iloc[-1]) if len(money_flow_momentum) > 0 else 0.0
                                         
                                         if latest_corr > 0.6:
                                             if gmf_momentum_current > 0:
@@ -1398,8 +1211,8 @@ if tickers_list and st.button("Run 60-Day Correlation Screening"):
                 )
                 
                 # Hide the Signal Score column after applying gradient
-                styled_df = styled_df.hide_columns(['Signal Score'])
-
+                styled_df = styled_df.hide(axis='columns', subset=['Signal Score'])
+                
                 # Apply individual column styling
                 styled_df = styled_df.map(style_screener_corr, subset=['60D Corr %'])
                 styled_df = styled_df.map(style_screener_signal, subset=['Signal'])
