@@ -1,7 +1,10 @@
 import streamlit as st
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
-# ALL other imports come AFTER set_page_config
 from imports import *
+
+if 'initialized' not in st.session_state:
+    st.session_state.initialized = True
+    st.session_state.ml_results = None
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
