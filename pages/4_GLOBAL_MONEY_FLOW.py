@@ -886,8 +886,13 @@ def get_correlation_interpretation(corr_value):
 
 # Single Stock Analysis
 st.subheader(f"Single Stock: {user_ticker}")
+
 try:
     raw = yf.download(user_ticker, start=start_date, end=end_date, progress=False)
+    
+    if raw.empty:
+        st.error(f"No data found for {user_ticker}")
+        st.stop()
     
     if isinstance(raw.columns, pd.MultiIndex):
         if 'Adj Close' in raw.columns.get_level_values(0):
@@ -905,158 +910,100 @@ try:
         else:
             st.error("No 'Adj Close' or 'Close' data found.")
             st.stop()
-            
-    user_stock_data = user_stock_data.ffill()
-    user_stock_data = user_stock_data.squeeze()
+    
+    # Clean the data
+    user_stock_data = user_stock_data.ffill().dropna()
+    if isinstance(user_stock_data, pd.DataFrame):
+        user_stock_data = user_stock_data.squeeze()
     
 except Exception as e:
     st.error(f"Failed to load data for {user_ticker}: {e}")
     st.stop()
 
+# Smooth the stock data
 user_stock_smoothed = user_stock_data.rolling(window=5, min_periods=1).mean()
 if len(user_stock_smoothed) > 0 and len(user_stock_data) > 0:
     user_stock_smoothed.iloc[-1] = user_stock_data.iloc[-1]
 
-gf_single = money_flow_s
-stk_single = user_stock_smoothed
-gf_aligned, stk_aligned = gf_single.align(stk_single, join='inner')
+# Align GMF and stock data
+gf_single = money_flow_s.dropna()
+stk_single = user_stock_smoothed.dropna()
+
+# Align indices
+common_idx = gf_single.index.intersection(stk_single.index)
+gf_aligned = gf_single.loc[common_idx]
+stk_aligned = stk_single.loc[common_idx]
 
 cw_ = 60
 latest_corr = float('nan')
 latest_corr_percent = float('nan')
 
 if len(gf_aligned) >= cw_:
+    # Calculate rolling correlation
     rolling_corr_single = gf_aligned.rolling(cw_, min_periods=cw_//2).corr(stk_aligned)
-    if not rolling_corr_single.empty:
-        latest_corr = float(rolling_corr_single.iloc[-1]) if len(rolling_corr_single) > 0 else np.nan
+    if len(rolling_corr_single) > 0:
+        latest_corr = float(rolling_corr_single.iloc[-1]) if not pd.isna(rolling_corr_single.iloc[-1]) else np.nan
         if pd.notna(latest_corr):
             latest_corr_percent = round(latest_corr * 100, 1)
-        else:
-            latest_corr_percent = float('nan')
     
+    # Create DataFrame for correlation plot
     rolling_corr_df = pd.DataFrame({
         "Date": rolling_corr_single.index,
         "Correlation": rolling_corr_single * 100
     }).dropna()
+    
+    # FIXED: Simplified correlation chart
+    if not rolling_corr_df.empty and len(rolling_corr_df) > 10:
+        # Create a simple line chart for correlation
+        corr_base = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', strokeWidth=2).encode(
+            x=alt.X('Date:T', title='Date'),
+            y=alt.Y('Correlation:Q', 
+                    title=f'{user_ticker} - Correlation (%)',
+                    scale=alt.Scale(domain=[-100, 100])),
+            tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
+        ).properties(height=250)
+        
+        # Add reference lines
+        zero_rule = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='red', strokeDash=[5, 5]).encode(y='y')
+        pos_rule = alt.Chart(pd.DataFrame({'y': [30]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
+        neg_rule = alt.Chart(pd.DataFrame({'y': [-30]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
+        
+        correlation_chart = (corr_base + zero_rule + pos_rule + neg_rule)
+        st.altair_chart(correlation_chart, use_container_width=True)
+    else:
+        st.info("Insufficient data for correlation chart")
+        correlation_chart = None
 else:
-    rolling_corr_df = pd.DataFrame({"Date": [], "Correlation": []})
+    st.info(f"Insufficient data for {cw_}-day correlation calculation")
+    correlation_chart = None
 
-if not gf_aligned.empty and not stk_aligned.empty:
+# Create price comparison chart
+if len(gf_aligned) > 0 and len(stk_aligned) > 0:
+    # Normalize both series to start at 100
     gf_normalized = (gf_aligned / gf_aligned.iloc[0]) * 100
     stk_normalized = (stk_aligned / stk_aligned.iloc[0]) * 100
     
-    combined_df = pd.DataFrame({
-        "Date": gf_aligned.index,
-        "Global Money Flow": gf_aligned,
-        "Stock Price": stk_normalized
+    # Combine for plotting
+    price_df = pd.DataFrame({
+        'Date': gf_normalized.index,
+        'Global Money Flow': gf_normalized.values,
+        f'{user_ticker} Price': stk_normalized.values
     })
     
-    combined_long_df = combined_df.melt(
-        id_vars='Date',
-        value_vars=['Global Money Flow', 'Stock Price'],
-        var_name='Series',
-        value_name='Value'
-    )
+    # Melt for Altair
+    price_melted = price_df.melt(id_vars='Date', var_name='Series', value_name='Value')
     
-    shared_x_scale = alt.Scale(domain=[gf_normalized.index.min(), gf_normalized.index.max()])
+    # Create price comparison chart
+    price_chart = alt.Chart(price_melted).mark_line(strokeWidth=2).encode(
+        x=alt.X('Date:T', title='Date'),
+        y=alt.Y('Value:Q', title='Normalized Value (Indexed to 100)'),
+        color=alt.Color('Series:N', 
+                       scale=alt.Scale(domain=['Global Money Flow', f'{user_ticker} Price'],
+                                     range=['#1f77b4', '#d62728'])),
+        tooltip=['Date:T', 'Series:N', alt.Tooltip('Value:Q', format='.2f')]
+    ).properties(height=300)
     
-    # Correlation chart
-    if not rolling_corr_df.empty:
-        corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
-            x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
-            y=alt.Y('Correlation:Q', 
-                    title=f'{user_ticker} - Correlation (%)', 
-                    scale=alt.Scale(domain=[-100, 100], zero=True),  # Keep zero line visible
-                    axis=alt.Axis(grid=True, tickCount=10)),  # Add grid lines
-            tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
-        ).properties(height=200)  # Increased height for better visibility
-        
-        # Add zero line
-        corr_zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[5, 5], strokeWidth=1.5).encode(y='y')
-        
-        # Add horizontal lines at -30 and +30 for reference
-        ref_lines = alt.Chart(pd.DataFrame({'y': [-30, 30]})).mark_rule(color='lightgray', strokeDash=[3, 3], strokeWidth=1).encode(y='y')
-        
-        corr_chart = corr_chart + corr_zero_line + ref_lines
-    else:
-        corr_chart = alt.Chart(pd.DataFrame({'x': [], 'y': []})).mark_text(
-            text="Insufficient data for correlation calculation"
-        ).properties(height=200)
-    
-    # Price vs Flow chart
-    base = alt.Chart(combined_long_df).encode(
-        x=alt.X('Date:T', 
-                axis=alt.Axis(format='%Y-%m-%d', title='Date', labelAngle=-45),  # Better date format
-                scale=alt.Scale(domain=[combined_long_df['Date'].min(), combined_long_df['Date'].max()]))
-    )
-    
-    color_scale = alt.Scale(domain=['Global Money Flow', 'Stock Price'], 
-                           range=['#1f77b4', '#d62728'])
-    
-    money_flow_line = base.mark_line(color='#1f77b4', opacity=0.5, strokeWidth=1.5).encode(
-        x=alt.X('Date:T', axis=None),
-        y=alt.Y('Value:Q', 
-                axis=alt.Axis(title='Global Money Flow', orient='left', grid=True),
-                scale=alt.Scale(zero=False)),  # Don't force zero for money flow
-        color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left', title=None))
-    ).transform_filter(alt.datum.Series == 'Global Money Flow')
-    
-    stock_price_line = base.mark_line(opacity=0.5, strokeWidth=1.5).encode(
-        x=alt.X('Date:T', axis=alt.Axis(format='%Y-%m-%d', title='Date', labelAngle=-45)),
-        y=alt.Y('Value:Q', 
-                axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right', grid=False),
-                scale=alt.Scale(zero=False)),  # Don't force zero for stock price
-        color=alt.Color('Series:N', scale=color_scale, legend=None)
-    ).transform_filter(alt.datum.Series == 'Stock Price')
-    
-    # Add correlation text
-    correlation_text = (
-        alt.Chart(pd.DataFrame({'x': [0.5], 'y': [0]}))
-          .mark_text(
-              align='center',
-              baseline='top',
-              fontSize=14,
-              fontWeight='bold',
-              color='gray'
-          )
-          .encode(
-              x='x:Q',
-              y='y:Q',
-              text=alt.value(
-                  f'{cw_}D Corr: {latest_corr_percent:.1f}%'
-                  if pd.notna(latest_corr_percent)
-                  else f'{cw_}D Corr: N/A'
-              )
-          )
-    )
-    
-    combined_price_chart = alt.layer(
-        money_flow_line, 
-        stock_price_line
-    ).resolve_scale(
-        y='independent'
-    ).properties(height=300, width="container")
-    
-    combined_price_chart = combined_price_chart + correlation_text
-    
-    # Combine charts
-    final_stacked_chart = alt.vconcat(
-        corr_chart,
-        combined_price_chart
-    ).resolve_scale(
-        x='shared'
-    ).properties(
-        title=f"{user_ticker} Correlation & Price Analysis",
-        width='container'  # Use container width
-    )
-    
-    # Configure chart to use full width
-    final_stacked_chart = final_stacked_chart.configure_view(
-        continuousWidth=800,  # Minimum width
-        continuousHeight=300
-    )
-    
-    st.altair_chart(final_stacked_chart, use_container_width=True)
+    st.altair_chart(price_chart, use_container_width=True)
     
     # Display correlation interpretation
     if pd.notna(latest_corr_percent):
