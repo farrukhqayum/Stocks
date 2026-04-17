@@ -1,4 +1,8 @@
 import streamlit as st
+try:
+    st.empty()
+except:
+    pass
 
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 
@@ -7,7 +11,7 @@ try:
     st.cache_resource.clear()
 except:
     pass
-st.empty()
+
 if 'session_initialized' not in st.session_state:
     st.session_state.session_initialized = True
     st.session_state.ml_results = None
