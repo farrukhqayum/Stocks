@@ -90,71 +90,103 @@ st.sidebar.markdown("---")
 st.sidebar.header("💹 Stock Analysis")
 user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
-# ========== DATA LOADING FUNCTIONS ==========
-def safe_download(ticker, start, end):
-    """Improved safe download with better error handling"""
-    try:
-        df = yf.download(ticker, start=start, end=end, progress=False)
-        
-        # Handle empty DataFrame
-        if df.empty:
-            st.warning(f"⚠️ No data for {ticker}. Creating placeholder series.")
-            idx = pd.date_range(start=start, end=end, freq="B")
-            # Convert to pandas Series with proper NA handling
-            return pd.Series(np.nan, index=idx, name=ticker, dtype='float64')
-        
-        # Extract price with improved MultiIndex handling
-        if isinstance(df.columns, pd.MultiIndex):
-            # Try to get 'Adj Close' or fall back to 'Close'
-            if 'Adj Close' in df.columns.get_level_values(0):
-                s = df['Adj Close'].iloc[:, 0] if df['Adj Close'].shape[1] > 1 else df['Adj Close']
-            elif 'Close' in df.columns.get_level_values(0):
-                s = df['Close'].iloc[:, 0] if df['Close'].shape[1] > 1 else df['Close']
-            else:
-                s = df.iloc[:, 0]  # Take first column as fallback
-        else:
-            if 'Adj Close' in df.columns:
-                s = df['Adj Close']
-            elif 'Close' in df.columns:
-                s = df['Close']
-            else:
-                s = df.iloc[:, 0]  # Take first column as fallback
-        
-        # Ensure we have a Series, not DataFrame
-        if isinstance(s, pd.DataFrame):
-            s = s.iloc[:, 0] if s.shape[1] > 0 else pd.Series()
-        
-        s.index = pd.to_datetime(s.index)
-        s = s.rename(ticker)
-        
-        # Convert to float64 to avoid nullable integer issues
-        return s.astype('float64')
-        
-    except Exception as e:
-        st.warning(f"⚠️ Error downloading {ticker}: {str(e)}")
-        idx = pd.date_range(start=start, end=end, freq="B")
-        return pd.Series(np.nan, index=idx, name=ticker, dtype='float64')
+def extract_price_series(df, ticker_name):
+    """Extract price series from downloaded DataFrame"""
     
-def load_data(tickers, start, end):
-    """Improved data loading with better concatenation"""
+    if df.empty:
+        idx = pd.date_range(start=start_date, end=end_date, freq="B")
+        return pd.Series(np.nan, index=idx, name=ticker_name, dtype='float64')
+    
+    # Try different column names
+    price_column = None
+    for col in ['Close', 'Adj Close', 'Price']:
+        if col in df.columns:
+            price_column = col
+            break
+    
+    if price_column is None:
+        # If no standard column, take the first numeric column
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            price_column = numeric_cols[0]
+        else:
+            # Create empty series
+            idx = pd.date_range(start=start_date, end=end_date, freq="B")
+            return pd.Series(np.nan, index=idx, name=ticker_name, dtype='float64')
+    
+    # Extract the series
+    s = df[price_column].copy()
+    
+    # Handle MultiIndex
+    if isinstance(s, pd.DataFrame):
+        s = s.iloc[:, 0] if s.shape[1] > 0 else pd.Series()
+    
+    # Ensure we have a Series
+    if not isinstance(s, pd.Series):
+        s = pd.Series(s)
+    
+    s.index = pd.to_datetime(s.index)
+    s = s.rename(ticker_name)
+    
+    return s.astype('float64')
+    
+def safe_download(ticker, start, end, max_retries=3):
+    """Improved safe download with retry logic and proper headers"""
+    
+    # Add a small delay to avoid rate limiting
+    time.sleep(0.5)
+    
+    for attempt in range(max_retries):
+        try:
+            # Create a Ticker object instead of using yf.download directly
+            ticker_obj = yf.Ticker(ticker)
+            
+            # Try to get history with proper parameters
+            df = ticker_obj.history(
+                start=start, 
+                end=end,
+                auto_adjust=False,  # Don't auto-adjust to get more data
+                actions=False,
+                timeout=30
+            )
+            
+            if not df.empty:
+                return df
+                
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(2)  # Wait before retry
+                continue
+            else:
+                st.warning(f"⚠️ Could not download {ticker} after {max_retries} attempts: {str(e)}")
+    
+    # Return empty DataFrame with proper structure
+    idx = pd.date_range(start=start, end=end, freq="B")
+    return pd.DataFrame(index=idx)
+    
+def load_data(tickers, start, end, use_alternative=False):
+    """Load data with alternative source option"""
     series_list = []
     
     for name, ticker in tickers.items():
-        s = safe_download(ticker, start, end)
-        s = s.rename(name)
+        df = safe_download(ticker, start, end, use_alternative=use_alternative)
+        s = extract_price_series(df, name)
         series_list.append(s)
     
-    # Concatenate with proper handling of different indices
     df = pd.concat(series_list, axis=1, join='outer')
-    
-    # Ensure datetime index
     df.index = pd.to_datetime(df.index)
-    
-    # Handle any remaining NA values
-    df = df.astype('float64')
     
     return df
 
+# In the main execution, replace the data loading with:
+use_alternative = st.sidebar.checkbox("Use demo data if Yahoo fails", value=False)
+
+try:
+    data = load_data(tickers, start_date, end_date, use_alternative=use_alternative)
+    
+    spx_df = safe_download("^GSPC", start_date, end_date, use_alternative=use_alternative)
+    spx_data = extract_price_series(spx_df, "S&P 500 (SPX)")
+    
 # ========== LOAD DATA ==========
 try:
     data = load_data(tickers, start_date, end_date)
