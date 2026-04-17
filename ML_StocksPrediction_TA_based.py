@@ -1,4 +1,7 @@
 import streamlit as st
+st.cache_data.clear()
+st.cache_resource.clear()
+
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 from imports import *
 
