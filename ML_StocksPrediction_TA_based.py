@@ -1,26 +1,13 @@
 import streamlit as st
-st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
-try:
-    st.empty()
-except:
-    pass
-    
-try:
-    st.cache_data.clear()
-    st.cache_resource.clear()
-except:
-    pass
 
-if 'session_initialized' not in st.session_state:
-    st.session_state.session_initialized = True
-    st.session_state.ml_results = None
-    st.session_state.cache_cleared = True
-    
-from imports import *
-@st.cache_resource
-def load_ta_module():
-    import ta_functions as ta
-    return ta
+st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
+
+try:
+    if 'session_initialized' not in st.session_state:
+        st.session_state.session_initialized = True
+        st.session_state.ml_results = None
+except (AttributeError, KeyError, RuntimeError) as e:
+    pass
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
