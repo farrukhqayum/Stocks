@@ -9,8 +9,8 @@ try:
 except (AttributeError, KeyError, RuntimeError) as e:
     pass
 
+from imports import *
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
-warnings.filterwarnings("ignore")
 
 bold = '\033[1m'
 end = '\033[0m'
