@@ -964,35 +964,48 @@ if not gf_aligned.empty and not stk_aligned.empty:
     if not rolling_corr_df.empty:
         corr_chart = alt.Chart(rolling_corr_df).mark_line(color='#1f77b4', opacity=0.6).encode(
             x=alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y', title='Date')),
-            y=alt.Y('Correlation:Q', title=f'{user_ticker} - Correlation (%)', 
-                   scale=alt.Scale(domain=[-100, 100])),
+            y=alt.Y('Correlation:Q', 
+                    title=f'{user_ticker} - Correlation (%)', 
+                    scale=alt.Scale(domain=[-100, 100], zero=True),  # Keep zero line visible
+                    axis=alt.Axis(grid=True, tickCount=10)),  # Add grid lines
             tooltip=['Date:T', alt.Tooltip('Correlation:Q', format='.1f')]
-        ).properties(height=150)
+        ).properties(height=200)  # Increased height for better visibility
         
-        corr_zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[3, 3]).encode(y='y')
-        corr_chart = corr_chart + corr_zero_line
+        # Add zero line
+        corr_zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='gray', strokeDash=[5, 5], strokeWidth=1.5).encode(y='y')
+        
+        # Add horizontal lines at -30 and +30 for reference
+        ref_lines = alt.Chart(pd.DataFrame({'y': [-30, 30]})).mark_rule(color='lightgray', strokeDash=[3, 3], strokeWidth=1).encode(y='y')
+        
+        corr_chart = corr_chart + corr_zero_line + ref_lines
     else:
         corr_chart = alt.Chart(pd.DataFrame({'x': [], 'y': []})).mark_text(
             text="Insufficient data for correlation calculation"
-        ).properties(height=150)
+        ).properties(height=200)
     
     # Price vs Flow chart
     base = alt.Chart(combined_long_df).encode(
-        x=alt.X('Date:T', scale=shared_x_scale)
+        x=alt.X('Date:T', 
+                axis=alt.Axis(format='%Y-%m-%d', title='Date', labelAngle=-45),  # Better date format
+                scale=alt.Scale(domain=[combined_long_df['Date'].min(), combined_long_df['Date'].max()]))
     )
     
     color_scale = alt.Scale(domain=['Global Money Flow', 'Stock Price'], 
                            range=['#1f77b4', '#d62728'])
     
-    money_flow_line = base.mark_line(color='#1f77b4', opacity=0.5).encode(
+    money_flow_line = base.mark_line(color='#1f77b4', opacity=0.5, strokeWidth=1.5).encode(
         x=alt.X('Date:T', axis=None),
-        y=alt.Y('Value:Q', axis=alt.Axis(title='Global Money Flow', orient='left')),
+        y=alt.Y('Value:Q', 
+                axis=alt.Axis(title='Global Money Flow', orient='left', grid=True),
+                scale=alt.Scale(zero=False)),  # Don't force zero for money flow
         color=alt.Color('Series:N', scale=color_scale, legend=alt.Legend(orient='top-left', title=None))
     ).transform_filter(alt.datum.Series == 'Global Money Flow')
     
-    stock_price_line = base.mark_line(opacity=0.5).encode(
-        x = alt.X('Date:T', axis=alt.Axis(format='%d/%m/%Y')),
-        y=alt.Y('Value:Q', axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right')),
+    stock_price_line = base.mark_line(opacity=0.5, strokeWidth=1.5).encode(
+        x=alt.X('Date:T', axis=alt.Axis(format='%Y-%m-%d', title='Date', labelAngle=-45)),
+        y=alt.Y('Value:Q', 
+                axis=alt.Axis(title=f'Normalized {user_ticker} Price', orient='right', grid=False),
+                scale=alt.Scale(zero=False)),  # Don't force zero for stock price
         color=alt.Color('Series:N', scale=color_scale, legend=None)
     ).transform_filter(alt.datum.Series == 'Stock Price')
     
@@ -1033,7 +1046,14 @@ if not gf_aligned.empty and not stk_aligned.empty:
     ).resolve_scale(
         x='shared'
     ).properties(
-        title=f"{user_ticker} Correlation & Price Analysis"
+        title=f"{user_ticker} Correlation & Price Analysis",
+        width='container'  # Use container width
+    )
+    
+    # Configure chart to use full width
+    final_stacked_chart = final_stacked_chart.configure_view(
+        continuousWidth=800,  # Minimum width
+        continuousHeight=300
     )
     
     st.altair_chart(final_stacked_chart, use_container_width=True)
