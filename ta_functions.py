@@ -1,10 +1,5 @@
-import pandas as pd
-import numpy as np
-import yfinance as yf
-from datetime import datetime, timedelta
-from sklearn.linear_model import LinearRegression
-import warnings
-warnings.filterwarnings('ignore')
+import streamlit as st
+from imports import *
 
 # ============================================
 # HELPER FUNCTIONS
