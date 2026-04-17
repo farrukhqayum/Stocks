@@ -1,5 +1,4 @@
 import streamlit as st
-from imports import *
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
@@ -8,6 +7,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+from imports import *
 
 st.title("🌍 Global Money Flow (GMF)")
 st.markdown("""
