@@ -1,6 +1,6 @@
 # =====================================================================
-# 1_SMC_DASHBOARD.py (UPDATED)
-# Multi‑timeframe SMC Dashboard: Daily Context + Hourly Entry Signals
+# 1_SMC_DASHBOARD.py (MULTI‑TIMEFRAME + SIMPLIFIED CHART)
+# Daily Context + Hourly Entry Signals + Clean Candles + LB + RSI
 # =====================================================================
 
 import streamlit as st
@@ -10,13 +10,12 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from matplotlib.ticker import LogLocator
 
 st.set_page_config(page_title="SMC Dashboard", layout="wide")
-st.title("📈 SMART MONEY CONCEPTS (SMC) – Daily Context + Hourly Entry")
+st.title("📈 SMART MONEY CONCEPTS – Daily Context + Hourly Entry")
 
 # ------------------------------------------------------------
-# 1. INDICATORS & HELPERS (same as before, plus ATR, RSI, LB)
+# 1. INDICATORS & HELPERS
 # ------------------------------------------------------------
 def ema(series, length):
     return series.ewm(span=length, adjust=False).mean()
@@ -64,7 +63,7 @@ def compute_lb_curve(df, lblen=10):
     return lb_series.ewm(span=lblen, adjust=False).mean()
 
 # ------------------------------------------------------------
-# 2. ZONE CLASSES (FVG / OB) – same as before
+# 2. ZONE CLASSES (FVG / OB) – needed for context but not plotted
 # ------------------------------------------------------------
 class FVGZone:
     def __init__(self, top, bottom, start_idx, is_bull):
@@ -87,7 +86,7 @@ class OBZone:
         self.touched = False
 
 # ------------------------------------------------------------
-# 3. ZONE DETECTION (FVG & OB) – enhanced with ATR gap
+# 3. ZONE DETECTION (FVG & OB) – used for daily context only
 # ------------------------------------------------------------
 def detect_fvg_zones(df, max_age=25, fail_window=5):
     high = df['high'].values
@@ -225,13 +224,12 @@ def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
     last_high_idx = None
     last_low_idx = None
     is_uptrend = None
-    bos_up_bars = []   # (bar_index, price)
+    bos_up_bars = []
     bos_dn_bars = []
     cho_ch_up_bars = []
     cho_ch_dn_bars = []
 
     for i in range(len(df)):
-        # Update last swing levels from swings that occurred on or before i
         for sh in swing_highs:
             if sh['idx'] <= i:
                 if last_swing_high is None or sh['idx'] > last_high_idx:
@@ -243,7 +241,6 @@ def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
                     last_swing_low = sl['price']
                     last_low_idx = sl['idx']
 
-        # BOS up candidate
         if last_swing_high is not None:
             bos_up_valid = df['close'].iloc[i] > last_swing_high + atr[i] * 0.1
             bos_up_rejected = (i>0 and df['close'].iloc[i-1] > last_swing_high and df['close'].iloc[i] < last_swing_high)
@@ -255,7 +252,6 @@ def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
                     cho_ch_up_bars.append((i, last_swing_high))
                 is_uptrend = True
 
-        # BOS down candidate
         if last_swing_low is not None:
             bos_dn_valid = df['close'].iloc[i] < last_swing_low - atr[i] * 0.1
             bos_dn_rejected = (i>0 and df['close'].iloc[i-1] < last_swing_low and df['close'].iloc[i] > last_swing_low)
@@ -270,28 +266,24 @@ def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
     return bos_up_bars, bos_dn_bars, cho_ch_up_bars, cho_ch_dn_bars, is_uptrend
 
 # ------------------------------------------------------------
-# 6. LIQUIDITY SWEEPS (BSL / SSL) – Pine style
+# 6. LIQUIDITY SWEEPS (BSL / SSL)
 # ------------------------------------------------------------
 def detect_liquidity_sweeps(df, swing_highs, swing_lows):
     last_swing_high = None
     last_swing_low = None
-    strong_bsl = []   # (bar_index, price)
+    strong_bsl = []
     strong_ssl = []
     for i in range(len(df)):
-        # update last swings
         for sh in swing_highs:
             if sh['idx'] <= i:
                 last_swing_high = sh['price']
         for sl in swing_lows:
             if sl['idx'] <= i:
                 last_swing_low = sl['price']
-        # BSL condition: high > last_swing_high and close < open
         if last_swing_high is not None and i>=2:
-            # Check for a swing high 2 bars ago (simple)
             is_bsl = (df['high'].iloc[i-2] > df['high'].iloc[i-3] and df['high'].iloc[i-2] > df['high'].iloc[i-1])
             if is_bsl and df['close'].iloc[i] < df['open'].iloc[i] and df['high'].iloc[i] > df['high'].iloc[i-2]:
                 strong_bsl.append((i, df['high'].iloc[i-2]))
-        # SSL condition: low < last_swing_low and close > open
         if last_swing_low is not None and i>=2:
             is_ssl = (df['low'].iloc[i-2] < df['low'].iloc[i-3] and df['low'].iloc[i-2] < df['low'].iloc[i-1])
             if is_ssl and df['close'].iloc[i] > df['open'].iloc[i] and df['low'].iloc[i] < df['low'].iloc[i-2]:
@@ -299,7 +291,7 @@ def detect_liquidity_sweeps(df, swing_highs, swing_lows):
     return strong_bsl, strong_ssl
 
 # ------------------------------------------------------------
-# 7. CANDLESTICK PATTERN ENGINE (simplified from Pine)
+# 7. CANDLESTICK PATTERN ENGINE (simplified)
 # ------------------------------------------------------------
 def detect_candle_pattern(df):
     o = df['open'].values
@@ -308,36 +300,30 @@ def detect_candle_pattern(df):
     c = df['close'].values
     n = len(df)
     if n < 3:
-        return None, None, None, None, None, None
+        return None, None, None
     last_pattern = None
     pattern_bull = None
     pattern_idx = None
-    # Morning / Evening Star (3‑candle)
     for i in range(2, n):
         body0 = abs(c[i] - o[i])
         body1 = abs(c[i-1] - o[i-1])
         body2 = abs(c[i-2] - o[i-2])
-        # Morning star: bearish, small body, close > (open+close)/2
         if c[i-2] < o[i-2] and body1 < body2*0.4 and c[i] > (o[i-2]+c[i-2])/2:
             last_pattern = "Morning Star"
             pattern_bull = True
             pattern_idx = i
-        # Evening star
         elif c[i-2] > o[i-2] and body1 < body2*0.4 and c[i] < (o[i-2]+c[i-2])/2:
             last_pattern = "Evening Star"
             pattern_bull = False
             pattern_idx = i
-        # Bull Engulfing
         elif c[i-1] < o[i-1] and c[i] > o[i] and o[i] <= c[i-1] and c[i] >= o[i-1]:
             last_pattern = "Bull Engulfing"
             pattern_bull = True
             pattern_idx = i
-        # Bear Engulfing
         elif c[i-1] > o[i-1] and c[i] < o[i] and o[i] >= c[i-1] and c[i] <= o[i-1]:
             last_pattern = "Bear Engulfing"
             pattern_bull = False
             pattern_idx = i
-        # Hammer
         else:
             body0 = abs(c[i] - o[i])
             crange = h[i] - l[i]
@@ -347,21 +333,18 @@ def detect_candle_pattern(df):
                 last_pattern = "Hammer"
                 pattern_bull = True
                 pattern_idx = i
-            # Shooting Star
             elif wick_high > body0*2 and wick_low < body0*0.5:
                 last_pattern = "Shooting Star"
                 pattern_bull = False
                 pattern_idx = i
-    # Rejection / expiration logic simplified: we only store if pattern exists
-    return last_pattern, pattern_bull, pattern_idx, None, None, None
+    return last_pattern, pattern_bull, pattern_idx
 
 # ------------------------------------------------------------
-# 8. SCORING & REGIME (from Pine)
+# 8. SCORING & REGIME
 # ------------------------------------------------------------
 def compute_regime_score(df, smc_bullish, smc_bearish, strong_ssl, strong_bsl,
                          pattern_bull, pattern_bear, pattern_rejected,
-                         mom_bullish, mom_bearish, inside_zone, approaching_bull,
-                         approaching_bear, recent_zone_touch, last_zone_bullish):
+                         mom_bullish, mom_bearish, inside_zone, last_zone_bullish):
     bull_score = 0
     bear_score = 0
     if smc_bullish:
@@ -403,7 +386,6 @@ def load_data(ticker, start_date, interval):
                      auto_adjust=False, progress=False)
     if df is None or df.empty:
         return None
-    # Flatten columns if MultiIndex
     df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
     if isinstance(df.index, pd.DatetimeIndex):
         df["Date"] = df.index
@@ -411,7 +393,7 @@ def load_data(ticker, start_date, interval):
         raise ValueError("No datetime index")
     df.set_index("Date", inplace=True)
     df = df.dropna(subset=["open", "high", "low", "close"]).astype(float)
-    # Indicators
+    # Basic indicators
     df['ema20'] = ema(df.close, 20)
     df['ema50'] = ema(df.close, 50)
     df['ema200'] = ema(df.close, 200)
@@ -423,28 +405,20 @@ def load_data(ticker, start_date, interval):
     return df
 
 # ------------------------------------------------------------
-# 10. CONTEXT ANALYSIS FOR DAILY TIMEFRAME
+# 10. DAILY CONTEXT ANALYSIS
 # ------------------------------------------------------------
 def analyze_daily_context(df_daily):
-    """Compute all SMC signals on daily data and return a summary dict."""
-    # Zones
     fvg_zones = detect_fvg_zones(df_daily)
     ob_zones = detect_order_blocks(df_daily)
-    # Swings
     swing_highs, swing_lows = detect_swings(df_daily, left_bars=10, right_bars=4)
-    # BOS/CHoCH
     bos_up, bos_dn, cho_up, cho_dn, is_uptrend = compute_bos_cho_ch(df_daily, swing_highs, swing_lows, df_daily['atr'].values)
-    # Sweeps
     strong_bsl, strong_ssl = detect_liquidity_sweeps(df_daily, swing_highs, swing_lows)
-    # Candlestick pattern (latest)
-    pattern, pattern_bull, pattern_idx, _, _, _ = detect_candle_pattern(df_daily)
-    pattern_rejected = False  # simplified
-    # Momentum
+    pattern, pattern_bull, _ = detect_candle_pattern(df_daily)
+    pattern_rejected = False
     lb_up = df_daily['close'].iloc[-1] > df_daily['lb_crv'].iloc[-1] * 1.02
     lb_down = df_daily['close'].iloc[-1] < df_daily['lb_crv'].iloc[-1] * 0.98
     mom_bullish = (df_daily['rsi'].iloc[-1] > 51 and df_daily['rsi'].iloc[-1] > df_daily['rsi_ema'].iloc[-1]) or lb_up
     mom_bearish = (df_daily['rsi'].iloc[-1] < 44 and df_daily['rsi'].iloc[-1] < df_daily['rsi_ema'].iloc[-1]) or lb_down
-    # Zone proximity / inside
     inside_zone = False
     last_zone_bullish = None
     for z in fvg_zones + ob_zones:
@@ -452,7 +426,6 @@ def analyze_daily_context(df_daily):
             inside_zone = True
             last_zone_bullish = z.is_bull
             break
-    # Scoring
     net_score, regime = compute_regime_score(df_daily,
                                              smc_bullish=is_uptrend==True,
                                              smc_bearish=is_uptrend==False,
@@ -464,9 +437,6 @@ def analyze_daily_context(df_daily):
                                              mom_bullish=mom_bullish,
                                              mom_bearish=mom_bearish,
                                              inside_zone=inside_zone,
-                                             approaching_bull=False,
-                                             approaching_bear=False,
-                                             recent_zone_touch=False,
                                              last_zone_bullish=last_zone_bullish)
     return {
         'trend': 'BULLISH' if is_uptrend else 'BEARISH' if is_uptrend is not None else 'NEUTRAL',
@@ -492,11 +462,10 @@ def analyze_daily_context(df_daily):
     }
 
 # ------------------------------------------------------------
-# 11. ENTRY SIGNALS ON HOURLY DATA (using daily context)
+# 11. HOURLY ENTRY SIGNAL (using daily context)
 # ------------------------------------------------------------
 def get_hourly_signal(df_hourly, daily_ctx):
-    """Return a dict with signal, stop loss, take profit, and risk/reward."""
-    # Basic hourly indicators
+    df_hourly = df_hourly.copy()
     df_hourly['ema20'] = ema(df_hourly.close, 20)
     df_hourly['ema50'] = ema(df_hourly.close, 50)
     df_hourly['lb_crv'] = compute_lb_curve(df_hourly)
@@ -505,36 +474,27 @@ def get_hourly_signal(df_hourly, daily_ctx):
     df_hourly['atr'] = compute_atr(df_hourly, 14)
 
     last = df_hourly.iloc[-1]
-    # Momentum on hourly
     lb_up = last['close'] > last['lb_crv'] * 1.02
     lb_down = last['close'] < last['lb_crv'] * 0.98
     mom_bullish = (last['rsi'] > 51 and last['rsi'] > last['rsi_ema']) or lb_up
     mom_bearish = (last['rsi'] < 44 and last['rsi'] < last['rsi_ema']) or lb_down
 
-    # Pattern on last hourly candle (simplified)
-    pattern, pattern_bull, _, _, _, _ = detect_candle_pattern(df_hourly)
+    pattern, pattern_bull, _ = detect_candle_pattern(df_hourly)
 
-    # Zone detection on hourly (quick)
     fvg_h = detect_fvg_zones(df_hourly, max_age=15)
     ob_h = detect_order_blocks(df_hourly, max_age=15)
     inside_zone_h = False
-    zone_top = zone_bottom = None
     for z in fvg_h + ob_h:
         if last['high'] >= z.bottom and last['low'] <= z.top:
             inside_zone_h = True
-            zone_top = z.top
-            zone_bottom = z.bottom
             break
 
-    # ----- DAILY CONTEXT RULES (from Pine) -----
     daily_bullish = daily_ctx['trend'] == 'BULLISH' and daily_ctx['net_score'] > 20
     daily_bearish = daily_ctx['trend'] == 'BEARISH' and daily_ctx['net_score'] < -20
 
-    # Only trade in direction of daily context
     can_long = daily_bullish
     can_short = daily_bearish
 
-    # Additional daily filters: inside a zone, recent sweep, pattern confirmation
     if daily_ctx['inside_zone'] and daily_ctx['zone_bullish'] is not None:
         can_long = can_long and daily_ctx['zone_bullish']
         can_short = can_short and not daily_ctx['zone_bullish']
@@ -544,7 +504,6 @@ def get_hourly_signal(df_hourly, daily_ctx):
     if daily_ctx['recent_bsl']:
         can_short = True
 
-    # Hourly triggers
     long_signal = False
     short_signal = False
     reason = ""
@@ -562,7 +521,6 @@ def get_hourly_signal(df_hourly, daily_ctx):
         short_signal = True
         reason = "Daily BSL sweep + hourly LB down"
 
-    # Stop Loss & Take Profit (simple ATR based)
     atr_val = last['atr']
     if long_signal:
         stop_loss = last['low'] - atr_val * 0.5
@@ -572,7 +530,7 @@ def get_hourly_signal(df_hourly, daily_ctx):
         rr = reward / risk if risk > 0 else 0
         return {
             'signal': 'LONG',
-            'valid': rr >= 1.5,   # minimum 1.5 risk/reward
+            'valid': rr >= 1.5,
             'reason': reason,
             'stop_loss': stop_loss,
             'take_profit': take_profit,
@@ -598,36 +556,91 @@ def get_hourly_signal(df_hourly, daily_ctx):
         return {'signal': 'NO TRADE', 'valid': False, 'reason': 'No valid setup'}
 
 # ------------------------------------------------------------
-# 12. STREAMLIT UI: MULTI‑TIMEFRAME DASHBOARD
+# 12. SIMPLIFIED CHART (only candles, LB curve, RSI panel)
+# ------------------------------------------------------------
+def plot_simple_chart(df, title="Price Action (Candles + LB + RSI)"):
+    fig, (ax, ax2) = plt.subplots(2, 1, figsize=(12, 7),
+                                   gridspec_kw={"height_ratios": [3, 1]},
+                                   sharex=True)
+    x = np.arange(len(df))
+    o, h, l, c = df["open"], df["high"], df["low"], df["close"]
+    width = 0.6
+    up_color = "#26a69a"
+    down_color = "#ef5350"
+
+    # Candles
+    for i in range(len(df)):
+        color = up_color if c.iloc[i] >= o.iloc[i] else down_color
+        ax.vlines(i, l.iloc[i], h.iloc[i], color=color, linewidth=1)
+        ax.add_patch(Rectangle(
+            (i - width/2, min(o.iloc[i], c.iloc[i])),
+            width,
+            abs(c.iloc[i] - o.iloc[i]) or 0.001,
+            facecolor=color,
+            edgecolor=color
+        ))
+
+    # LB curve
+    ax.plot(x, df["lb_crv"], color="gray", alpha=0.8, linewidth=1.2, label="LB Curve")
+    ax.legend(loc="upper left")
+    ax.set_title(title)
+    ax.grid(alpha=0.2)
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position("right")
+
+    # RSI panel
+    rsi = df["rsi"]
+    rsi_ema = df["rsi_ema"]
+    ax2.fill_between(x, rsi, rsi_ema, where=(rsi > rsi_ema), color="green", alpha=0.15)
+    ax2.fill_between(x, rsi, rsi_ema, where=(rsi < rsi_ema), color="red", alpha=0.15)
+    ax2.plot(x, rsi, color="gray", linewidth=1.2)
+    ax2.plot(x, rsi_ema, color="gold", linewidth=1.2)
+    for level in [25, 50, 78]:
+        ax2.axhline(level, color="black", linestyle="--", linewidth=0.7, alpha=0.6)
+    ax2.set_ylim(0, 100)
+    ax2.set_ylabel("RSI")
+    ax2.grid(alpha=0.2)
+    ax2.yaxis.tick_right()
+    ax2.yaxis.set_label_position("right")
+
+    if isinstance(df.index, pd.DatetimeIndex):
+        ax2.set_xticks(x[::max(1, len(x)//10)])
+        ax2.set_xticklabels(df.index.strftime("%Y-%m-%d %H:%M")[::max(1, len(x)//10)],
+                            rotation=45, fontsize=8)
+
+    plt.tight_layout()
+    return fig
+
+# ------------------------------------------------------------
+# 13. STREAMLIT UI
 # ------------------------------------------------------------
 st.sidebar.header("Multi‑Timeframe Settings")
 ticker = st.sidebar.text_input("Ticker", "AAPL")
 
-# Daily context (always 1D)
-start_date_daily = datetime.today() - timedelta(days=365)   # 1 year of daily
+# Daily data (1 year)
+start_date_daily = datetime.today() - timedelta(days=365)
 df_daily = load_data(ticker, start_date_daily, "1d")
 if df_daily is None or df_daily.empty:
     st.error("Could not load daily data.")
     st.stop()
 
-# Hourly data (last 30 days for speed)
+# Hourly data (last 30 days)
 start_date_hourly = datetime.today() - timedelta(days=30)
 df_hourly = load_data(ticker, start_date_hourly, "1h")
 if df_hourly is None or df_hourly.empty:
-    st.warning("Hourly data not available. Falling back to 4H.")
+    st.warning("Hourly data not available. Using 4H instead.")
     df_hourly = load_data(ticker, start_date_hourly, "4h")
+    if df_hourly is None:
+        st.error("No intraday data available.")
+        st.stop()
 
-# 1. Analyze daily context
-with st.spinner("Analyzing daily context (1D)..."):
+with st.spinner("Analyzing daily context..."):
     daily_ctx = analyze_daily_context(df_daily)
 
-# 2. Get hourly signal
-with st.spinner("Scanning hourly entry signals (1H)..."):
+with st.spinner("Computing hourly entry signal..."):
     hourly_signal = get_hourly_signal(df_hourly, daily_ctx)
 
-# ------------------------------------------------------------
-# DASHBOARD OUTPUT (outside chart)
-# ------------------------------------------------------------
+# DASHBOARD
 st.subheader(f"📊 SMC Dashboard – {ticker}")
 col1, col2 = st.columns(2)
 
@@ -664,28 +677,12 @@ with col2:
         else:
             st.info("⛔ Recommendation: **Avoid trade** – wait for better R/R or stronger hourly signal.")
 
-# Optional: show mini charts of daily and hourly (last 50 bars)
-st.subheader("📈 Recent Price Action")
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6))
-# Daily
-ax1.plot(df_daily.index[-50:], df_daily['close'].values[-50:], label='Daily Close', color='blue')
-ax1.set_title(f"{ticker} Daily (last 50)")
-ax1.grid(alpha=0.3)
-# Hourly
-ax2.plot(df_hourly.index[-100:], df_hourly['close'].values[-100:], label='Hourly Close', color='orange')
-ax2.set_title(f"{ticker} Hourly (last 100)")
-ax2.grid(alpha=0.3)
-plt.tight_layout()
+# SIMPLIFIED CHART (candles + LB + RSI)
+st.subheader("📉 Hourly Price Action (Candles + LB Curve + RSI)")
+fig = plot_simple_chart(df_hourly.tail(200), title=f"{ticker} – Hourly (last 200 bars)")
 st.pyplot(fig)
 
-# ---------------------------------------------------------------------
-# Note: The original chart with FVG/OB zones is still available below
-# but we keep it optional. To reduce clutter, you can comment it out.
-# ---------------------------------------------------------------------
-if st.checkbox("Show detailed SMC chart (hourly)"):
-    # Re‑detect zones on hourly for plotting
-    fvg_h = detect_fvg_zones(df_hourly)
-    ob_h = detect_order_blocks(df_hourly)
-    # Reuse your existing plotchart function (you can copy it from original)
-    # For brevity, we skip full chart code here – you can paste it from your file.
-    st.info("Chart plotting function can be added here using your original plotchart().")
+# Optional: show mini daily chart
+if st.checkbox("Show daily chart (last 100 days)"):
+    fig_daily = plot_simple_chart(df_daily.tail(100), title=f"{ticker} – Daily (last 100 bars)")
+    st.pyplot(fig_daily)
