@@ -222,7 +222,7 @@ def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
     last_high_idx = None
     last_low_idx = None
     is_uptrend = None
-    bos_up = []
+    bos_up = []      # (swing_idx, break_idx, price)
     bos_dn = []
     cho_up = []
     cho_dn = []
@@ -235,26 +235,29 @@ def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
             if sl['idx'] <= i and (last_swing_low is None or sl['idx'] > last_low_idx):
                 last_swing_low = sl['price']
                 last_low_idx = sl['idx']
+
         if last_swing_high is not None:
             bos_up_valid = df['close'].iloc[i] > last_swing_high + atr[i] * 0.1
             bos_up_rejected = (i>0 and df['close'].iloc[i-1] > last_swing_high and df['close'].iloc[i] < last_swing_high)
             bos_up_confirmed = bos_up_valid and not bos_up_rejected
             if bos_up_confirmed and df['low'].iloc[i] <= last_swing_high:
                 if is_uptrend is None or is_uptrend:
-                    bos_up.append((i, last_swing_high))
+                    bos_up.append((last_high_idx, i, last_swing_high))
                 else:
-                    cho_up.append((i, last_swing_high))
+                    cho_up.append((last_high_idx, i, last_swing_high))
                 is_uptrend = True
+
         if last_swing_low is not None:
             bos_dn_valid = df['close'].iloc[i] < last_swing_low - atr[i] * 0.1
             bos_dn_rejected = (i>0 and df['close'].iloc[i-1] < last_swing_low and df['close'].iloc[i] > last_swing_low)
             bos_dn_confirmed = bos_dn_valid and not bos_dn_rejected
             if bos_dn_confirmed and df['high'].iloc[i] >= last_swing_low:
                 if is_uptrend is None or not is_uptrend:
-                    bos_dn.append((i, last_swing_low))
+                    bos_dn.append((last_low_idx, i, last_swing_low))
                 else:
-                    cho_dn.append((i, last_swing_low))
+                    cho_dn.append((last_low_idx, i, last_swing_low))
                 is_uptrend = False
+
     return bos_up, bos_dn, cho_up, cho_dn, is_uptrend
 
 # ------------------------------------------------------------
@@ -523,31 +526,37 @@ def plot_full_chart(df, fvg_zones, ob_zones, bos_up, bos_dn, cho_up, cho_dn,
                                    linestyle="-", linewidth=2))
 
     # BOS/CHoCH lines (convert indices to local)
+        # BOS/CHoCH lines (from swing bar to break bar only)
     if show_bos:
-        for (idx, price) in bos_up:
-            local_idx = idx - start_idx_global
-            if local_idx < 0 or local_idx > visible_end:
+        for (swing_idx, break_idx, price) in bos_up:
+            local_swing = swing_idx - start_idx_global
+            local_break = break_idx - start_idx_global
+            if local_swing < 0 or local_break > visible_end:
                 continue
-            ax.plot([local_idx, visible_end], [price, price], color="lime", linestyle="--", linewidth=1.5, alpha=0.8)
-            ax.text(visible_end, price, "  BOS ↑", fontsize=8, color="lime", va='bottom')
-        for (idx, price) in bos_dn:
-            local_idx = idx - start_idx_global
-            if local_idx < 0 or local_idx > visible_end:
+            ax.plot([local_swing, local_break], [price, price], color="lime", linestyle="--", linewidth=1.5, alpha=0.8)
+            # optional label at the break bar
+            ax.text(local_break, price, "  BOS ↑", fontsize=8, color="lime", va='bottom')
+        for (swing_idx, break_idx, price) in bos_dn:
+            local_swing = swing_idx - start_idx_global
+            local_break = break_idx - start_idx_global
+            if local_swing < 0 or local_break > visible_end:
                 continue
-            ax.plot([local_idx, visible_end], [price, price], color="red", linestyle="--", linewidth=1.5, alpha=0.8)
-            ax.text(visible_end, price, "  BOS ↓", fontsize=8, color="red", va='top')
-        for (idx, price) in cho_up:
-            local_idx = idx - start_idx_global
-            if local_idx < 0 or local_idx > visible_end:
+            ax.plot([local_swing, local_break], [price, price], color="red", linestyle="--", linewidth=1.5, alpha=0.8)
+            ax.text(local_break, price, "  BOS ↓", fontsize=8, color="red", va='top')
+        for (swing_idx, break_idx, price) in cho_up:
+            local_swing = swing_idx - start_idx_global
+            local_break = break_idx - start_idx_global
+            if local_swing < 0 or local_break > visible_end:
                 continue
-            ax.plot([local_idx, visible_end], [price, price], color="cyan", linestyle="--", linewidth=1.5, alpha=0.8)
-            ax.text(visible_end, price, "  CHoCH ↑", fontsize=8, color="cyan", va='bottom')
-        for (idx, price) in cho_dn:
-            local_idx = idx - start_idx_global
-            if local_idx < 0 or local_idx > visible_end:
+            ax.plot([local_swing, local_break], [price, price], color="cyan", linestyle="--", linewidth=1.5, alpha=0.8)
+            ax.text(local_break, price, "  CHoCH ↑", fontsize=8, color="cyan", va='bottom')
+        for (swing_idx, break_idx, price) in cho_dn:
+            local_swing = swing_idx - start_idx_global
+            local_break = break_idx - start_idx_global
+            if local_swing < 0 or local_break > visible_end:
                 continue
-            ax.plot([local_idx, visible_end], [price, price], color="orange", linestyle="--", linewidth=1.5, alpha=0.8)
-            ax.text(visible_end, price, "  CHoCH ↓", fontsize=8, color="orange", va='top')
+            ax.plot([local_swing, local_break], [price, price], color="orange", linestyle="--", linewidth=1.5, alpha=0.8)
+            ax.text(local_break, price, "  CHoCH ↓", fontsize=8, color="orange", va='top')
 
     # Turning points
     if show_tp and turning_points:
