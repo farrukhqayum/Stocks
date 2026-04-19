@@ -6,7 +6,7 @@
 import streamlit as st
 
 st.set_page_config(page_title="SMART MONEY CONCEPTS", layout="wide")
-st.title("📈 SMART MONEY CONCEPTS – Daily Context + Hourly Entry")
+st.title("📈 SMART MONEY CONCEPTS (1D Context, 1Hr Entry")
 
 from imports import *
 # ------------------------------------------------------------
