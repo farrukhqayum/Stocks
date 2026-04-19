@@ -10,6 +10,7 @@ import streamlit as st
 st.set_page_config(page_title="SMC Dashboard", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS")
 
+from imports import *
 # ------------------------------------------------------------
 # 1. INDICATORS & HELPERS (unchanged from original)
 # ------------------------------------------------------------
