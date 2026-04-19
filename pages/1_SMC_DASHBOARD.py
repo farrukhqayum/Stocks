@@ -1,21 +1,14 @@
 # =====================================================================
-# 1_SMC_DASHBOARD.py (FINAL – BOS/CHoCH lines limited to break bar)
-# Dashboard in sidebar, full‑width chart, no future zones
+# SMART MONEY CONCEPTS – Daily Context + Hourly Entry
+# Fully aligned with Pine Script logic (patterns, sweeps, BOS/CHoCH, scoring)
 # =====================================================================
 
 import streamlit as st
-import pandas as pd
-import numpy as np
-import yfinance as yf
-from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-import warnings
-warnings.filterwarnings("ignore")
 
-st.set_page_config(page_title="SMC Dashboard", layout="wide")
+st.set_page_config(page_title="SMART MONEY CONCEPTS", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS – Daily Context + Hourly Entry")
 
+from imports import *
 # ------------------------------------------------------------
 # 1. INDICATORS & HELPERS
 # ------------------------------------------------------------
@@ -86,7 +79,7 @@ class OBZone:
         self.mitigated_idx = None
 
 # ------------------------------------------------------------
-# 3. ZONE DETECTION
+# 3. ZONE DETECTION (FVG & OB)
 # ------------------------------------------------------------
 def detect_fvg_zones(df, max_age=25, fail_window=5):
     high = df['high'].values
@@ -216,7 +209,7 @@ def detect_swings(df, left_bars=10, right_bars=4):
     return swing_highs, swing_lows
 
 # ------------------------------------------------------------
-# 5. BOS / CHoCH DETECTION (returns triples)
+# 5. BOS / CHoCH DETECTION (triples: swing_idx, break_idx, price)
 # ------------------------------------------------------------
 def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
     last_swing_high = None
@@ -260,7 +253,7 @@ def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
     return bos_up, bos_dn, cho_up, cho_dn, is_uptrend
 
 # ------------------------------------------------------------
-# 6. LIQUIDITY SWEEPS
+# 6. LIQUIDITY SWEEPS (BSL / SSL)
 # ------------------------------------------------------------
 def detect_liquidity_sweeps(df, swing_highs, swing_lows):
     last_swing_high = None
@@ -285,7 +278,7 @@ def detect_liquidity_sweeps(df, swing_highs, swing_lows):
     return strong_bsl, strong_ssl
 
 # ------------------------------------------------------------
-# 7. CANDLESTICK PATTERN
+# 7. CANDLESTICK PATTERN (exact Pine Script translation)
 # ------------------------------------------------------------
 def detect_candle_pattern(df):
     o = df['open'].values
@@ -295,9 +288,11 @@ def detect_candle_pattern(df):
     n = len(df)
     if n < 3:
         return None, None, None
+    
     last_pattern = None
     pattern_bull = None
     pattern_idx = None
+    
     for i in range(2, n):
         body0 = abs(c[i] - o[i])
         body1 = abs(c[i-1] - o[i-1])
@@ -305,22 +300,92 @@ def detect_candle_pattern(df):
         crange0 = h[i] - l[i]
         wick_high = h[i] - max(o[i], c[i])
         wick_low = min(o[i], c[i]) - l[i]
-        if c[i-2] < o[i-2] and body1 < body2*0.4 and c[i] > (o[i-2]+c[i-2])/2:
+        
+        # 1. Three consecutive green/red candles (R3M / F3M)
+        bull_r3m = (c[i] > o[i] and c[i-1] > o[i-1] and c[i-2] > o[i-2] and 
+                    c[i] > c[i-1] and c[i-1] > c[i-2])
+        bear_f3m = (c[i] < o[i] and c[i-1] < o[i-1] and c[i-2] < o[i-2] and 
+                    c[i] < c[i-1] and c[i-1] < c[i-2])
+        if bull_r3m:
+            last_pattern, pattern_bull, pattern_idx = "R 3 M", True, i
+            continue
+        if bear_f3m:
+            last_pattern, pattern_bull, pattern_idx = "F 3 M", False, i
+            continue
+        
+        # 2. Morning / Evening Star (3‑candle)
+        is_morning = (c[i-2] < o[i-2] and body1 < body2 * 0.4 and 
+                      c[i] > (o[i-2] + c[i-2]) / 2)
+        is_evening = (c[i-2] > o[i-2] and body1 < body2 * 0.4 and 
+                      c[i] < (o[i-2] + c[i-2]) / 2)
+        if is_morning:
             last_pattern, pattern_bull, pattern_idx = "Morning Star", True, i
-        elif c[i-2] > o[i-2] and body1 < body2*0.4 and c[i] < (o[i-2]+c[i-2])/2:
+            continue
+        if is_evening:
             last_pattern, pattern_bull, pattern_idx = "Evening Star", False, i
-        elif c[i-1] < o[i-1] and c[i] > o[i] and o[i] <= c[i-1] and c[i] >= o[i-1]:
+            continue
+        
+        # 3. Bullish / Bearish Engulfing (with 1.02 body multiplier)
+        bull_engulf = (c[i] > o[i] and c[i-1] < o[i-1] and 
+                       c[i] > o[i-1] and o[i] < c[i-1] and 
+                       body0 >= body1 * 1.02)
+        bear_engulf = (c[i] < o[i] and c[i-1] > o[i-1] and 
+                       c[i] < o[i-1] and o[i] > c[i-1] and 
+                       body0 >= body1 * 1.02)
+        if bull_engulf:
             last_pattern, pattern_bull, pattern_idx = "Bull Engulfing", True, i
-        elif c[i-1] > o[i-1] and c[i] < o[i] and o[i] >= c[i-1] and c[i] <= o[i-1]:
+            continue
+        if bear_engulf:
             last_pattern, pattern_bull, pattern_idx = "Bear Engulfing", False, i
-        elif wick_low > body0*2 and wick_high < body0*0.5:
+            continue
+        
+        # 4. Piercing / Dark Cloud
+        bull_pierce = (c[i-1] < o[i-1] and o[i] < c[i-1] and 
+                       c[i] > (o[i-1] + c[i-1]) / 2 and c[i] < o[i-1])
+        bear_dark = (c[i-1] > o[i-1] and o[i] > h[i-1] and 
+                     c[i] < (o[i-1] + c[i-1]) / 2 and c[i] > o[i-1])
+        if bull_pierce:
+            last_pattern, pattern_bull, pattern_idx = "Piercing", True, i
+            continue
+        if bear_dark:
+            last_pattern, pattern_bull, pattern_idx = "Dark Cloud", False, i
+            continue
+        
+        # 5. Tweezer Bottom / Top
+        tweezer_bot = (abs(l[i] - l[i-1]) < (crange0 * 0.1) and c[i] > o[i])
+        tweezer_top = (abs(h[i] - h[i-1]) < (crange0 * 0.1) and c[i] < o[i])
+        if tweezer_bot:
+            last_pattern, pattern_bull, pattern_idx = "Tweezer Bottom", True, i
+            continue
+        if tweezer_top:
+            last_pattern, pattern_bull, pattern_idx = "Tweezer Top", False, i
+            continue
+        
+        # 6. Hammer / Shooting Star (1‑candle)
+        hammer = (wick_low > body0 * 2 and wick_high < body0 * 0.5)
+        shooting_star = (wick_high > body0 * 2 and wick_low < body0 * 0.5)
+        if hammer:
             last_pattern, pattern_bull, pattern_idx = "Hammer", True, i
-        elif wick_high > body0*2 and wick_low < body0*0.5:
+            continue
+        if shooting_star:
             last_pattern, pattern_bull, pattern_idx = "Shooting Star", False, i
+            continue
+        
+        # 7. Gravestone / Dragonfly Doji
+        doji = body0 <= crange0 * 0.25
+        gravestone = doji and wick_high >= crange0 * 0.5 and wick_low <= crange0 * 0.2
+        dragonfly = doji and wick_low >= crange0 * 0.5 and wick_high <= crange0 * 0.2
+        if gravestone:
+            last_pattern, pattern_bull, pattern_idx = "Gravestone", False, i
+            continue
+        if dragonfly:
+            last_pattern, pattern_bull, pattern_idx = "Dragonfly", True, i
+            continue
+    
     return last_pattern, pattern_bull, pattern_idx
 
 # ------------------------------------------------------------
-# 8. SCORING & REGIME
+# 8. SCORING & REGIME (Pine style)
 # ------------------------------------------------------------
 def compute_regime_score(smc_bullish, smc_bearish, strong_ssl, strong_bsl,
                          pattern_bull, pattern_rejected, mom_bullish, mom_bearish,
@@ -343,7 +408,7 @@ def compute_regime_score(smc_bullish, smc_bearish, strong_ssl, strong_bsl,
     return net_score, regime
 
 # ------------------------------------------------------------
-# 9. LOAD DATA
+# 9. LOAD DATA (cached)
 # ------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_data(ticker, start_date, interval):
@@ -370,7 +435,7 @@ def load_data(ticker, start_date, interval):
     return df
 
 # ------------------------------------------------------------
-# 10. DAILY CONTEXT
+# 10. DAILY CONTEXT (for entry filtering)
 # ------------------------------------------------------------
 def analyze_daily_context(df_daily):
     fvg = detect_fvg_zones(df_daily)
@@ -406,7 +471,7 @@ def analyze_daily_context(df_daily):
     }
 
 # ------------------------------------------------------------
-# 11. HOURLY SIGNAL (early entry)
+# 11. HOURLY EARLY ENTRY SIGNAL (using daily context)
 # ------------------------------------------------------------
 def get_hourly_signal(df_hourly, daily_ctx):
     df = df_hourly.copy()
@@ -463,7 +528,7 @@ def get_hourly_signal(df_hourly, daily_ctx):
         return {'signal':'NO TRADE','valid':False,'reason':'No early setup'}
 
 # ------------------------------------------------------------
-# 12. CHART WITH CLIPPED ZONES AND BOS/CHoCH LINES (swing→break only)
+# 12. FULL CHART (clipped zones, BOS/CHoCH swing→break only)
 # ------------------------------------------------------------
 def plot_full_chart(df, fvg_zones, ob_zones, bos_up, bos_dn, cho_up, cho_dn,
                     turning_points, title, start_idx_global=0,
@@ -632,14 +697,13 @@ with st.spinner("Computing hourly SMC state..."):
                                                  pat_bull_h, False, mom_bull_h, mom_bear_h,
                                                  inside_h, last_zone_bullish_h)
 
-    # Turning points for hourly (using new triple format)
+    # Turning points for hourly
     turning_points_h = []
     if pat_h is not None and pat_idx_h is not None and (len(df_hourly)-1 - pat_idx_h) <= 5:
         if pat_bull_h and len(ssl_h)>0:
             turning_points_h.append((len(df_hourly)-1, f"▲ {pat_h}", last['low'], "up"))
         elif not pat_bull_h and len(bsl_h)>0:
             turning_points_h.append((len(df_hourly)-1, f"▼ {pat_h}", last['high'], "down"))
-    # BOS rejection turning points – now each element is (swing_idx, break_idx, price)
     for (swing_idx, break_idx, price) in bos_dn:
         if len(df_hourly)-1 - break_idx <= 3 and df_hourly['high'].iloc[-1] > price:
             turning_points_h.append((len(df_hourly)-1, "▲ BOS ↓ REJECTED", price, "up"))
@@ -652,7 +716,7 @@ with st.spinner("Computing hourly entry signal..."):
     hourly_signal = get_hourly_signal(df_hourly, daily_ctx)
 
 # ------------------------------------------------------------
-# SIDEBAR DASHBOARD
+# SIDEBAR DASHBOARD (Pine‑style 16 rows)
 # ------------------------------------------------------------
 st.sidebar.markdown("## 📊 SMC DASHBOARD (Hourly)")
 liquidity_text = "SSL" if len(ssl_h)>0 else "BSL" if len(bsl_h)>0 else "None"
