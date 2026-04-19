@@ -1,14 +1,21 @@
 # =====================================================================
 # SMART MONEY CONCEPTS – Daily Context + Hourly Entry
-# Fully aligned with Pine Script logic (patterns, sweeps, BOS/CHoCH, scoring)
+# Fully aligned with Pine Script (logic, patterns, scoring, sweeps, BOS/CHoCH)
 # =====================================================================
 
 import streamlit as st
+import pandas as pd
+import numpy as np
+import yfinance as yf
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+import warnings
+warnings.filterwarnings("ignore")
 
 st.set_page_config(page_title="SMART MONEY CONCEPTS", layout="wide")
-st.title("📈 SMART MONEY CONCEPTS (1D Context, 1Hr Entry")
+st.title("📈 SMART MONEY CONCEPTS – 1D/1H Context-Entry")
 
-from imports import *
 # ------------------------------------------------------------
 # 1. INDICATORS & HELPERS
 # ------------------------------------------------------------
@@ -278,7 +285,7 @@ def detect_liquidity_sweeps(df, swing_highs, swing_lows):
     return strong_bsl, strong_ssl
 
 # ------------------------------------------------------------
-# 7. CANDLESTICK PATTERN (exact Pine Script translation)
+# 7. CANDLESTICK PATTERN (exact Pine Script order)
 # ------------------------------------------------------------
 def detect_candle_pattern(df):
     o = df['open'].values
@@ -313,7 +320,7 @@ def detect_candle_pattern(df):
             last_pattern, pattern_bull, pattern_idx = "F 3 M", False, i
             continue
         
-        # 2. Morning / Evening Star (3‑candle)
+        # 2. Morning / Evening Star
         is_morning = (c[i-2] < o[i-2] and body1 < body2 * 0.4 and 
                       c[i] > (o[i-2] + c[i-2]) / 2)
         is_evening = (c[i-2] > o[i-2] and body1 < body2 * 0.4 and 
@@ -361,7 +368,7 @@ def detect_candle_pattern(df):
             last_pattern, pattern_bull, pattern_idx = "Tweezer Top", False, i
             continue
         
-        # 6. Hammer / Shooting Star (1‑candle)
+        # 6. Hammer / Shooting Star
         hammer = (wick_low > body0 * 2 and wick_high < body0 * 0.5)
         shooting_star = (wick_high > body0 * 2 and wick_low < body0 * 0.5)
         if hammer:
@@ -381,11 +388,19 @@ def detect_candle_pattern(df):
         if dragonfly:
             last_pattern, pattern_bull, pattern_idx = "Dragonfly", True, i
             continue
+        
+        # 8. Bull / Bear Doji (neutral)
+        if doji and not gravestone and not dragonfly:
+            if c[i] > o[i]:
+                last_pattern, pattern_bull, pattern_idx = "Bull Doji", True, i
+            elif c[i] < o[i]:
+                last_pattern, pattern_bull, pattern_idx = "Bear Doji", False, i
+            continue
     
     return last_pattern, pattern_bull, pattern_idx
 
 # ------------------------------------------------------------
-# 8. SCORING & REGIME (Pine style)
+# 8. SCORING & REGIME (exact Pine Script)
 # ------------------------------------------------------------
 def compute_regime_score(smc_bullish, smc_bearish, strong_ssl, strong_bsl,
                          pattern_bull, pattern_rejected, mom_bullish, mom_bearish,
