@@ -494,36 +494,85 @@ def get_hourly_signal(df_hourly, daily_ctx):
     df['rsi'] = compute_rsi(df.close)
     df['rsi_ema'] = ema(df['rsi'], 14)
     df['atr'] = compute_atr(df, 14)
+    df['ema20'] = ema(df.close, 20)
+    
     last = df.iloc[-1]
+    # Momentum
     lb_up = last['close'] > last['lb_crv'] * 1.02
     lb_down = last['close'] < last['lb_crv'] * 0.98
     mom_bull = (last['rsi'] > 51 and last['rsi'] > last['rsi_ema']) or lb_up
     mom_bear = (last['rsi'] < 44 and last['rsi'] < last['rsi_ema']) or lb_down
-    pattern, pat_bull, _ = detect_candle_pattern(df)
+    
+    # Bullish / bearish candle (raw)
+    bullish_candle = last['close'] > last['open']
+    bearish_candle = last['close'] < last['open']
+    
+    # Pattern (for reference only, not used directly in goLong)
+    pattern, pat_bull, pat_idx = detect_candle_pattern(df)
+    
+    # Zones
     fvg = detect_fvg_zones(df, max_age=15)
     ob = detect_order_blocks(df, max_age=15)
-    inside = any(last['high'] >= z.bottom and last['low'] <= z.top for z in fvg+ob)
+    inside_zone = any(last['high'] >= z.bottom and last['low'] <= z.top for z in fvg+ob)
+    
+    # Swings and sweeps
     swing_h, swing_l = detect_swings(df, left_bars=6, right_bars=3)
     bsl, ssl = detect_liquidity_sweeps(df, swing_h, swing_l)
-    bos_up, bos_dn, _, _, uptrend = compute_bos_cho_ch(df, swing_h, swing_l, df['atr'].values)
-
-    daily_bull = daily_ctx['trend'] == 'BULLISH' and daily_ctx['net_score'] > 20
-    daily_bear = daily_ctx['trend'] == 'BEARISH' and daily_ctx['net_score'] < -20
-    can_long = daily_bull or daily_ctx['recent_ssl']
-    can_short = daily_bear or daily_ctx['recent_bsl']
-    if daily_ctx['inside_zone'] and daily_ctx['zone_bullish'] is not None:
-        can_long = can_long and daily_ctx['zone_bullish']
-        can_short = can_short and not daily_ctx['zone_bullish']
-
-    long_signal = short_signal = False
+    strong_ssl = len(ssl) > 0
+    strong_bsl = len(bsl) > 0
+    
+    # BOS/CHoCH for structure
+    bos_up, bos_dn, cho_up, cho_dn, uptrend = compute_bos_cho_ch(df, swing_h, swing_l, df['atr'].values)
+    smc_bullish = uptrend == True
+    smc_bearish = uptrend == False
+    
+    # Early structure (internal BOS)
+    last_swing_high = None
+    last_swing_low = None
+    for sh in swing_h:
+        if sh['idx'] <= len(df)-1:
+            last_swing_high = sh['price']
+    for sl in swing_l:
+        if sl['idx'] <= len(df)-1:
+            last_swing_low = sl['price']
+    internal_bull_bos = last_swing_high is not None and last['close'] > last_swing_high
+    internal_bear_bos = last_swing_low is not None and last['close'] < last_swing_low
+    smc_early_bull = internal_bull_bos
+    smc_early_bear = internal_bear_bos
+    
+    # Daily context for structure readiness (use trend directly, no score threshold)
+    daily_bullish = daily_ctx['trend'] == 'BULLISH'
+    daily_bearish = daily_ctx['trend'] == 'BEARISH'
+    long_structure_ready = daily_bullish   # smc_bullish on daily
+    short_structure_ready = daily_bearish
+    
+    # Zone and liquidity readiness (simplified)
+    long_zone_ready = inside_zone
+    short_zone_ready = inside_zone
+    long_liquidity_ready = strong_ssl
+    short_liquidity_ready = strong_bsl
+    
+    # Pine's exact long conditions
+    goLong = (smc_early_bull or smc_bullish) and inside_zone and ((bullish_candle and mom_bull) or (mom_bull and strong_ssl)) and smc_bullish
+    trendLong = smc_bullish and inside_zone and mom_bull and (last['close'] > last['ema20']) and (last['close'] > last['lb_crv']) and (last['rsi'] > 50)
+    earlyLong = long_zone_ready and long_liquidity_ready and long_structure_ready
+    
+    # Pine's exact short conditions
+    goShort = (smc_early_bear or smc_bearish) and inside_zone and ((bearish_candle and mom_bear) or (mom_bear and strong_bsl)) and smc_bearish
+    trendShort = smc_bearish and inside_zone and mom_bear and (last['close'] < last['ema20']) and (last['close'] < last['lb_crv']) and (last['rsi'] < 50)
+    earlyShort = short_zone_ready and short_liquidity_ready and short_structure_ready
+    
+    long_signal = goLong or trendLong or earlyLong
+    short_signal = goShort or trendShort or earlyShort
+    
     reason = ""
-    if can_long and (inside or len(ssl)>0) and (mom_bull or (pattern and pat_bull)):
-        long_signal = True
-        reason = f"Early long: {pattern if pattern else 'momentum'}"
-    elif can_short and (inside or len(bsl)>0) and (mom_bear or (pattern and not pat_bull)):
-        short_signal = True
-        reason = f"Early short: {pattern if pattern else 'momentum'}"
-
+    if long_signal:
+        reason = f"Long (goLong={goLong}, trendLong={trendLong}, earlyLong={earlyLong})"
+    elif short_signal:
+        reason = f"Short (goShort={goShort}, trendShort={trendShort}, earlyShort={earlyShort})"
+    else:
+        reason = "No signal"
+    
     atr_val = last['atr']
     if long_signal:
         sl = last['low'] - atr_val * 0.5
@@ -540,7 +589,7 @@ def get_hourly_signal(df_hourly, daily_ctx):
         rr = reward/risk if risk>0 else 0
         return {'signal':'SHORT','valid':rr>=1.5,'reason':reason,'sl':sl,'tp':tp,'rr':rr,'risk_pct':(risk/last['close'])*100}
     else:
-        return {'signal':'NO TRADE','valid':False,'reason':'No early setup'}
+        return {'signal':'NO TRADE','valid':False,'reason':reason}
 
 # ------------------------------------------------------------
 # 12. FULL CHART (clipped zones, BOS/CHoCH swing→break only)
