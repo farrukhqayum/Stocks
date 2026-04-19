@@ -1,21 +1,17 @@
 # =====================================================================
-# 1_SMC_DASHBOARD.py (MULTI‑TIMEFRAME + SIMPLIFIED CHART)
-# Daily Context + Hourly Entry Signals + Clean Candles + LB + RSI
+# 1_SMC_DASHBOARD.py
+# Full SMC Chart (candles + FVG/OB + BOS/CHoCH + Turning Points)
+# + Pine‑style Dashboard (16 rows) + Early Entry Signals
+# Daily Context (1D) + Hourly Entry (1H)
 # =====================================================================
 
 import streamlit as st
-import pandas as pd
-import numpy as np
-import yfinance as yf
-from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 
 st.set_page_config(page_title="SMC Dashboard", layout="wide")
-st.title("📈 SMART MONEY CONCEPTS – Daily Context + Hourly Entry")
+st.title("📈 SMART MONEY CONCEPTS")
 
 # ------------------------------------------------------------
-# 1. INDICATORS & HELPERS
+# 1. INDICATORS & HELPERS (unchanged from original)
 # ------------------------------------------------------------
 def ema(series, length):
     return series.ewm(span=length, adjust=False).mean()
@@ -30,9 +26,7 @@ def compute_rsi(series, length=14):
     return 100 - (100 / (1 + rs))
 
 def compute_atr(df, length=14):
-    high = df['high']
-    low = df['low']
-    close = df['close']
+    high = df['high']; low = df['low']; close = df['close']
     tr1 = high - low
     tr2 = abs(high - close.shift())
     tr3 = abs(low - close.shift())
@@ -63,76 +57,54 @@ def compute_lb_curve(df, lblen=10):
     return lb_series.ewm(span=lblen, adjust=False).mean()
 
 # ------------------------------------------------------------
-# 2. ZONE CLASSES (FVG / OB) – needed for context but not plotted
+# 2. ZONE CLASSES (FVG / OB)
 # ------------------------------------------------------------
 class FVGZone:
     def __init__(self, top, bottom, start_idx, is_bull):
-        self.top = top
-        self.bottom = bottom
-        self.start_idx = start_idx
-        self.is_bull = is_bull
-        self.is_mitigated = False
-        self.mitigated_idx = None
-        self.touched = False
+        self.top = top; self.bottom = bottom; self.start_idx = start_idx
+        self.is_bull = is_bull; self.is_mitigated = False
+        self.mitigated_idx = None; self.touched = False
 
 class OBZone:
     def __init__(self, top, bottom, start_idx, is_bull):
-        self.top = top
-        self.bottom = bottom
-        self.start_idx = start_idx
-        self.is_bull = is_bull
-        self.is_mitigated = False
-        self.mitigated_idx = None
-        self.touched = False
+        self.top = top; self.bottom = bottom; self.start_idx = start_idx
+        self.is_bull = is_bull; self.is_mitigated = False
+        self.mitigated_idx = None; self.touched = False
 
 # ------------------------------------------------------------
-# 3. ZONE DETECTION (FVG & OB) – used for daily context only
+# 3. ZONE DETECTION (exactly as in your original)
 # ------------------------------------------------------------
 def detect_fvg_zones(df, max_age=25, fail_window=5):
-    high = df['high'].values
-    low = df['low'].values
-    close = df['close'].values
-    atr = df['atr'].values
-    min_gap = atr * 0.1
+    high = df['high'].values; low = df['low'].values; close = df['close'].values
+    atr = df['atr'].values; min_gap = atr * 0.1
     zones = []
     for i in range(len(df)):
         if i >= 2:
             is_fvg_up = (low[i] > high[i-2] + min_gap[i])
             is_fvg_dn = (high[i] < low[i-2] - min_gap[i])
-            if is_fvg_up:
-                zones.append(FVGZone(high[i-2], low[i], i-2, True))
-            if is_fvg_dn:
-                zones.append(FVGZone(high[i], low[i-2], i-2, False))
+            if is_fvg_up: zones.append(FVGZone(high[i-2], low[i], i-2, True))
+            if is_fvg_dn: zones.append(FVGZone(high[i], low[i-2], i-2, False))
         to_delete = []
         for j, z in enumerate(zones):
             age = i - z.start_idx
             failed = False
             if age <= fail_window and i >= 1:
                 if z.is_bull:
-                    if close[i] < z.bottom and close[i-1] < z.bottom:
-                        failed = True
+                    if close[i] < z.bottom and close[i-1] < z.bottom: failed = True
                 else:
-                    if close[i] > z.top and close[i-1] > z.top:
-                        failed = True
+                    if close[i] > z.top and close[i-1] > z.top: failed = True
             if not z.is_mitigated and not failed:
                 if z.is_bull and close[i] < z.bottom:
-                    z.is_mitigated = True
-                    z.mitigated_idx = i
+                    z.is_mitigated = True; z.mitigated_idx = i
                 if not z.is_bull and close[i] > z.top:
-                    z.is_mitigated = True
-                    z.mitigated_idx = i
-            if failed or age > max_age:
-                to_delete.append(j)
-        for j in reversed(to_delete):
-            del zones[j]
+                    z.is_mitigated = True; z.mitigated_idx = i
+            if failed or age > max_age: to_delete.append(j)
+        for j in reversed(to_delete): del zones[j]
     return [z for z in zones if not z.is_mitigated]
 
 def detect_order_blocks(df, max_age=25, fail_window=5):
-    high = df['high'].values
-    low = df['low'].values
-    close = df['close'].values
-    open_ = df['open'].values
-    volume = df['volume'].values if 'volume' in df.columns else None
+    high = df['high'].values; low = df['low'].values; close = df['close'].values
+    open_ = df['open'].values; volume = df['volume'].values if 'volume' in df.columns else None
     if volume is not None:
         vol_sma = pd.Series(volume).rolling(5).mean().values
         vol_sma = np.nan_to_num(vol_sma, nan=np.median(volume) if volume is not None else 1000000)
@@ -160,126 +132,91 @@ def detect_order_blocks(df, max_age=25, fail_window=5):
             failed = False
             if age <= fail_window and i >= 1:
                 if z.is_bull:
-                    if close[i] < z.bottom and close[i-1] < z.bottom:
-                        failed = True
+                    if close[i] < z.bottom and close[i-1] < z.bottom: failed = True
                 else:
-                    if close[i] > z.top and close[i-1] > z.top:
-                        failed = True
+                    if close[i] > z.top and close[i-1] > z.top: failed = True
             if not z.is_mitigated and not failed:
                 if z.is_bull and close[i] < z.bottom:
-                    z.is_mitigated = True
-                    z.mitigated_idx = i
+                    z.is_mitigated = True; z.mitigated_idx = i
                 if not z.is_bull and close[i] > z.top:
-                    z.is_mitigated = True
-                    z.mitigated_idx = i
-            if failed or age > max_age:
-                to_delete.append(j)
-        for j in reversed(to_delete):
-            del zones[j]
+                    z.is_mitigated = True; z.mitigated_idx = i
+            if failed or age > max_age: to_delete.append(j)
+        for j in reversed(to_delete): del zones[j]
     return [z for z in zones if not z.is_mitigated]
 
 # ------------------------------------------------------------
 # 4. SWING POINTS (pivothigh / pivotlow)
 # ------------------------------------------------------------
 def detect_swings(df, left_bars=10, right_bars=4):
-    high = df['high'].values
-    low = df['low'].values
-    swing_highs = []
-    swing_lows = []
+    high = df['high'].values; low = df['low'].values
+    swing_highs = []; swing_lows = []
     for i in range(left_bars, len(df) - right_bars):
-        # Pivot high
+        # pivot high
         is_high = True
         for k in range(1, left_bars+1):
-            if high[i] <= high[i-k]:
-                is_high = False
-                break
+            if high[i] <= high[i-k]: is_high = False; break
         if is_high:
             for k in range(1, right_bars+1):
-                if high[i] <= high[i+k]:
-                    is_high = False
-                    break
-        if is_high:
-            swing_highs.append({'idx': i, 'price': high[i]})
-        # Pivot low
+                if high[i] <= high[i+k]: is_high = False; break
+        if is_high: swing_highs.append({'idx': i, 'price': high[i]})
+        # pivot low
         is_low = True
         for k in range(1, left_bars+1):
-            if low[i] >= low[i-k]:
-                is_low = False
-                break
+            if low[i] >= low[i-k]: is_low = False; break
         if is_low:
             for k in range(1, right_bars+1):
-                if low[i] >= low[i+k]:
-                    is_low = False
-                    break
-        if is_low:
-            swing_lows.append({'idx': i, 'price': low[i]})
+                if low[i] >= low[i+k]: is_low = False; break
+        if is_low: swing_lows.append({'idx': i, 'price': low[i]})
     return swing_highs, swing_lows
 
 # ------------------------------------------------------------
-# 5. BOS / CHoCH DETECTION (matching Pine logic)
+# 5. BOS / CHoCH DETECTION (Pine logic)
 # ------------------------------------------------------------
 def compute_bos_cho_ch(df, swing_highs, swing_lows, atr):
-    last_swing_high = None
-    last_swing_low = None
-    last_high_idx = None
-    last_low_idx = None
+    last_swing_high = None; last_swing_low = None
+    last_high_idx = None; last_low_idx = None
     is_uptrend = None
-    bos_up_bars = []
-    bos_dn_bars = []
-    cho_ch_up_bars = []
-    cho_ch_dn_bars = []
-
+    bos_up = []; bos_dn = []; cho_up = []; cho_dn = []
     for i in range(len(df)):
         for sh in swing_highs:
-            if sh['idx'] <= i:
-                if last_swing_high is None or sh['idx'] > last_high_idx:
-                    last_swing_high = sh['price']
-                    last_high_idx = sh['idx']
+            if sh['idx'] <= i and (last_swing_high is None or sh['idx'] > last_high_idx):
+                last_swing_high = sh['price']; last_high_idx = sh['idx']
         for sl in swing_lows:
-            if sl['idx'] <= i:
-                if last_swing_low is None or sl['idx'] > last_low_idx:
-                    last_swing_low = sl['price']
-                    last_low_idx = sl['idx']
-
+            if sl['idx'] <= i and (last_swing_low is None or sl['idx'] > last_low_idx):
+                last_swing_low = sl['price']; last_low_idx = sl['idx']
         if last_swing_high is not None:
             bos_up_valid = df['close'].iloc[i] > last_swing_high + atr[i] * 0.1
             bos_up_rejected = (i>0 and df['close'].iloc[i-1] > last_swing_high and df['close'].iloc[i] < last_swing_high)
             bos_up_confirmed = bos_up_valid and not bos_up_rejected
             if bos_up_confirmed and df['low'].iloc[i] <= last_swing_high:
-                if is_uptrend is None or is_uptrend == True:
-                    bos_up_bars.append((i, last_swing_high))
+                if is_uptrend is None or is_uptrend:
+                    bos_up.append((i, last_swing_high))
                 else:
-                    cho_ch_up_bars.append((i, last_swing_high))
+                    cho_up.append((i, last_swing_high))
                 is_uptrend = True
-
         if last_swing_low is not None:
             bos_dn_valid = df['close'].iloc[i] < last_swing_low - atr[i] * 0.1
             bos_dn_rejected = (i>0 and df['close'].iloc[i-1] < last_swing_low and df['close'].iloc[i] > last_swing_low)
             bos_dn_confirmed = bos_dn_valid and not bos_dn_rejected
             if bos_dn_confirmed and df['high'].iloc[i] >= last_swing_low:
-                if is_uptrend is None or is_uptrend == False:
-                    bos_dn_bars.append((i, last_swing_low))
+                if is_uptrend is None or not is_uptrend:
+                    bos_dn.append((i, last_swing_low))
                 else:
-                    cho_ch_dn_bars.append((i, last_swing_low))
+                    cho_dn.append((i, last_swing_low))
                 is_uptrend = False
-
-    return bos_up_bars, bos_dn_bars, cho_ch_up_bars, cho_ch_dn_bars, is_uptrend
+    return bos_up, bos_dn, cho_up, cho_dn, is_uptrend
 
 # ------------------------------------------------------------
 # 6. LIQUIDITY SWEEPS (BSL / SSL)
 # ------------------------------------------------------------
 def detect_liquidity_sweeps(df, swing_highs, swing_lows):
-    last_swing_high = None
-    last_swing_low = None
-    strong_bsl = []
-    strong_ssl = []
+    last_swing_high = None; last_swing_low = None
+    strong_bsl = []; strong_ssl = []
     for i in range(len(df)):
         for sh in swing_highs:
-            if sh['idx'] <= i:
-                last_swing_high = sh['price']
+            if sh['idx'] <= i: last_swing_high = sh['price']
         for sl in swing_lows:
-            if sl['idx'] <= i:
-                last_swing_low = sl['price']
+            if sl['idx'] <= i: last_swing_low = sl['price']
         if last_swing_high is not None and i>=2:
             is_bsl = (df['high'].iloc[i-2] > df['high'].iloc[i-3] and df['high'].iloc[i-2] > df['high'].iloc[i-1])
             if is_bsl and df['close'].iloc[i] < df['open'].iloc[i] and df['high'].iloc[i] > df['high'].iloc[i-2]:
@@ -291,109 +228,91 @@ def detect_liquidity_sweeps(df, swing_highs, swing_lows):
     return strong_bsl, strong_ssl
 
 # ------------------------------------------------------------
-# 7. CANDLESTICK PATTERN ENGINE (simplified)
+# 7. CANDLESTICK PATTERN ENGINE (as in Pine)
 # ------------------------------------------------------------
 def detect_candle_pattern(df):
-    o = df['open'].values
-    h = df['high'].values
-    l = df['low'].values
-    c = df['close'].values
+    o = df['open'].values; h = df['high'].values; l = df['low'].values; c = df['close'].values
     n = len(df)
-    if n < 3:
-        return None, None, None
-    last_pattern = None
-    pattern_bull = None
-    pattern_idx = None
+    if n < 3: return None, None, None
+    last_pattern = None; pattern_bull = None; pattern_idx = None
     for i in range(2, n):
-        body0 = abs(c[i] - o[i])
-        body1 = abs(c[i-1] - o[i-1])
-        body2 = abs(c[i-2] - o[i-2])
+        body0 = abs(c[i] - o[i]); body1 = abs(c[i-1] - o[i-1]); body2 = abs(c[i-2] - o[i-2])
+        crange0 = h[i] - l[i]
+        wick_high = h[i] - max(o[i], c[i]); wick_low = min(o[i], c[i]) - l[i]
+        # Morning/Evening star
         if c[i-2] < o[i-2] and body1 < body2*0.4 and c[i] > (o[i-2]+c[i-2])/2:
-            last_pattern = "Morning Star"
-            pattern_bull = True
-            pattern_idx = i
+            last_pattern, pattern_bull, pattern_idx = "Morning Star", True, i
         elif c[i-2] > o[i-2] and body1 < body2*0.4 and c[i] < (o[i-2]+c[i-2])/2:
-            last_pattern = "Evening Star"
-            pattern_bull = False
-            pattern_idx = i
+            last_pattern, pattern_bull, pattern_idx = "Evening Star", False, i
+        # Engulfing
         elif c[i-1] < o[i-1] and c[i] > o[i] and o[i] <= c[i-1] and c[i] >= o[i-1]:
-            last_pattern = "Bull Engulfing"
-            pattern_bull = True
-            pattern_idx = i
+            last_pattern, pattern_bull, pattern_idx = "Bull Engulfing", True, i
         elif c[i-1] > o[i-1] and c[i] < o[i] and o[i] >= c[i-1] and c[i] <= o[i-1]:
-            last_pattern = "Bear Engulfing"
-            pattern_bull = False
-            pattern_idx = i
-        else:
-            body0 = abs(c[i] - o[i])
-            crange = h[i] - l[i]
-            wick_low = min(o[i], c[i]) - l[i]
-            wick_high = h[i] - max(o[i], c[i])
-            if wick_low > body0*2 and wick_high < body0*0.5:
-                last_pattern = "Hammer"
-                pattern_bull = True
-                pattern_idx = i
-            elif wick_high > body0*2 and wick_low < body0*0.5:
-                last_pattern = "Shooting Star"
-                pattern_bull = False
-                pattern_idx = i
+            last_pattern, pattern_bull, pattern_idx = "Bear Engulfing", False, i
+        # Hammer / Shooting star
+        elif wick_low > body0*2 and wick_high < body0*0.5:
+            last_pattern, pattern_bull, pattern_idx = "Hammer", True, i
+        elif wick_high > body0*2 and wick_low < body0*0.5:
+            last_pattern, pattern_bull, pattern_idx = "Shooting Star", False, i
     return last_pattern, pattern_bull, pattern_idx
 
 # ------------------------------------------------------------
-# 8. SCORING & REGIME
+# 8. TURNING POINTS (as in Pine)
 # ------------------------------------------------------------
-def compute_regime_score(df, smc_bullish, smc_bearish, strong_ssl, strong_bsl,
-                         pattern_bull, pattern_bear, pattern_rejected,
-                         mom_bullish, mom_bearish, inside_zone, last_zone_bullish):
-    bull_score = 0
-    bear_score = 0
-    if smc_bullish:
-        bull_score += 30
-    if smc_bearish:
-        bear_score += 30
-    if strong_ssl:
-        bull_score += 25
-    if strong_bsl:
-        bear_score += 25
-    if pattern_bull and not pattern_rejected:
-        bull_score += 20
-    if pattern_bear and not pattern_rejected:
-        bear_score += 20
-    if inside_zone and smc_bullish:
-        bull_score += 10
-    if inside_zone and smc_bearish:
-        bear_score += 10
-    if mom_bullish:
-        bull_score += 15
-    if mom_bearish:
-        bear_score += 15
+def compute_turning_points(df, pattern_name, pattern_bull, pattern_idx, strong_ssl, strong_bsl,
+                           bos_up_bars, bos_dn_bars, last_swing_high, last_swing_low):
+    turning = False; turning_reason = ""; turning_price = None; turning_style = "down"
+    if pattern_name is not None and pattern_idx is not None and (bar_index - pattern_idx) <= 5:
+        if pattern_bull and strong_ssl:
+            turning = True; turning_reason = "▲ " + pattern_name; turning_price = df['low'].iloc[-1]; turning_style = "up"
+        elif not pattern_bull and strong_bsl:
+            turning = True; turning_reason = "▼ " + pattern_name; turning_price = df['high'].iloc[-1]; turning_style = "down"
+    # BOS rejection turning points
+    for (bos_idx, bos_price) in bos_dn_bars:
+        if bar_index - bos_idx <= 3 and df['high'].iloc[-1] > bos_price:
+            turning = True; turning_reason = "▲ BOS ↓ REJECTED"; turning_price = bos_price; turning_style = "up"
+    for (bos_idx, bos_price) in bos_up_bars:
+        if bar_index - bos_idx <= 3 and df['low'].iloc[-1] < bos_price:
+            turning = True; turning_reason = "▼ BOS ↑ REJECTED"; turning_price = bos_price; turning_style = "down"
+    return turning, turning_reason, turning_price, turning_style
+
+# ------------------------------------------------------------
+# 9. SCORING & REGIME (Pine style)
+# ------------------------------------------------------------
+def compute_regime_score(smc_bullish, smc_bearish, strong_ssl, strong_bsl,
+                         pattern_bull, pattern_rejected, mom_bullish, mom_bearish,
+                         inside_zone, last_zone_bullish):
+    bull_score, bear_score = 0, 0
+    if smc_bullish: bull_score += 30
+    if smc_bearish: bear_score += 30
+    if strong_ssl: bull_score += 25
+    if strong_bsl: bear_score += 25
+    if pattern_bull and not pattern_rejected: bull_score += 20
+    if pattern_bull is False and not pattern_rejected: bear_score += 20
+    if inside_zone and smc_bullish: bull_score += 10
+    if inside_zone and smc_bearish: bear_score += 10
+    if mom_bullish: bull_score += 15
+    if mom_bearish: bear_score += 15
     net_score = bull_score - bear_score
-    if net_score > 20:
-        regime = "Bullish"
-    elif net_score < -20:
-        regime = "Bearish"
-    else:
-        regime = "Neutral"
+    if net_score > 20: regime = "Bullish"
+    elif net_score < -20: regime = "Bearish"
+    else: regime = "Neutral"
     return net_score, regime
 
 # ------------------------------------------------------------
-# 9. LOAD DATA FOR A GIVEN TIMEFRAME
+# 10. LOAD DATA (1D and 1H)
 # ------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_data(ticker, start_date, interval):
     end_date = datetime.today().strftime("%Y-%m-%d")
     df = yf.download(ticker, start=start_date, end=end_date, interval=interval,
                      auto_adjust=False, progress=False)
-    if df is None or df.empty:
-        return None
+    if df is None or df.empty: return None
     df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
-    if isinstance(df.index, pd.DatetimeIndex):
-        df["Date"] = df.index
-    else:
-        raise ValueError("No datetime index")
+    if isinstance(df.index, pd.DatetimeIndex): df["Date"] = df.index
+    else: raise ValueError("No datetime index")
     df.set_index("Date", inplace=True)
     df = df.dropna(subset=["open", "high", "low", "close"]).astype(float)
-    # Basic indicators
     df['ema20'] = ema(df.close, 20)
     df['ema50'] = ema(df.close, 50)
     df['ema200'] = ema(df.close, 200)
@@ -405,284 +324,328 @@ def load_data(ticker, start_date, interval):
     return df
 
 # ------------------------------------------------------------
-# 10. DAILY CONTEXT ANALYSIS
+# 11. DAILY CONTEXT ANALYSIS (for filtering)
 # ------------------------------------------------------------
 def analyze_daily_context(df_daily):
-    fvg_zones = detect_fvg_zones(df_daily)
-    ob_zones = detect_order_blocks(df_daily)
-    swing_highs, swing_lows = detect_swings(df_daily, left_bars=10, right_bars=4)
-    bos_up, bos_dn, cho_up, cho_dn, is_uptrend = compute_bos_cho_ch(df_daily, swing_highs, swing_lows, df_daily['atr'].values)
-    strong_bsl, strong_ssl = detect_liquidity_sweeps(df_daily, swing_highs, swing_lows)
-    pattern, pattern_bull, _ = detect_candle_pattern(df_daily)
-    pattern_rejected = False
+    fvg = detect_fvg_zones(df_daily)
+    ob = detect_order_blocks(df_daily)
+    swing_h, swing_l = detect_swings(df_daily)
+    bos_up, bos_dn, cho_up, cho_dn, uptrend = compute_bos_cho_ch(df_daily, swing_h, swing_l, df_daily['atr'].values)
+    bsl, ssl = detect_liquidity_sweeps(df_daily, swing_h, swing_l)
+    pat, pat_bull, _ = detect_candle_pattern(df_daily)
     lb_up = df_daily['close'].iloc[-1] > df_daily['lb_crv'].iloc[-1] * 1.02
     lb_down = df_daily['close'].iloc[-1] < df_daily['lb_crv'].iloc[-1] * 0.98
-    mom_bullish = (df_daily['rsi'].iloc[-1] > 51 and df_daily['rsi'].iloc[-1] > df_daily['rsi_ema'].iloc[-1]) or lb_up
-    mom_bearish = (df_daily['rsi'].iloc[-1] < 44 and df_daily['rsi'].iloc[-1] < df_daily['rsi_ema'].iloc[-1]) or lb_down
-    inside_zone = False
-    last_zone_bullish = None
-    for z in fvg_zones + ob_zones:
+    mom_bull = (df_daily['rsi'].iloc[-1] > 51 and df_daily['rsi'].iloc[-1] > df_daily['rsi_ema'].iloc[-1]) or lb_up
+    mom_bear = (df_daily['rsi'].iloc[-1] < 44 and df_daily['rsi'].iloc[-1] < df_daily['rsi_ema'].iloc[-1]) or lb_down
+    inside = False; last_bull = None
+    for z in fvg+ob:
         if df_daily['high'].iloc[-1] >= z.bottom and df_daily['low'].iloc[-1] <= z.top:
-            inside_zone = True
-            last_zone_bullish = z.is_bull
-            break
-    net_score, regime = compute_regime_score(df_daily,
-                                             smc_bullish=is_uptrend==True,
-                                             smc_bearish=is_uptrend==False,
-                                             strong_ssl=len(strong_ssl)>0,
-                                             strong_bsl=len(strong_bsl)>0,
-                                             pattern_bull=pattern_bull==True,
-                                             pattern_bear=pattern_bull==False,
-                                             pattern_rejected=pattern_rejected,
-                                             mom_bullish=mom_bullish,
-                                             mom_bearish=mom_bearish,
-                                             inside_zone=inside_zone,
-                                             last_zone_bullish=last_zone_bullish)
+            inside = True; last_bull = z.is_bull; break
+    net_score, regime = compute_regime_score(uptrend==True, uptrend==False,
+                                             len(ssl)>0, len(bsl)>0,
+                                             pat_bull, False, mom_bull, mom_bear,
+                                             inside, last_bull)
     return {
-        'trend': 'BULLISH' if is_uptrend else 'BEARISH' if is_uptrend is not None else 'NEUTRAL',
-        'regime': regime,
-        'net_score': net_score,
-        'inside_zone': inside_zone,
-        'zone_bullish': last_zone_bullish,
-        'fvg_count': len([z for z in fvg_zones if not z.is_mitigated]),
-        'ob_count': len([z for z in ob_zones if not z.is_mitigated]),
-        'recent_bsl': len(strong_bsl)>0,
-        'recent_ssl': len(strong_ssl)>0,
-        'pattern': pattern,
-        'pattern_bull': pattern_bull,
-        'mom_bullish': mom_bullish,
-        'mom_bearish': mom_bearish,
-        'lb_up': lb_up,
-        'lb_down': lb_down,
-        'bos_up_count': len(bos_up),
-        'bos_dn_count': len(bos_dn),
-        'cho_up_count': len(cho_up),
-        'cho_dn_count': len(cho_dn),
-        'last_close': df_daily['close'].iloc[-1]
+        'trend': 'BULLISH' if uptrend else 'BEARISH' if uptrend is not None else 'NEUTRAL',
+        'regime': regime, 'net_score': net_score, 'inside_zone': inside,
+        'zone_bullish': last_bull, 'fvg_count': len(fvg), 'ob_count': len(ob),
+        'recent_bsl': len(bsl)>0, 'recent_ssl': len(ssl)>0, 'pattern': pat,
+        'pattern_bull': pat_bull, 'mom_bullish': mom_bull, 'mom_bearish': mom_bear,
+        'lb_up': lb_up, 'lb_down': lb_down, 'bos_up_count': len(bos_up), 'bos_dn_count': len(bos_dn)
     }
 
 # ------------------------------------------------------------
-# 11. HOURLY ENTRY SIGNAL (using daily context)
+# 12. HOURLY SIGNAL (early entry, using daily context)
 # ------------------------------------------------------------
 def get_hourly_signal(df_hourly, daily_ctx):
-    df_hourly = df_hourly.copy()
-    df_hourly['ema20'] = ema(df_hourly.close, 20)
-    df_hourly['ema50'] = ema(df_hourly.close, 50)
-    df_hourly['lb_crv'] = compute_lb_curve(df_hourly)
-    df_hourly['rsi'] = compute_rsi(df_hourly.close)
-    df_hourly['rsi_ema'] = ema(df_hourly['rsi'], 14)
-    df_hourly['atr'] = compute_atr(df_hourly, 14)
-
-    last = df_hourly.iloc[-1]
+    df = df_hourly.copy()
+    df['lb_crv'] = compute_lb_curve(df)
+    df['rsi'] = compute_rsi(df.close)
+    df['rsi_ema'] = ema(df['rsi'], 14)
+    df['atr'] = compute_atr(df, 14)
+    last = df.iloc[-1]
     lb_up = last['close'] > last['lb_crv'] * 1.02
     lb_down = last['close'] < last['lb_crv'] * 0.98
-    mom_bullish = (last['rsi'] > 51 and last['rsi'] > last['rsi_ema']) or lb_up
-    mom_bearish = (last['rsi'] < 44 and last['rsi'] < last['rsi_ema']) or lb_down
+    mom_bull = (last['rsi'] > 51 and last['rsi'] > last['rsi_ema']) or lb_up
+    mom_bear = (last['rsi'] < 44 and last['rsi'] < last['rsi_ema']) or lb_down
+    pattern, pat_bull, _ = detect_candle_pattern(df)
+    fvg = detect_fvg_zones(df, max_age=15)
+    ob = detect_order_blocks(df, max_age=15)
+    inside = any(last['high'] >= z.bottom and last['low'] <= z.top for z in fvg+ob)
+    swing_h, swing_l = detect_swings(df, left_bars=6, right_bars=3)
+    bsl, ssl = detect_liquidity_sweeps(df, swing_h, swing_l)
+    bos_up, bos_dn, _, _, uptrend = compute_bos_cho_ch(df, swing_h, swing_l, df['atr'].values)
 
-    pattern, pattern_bull, _ = detect_candle_pattern(df_hourly)
-
-    fvg_h = detect_fvg_zones(df_hourly, max_age=15)
-    ob_h = detect_order_blocks(df_hourly, max_age=15)
-    inside_zone_h = False
-    for z in fvg_h + ob_h:
-        if last['high'] >= z.bottom and last['low'] <= z.top:
-            inside_zone_h = True
-            break
-
-    daily_bullish = daily_ctx['trend'] == 'BULLISH' and daily_ctx['net_score'] > 20
-    daily_bearish = daily_ctx['trend'] == 'BEARISH' and daily_ctx['net_score'] < -20
-
-    can_long = daily_bullish
-    can_short = daily_bearish
-
+    # Daily context filters
+    daily_bull = daily_ctx['trend'] == 'BULLISH' and daily_ctx['net_score'] > 20
+    daily_bear = daily_ctx['trend'] == 'BEARISH' and daily_ctx['net_score'] < -20
+    can_long = daily_bull or daily_ctx['recent_ssl']
+    can_short = daily_bear or daily_ctx['recent_bsl']
     if daily_ctx['inside_zone'] and daily_ctx['zone_bullish'] is not None:
         can_long = can_long and daily_ctx['zone_bullish']
         can_short = can_short and not daily_ctx['zone_bullish']
 
-    if daily_ctx['recent_ssl']:
-        can_long = True
-    if daily_ctx['recent_bsl']:
-        can_short = True
-
-    long_signal = False
-    short_signal = False
+    # Early entry triggers (no need for full confirmation)
+    long_signal = short_signal = False
     reason = ""
-
-    if can_long and inside_zone_h and mom_bullish and pattern is not None and pattern_bull:
+    if can_long and (inside or len(ssl)>0) and (mom_bull or pattern==pattern and pat_bull):
         long_signal = True
-        reason = f"Hourly {pattern} inside zone + daily bullish"
-    elif can_long and daily_ctx['recent_ssl'] and lb_up and last['close'] > last['ema20']:
-        long_signal = True
-        reason = "Daily SSL sweep + hourly LB up"
-    elif can_short and inside_zone_h and mom_bearish and pattern is not None and not pattern_bull:
+        reason = f"Early long: {pattern if pattern else 'momentum'}"
+    elif can_short and (inside or len(bsl)>0) and (mom_bear or pattern==pattern and not pat_bull):
         short_signal = True
-        reason = f"Hourly {pattern} inside zone + daily bearish"
-    elif can_short and daily_ctx['recent_bsl'] and lb_down and last['close'] < last['ema20']:
-        short_signal = True
-        reason = "Daily BSL sweep + hourly LB down"
+        reason = f"Early short: {pattern if pattern else 'momentum'}"
 
     atr_val = last['atr']
     if long_signal:
-        stop_loss = last['low'] - atr_val * 0.5
-        take_profit = last['close'] + atr_val * 1.5
-        risk = last['close'] - stop_loss
-        reward = take_profit - last['close']
-        rr = reward / risk if risk > 0 else 0
-        return {
-            'signal': 'LONG',
-            'valid': rr >= 1.5,
-            'reason': reason,
-            'stop_loss': stop_loss,
-            'take_profit': take_profit,
-            'rr': rr,
-            'risk_pct': (risk / last['close']) * 100
-        }
+        sl = last['low'] - atr_val * 0.5
+        tp = last['close'] + atr_val * 1.5
+        risk = last['close'] - sl
+        reward = tp - last['close']
+        rr = reward/risk if risk>0 else 0
+        return {'signal':'LONG','valid':rr>=1.5,'reason':reason,'sl':sl,'tp':tp,'rr':rr,'risk_pct':(risk/last['close'])*100}
     elif short_signal:
-        stop_loss = last['high'] + atr_val * 0.5
-        take_profit = last['close'] - atr_val * 1.5
-        risk = stop_loss - last['close']
-        reward = last['close'] - take_profit
-        rr = reward / risk if risk > 0 else 0
-        return {
-            'signal': 'SHORT',
-            'valid': rr >= 1.5,
-            'reason': reason,
-            'stop_loss': stop_loss,
-            'take_profit': take_profit,
-            'rr': rr,
-            'risk_pct': (risk / last['close']) * 100
-        }
+        sl = last['high'] + atr_val * 0.5
+        tp = last['close'] - atr_val * 1.5
+        risk = sl - last['close']
+        reward = last['close'] - tp
+        rr = reward/risk if risk>0 else 0
+        return {'signal':'SHORT','valid':rr>=1.5,'reason':reason,'sl':sl,'tp':tp,'rr':rr,'risk_pct':(risk/last['close'])*100}
     else:
-        return {'signal': 'NO TRADE', 'valid': False, 'reason': 'No valid setup'}
+        return {'signal':'NO TRADE','valid':False,'reason':'No early setup'}
 
 # ------------------------------------------------------------
-# 12. SIMPLIFIED CHART (only candles, LB curve, RSI panel)
+# 13. FULL CHART (candles + all SMC overlays) with toggles
 # ------------------------------------------------------------
-def plot_simple_chart(df, title="Price Action (Candles + LB + RSI)"):
+def plot_full_chart(df, fvg_zones, ob_zones, bos_up, bos_dn, cho_up, cho_dn,
+                    turning_points, title, show_fvg=True, show_ob=True,
+                    show_bos=True, show_tp=True):
     fig, (ax, ax2) = plt.subplots(2, 1, figsize=(12, 7),
-                                   gridspec_kw={"height_ratios": [3, 1]},
-                                   sharex=True)
+                                   gridspec_kw={"height_ratios": [3, 1]}, sharex=True)
     x = np.arange(len(df))
     o, h, l, c = df["open"], df["high"], df["low"], df["close"]
     width = 0.6
-    up_color = "#26a69a"
-    down_color = "#ef5350"
+    up_color = "#26a69a"; down_color = "#ef5350"
 
     # Candles
     for i in range(len(df)):
         color = up_color if c.iloc[i] >= o.iloc[i] else down_color
         ax.vlines(i, l.iloc[i], h.iloc[i], color=color, linewidth=1)
-        ax.add_patch(Rectangle(
-            (i - width/2, min(o.iloc[i], c.iloc[i])),
-            width,
-            abs(c.iloc[i] - o.iloc[i]) or 0.001,
-            facecolor=color,
-            edgecolor=color
-        ))
+        ax.add_patch(Rectangle((i-width/2, min(o.iloc[i], c.iloc[i])), width,
+                               abs(c.iloc[i]-o.iloc[i]) or 0.001,
+                               facecolor=color, edgecolor=color))
 
     # LB curve
-    ax.plot(x, df["lb_crv"], color="gray", alpha=0.8, linewidth=1.2, label="LB Curve")
-    ax.legend(loc="upper left")
+    ax.plot(x, df["lb_crv"], color="gray", alpha=0.8, linewidth=1.2)
+
+    # FVG zones
+    if show_fvg:
+        for z in fvg_zones:
+            color = "teal" if z.is_bull else "blue"
+            rect_x = z.start_idx - 0.5
+            end = z.mitigated_idx if z.is_mitigated else len(df)-1
+            rect_w = (end - z.start_idx) + 1
+            ax.add_patch(Rectangle((rect_x, z.bottom), rect_w, z.top-z.bottom,
+                                   facecolor=color, alpha=0.07, edgecolor=color,
+                                   linestyle="--", linewidth=1.5))
+
+    # OB zones
+    if show_ob:
+        for z in ob_zones:
+            color = "green" if z.is_bull else "orange"
+            rect_x = z.start_idx - 0.5
+            end = z.mitigated_idx if z.is_mitigated else len(df)-1
+            rect_w = (end - z.start_idx) + 1
+            ax.add_patch(Rectangle((rect_x, z.bottom), rect_w, z.top-z.bottom,
+                                   facecolor=color, alpha=0.07, edgecolor=color,
+                                   linestyle="-", linewidth=2))
+
+    # BOS/CHoCH lines
+    if show_bos:
+        for (idx, price) in bos_up:
+            ax.plot([idx, len(df)-1], [price, price], color="lime", linestyle="--", linewidth=1.5, alpha=0.8)
+            ax.text(len(df)-1, price, "  BOS ↑", fontsize=8, color="lime", va='bottom')
+        for (idx, price) in bos_dn:
+            ax.plot([idx, len(df)-1], [price, price], color="red", linestyle="--", linewidth=1.5, alpha=0.8)
+            ax.text(len(df)-1, price, "  BOS ↓", fontsize=8, color="red", va='top')
+        for (idx, price) in cho_up:
+            ax.plot([idx, len(df)-1], [price, price], color="cyan", linestyle="--", linewidth=1.5, alpha=0.8)
+            ax.text(len(df)-1, price, "  CHoCH ↑", fontsize=8, color="cyan", va='bottom')
+        for (idx, price) in cho_dn:
+            ax.plot([idx, len(df)-1], [price, price], color="orange", linestyle="--", linewidth=1.5, alpha=0.8)
+            ax.text(len(df)-1, price, "  CHoCH ↓", fontsize=8, color="orange", va='top')
+
+    # Turning points
+    if show_tp and turning_points:
+        for (idx, reason, price, style) in turning_points:
+            y = price * 0.99 if style == "up" else price * 1.01
+            va = 'top' if style == "up" else 'bottom'
+            ax.text(idx, y, reason, color="orange", fontsize=7, ha='center', va=va,
+                    bbox=dict(facecolor='white', alpha=0.7, edgecolor='orange'))
+
     ax.set_title(title)
     ax.grid(alpha=0.2)
     ax.yaxis.tick_right()
-    ax.yaxis.set_label_position("right")
 
     # RSI panel
-    rsi = df["rsi"]
-    rsi_ema = df["rsi_ema"]
-    ax2.fill_between(x, rsi, rsi_ema, where=(rsi > rsi_ema), color="green", alpha=0.15)
-    ax2.fill_between(x, rsi, rsi_ema, where=(rsi < rsi_ema), color="red", alpha=0.15)
+    rsi = df["rsi"]; rsi_ema = df["rsi_ema"]
+    ax2.fill_between(x, rsi, rsi_ema, where=(rsi>rsi_ema), color="green", alpha=0.15)
+    ax2.fill_between(x, rsi, rsi_ema, where=(rsi<rsi_ema), color="red", alpha=0.15)
     ax2.plot(x, rsi, color="gray", linewidth=1.2)
     ax2.plot(x, rsi_ema, color="gold", linewidth=1.2)
-    for level in [25, 50, 78]:
-        ax2.axhline(level, color="black", linestyle="--", linewidth=0.7, alpha=0.6)
-    ax2.set_ylim(0, 100)
-    ax2.set_ylabel("RSI")
-    ax2.grid(alpha=0.2)
+    for level in [25,50,78]: ax2.axhline(level, color="black", linestyle="--", linewidth=0.7, alpha=0.6)
+    ax2.set_ylim(0,100); ax2.set_ylabel("RSI"); ax2.grid(alpha=0.2)
     ax2.yaxis.tick_right()
-    ax2.yaxis.set_label_position("right")
 
     if isinstance(df.index, pd.DatetimeIndex):
-        ax2.set_xticks(x[::max(1, len(x)//10)])
-        ax2.set_xticklabels(df.index.strftime("%Y-%m-%d %H:%M")[::max(1, len(x)//10)],
-                            rotation=45, fontsize=8)
+        step = max(1, len(x)//10)
+        ax2.set_xticks(x[::step])
+        ax2.set_xticklabels(df.index.strftime("%Y-%m-%d %H:%M")[::step], rotation=45, fontsize=8)
 
     plt.tight_layout()
     return fig
 
 # ------------------------------------------------------------
-# 13. STREAMLIT UI
+# 14. STREAMLIT UI
 # ------------------------------------------------------------
 st.sidebar.header("Multi‑Timeframe Settings")
 ticker = st.sidebar.text_input("Ticker", "AAPL")
 
-# Daily data (1 year)
-start_date_daily = datetime.today() - timedelta(days=365)
-df_daily = load_data(ticker, start_date_daily, "1d")
-if df_daily is None or df_daily.empty:
-    st.error("Could not load daily data.")
-    st.stop()
+# Data loading
+start_daily = datetime.today() - timedelta(days=365)
+df_daily = load_data(ticker, start_daily, "1d")
+if df_daily is None: st.error("No daily data"); st.stop()
 
-# Hourly data (last 30 days)
-start_date_hourly = datetime.today() - timedelta(days=30)
-df_hourly = load_data(ticker, start_date_hourly, "1h")
-if df_hourly is None or df_hourly.empty:
-    st.warning("Hourly data not available. Using 4H instead.")
-    df_hourly = load_data(ticker, start_date_hourly, "4h")
-    if df_hourly is None:
-        st.error("No intraday data available.")
-        st.stop()
+start_hourly = datetime.today() - timedelta(days=30)
+df_hourly = load_data(ticker, start_hourly, "1h")
+if df_hourly is None:
+    st.warning("Hourly data unavailable, using 4H")
+    df_hourly = load_data(ticker, start_hourly, "4h")
+    if df_hourly is None: st.error("No intraday data"); st.stop()
 
+# Daily context
 with st.spinner("Analyzing daily context..."):
     daily_ctx = analyze_daily_context(df_daily)
 
+# Hourly signal
 with st.spinner("Computing hourly entry signal..."):
     hourly_signal = get_hourly_signal(df_hourly, daily_ctx)
 
-# DASHBOARD
-st.subheader(f"📊 SMC Dashboard – {ticker}")
-col1, col2 = st.columns(2)
+# Hourly zones & structure for chart
+with st.spinner("Computing hourly zones & structure..."):
+    fvg_h = detect_fvg_zones(df_hourly)
+    ob_h = detect_order_blocks(df_hourly)
+    swing_h, swing_l = detect_swings(df_hourly)
+    bos_up, bos_dn, cho_up, cho_dn, _ = compute_bos_cho_ch(df_hourly, swing_h, swing_l, df_hourly['atr'].values)
+    bsl, ssl = detect_liquidity_sweeps(df_hourly, swing_h, swing_l)
+    pat, pat_bull, pat_idx = detect_candle_pattern(df_hourly)
+    # Turning points (simplified)
+    turning_points = []
+    if pat is not None and pat_idx is not None and (len(df_hourly)-1 - pat_idx) <= 5:
+        if pat_bull and len(ssl)>0:
+            turning_points.append((len(df_hourly)-1, f"▲ {pat}", df_hourly['low'].iloc[-1], "up"))
+        elif not pat_bull and len(bsl)>0:
+            turning_points.append((len(df_hourly)-1, f"▼ {pat}", df_hourly['high'].iloc[-1], "down"))
+    # BOS rejection turning points
+    for (idx, price) in bos_dn:
+        if len(df_hourly)-1 - idx <= 3 and df_hourly['high'].iloc[-1] > price:
+            turning_points.append((len(df_hourly)-1, "▲ BOS ↓ REJECTED", price, "up"))
+    for (idx, price) in bos_up:
+        if len(df_hourly)-1 - idx <= 3 and df_hourly['low'].iloc[-1] < price:
+            turning_points.append((len(df_hourly)-1, "▼ BOS ↑ REJECTED", price, "down"))
+
+# ------------------------------------------------------------
+# DASHBOARD (Column 1) – Exactly like Pine Script table
+# ------------------------------------------------------------
+col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.markdown("### 🔵 Daily Context (1D)")
-    st.metric("Trend", daily_ctx['trend'])
-    st.metric("Regime Score", f"{daily_ctx['net_score']} pts", delta=f"{daily_ctx['regime']}")
-    st.write(f"**Inside Zone:** {daily_ctx['inside_zone']} (Bullish: {daily_ctx['zone_bullish']})")
-    st.write(f"**Active FVG/OB:** {daily_ctx['fvg_count']} / {daily_ctx['ob_count']}")
-    st.write(f"**Recent Sweeps:** BSL={daily_ctx['recent_bsl']}, SSL={daily_ctx['recent_ssl']}")
-    st.write(f"**Last Pattern:** {daily_ctx['pattern']} ({'Bullish' if daily_ctx['pattern_bull'] else 'Bearish'})")
-    st.write(f"**Momentum:** Bull={daily_ctx['mom_bullish']}, Bear={daily_ctx['mom_bearish']}")
-    st.write(f"**LB status:** Up={daily_ctx['lb_up']}, Down={daily_ctx['lb_down']}")
-    st.write(f"**BOS/CHoCH:** BOS↑={daily_ctx['bos_up_count']}, BOS↓={daily_ctx['bos_dn_count']}, CHoCH↑={daily_ctx['cho_up_count']}, CHoCH↓={daily_ctx['cho_dn_count']}")
-
-with col2:
-    st.markdown("### 🟢 Hourly Entry Signal (1H)")
-    sig = hourly_signal
-    if sig['signal'] == 'NO TRADE':
-        st.error(f"❌ {sig['signal']}")
-        st.write(f"**Reason:** {sig['reason']}")
+    st.markdown("### 📊 SMC DASHBOARD (Hourly)")
+    # Build table rows
+    liquidity_text = "SSL" if len(ssl)>0 else "BSL" if len(bsl)>0 else "None"
+    liquidity_color = "green" if len(ssl)>0 else "red" if len(bsl)>0 else "gray"
+    sweep_status = "ACTIVE" if (len(ssl)>0 or len(bsl)>0) else "---"
+    pattern_text = f"{'↑' if pat_bull else '↓'} {pat}" if pat else "No pattern"
+    pattern_status = "Active" if pat and (len(df_hourly)-1 - pat_idx) <= 5 else "Expired"
+    mom_text = "UP ↑" if daily_ctx['mom_bullish'] else "DOWN ↓" if daily_ctx['mom_bearish'] else "---"
+    struct_text = "Bullish" if daily_ctx['trend']=='BULLISH' else "Bearish" if daily_ctx['trend']=='BEARISH' else "Neutral"
+    smc_concept = daily_ctx['regime']
+    zone_event = "Inside Bull Zone" if daily_ctx['inside_zone'] and daily_ctx['zone_bullish'] else \
+                 "Inside Bear Zone" if daily_ctx['inside_zone'] and daily_ctx['zone_bullish']==False else "---"
+    # Zone distance (simplified)
+    zone_dist = ""
+    if daily_ctx['inside_zone']:
+        zone_dist = "Inside zone"
     else:
-        if sig['valid']:
-            st.success(f"✅ VALID {sig['signal']} ENTRY")
-        else:
-            st.warning(f"⚠️ {sig['signal']} SIGNAL – poor risk/reward")
-        st.write(f"**Trigger:** {sig['reason']}")
-        st.write(f"**Risk/Reward:** {sig['rr']:.2f}")
-        st.write(f"**Risk %:** {sig['risk_pct']:.2f}%")
-        st.write(f"**Stop Loss:** {sig['stop_loss']:.2f}")
-        st.write(f"**Take Profit:** {sig['take_profit']:.2f}")
-        if sig['valid']:
-            st.info("📌 Recommendation: **Consider taking the trade** with daily context aligned.")
-        else:
-            st.info("⛔ Recommendation: **Avoid trade** – wait for better R/R or stronger hourly signal.")
+        # find nearest zone distance
+        min_dist = 999
+        for z in fvg_h+ob_h:
+            if not z.is_mitigated:
+                dist = min(abs(df_hourly['close'].iloc[-1]-z.top), abs(df_hourly['close'].iloc[-1]-z.bottom))
+                if dist < min_dist: min_dist = dist
+        if min_dist < 999:
+            pct = (min_dist / df_hourly['close'].iloc[-1]) * 100
+            zone_dist = f"{pct:.1f}% away"
+    bias = daily_ctx['regime']
+    score = daily_ctx['net_score']
+    signal_text = hourly_signal['signal']
+    if hourly_signal['signal'] != 'NO TRADE':
+        signal_text += f"\nSL:{hourly_signal['sl']:.2f} TP:{hourly_signal['tp']:.2f}\nR/R:{hourly_signal['rr']:.2f} Risk:{hourly_signal['risk_pct']:.1f}%"
 
-# SIMPLIFIED CHART (candles + LB + RSI)
-st.subheader("📉 Hourly Price Action (Candles + LB Curve + RSI)")
-fig = plot_simple_chart(df_hourly.tail(200), title=f"{ticker} – Hourly (last 200 bars)")
-st.pyplot(fig)
+    # Render as HTML table (for colored cells)
+    html = f"""
+    <style>
+    .smc-table {{ font-family: monospace; font-size: 14px; border-collapse: collapse; width: 100%; }}
+    .smc-table td {{ padding: 6px; border: 1px solid #ddd; }}
+    .green-bg {{ background-color: #2e7d32; color: white; }}
+    .red-bg {{ background-color: #c62828; color: white; }}
+    .gray-bg {{ background-color: #4f4f4f; color: white; }}
+    .yellow-bg {{ background-color: #f9a825; color: black; }}
+    .blue-bg {{ background-color: #1565c0; color: white; }}
+    .orange-bg {{ background-color: #ef6c00; color: white; }}
+    </style>
+    <table class="smc-table">
+    <tr><td style="background-color:#1e3a5f; color:white; text-align:center" colspan="2"><b>📊 {ticker} - SMC</b></td></tr>
+    <tr><td>LIQUIDITY:</td><td class="{'green-bg' if 'SSL' in liquidity_text else 'red-bg' if 'BSL' in liquidity_text else 'gray-bg'}">{liquidity_text}</td></tr>
+    <tr><td>SWEEP:</td><td class="{'green-bg' if sweep_status=='ACTIVE' else 'gray-bg'}">{sweep_status}</td></tr>
+    <tr><td>PATTERN:</td><td class="{'green-bg' if pat_bull else 'red-bg' if pat else 'gray-bg'}">{pattern_text} ({pattern_status})</td></tr>
+    <tr><td>MOMENTUM:</td><td class="{'green-bg' if daily_ctx['mom_bullish'] else 'red-bg' if daily_ctx['mom_bearish'] else 'gray-bg'}">{mom_text}</td></tr>
+    <tr><td>STRUCT:</td><td class="{'green-bg' if struct_text=='Bullish' else 'red-bg' if struct_text=='Bearish' else 'gray-bg'}">{struct_text}</td></tr>
+    <tr><td>SMC:</td><td class="{'green-bg' if smc_concept=='Bullish' else 'red-bg' if smc_concept=='Bearish' else 'gray-bg'}">{smc_concept}</td></tr>
+    <tr><td>ZONE:</td><td class="{'green-bg' if 'Bull' in zone_event else 'red-bg' if 'Bear' in zone_event else 'gray-bg'}">{zone_event}</td></tr>
+    <tr><td>ZONE DIST:</td><td class="{'yellow-bg' if zone_dist else 'gray-bg'}">{zone_dist if zone_dist else '---'}</td></tr>
+    <tr><td>BIAS:</td><td class="{'green-bg' if bias=='Bullish' else 'red-bg' if bias=='Bearish' else 'gray-bg'}">{bias}</td></tr>
+    <tr><td>Z-SCORE:</td><td class="{'green-bg' if score>0 else 'red-bg' if score<0 else 'gray-bg'}">{score}% {'Bull' if score>0 else 'Bear' if score<0 else 'Neut'}</td></tr>
+    <tr><td>SIGNAL:</td><td class="{'green-bg' if 'LONG' in signal_text else 'red-bg' if 'SHORT' in signal_text else 'gray-bg'}">{signal_text}</td></tr>
+    </table>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+    if hourly_signal['valid']:
+        st.success("✅ RECOMMENDATION: TAKE TRADE")
+    else:
+        st.info("⛔ RECOMMENDATION: AVOID or wait")
 
-# Optional: show mini daily chart
-if st.checkbox("Show daily chart (last 100 days)"):
-    fig_daily = plot_simple_chart(df_daily.tail(100), title=f"{ticker} – Daily (last 100 bars)")
-    st.pyplot(fig_daily)
+# ------------------------------------------------------------
+# CHART (Column 2) with checkboxes
+# ------------------------------------------------------------
+with col2:
+    st.markdown("### 📈 Hourly Chart (SMC Overlays)")
+    with st.expander("Chart Overlays", expanded=True):
+        show_fvg = st.checkbox("Show FVG Zones", value=True)
+        show_ob = st.checkbox("Show Order Blocks", value=True)
+        show_bos = st.checkbox("Show BOS/CHoCH Lines", value=True)
+        show_tp = st.checkbox("Show Turning Points", value=True)
+
+    fig = plot_full_chart(df_hourly.tail(300), fvg_h, ob_h, bos_up, bos_dn, cho_up, cho_dn,
+                          turning_points, f"{ticker} – Hourly SMC",
+                          show_fvg, show_ob, show_bos, show_tp)
+    st.pyplot(fig)
+
+# Optional daily chart
+if st.sidebar.checkbox("Show Daily Chart"):
+    fvg_d = detect_fvg_zones(df_daily)
+    ob_d = detect_order_blocks(df_daily)
+    swing_hd, swing_ld = detect_swings(df_daily)
+    bos_up_d, bos_dn_d, cho_up_d, cho_dn_d, _ = compute_bos_cho_ch(df_daily, swing_hd, swing_ld, df_daily['atr'].values)
+    fig_d = plot_full_chart(df_daily.tail(150), fvg_d, ob_d, bos_up_d, bos_dn_d, cho_up_d, cho_dn_d,
+                            [], f"{ticker} – Daily", show_fvg, show_ob, show_bos, False)
+    st.pyplot(fig_d)
