@@ -1413,7 +1413,7 @@ def PlotPredictions(df_results):
         # Top annotations
         ax1.text(i, row["Max (%)"] + 0.5, f"{row['Max (%)']:.1f}%",
                  ha='center', va='bottom', fontsize=9)
-        ax2.text(i, row["Loss (%)"] + 0.5, f"{row["Loss (%)"]:.1f}%",
+        ax2.text(i, row["Loss (%)"] + 0.5, f"{row['Loss (%)']:.1f}%",
                  ha='center', va='top', color='red', fontsize=9)
     
         # Bottom annotations: align with x-tick, just below tick label
