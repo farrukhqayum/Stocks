@@ -286,15 +286,12 @@ def strip_ansi_codes(text):
     return ansi_escape.sub('', text)
 
 def add_technical_indicators(df):
-    if df is None or df.empty:
-        return None
-    df = df.copy()
     close = df.Close
-    df['Close'] = df[['Open', 'High', 'Low', 'Close']].iloc[:, :4].mean(axis=1).rolling(2).mean()
+    df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
     df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
-    df['EMA_Ratio'] = np.where(df['EMA2'] != 0, df['EMA1'] / df['EMA2'], 1.0)
+    df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
     df = ta.scaled_volatility(df)
     df = ta.add_candlestickpatterns(df)
@@ -315,7 +312,7 @@ def add_technical_indicators(df):
     df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'], np.where(df['Close'] > df['Open'], 1, -1), 0)
     df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
     df['MFI'] = ta.calculate_mfi(df)
-    df['CMf'] = ta.chaikin_money_flow(df, window=20)
+    df['CMF'] = ta.chaikin_money_flow(df, window=20)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
     df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
@@ -329,7 +326,8 @@ def add_technical_indicators(df):
     df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
     df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-    df[cols] = df[cols].ffill().bfill()
+    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
+    # FIXED CONDITIONS (syntax + enhanced HOLD)
     conditions = [
         # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
         (
@@ -386,17 +384,16 @@ def add_technical_indicators(df):
             )
         )
     ]
-    choices = ['Hold', 'Bull', 'Short', 'Bear']
-    df['TI'] = np.select(conditions, choices, default='Neutral')
-    df['TI'] = df['TI'].astype(str)
-    df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
-    df_encoded = df_encoded.astype(int)
     
+    choices = ['Hold', 'Bull', 'Short', 'Bear']  # ✅ Priority order!
+    df['TI'] = np.select(conditions, choices, default='Neutral')
+    df['TI'] = df['TI'].astype('category')
+ 
+    df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
     expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
     for col in expected_cols:
         if col not in df_encoded.columns:
             df_encoded[col] = 0
-    
     df = pd.concat([df, df_encoded], axis=1)
 
     strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
