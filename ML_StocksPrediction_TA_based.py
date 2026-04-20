@@ -173,7 +173,7 @@ FEATURES = [
     'return1', 'return2', 'return3', 'Volatility', 'Scaled_Volatility', 'DD',
 
     # Volume Features
-    'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT', 'OBV', 'MFI', 'VWMA', 'CMf',
+    'sumBuyVol', 'sumSellVol', 'vSpike', 'VPT', 'OBV', 'MFI', 'VWMA', 'CMF',
 
     # Candlestick Patterns
     'Candlesticks', 'gapStrength',
