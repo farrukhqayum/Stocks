@@ -932,7 +932,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
     ax1.plot(future_date, loss_price, 'v', markersize=_ms, color='red', alpha=0.5, label=f"SL: ${loss_price:.2f}, {loss}%")
     ax1.plot(last_date, avg_price, 'o', markersize=_ms, color='orange', alpha=0.5, label=f"E: ${avg_price:.2f}")
     ax1.annotate(f"E: ${avg_price:.2f}", xy=(last_date, avg_price), xytext=(10, 0), textcoords='offset points', ha='left', va='center', color='orange', fontsize=9, bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    ax1.annotate(f"${current_price:.2f}\t-\t${gain_price:.2f}\n+{predictions["Max (%)"]:.1f}%",
+    ax1.annotate(f"${current_price:.2f}\t-\t${gain_price:.2f}\n+{predictions['Max (%)']:.1f}%",
                  xy=(future_date, gain_price), 
                  xytext=(10, 10), 
                  textcoords='offset points', ha='left', va='bottom', color='green', 
