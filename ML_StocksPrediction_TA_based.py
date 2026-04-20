@@ -937,7 +937,7 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                  xytext=(10, 10), 
                  textcoords='offset points', ha='left', va='bottom', color='green', 
                  fontsize=9, fontname='DejaVu Sans', bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
-    ax1.annotate(f"${current_price:.2f}\t-\t${loss_price:.2f}\n{predictions["Loss (%)"]:.1f}%",
+    ax1.annotate(f"${current_price:.2f}\t-\t${loss_price:.2f}\n{predictions['Loss (%)']:.1f}%",
                  xy=(future_date, loss_price), 
                  xytext=(10, -10), 
                  textcoords='offset points', ha='left', va='top', color='red', 
