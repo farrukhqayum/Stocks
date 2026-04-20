@@ -4,6 +4,7 @@ st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of St
 from imports import *
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from matplotlib.ticker import LogLocator, LogFormatterSciNotation
 
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
