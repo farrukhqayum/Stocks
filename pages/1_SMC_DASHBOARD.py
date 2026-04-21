@@ -811,14 +811,50 @@ if df_daily is None:
     st.stop()
 
 # Load hourly data for trading
-start_hourly = datetime.today() - timedelta(days=30)
-df_hourly = load_data(ticker, start_hourly, "1h")
-if df_hourly is None:
-    st.warning("Hourly data unavailable, using 4H")
-    df_hourly = load_data(ticker, start_hourly, "4h")
-    if df_hourly is None:
+try:
+    # Use period instead of start/end dates for intraday
+    df_hourly = yf.download(ticker, period="5d", interval="1h", auto_adjust=False, progress=False)
+    
+    if df_hourly is None or df_hourly.empty:
+        raise Exception("No data")
+    
+    # Clean up the dataframe (same as your load_data function)
+    df_hourly.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df_hourly.columns]
+    df_hourly.index = pd.to_datetime(df_hourly.index)
+    df_hourly = df_hourly.dropna(subset=["open","high","low","close"]).astype(float)
+    
+    # Calculate all the indicators
+    df_hourly['ema20'] = ema(df_hourly.close, 20)
+    df_hourly['ema50'] = ema(df_hourly.close, 50)
+    df_hourly['ema200'] = ema(df_hourly.close, 200)
+    df_hourly['rsi'] = rsi(df_hourly.close, 14)
+    df_hourly['rsi_ema'] = ema(df_hourly['rsi'], 14)
+    df_hourly['atr'] = atr(df_hourly, 14)
+    df_hourly['lb_crv'] = lb_curve(df_hourly, 10)
+    df_hourly = df_hourly.bfill().ffill()
+    
+except Exception as e:
+    st.warning(f"Hourly data unavailable, using 4H: {e}")
+    df_hourly = yf.download(ticker, period="1mo", interval="4h", auto_adjust=False, progress=False)
+    
+    if df_hourly is None or df_hourly.empty:
         st.error("No intraday data")
         st.stop()
+    
+    # Clean 4H data
+    df_hourly.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df_hourly.columns]
+    df_hourly.index = pd.to_datetime(df_hourly.index)
+    df_hourly = df_hourly.dropna(subset=["open","high","low","close"]).astype(float)
+    
+    # Calculate indicators for 4H
+    df_hourly['ema20'] = ema(df_hourly.close, 20)
+    df_hourly['ema50'] = ema(df_hourly.close, 50)
+    df_hourly['ema200'] = ema(df_hourly.close, 200)
+    df_hourly['rsi'] = rsi(df_hourly.close, 14)
+    df_hourly['rsi_ema'] = ema(df_hourly['rsi'], 14)
+    df_hourly['atr'] = atr(df_hourly, 14)
+    df_hourly['lb_crv'] = lb_curve(df_hourly, 10)
+    df_hourly = df_hourly.bfill().ffill()
 
 # Daily context
 with st.spinner("Analyzing daily context..."):
