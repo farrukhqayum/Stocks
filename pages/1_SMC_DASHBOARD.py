@@ -166,15 +166,67 @@ def get_style(s):
 # ------------------------------------------------------------
 # 5. LOAD DATA (cached)
 # ------------------------------------------------------------
+# ------------------------------------------------------------
+# 5. LOAD DATA (cached)
+# ------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_data(ticker, start_date, interval):
-    end = datetime.today().strftime("%Y-%m-%d")
-    df = yf.download(ticker, start=start_date, end=end, interval=interval, auto_adjust=False, progress=False)
-    if df is None or df.empty:
-        return None
-    df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
+    # For intraday intervals, use period parameter instead of start/end
+    if interval in ['1h', '4h', '1m', '5m', '15m', '30m']:
+        # Map interval to period
+        period_map = {
+            '1h': '5d',
+            '4h': '1mo',
+            '1m': '2d',
+            '5m': '3d',
+            '15m': '5d',
+            '30m': '5d'
+        }
+        period = period_map.get(interval, '5d')
+        
+        # Download with period
+        df = yf.download(ticker, period=period, interval=interval, auto_adjust=False, progress=False)
+        
+        if df is None or df.empty:
+            return None
+            
+        # Handle MultiIndex columns (when auto_adjust=False)
+        if isinstance(df.columns, pd.MultiIndex):
+            # Flatten MultiIndex columns
+            df.columns = ['_'.join(col).strip() for col in df.columns.values]
+            # Rename to standard names
+            rename_dict = {}
+            for col in df.columns:
+                if 'Open' in col or 'open' in col:
+                    rename_dict[col] = 'open'
+                elif 'High' in col or 'high' in col:
+                    rename_dict[col] = 'high'
+                elif 'Low' in col or 'low' in col:
+                    rename_dict[col] = 'low'
+                elif 'Close' in col or 'close' in col:
+                    rename_dict[col] = 'close'
+                elif 'Volume' in col or 'volume' in col:
+                    rename_dict[col] = 'volume'
+            df.rename(columns=rename_dict, inplace=True)
+        else:
+            # Single level columns
+            df.columns = [col.lower() for col in df.columns]
+        
+    else:
+        # Daily data uses start/end
+        end = datetime.today().strftime("%Y-%m-%d")
+        df = yf.download(ticker, start=start_date, end=end, interval=interval, auto_adjust=False, progress=False)
+        
+        if df is None or df.empty:
+            return None
+            
+        df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
+    
+    # Common processing for all data
     df.index = pd.to_datetime(df.index)
     df = df.dropna(subset=["open","high","low","close"]).astype(float)
+    
+    # Calculate indicators
     df['ema20'] = ema(df.close, 20)
     df['ema50'] = ema(df.close, 50)
     df['ema200'] = ema(df.close, 200)
@@ -183,6 +235,7 @@ def load_data(ticker, start_date, interval):
     df['atr'] = atr(df, 14)
     df['lb_crv'] = lb_curve(df, 10)
     df = df.bfill().ffill()
+    
     return df
 
 # ------------------------------------------------------------
@@ -810,118 +863,21 @@ if df_daily is None:
     st.error("No daily data")
     st.stop()
 
-# Load hourly data for trading
-try:
-    # Use period instead of start/end dates for intraday
-    df_hourly = yf.download(ticker, period="5d", interval="1h", auto_adjust=False, progress=False)
-    
-    if df_hourly is None or df_hourly.empty:
-        raise Exception("No data")
-    
-    # Fix column names - they come as tuples when auto_adjust=False
-    if isinstance(df_hourly.columns[0], tuple):
-        df_hourly.columns = ['_'.join(col).strip() for col in df_hourly.columns.values]
-    
-    # Rename columns to lowercase
-    df_hourly.columns = [col.lower() for col in df_hourly.columns]
-    
-    # If columns have 'open', 'high', 'low', 'close' with prefixes, extract them
-    for col in df_hourly.columns:
-        if 'open' in col:
-            df_hourly.rename(columns={col: 'open'}, inplace=True)
-        elif 'high' in col:
-            df_hourly.rename(columns={col: 'high'}, inplace=True)
-        elif 'low' in col:
-            df_hourly.rename(columns={col: 'low'}, inplace=True)
-        elif 'close' in col:
-            df_hourly.rename(columns={col: 'close'}, inplace=True)
-        elif 'volume' in col:
-            df_hourly.rename(columns={col: 'volume'}, inplace=True)
-    
-    df_hourly.index = pd.to_datetime(df_hourly.index)
-    df_hourly = df_hourly.dropna(subset=["open","high","low","close"]).astype(float)
-    
-    # Calculate all the indicators
-    df_hourly['ema20'] = ema(df_hourly.close, 20)
-    df_hourly['ema50'] = ema(df_hourly.close, 50)
-    df_hourly['ema200'] = ema(df_hourly.close, 200)
-    df_hourly['rsi'] = rsi(df_hourly.close, 14)
-    df_hourly['rsi_ema'] = ema(df_hourly['rsi'], 14)
-    df_hourly['atr'] = atr(df_hourly, 14)
-    df_hourly['lb_crv'] = lb_curve(df_hourly, 10)
-    df_hourly = df_hourly.bfill().ffill()
-    
-    st.sidebar.success(f"✅ Loaded {len(df_hourly)} hourly bars up to {df_hourly.index[-1].strftime('%Y-%m-%d %H:%M')}")
-    
-except Exception as e:
-    st.warning(f"Hourly data unavailable: {str(e)[:100]}")
-    
-    # Try alternative method - using different parameters
-    try:
-        df_hourly = yf.download(ticker, period="5d", interval="60m", auto_adjust=True, progress=False)
-        
-        if df_hourly is None or df_hourly.empty:
-            raise Exception("No data")
-        
-        # For auto_adjust=True, columns are simpler
-        df_hourly.columns = [col.lower() for col in df_hourly.columns]
-        df_hourly.index = pd.to_datetime(df_hourly.index)
-        df_hourly = df_hourly.dropna(subset=["open","high","low","close"]).astype(float)
-        
-        # Calculate indicators
-        df_hourly['ema20'] = ema(df_hourly.close, 20)
-        df_hourly['ema50'] = ema(df_hourly.close, 50)
-        df_hourly['ema200'] = ema(df_hourly.close, 200)
-        df_hourly['rsi'] = rsi(df_hourly.close, 14)
-        df_hourly['rsi_ema'] = ema(df_hourly['rsi'], 14)
-        df_hourly['atr'] = atr(df_hourly, 14)
-        df_hourly['lb_crv'] = lb_curve(df_hourly, 10)
-        df_hourly = df_hourly.bfill().ffill()
-        
-        st.sidebar.success(f"✅ Loaded {len(df_hourly)} hourly bars (auto_adjust)")
-        
-    except Exception as e2:
-        st.warning(f"Using 4H data instead: {str(e2)[:100]}")
-        df_hourly = yf.download(ticker, period="1mo", interval="4h", auto_adjust=False, progress=False)
-        
-        if df_hourly is None or df_hourly.empty:
-            st.error("No intraday data available")
-            st.stop()
-        
-        # Fix columns for 4H data
-        if isinstance(df_hourly.columns[0], tuple):
-            df_hourly.columns = ['_'.join(col).strip() for col in df_hourly.columns.values]
-        df_hourly.columns = [col.lower() for col in df_hourly.columns]
-        
-        for col in df_hourly.columns:
-            if 'open' in col:
-                df_hourly.rename(columns={col: 'open'}, inplace=True)
-            elif 'high' in col:
-                df_hourly.rename(columns={col: 'high'}, inplace=True)
-            elif 'low' in col:
-                df_hourly.rename(columns={col: 'low'}, inplace=True)
-            elif 'close' in col:
-                df_hourly.rename(columns={col: 'close'}, inplace=True)
-        
-        df_hourly.index = pd.to_datetime(df_hourly.index)
-        df_hourly = df_hourly.dropna(subset=["open","high","low","close"]).astype(float)
-        
-        # Calculate indicators for 4H
-        df_hourly['ema20'] = ema(df_hourly.close, 20)
-        df_hourly['ema50'] = ema(df_hourly.close, 50)
-        df_hourly['ema200'] = ema(df_hourly.close, 200)
-        df_hourly['rsi'] = rsi(df_hourly.close, 14)
-        df_hourly['rsi_ema'] = ema(df_hourly['rsi'], 14)
-        df_hourly['atr'] = atr(df_hourly, 14)
-        df_hourly['lb_crv'] = lb_curve(df_hourly, 10)
-        df_hourly = df_hourly.bfill().ffill()
+start_hourly = datetime.today() - timedelta(days=30)
+df_hourly = load_data(ticker, start_hourly, "1h")
+if df_hourly is None:
+    st.warning("Hourly data unavailable, using 4H")
+    df_hourly = load_data(ticker, start_hourly, "4h")
+    if df_hourly is None:
+        st.error("No intraday data")
+        st.stop()
 
 # Show data info
-st.sidebar.info(f"📅 Data up to: {df_hourly.index[-1].strftime('%Y-%m-%d %H:%M')}")
+st.sidebar.info(f"📅 Hourly data up to: {df_hourly.index[-1].strftime('%Y-%m-%d %H:%M')}")
 if df_hourly.index[-1].date() == datetime.today().date():
     st.sidebar.success("✅ Including today's data")
 else:
-    st.sidebar.warning("⚠️ No data for today")
+    st.sidebar.warning(f"⚠️ Last data: {df_hourly.index[-1].date()} - No data for today yet")
 
 # Daily context
 with st.spinner("Analyzing daily context..."):
