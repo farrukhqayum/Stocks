@@ -811,7 +811,7 @@ if df_daily is None:
     st.stop()
 
 # Load hourly data for trading
-start_hourly = datetime.today() - timedelta(days=30)
+start_hourly = datetime.today() - timedelta(days=90)
 df_hourly = load_data(ticker, start_hourly, "1h")
 if df_hourly is None:
     st.warning("Hourly data unavailable, using 4H")
