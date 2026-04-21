@@ -177,21 +177,13 @@ def load_data(ticker, start_date, interval):
             # Daily data
             end = datetime.today().strftime("%Y-%m-%d")
             df = yf.download(ticker, start=start_date, end=end, interval=interval, auto_adjust=True, progress=False)
+
+        df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+        df.columns = [col.lower() for col in df.columns]
         
         if df is None or df.empty:
             return None
-        
-        # Handle column names - they might be tuples or strings
-        if hasattr(df.columns, 'values'):
-            new_columns = []
-            for col in df.columns:
-                if isinstance(col, tuple):
-                    # Take the last element of the tuple (usually the price type)
-                    new_columns.append(str(col[-1]).lower())
-                else:
-                    new_columns.append(str(col).lower())
-            df.columns = new_columns
-        
+                    
         # Ensure we have OHLC columns
         required = ['open', 'high', 'low', 'close']
         if not all(col in df.columns for col in required):
