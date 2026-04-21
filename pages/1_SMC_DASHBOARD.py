@@ -178,12 +178,13 @@ def load_data(ticker, start_date, interval):
             end = datetime.today().strftime("%Y-%m-%d")
             df = yf.download(ticker, start=start_date, end=end, interval=interval, auto_adjust=True, progress=False)
 
+                
+        if df is None or df.empty:
+            return None
+            
         df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
         df.columns = [col.lower() for col in df.columns]
         
-        if df is None or df.empty:
-            return None
-                    
         # Ensure we have OHLC columns
         required = ['open', 'high', 'low', 'close']
         if not all(col in df.columns for col in required):
