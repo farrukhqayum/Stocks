@@ -813,7 +813,7 @@ if df_daily is None:
 # Load hourly data for trading
 try:
     # Use period instead of start/end dates for intraday
-    df_hourly = yf.download(ticker, period="5d", interval="1h", auto_adjust=False, progress=False)
+    df_hourly = yf.download(ticker, period="30d", interval="1h", auto_adjust=False, progress=False)
     
     if df_hourly is None or df_hourly.empty:
         raise Exception("No data")
@@ -821,7 +821,7 @@ try:
     # Clean up the dataframe (same as your load_data function)
     df_hourly.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df_hourly.columns]
     df_hourly.index = pd.to_datetime(df_hourly.index)
-    df_hourly = df_hourly.dropna(subset=["open","high","low","close"]).astype(float)
+    df_hourly = df_hourly.dropna(subset=["0open","high","low","close"]).astype(float)
     
     # Calculate all the indicators
     df_hourly['ema20'] = ema(df_hourly.close, 20)
