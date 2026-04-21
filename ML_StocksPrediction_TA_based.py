@@ -224,10 +224,11 @@ def get_stock_data(ticker, start_date, end_date):
     if df.empty:
         return None
 
-    df = df.reset_index()
-    df['Date'] = pd.to_datetime(df['Date'])
-    df.set_index('Date', inplace=True)
+    #df = df.reset_index()
+    #df['Date'] = pd.to_datetime(df['Date'])
+    #df.set_index('Date', inplace=True)
     df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
+    df.index = pd.to_datetime(df.index)
     df = df.dropna()
 
     if df.empty:
@@ -358,6 +359,7 @@ def add_technical_indicators(df):
     df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
     df['gapStrength'] = ta.compute_gapStrength(df)
     df = ta.add_exhaustion_indicator(df)
+    df = df.bfill().ffill()
     df.Close = close
     return df
 
