@@ -166,14 +166,48 @@ def get_style(s):
 # ------------------------------------------------------------
 # 5. LOAD DATA (cached)
 # ------------------------------------------------------------
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300) 
 def load_data(ticker, start_date, interval):
-    end = datetime.today().strftime("%Y-%m-%d")
-    df = yf.download(ticker, start=start_date, end=end, interval=interval, auto_adjust=False, progress=False)
+    """Load data - special handling for intraday intervals"""
+    if interval in ['1m', '2m', '5m', '15m', '30m', '1h', '4h', '90m']:
+        period_map = {
+            '1h': '10d',   # 10 days for hourly (includes today)
+            '4h': '1mo',   # 1 month for 4h
+            '15m': '5d',
+            '30m': '5d',
+            '5m': '3d'
+        }
+        period = period_map.get(interval, '7d')
+        df = yf.download(
+            ticker, 
+            period=period, 
+            interval=interval, 
+            auto_adjust=False, 
+            progress=False,
+            prepost=False,
+            repair=True,
+            rounding=True
+        )
+    else:
+        end = (datetime.today() + timedelta(days=1)).strftime("%Y-%m-%d")
+        df = yf.download(
+            ticker, 
+            start=start_date, 
+            end=end, 
+            interval=interval, 
+            auto_adjust=False, 
+            progress=False,
+            repair=True,
+            rounding=True
+        )
+    
     if df is None or df.empty:
         return None
+    
+    # Clean up columns
     df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
     df.index = pd.to_datetime(df.index)
+    df = df[df.index <= datetime.now()]
     df = df.dropna(subset=["open","high","low","close"]).astype(float)
     df['ema20'] = ema(df.close, 20)
     df['ema50'] = ema(df.close, 50)
@@ -183,6 +217,7 @@ def load_data(ticker, start_date, interval):
     df['atr'] = atr(df, 14)
     df['lb_crv'] = lb_curve(df, 10)
     df = df.bfill().ffill()
+    
     return df
 
 # ------------------------------------------------------------
