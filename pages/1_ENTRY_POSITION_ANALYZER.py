@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 import streamlit as st
-
 # Configuration
 st.set_page_config(page_title="📊 Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
