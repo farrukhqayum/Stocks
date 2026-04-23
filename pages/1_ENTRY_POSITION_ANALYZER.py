@@ -6,6 +6,8 @@ import streamlit as st
 st.set_page_config(page_title="📊 Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
+st.write("🔑 Available secret keys:", list(st.secrets.keys()))
+
 from imports import *
 import math
 warnings.filterwarnings('ignore')
