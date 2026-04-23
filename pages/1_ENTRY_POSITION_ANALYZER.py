@@ -92,17 +92,26 @@ desc = """
     """
 
 def validate_ticker(ticker: str) -> dict:
+    """Validate ticker using Alpha Vantage GLOBAL_QUOTE"""
     try:
         ticker = ticker.strip().upper()
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-        stock = yf.Ticker(ticker, session=session)
-        hist = stock.history(period="5d")
-        if hist.empty:
-            return {"valid": False, "reason": "No price history"}
-        return {"valid": True, "reason": "Ticker found"}
+        url = "https://www.alphavantage.co/query"
+        params = {
+            "function": "GLOBAL_QUOTE",
+            "symbol": ticker,
+            "apikey": API_KEY
+        }
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if "Note" in data:
+            return {"valid": True, "reason": "Rate limit, assume valid"}
+        
+        quote = data.get("Global Quote", {})
+        if quote and "05. price" in quote:
+            return {"valid": True, "reason": "Ticker found"}
+        else:
+            return {"valid": False, "reason": "No data – check symbol"}
     except Exception as e:
         return {"valid": False, "reason": str(e)}
 
@@ -1044,12 +1053,31 @@ def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
       
 def get_current_price(ticker: str):
+    """Get current price using Alpha Vantage GLOBAL_QUOTE"""
     try:
-        data = yf.Ticker(ticker).history(period="1d")
-        if data.empty or "Close" not in data:
+        url = "https://www.alphavantage.co/query"
+        params = {
+            "function": "GLOBAL_QUOTE",
+            "symbol": ticker,
+            "apikey": API_KEY
+        }
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        # Check for rate limit
+        if "Note" in data:
+            st.warning("Alpha Vantage rate limit hit. Using fallback price.")
             return None
-        return data["Close"].iloc[-1]
-    except Exception:
+            
+        quote = data.get("Global Quote", {})
+        price_str = quote.get("05. price")
+        if price_str:
+            return float(price_str)
+        else:
+            st.warning(f"No quote data for {ticker}")
+            return None
+    except Exception as e:
+        st.error(f"Error fetching price for {ticker}: {e}")
         return None
 
 def update_price_and_reset_entry():
