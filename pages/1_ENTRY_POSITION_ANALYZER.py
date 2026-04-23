@@ -89,7 +89,7 @@ desc = """
     - Risk-reward ratio and confidence scores help assess and validate each trade decision
     """
 
-PROXY_URL = st.secrets["https://yfinance-proxy-dxcr.onrender.com/health"]
+PROXY_URL = st.secrets["PROXY_URL"]
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
