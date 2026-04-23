@@ -221,7 +221,8 @@ def get_stock_data(ticker, start_date, end_date):
         end=end_date + timedelta(days=1),
         progress=False,
         auto_adjust=True, 
-        actions=False
+        actions=False,
+        threads=False
         )
     
     except Exception:
