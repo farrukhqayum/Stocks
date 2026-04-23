@@ -9,9 +9,6 @@ st.write("🔑 Available secret keys:", list(st.secrets.keys()))
 
 from imports import *
 import math
-warnings.filterwarnings('ignore')
-API_KEY = st.secrets["ALPHA_VANTAGE_API_KEY"]
-av.configure(API_KEY)
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
@@ -92,27 +89,70 @@ desc = """
     - Risk-reward ratio and confidence scores help assess and validate each trade decision
     """
 
-def validate_ticker(ticker: str) -> dict:
-    """Validate ticker using Alpha Vantage GLOBAL_QUOTE"""
+PROXY_URL = st.secrets["https://yfinance-proxy-dxcr.onrender.com/health"]
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_stock_data(ticker, start_date, end_date, interval='1d'):
+    """Fetch stock data through yfinance proxy"""
     try:
-        ticker = ticker.strip().upper()
-        url = "https://www.alphavantage.co/query"
-        params = {
-            "function": "GLOBAL_QUOTE",
-            "symbol": ticker,
-            "apikey": API_KEY
-        }
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
+        response = requests.get(
+            f"{PROXY_URL}/get_stock",
+            params={
+                'ticker': ticker,
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'),
+                'interval': interval
+            },
+            timeout=60  # Longer timeout for cold starts
+        )
         
-        if "Note" in data:
-            return {"valid": True, "reason": "Rate limit, assume valid"}
-        
-        quote = data.get("Global Quote", {})
-        if quote and "05. price" in quote:
-            return {"valid": True, "reason": "Ticker found"}
+        if response.status_code == 200:
+            data = response.json()
+            df = pd.DataFrame(data['data'])
+            df['Date'] = pd.to_datetime(df['Date'])
+            df.set_index('Date', inplace=True)
+            
+            # Ensure numeric columns
+            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col])
+            
+            return df
         else:
-            return {"valid": False, "reason": "No data – check symbol"}
+            error_msg = response.json().get('error', 'Unknown error')
+            st.error(f"Proxy error for {ticker}: {error_msg}")
+            return None
+            
+    except requests.exceptions.Timeout:
+        st.warning(f"Proxy timeout for {ticker} (cold start). Retry in a moment.")
+        return None
+    except Exception as e:
+        st.error(f"Failed to fetch {ticker}: {e}")
+        return None
+
+def get_current_price(ticker):
+    """Get current price through proxy"""
+    try:
+        response = requests.get(
+            f"{PROXY_URL}/get_current_price",
+            params={'ticker': ticker},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            return response.json()['price']
+        return None
+    except Exception as e:
+        st.warning(f"Could not fetch price for {ticker}: {e}")
+        return None
+
+def validate_ticker(ticker: str) -> dict:
+    """Validate ticker through proxy"""
+    try:
+        price = get_current_price(ticker)
+        if price and price > 0:
+            return {"valid": True, "reason": "Ticker found"}
+        return {"valid": False, "reason": "No data – check symbol"}
     except Exception as e:
         return {"valid": False, "reason": str(e)}
 
@@ -1771,8 +1811,7 @@ def main():
 
                     # Fetch data for timeframe
                     with st.spinner(f"Fetching {timeframe} data..."):
-                        #df = get_stock_data(ticker, start_date, end_date, interval)
-                        df = av.get_stock_data(ticker, start_date, end_date, interval)
+                        df = get_stock_data(ticker, start_date, end_date, interval)
 
                     if df is None:
                         st.warning(f"No data available for {timeframe} timeframe")
