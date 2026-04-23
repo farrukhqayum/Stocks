@@ -9,6 +9,12 @@ from matplotlib.ticker import LogLocator, LogFormatterSciNotation
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 warnings.filterwarnings("ignore")
 
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+})
+
+
 
 bold = '\033[1m'
 end = '\033[0m'
