@@ -9,6 +9,7 @@ st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 from imports import *
 import math
 warnings.filterwarnings('ignore')
+API_KEY = st.secrets["ALPHA_VANTAGE_API_KEY"]
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
@@ -103,104 +104,96 @@ def validate_ticker(ticker: str) -> dict:
         return {"valid": True, "reason": "Ticker found"}
     except Exception as e:
         return {"valid": False, "reason": str(e)}
-        
-@st.cache_data(ttl=1200)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
-    """Get stock data for given timeframe with proper date handling"""
-    try:
-        ticker = ticker.strip().upper()
-        
-        # Create curl_cffi session (from your imports.py)
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-        })
-        
-        # Map interval names for yfinance
-        interval_map = {
-            '4H': '4h',  # yfinance uses '4h' not '4H'
-            '1D': '1d', 
-            '1W': '1wk'
-        }
-        
-        yf_interval = interval_map.get(interval, interval)
-        
-        # Download data with session
-        df = yf.download(
-            ticker, 
-            start=start_date, 
-            end=end_date,
-            interval=yf_interval, 
-            progress=False, 
-            auto_adjust=True,
-            session=session,
-            threads=False,
-            prepost=False
-        )
-        
-        if df.empty:
-            # Try with period as fallback
-            df = yf.download(
-                ticker, 
-                period="2y",
-                interval=yf_interval,
-                progress=False, 
-                auto_adjust=True,
-                session=session,
-                threads=False
-            )
-        
-        if df.empty:
-            st.error(f"No data found for {ticker} with interval {interval}")
-            return None
-        
-        # Reset index to get Date as column
-        df = df.reset_index()
-        
-        # Handle different column names from yfinance
-        if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'])
-            df.set_index('Date', inplace=True)
-        elif 'Datetime' in df.columns:
-            df['Date'] = pd.to_datetime(df['Datetime'])
-            df.set_index('Date', inplace=True)
-            df = df.drop('Datetime', axis=1)
-        elif 'index' in df.columns:
-            df['Date'] = pd.to_datetime(df['index'])
-            df.set_index('Date', inplace=True)
-        
-        # Handle MultiIndex columns (fix for yfinance updates)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        
-        # Remove duplicate columns
-        df = df.loc[:, ~df.columns.duplicated()]
-        
-        # Ensure we have the required columns
-        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
-        for col in required_cols:
-            if col not in df.columns:
-                st.error(f"Missing required column: {col} for {ticker}")
+    """
+    Fetch stock data from Alpha Vantage (works on Streamlit Cloud).
+    Supports daily and weekly intervals.
+    """
+    ticker = ticker.strip().upper()
+    
+    # Alpha Vantage function based on interval
+    func_map = {
+        '1d': 'TIME_SERIES_DAILY_ADJUSTED',
+        '1D': 'TIME_SERIES_DAILY_ADJUSTED',
+        '1wk': 'TIME_SERIES_WEEKLY_ADJUSTED',
+        '1W': 'TIME_SERIES_WEEKLY_ADJUSTED',
+        '4h': 'TIME_SERIES_DAILY_ADJUSTED',   # fallback to daily
+        '4H': 'TIME_SERIES_DAILY_ADJUSTED',
+    }
+    function = func_map.get(interval, 'TIME_SERIES_DAILY_ADJUSTED')
+    
+    # Time series key in response
+    ts_key = 'Time Series (Daily)' if 'DAILY' in function else 'Weekly Adjusted Time Series'
+    
+    url = 'https://www.alphavantage.co/query'
+    params = {
+        'function': function,
+        'symbol': ticker,
+        'apikey': API_KEY,   # from secrets
+        'outputsize': 'full',
+        'datatype': 'json'
+    }
+    
+    for attempt in range(3):
+        try:
+            resp = requests.get(url, params=params, timeout=15)
+            data = resp.json()
+            
+            # Rate limit handling
+            if 'Note' in data:
+                st.warning(f"Alpha Vantage rate limit. Waiting 60s...")
+                time.sleep(60)
+                continue
+            
+            if 'Error Message' in data:
+                st.error(f"Alpha Vantage error for {ticker}: {data['Error Message']}")
                 return None
-        
-        # Clean data - only keep required columns
-        df = df[required_cols].dropna()
-        
-        if df.empty:
-            st.error(f"No valid data after cleaning for {ticker}")
+            
+            time_series = data.get(ts_key)
+            if not time_series:
+                st.error(f"No time series for {ticker}")
+                return None
+            
+            # Convert to DataFrame
+            df = pd.DataFrame.from_dict(time_series, orient='index')
+            df.index = pd.to_datetime(df.index)
+            df.sort_index(inplace=True)
+            
+            # Rename columns
+            df = df.rename(columns={
+                '1. open': 'Open',
+                '2. high': 'High',
+                '3. low': 'Low',
+                '4. close': 'Close',
+                '5. adjusted close': 'Close',   # use adjusted close
+                '6. volume': 'Volume'
+            })
+            df = df[['Open', 'High', 'Low', 'Close', 'Volume']]
+            df = df.apply(pd.to_numeric)
+            
+            # Filter by date range
+            mask = (df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))
+            df = df.loc[mask]
+            
+            if df.empty:
+                st.warning(f"No data for {ticker} in date range")
+                return None
+            
+            # Convert to float32 for memory
+            for col in df.select_dtypes(include=['float64']).columns:
+                df[col] = df[col].astype('float32')
+            
+            return df
+            
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            st.error(f"Failed to fetch {ticker}: {e}")
             return None
-        
-        # Convert to float32 for memory efficiency
-        for col in df.select_dtypes(include=['float64']).columns:
-            df[col] = df[col].astype('float32')
-        
-        return df
-        
-    except Exception as e:
-        st.error(f"Error downloading data for {ticker}: {str(e)}")
-        return None
+    
+    return None
 
 def add_technical_indicators(df, timeframe='1D'):
     """Add essential technical indicators to dataframe with timeframe-specific adjustments"""
