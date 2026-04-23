@@ -87,7 +87,6 @@ desc = """
     - Risk-reward ratio and confidence scores help assess and validate each trade decision
     """
 
-st.write("🔑 Available secret keys:", list(st.secrets.keys()))
 PROXY_URL = st.secrets["PROXY_URL"]
 
 @st.cache_data(ttl=300, show_spinner=False)
