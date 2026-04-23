@@ -10,6 +10,7 @@ from imports import *
 import math
 warnings.filterwarnings('ignore')
 API_KEY = st.secrets["ALPHA_VANTAGE_API_KEY"]
+av.configure(API_KEY)
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
@@ -104,96 +105,6 @@ def validate_ticker(ticker: str) -> dict:
         return {"valid": True, "reason": "Ticker found"}
     except Exception as e:
         return {"valid": False, "reason": str(e)}
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_stock_data(ticker, start_date, end_date, interval='1d'):
-    """
-    Fetch stock data from Alpha Vantage (works on Streamlit Cloud).
-    Supports daily and weekly intervals.
-    """
-    ticker = ticker.strip().upper()
-    
-    # Alpha Vantage function based on interval
-    func_map = {
-        '1d': 'TIME_SERIES_DAILY_ADJUSTED',
-        '1D': 'TIME_SERIES_DAILY_ADJUSTED',
-        '1wk': 'TIME_SERIES_WEEKLY_ADJUSTED',
-        '1W': 'TIME_SERIES_WEEKLY_ADJUSTED',
-        '4h': 'TIME_SERIES_DAILY_ADJUSTED',   # fallback to daily
-        '4H': 'TIME_SERIES_DAILY_ADJUSTED',
-    }
-    function = func_map.get(interval, 'TIME_SERIES_DAILY_ADJUSTED')
-    
-    # Time series key in response
-    ts_key = 'Time Series (Daily)' if 'DAILY' in function else 'Weekly Adjusted Time Series'
-    
-    url = 'https://www.alphavantage.co/query'
-    params = {
-        'function': function,
-        'symbol': ticker,
-        'apikey': API_KEY,   # from secrets
-        'outputsize': 'full',
-        'datatype': 'json'
-    }
-    
-    for attempt in range(3):
-        try:
-            resp = requests.get(url, params=params, timeout=15)
-            data = resp.json()
-            
-            # Rate limit handling
-            if 'Note' in data:
-                st.warning(f"Alpha Vantage rate limit. Waiting 60s...")
-                time.sleep(60)
-                continue
-            
-            if 'Error Message' in data:
-                st.error(f"Alpha Vantage error for {ticker}: {data['Error Message']}")
-                return None
-            
-            time_series = data.get(ts_key)
-            if not time_series:
-                st.error(f"No time series for {ticker}")
-                return None
-            
-            # Convert to DataFrame
-            df = pd.DataFrame.from_dict(time_series, orient='index')
-            df.index = pd.to_datetime(df.index)
-            df.sort_index(inplace=True)
-            
-            # Rename columns
-            df = df.rename(columns={
-                '1. open': 'Open',
-                '2. high': 'High',
-                '3. low': 'Low',
-                '4. close': 'Close',
-                '5. adjusted close': 'Close',   # use adjusted close
-                '6. volume': 'Volume'
-            })
-            df = df[['Open', 'High', 'Low', 'Close', 'Volume']]
-            df = df.apply(pd.to_numeric)
-            
-            # Filter by date range
-            mask = (df.index >= pd.Timestamp(start_date)) & (df.index <= pd.Timestamp(end_date))
-            df = df.loc[mask]
-            
-            if df.empty:
-                st.warning(f"No data for {ticker} in date range")
-                return None
-            
-            # Convert to float32 for memory
-            for col in df.select_dtypes(include=['float64']).columns:
-                df[col] = df[col].astype('float32')
-            
-            return df
-            
-        except Exception as e:
-            if attempt < 2:
-                time.sleep(2 ** attempt)
-                continue
-            st.error(f"Failed to fetch {ticker}: {e}")
-            return None
-    
-    return None
 
 def add_technical_indicators(df, timeframe='1D'):
     """Add essential technical indicators to dataframe with timeframe-specific adjustments"""
@@ -1831,7 +1742,8 @@ def main():
 
                     # Fetch data for timeframe
                     with st.spinner(f"Fetching {timeframe} data..."):
-                        df = get_stock_data(ticker, start_date, end_date, interval)
+                        #df = get_stock_data(ticker, start_date, end_date, interval)
+                        df = av.get_stock_data(ticker, start_date, end_date, interval)
 
                     if df is None:
                         st.warning(f"No data available for {timeframe} timeframe")
