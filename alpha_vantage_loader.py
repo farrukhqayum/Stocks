@@ -4,29 +4,49 @@ from datetime import datetime, timedelta
 import streamlit as st
 import time
 
-API_KEY = None  # Will be set by the app
+# Private global variable
+_API_KEY = None
 
 def configure(api_key):
+    """Set the Alpha Vantage API key (call once at app startup)."""
     global _API_KEY
-    API_KEY = api_key
+    _API_KEY = api_key
 
-@st.cache_data(ttl=3600)  # Cache for 1 hour to respect rate limits
-def get_stock_data(ticker, start_date, end_date, max_retries=2):
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_stock_data(ticker, start_date, end_date, interval='1d', max_retries=2):
     """
-    Fetch daily adjusted stock data from Alpha Vantage.
+    Fetch stock data from Alpha Vantage.
+    Supports daily and weekly intervals.
+    
+    Parameters:
+    - ticker: str (e.g., 'AAPL')
+    - start_date, end_date: datetime or date objects
+    - interval: '1d' or '1wk'
+    - max_retries: int
+    
     Returns DataFrame with columns: Open, High, Low, Close, Volume
     Index is datetime.
     """
-    if API_KEY is None:
-        raise ValueError("Alpha Vantage API key not configured. Call configure() first.")
+    if _API_KEY is None:
+        st.error("Alpha Vantage API key not configured. Call configure() first.")
+        return None
     
-    # Alpha Vantage endpoint for daily adjusted
-    url = f"https://www.alphavantage.co/query"
+    ticker = ticker.strip().upper()
+    
+    # Map interval to Alpha Vantage function
+    if interval.lower() in ('1wk', '1w'):
+        function = 'TIME_SERIES_WEEKLY_ADJUSTED'
+        ts_key = 'Weekly Adjusted Time Series'
+    else:
+        function = 'TIME_SERIES_DAILY_ADJUSTED'
+        ts_key = 'Time Series (Daily)'
+    
+    url = "https://www.alphavantage.co/query"
     params = {
-        "function": "TIME_SERIES_DAILY_ADJUSTED",
+        "function": function,
         "symbol": ticker,
-        "apikey": API_KEY,
-        "outputsize": "full"  # Get full history
+        "apikey": _API_KEY,
+        "outputsize": "full"
     }
     
     for attempt in range(max_retries):
@@ -34,24 +54,22 @@ def get_stock_data(ticker, start_date, end_date, max_retries=2):
             response = requests.get(url, params=params, timeout=15)
             data = response.json()
             
-            # Check for API errors
             if "Error Message" in data:
                 st.error(f"Alpha Vantage error for {ticker}: {data['Error Message']}")
                 return None
-            if "Note" in data:  # Rate limit message
+            if "Note" in data:  # Rate limit
                 st.warning(f"Rate limit hit for {ticker}. Waiting 60 seconds...")
                 time.sleep(60)
                 continue
-                
-            time_series = data.get("Time Series (Daily)")
+            
+            time_series = data.get(ts_key)
             if not time_series:
-                st.error(f"No time series data for {ticker}. Response: {data}")
+                st.error(f"No time series data for {ticker}")
                 return None
-                
-            # Convert to DataFrame
+            
             df = pd.DataFrame.from_dict(time_series, orient="index")
             df.index = pd.to_datetime(df.index)
-            df = df.sort_index()
+            df.sort_index(inplace=True)
             
             # Rename columns to standard OHLCV
             df = df.rename(columns={
@@ -59,15 +77,12 @@ def get_stock_data(ticker, start_date, end_date, max_retries=2):
                 "2. high": "High",
                 "3. low": "Low",
                 "4. close": "Close",
-                "5. adjusted close": "Close",  # Use adjusted close as primary
+                "5. adjusted close": "Close",
                 "6. volume": "Volume"
             })
             
-            # Keep only needed columns (adjusted close overrides close)
-            df["Close"] = df.get("5. adjusted close", df["Close"])
+            # Keep only required columns
             df = df[["Open", "High", "Low", "Close", "Volume"]]
-            
-            # Convert to numeric
             df = df.apply(pd.to_numeric)
             
             # Filter by date range
@@ -77,13 +92,18 @@ def get_stock_data(ticker, start_date, end_date, max_retries=2):
             if df.empty:
                 st.warning(f"No data in date range for {ticker}")
                 return None
-                
+            
+            # Convert to float32 for memory efficiency
+            for col in df.select_dtypes(include=['float64']).columns:
+                df[col] = df[col].astype('float32')
+            
             return df
             
         except Exception as e:
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
+                time.sleep(2 ** attempt)
                 continue
             st.error(f"Failed to fetch {ticker}: {e}")
             return None
+    
     return None
