@@ -46,3 +46,5 @@ import emoji
 
 # Settings
 warnings.filterwarnings('ignore')
+import time, random
+time.sleep(random.uniform(1, 3))
