@@ -7,7 +7,7 @@ import time
 API_KEY = None  # Will be set by the app
 
 def configure(api_key):
-    global XCWK8X0KSHNA63TL
+    global _API_KEY
     API_KEY = api_key
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour to respect rate limits
