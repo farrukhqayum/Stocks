@@ -1093,34 +1093,6 @@ def avg_bull_bear_lengths(df):
 def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
       
-def get_current_price(ticker: str):
-    """Get current price using Alpha Vantage GLOBAL_QUOTE"""
-    try:
-        url = "https://www.alphavantage.co/query"
-        params = {
-            "function": "GLOBAL_QUOTE",
-            "symbol": ticker,
-            "apikey": API_KEY
-        }
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
-        
-        # Check for rate limit
-        if "Note" in data:
-            st.warning("Alpha Vantage rate limit hit. Using fallback price.")
-            return None
-            
-        quote = data.get("Global Quote", {})
-        price_str = quote.get("05. price")
-        if price_str:
-            return float(price_str)
-        else:
-            st.warning(f"No quote data for {ticker}")
-            return None
-    except Exception as e:
-        st.error(f"Error fetching price for {ticker}: {e}")
-        return None
-
 def update_price_and_reset_entry():
     ticker = st.session_state.get("ticker", None)
     if not ticker:
