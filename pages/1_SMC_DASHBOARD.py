@@ -10,6 +10,7 @@ from functools import lru_cache
 import requests
 from requests.adapters import HTTPAdapter
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib3.util.retry import Retry
 
 st.set_page_config(page_title="SMART MONEY CONCEPTS", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS - 1D/1H")
