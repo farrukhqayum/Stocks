@@ -11,6 +11,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib3.util.retry import Retry
+from defeatbeta_api.data.ticker import Ticker
 
 st.set_page_config(page_title="SMART MONEY CONCEPTS", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS - 1D/1H")
@@ -19,29 +20,18 @@ st.title("📈 SMART MONEY CONCEPTS - 1D/1H")
 # 1. OPTIMIZED YFINANCE HANDLER
 # =====================================================================
 
-class OptimizedYFinanceHandler:
-    """Handles all yfinance operations with optimization"""
+class OptimizedDataHandler:
+    """
+    Handles stock/crypto data operations using defeatbeta-api
+    No rate limits, no blocking, works on any cloud platform
+    """
     
     def __init__(self):
-        self.session = self._create_session()
         self.last_request_time = 0
-        self.min_request_interval = 0.5
+        self.min_request_interval = 0.1  # Minimal delay since no rate limits
         
-    def _create_session(self):
-        session = requests.Session()
-        retry = Retry(
-            total=2,
-            read=2,
-            connect=2,
-            backoff_factor=0.3,
-            status_forcelist=[429, 500, 502, 503, 504],
-        )
-        adapter = HTTPAdapter(max_retries=retry, pool_connections=5, pool_maxsize=10)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        return session
-    
     def _rate_limit(self):
+        """Small delay to be respectful"""
         elapsed = time.time() - self.last_request_time
         if elapsed < self.min_request_interval:
             time.sleep(self.min_request_interval - elapsed)
@@ -49,87 +39,112 @@ class OptimizedYFinanceHandler:
     
     @st.cache_data(ttl=300, show_spinner=False)
     def load_data(_self, ticker, start_date, interval):
-        """Optimized data loading with caching"""
+        """
+        Load stock/crypto data using defeatbeta-api
+        No blocking, works on Render, Railway, Heroku, etc.
+        """
         _self._rate_limit()
         
         try:
-            # Use shorter date range for hourly to reduce data
-            if interval == '1h' and (datetime.now() - start_date).days > 30:
-                start_date = datetime.now() - timedelta(days=30)
+            # Calculate days of data needed
+            days = (datetime.now() - start_date).days
+            if days < 1:
+                days = 1
             
-            # Download data directly instead of using Ticker object for better reliability
-            df = yf.download(
-                ticker, 
-                start=start_date, 
-                interval=interval,
-                auto_adjust=False,
-                timeout=20,
-                progress=False,
-                rounding=True
-            )
+            # Limit data for performance
+            max_days = 180 if interval == '1h' else 730
+            days = min(days, max_days)
             
-            if df is None or df.empty:
-                # Try with auto_adjust=True as fallback
-                df = yf.download(
-                    ticker, 
-                    start=start_date, 
-                    interval=interval,
-                    auto_adjust=True,
-                    timeout=20,
-                    progress=False,
-                    rounding=True
-                )
+            # Show what we're doing
+            st.info(f"📊 Loading {days} days of {interval} data for {ticker}...")
+            
+            # Create ticker object
+            ticker_obj = Ticker(ticker)
+            
+            # Get price history
+            df = ticker_obj.price()
             
             if df is None or df.empty:
-                st.warning(f"No data returned for {ticker} with interval {interval}")
+                st.warning(f"No data returned for {ticker}")
+                # Try crypto format if stock failed
+                if not ticker.endswith('-USD'):
+                    ticker_crypto = f"{ticker}-USD"
+                    try:
+                        ticker_obj = Ticker(ticker_crypto)
+                        df = ticker_obj.price()
+                    except:
+                        pass
+            
+            if df is None or df.empty:
+                st.warning(f"No data found for {ticker}")
                 return None
             
-            # Handle MultiIndex columns (when auto_adjust=False)
-            if isinstance(df.columns, pd.MultiIndex):
-                # Flatten the column names
-                df.columns = ['_'.join(col).lower() for col in df.columns.values]
-                # Rename to standard names
-                rename_dict = {}
-                for col in df.columns:
-                    if 'open' in col:
-                        rename_dict[col] = 'open'
-                    elif 'high' in col:
-                        rename_dict[col] = 'high'
-                    elif 'low' in col:
-                        rename_dict[col] = 'low'
-                    elif 'close' in col:
-                        rename_dict[col] = 'close'
-                    elif 'volume' in col:
-                        rename_dict[col] = 'volume'
-                df = df.rename(columns=rename_dict)
-            else:
-                # Single level columns
-                df.columns = [col.lower() for col in df.columns]
+            # Standardize column names (defeatbeta-api uses different naming)
+            column_map = {
+                'Date': 'date',
+                'Open': 'open',
+                'High': 'high',
+                'Low': 'low', 
+                'Close': 'close',
+                'Volume': 'volume'
+            }
+            df = df.rename(columns=column_map)
             
-            # Ensure we have the required columns
+            # Ensure datetime index
+            if 'date' in df.columns:
+                df.index = pd.to_datetime(df['date'])
+            else:
+                df.index = pd.to_datetime(df.index)
+            
+            # Filter by date range
+            cutoff_date = datetime.now() - timedelta(days=days)
+            df = df[df.index >= cutoff_date]
+            
+            # Handle interval resampling if needed
+            if interval != '1d' and len(df) > 0:
+                # Resample to requested interval
+                interval_map = {
+                    '1h': '1H',
+                    '4h': '4H',
+                    '15m': '15T',
+                    '5m': '5T',
+                    '1m': '1T'
+                }
+                resample_rule = interval_map.get(interval, '1H')
+                
+                df = df.resample(resample_rule).agg({
+                    'open': 'first',
+                    'high': 'max',
+                    'low': 'min',
+                    'close': 'last',
+                    'volume': 'sum'
+                }).dropna()
+            
+            # Ensure we have required columns
             required_cols = ['open', 'high', 'low', 'close']
             missing_cols = [col for col in required_cols if col not in df.columns]
             if missing_cols:
                 st.error(f"Missing columns: {missing_cols}. Available: {df.columns.tolist()}")
                 return None
             
-            df.index = pd.to_datetime(df.index)
-            
-            # Limit data points for performance
-            max_bars = 500 if interval == '1h' else 1000
+            # Limit number of bars for performance
+            max_bars = 500 if interval != '1d' else 1000
             if len(df) > max_bars:
                 df = df.tail(max_bars)
+                st.info(f"Limited to last {max_bars} bars for performance")
             
-            # Downcast to float32
+            # Optimize data types
             for col in ['open', 'high', 'low', 'close']:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').astype(np.float32)
             
             if 'volume' in df.columns:
                 df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(0).astype(np.float32)
+            else:
+                df['volume'] = 0
             
             # Remove any NaN rows
-            df = df.dropna(subset=["open","high","low","close"])
+            df = df.dropna(subset=["open", "high", "low", "close"])
             
             if len(df) < 10:
                 st.warning(f"Insufficient data for {ticker}: only {len(df)} bars")
@@ -147,6 +162,7 @@ class OptimizedYFinanceHandler:
             # Fill any remaining NaN values
             df = df.bfill().ffill()
             
+            st.success(f"✅ Loaded {len(df)} bars for {ticker}")
             return df
             
         except Exception as e:
@@ -155,10 +171,14 @@ class OptimizedYFinanceHandler:
     
     def _fast_ema(self, series, length):
         """Faster EMA calculation"""
+        if len(series) < length:
+            return series
         return series.ewm(span=length, adjust=False, min_periods=length).mean()
     
     def _fast_rsi(self, series, length=14):
         """Optimized RSI"""
+        if len(series) < length + 1:
+            return pd.Series(50, index=series.index)
         delta = series.diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=length).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=length).mean()
@@ -167,6 +187,8 @@ class OptimizedYFinanceHandler:
     
     def _fast_atr(self, df, length=14):
         """Optimized ATR"""
+        if len(df) < length + 1:
+            return pd.Series(0, index=df.index)
         high, low, close = df['high'], df['low'], df['close']
         tr1 = high - low
         tr2 = abs(high - close.shift())
@@ -176,13 +198,15 @@ class OptimizedYFinanceHandler:
     
     def _fast_lb_curve(self, df, lblen=10):
         """Optimized LB Curve with vectorization"""
+        if len(df) < 2:
+            return pd.Series(df['close'], index=df.index)
+        
         close = df['close'].values
         high = df['high'].values
         low = df['low'].values
         lb = np.zeros(len(df))
         lb[0] = close[0]
         
-        # Vectorized operations where possible
         for i in range(1, len(df)):
             start = max(0, i - lblen + 1)
             if start < i:
@@ -199,7 +223,9 @@ class OptimizedYFinanceHandler:
             else:
                 lb[i] = lb[i-1]
         
-        return pd.Series(lb, index=df.index).ewm(span=lblen, adjust=False).mean()
+        result = pd.Series(lb, index=df.index).ewm(span=lblen, adjust=False).mean()
+        result.iloc[0] = close[0]
+        return result
 
 # =====================================================================
 # 2. ZONE CLASSES (YOUR ORIGINAL CODE)
@@ -917,94 +943,123 @@ def get_hourly_signal(df_hourly, daily_ctx):
     else:
         return {'signal':'NO TRADE','valid':False,'reason':'No signal'}
 
-# =====================================================================
-# 8. MAIN STREAMLIT UI (YOUR ORIGINAL UI WITH OPTIMIZATIONS)
-# =====================================================================
-
 def main():
     st.sidebar.header("Settings")
     ticker = st.sidebar.text_input("Ticker", "AAPL").upper()
     
-    # Add caching options
-    st.sidebar.subheader("Performance Options")
-    use_cache = st.sidebar.checkbox("Enable Caching", value=True)
-    reduce_data = st.sidebar.checkbox("Reduce Data for Speed", value=True)
+    # Add data source selector
+    st.sidebar.subheader("Data Options")
+    use_fallback = st.sidebar.checkbox("Use Fallback API (Alpha Vantage)", value=False)
     
     # Create progress indicators
-    status_placeholder = st.empty()
+    status_container = st.empty()
+    progress_bar = st.progress(0)
     
     try:
-        # Initialize data handler
-        handler = OptimizedYFinanceHandler()
+        # Initialize the data handler
+        handler = OptimizedDataHandler()
         
-        # Load daily data
-        with status_placeholder.container():
-            st.info(f"📊 Fetching daily data for {ticker}...")
-            start_daily = datetime.now() - timedelta(days=365)
-            df_daily = handler.load_data(ticker, start_daily, "1d")
+        # ============================================================
+        # LOAD DAILY DATA
+        # ============================================================
+        status_container.info(f"📊 Loading daily data for {ticker}...")
+        progress_bar.progress(10)
+        
+        start_daily = datetime.now() - timedelta(days=365)
+        df_daily = handler.load_data(ticker, start_daily, "1d")
+        
+        # Try fallback if primary fails and fallback is enabled
+        if (df_daily is None or df_daily.empty) and use_fallback:
+            status_container.warning("Primary source failed, trying fallback...")
+            fallback = FallbackDataHandler()
+            df_daily = fallback.load_data_fallback(ticker, "1d")
         
         if df_daily is None or df_daily.empty:
-            st.error(f"❌ No daily data available for {ticker}")
-            st.info("💡 Tip: Try a different ticker or check your internet connection")
+            status_container.error(f"❌ No daily data available for {ticker}")
+            st.info("💡 Tips:\n"
+                   "1. Check if ticker symbol is correct (e.g., 'AAPL', 'TSLA', 'MSFT')\n"
+                   "2. For crypto, use format like 'BTC-USD', 'ETH-USD'\n"
+                   "3. Try a different ticker\n"
+                   "4. Check your internet connection")
             return
         
-        # Load hourly data (with fallback)
-        with status_placeholder.container():
-            st.info(f"⏰ Fetching hourly data for {ticker}...")
-            start_hourly = datetime.now() - timedelta(days=27)
-            df_hourly = handler.load_data(ticker, start_hourly, "1h")
-            
-            if df_hourly is None or df_hourly.empty:
-                st.warning("⚠️ Hourly data unavailable, trying 4-hour data...")
-                df_hourly = handler.load_data(ticker, start_hourly, "4h")
-                
-                if df_hourly is None or df_hourly.empty:
-                    st.error("❌ No intraday data available")
-                    return
+        progress_bar.progress(30)
+        status_container.success(f"✅ Loaded {len(df_daily)} daily bars for {ticker}")
         
-        # Clear status
-        status_placeholder.empty()
+        # ============================================================
+        # LOAD HOURLY/INTRADAY DATA
+        # ============================================================
+        status_container.info(f"⏰ Loading intraday data for {ticker}...")
         
-        # Show data info
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Daily Bars", len(df_daily))
-        with col2:
-            st.metric("Hourly/4H Bars", len(df_hourly))
-        with col3:
-            st.metric("Date Range", f"{df_hourly.index[0].strftime('%Y-%m-%d')} to {df_hourly.index[-1].strftime('%Y-%m-%d')}")
+        start_hourly = datetime.now() - timedelta(days=30)
+        df_hourly = handler.load_data(ticker, start_hourly, "1h")
         
-        # Process data with progress indicators
-        with st.spinner("📈 Analyzing daily context..."):
-            daily_ctx = get_daily_context(df_daily)
+        # If hourly fails or is empty, try 4h or daily as fallback
+        if df_hourly is None or df_hourly.empty:
+            status_container.warning("Hourly data unavailable, trying 4-hour data...")
+            df_hourly = handler.load_data(ticker, start_hourly, "4h")
         
-        with st.spinner("🔍 Processing hourly data with SMC logic..."):
-            inputs = {
-                'swing_l': 6, 'swing_r': 3,
-                'maxAge': 26, 'failWindow': 5,
-                'closeMitigate': True,
-                'bodyThresh': 0.25, 'wickThreshHigh': 0.55, 'wickThreshLow': 0.15,
-                'fvgBull': '#35aa18', 'fvgBear': '#da1313',
-                'obBull': '#008950', 'obBear': '#883f0e',
-                'maxAgeForProximity': 50
-            }
-            state = PineState()
-            last_dashboard = None
-            
-            # Process with progress bar
-            progress_bar = st.progress(0)
-            for i in range(len(df_hourly)):
-                last_dashboard = process_bar(df_hourly, i, state, inputs)
-                if i % max(1, len(df_hourly)//100) == 0:
-                    progress_bar.progress(i / len(df_hourly))
-            progress_bar.empty()
+        if df_hourly is None or df_hourly.empty:
+            status_container.warning("Intraday data unavailable, using daily data for analysis")
+            # Create a copy of daily data for hourly analysis
+            df_hourly = df_daily.copy()
+            st.info("Note: Using daily data for analysis (limited intraday precision)")
         
-        with st.spinner("🎯 Computing entry signals..."):
-            hourly_signal = get_hourly_signal(df_hourly, daily_ctx)
+        progress_bar.progress(60)
+        status_container.success(f"✅ Loaded {len(df_hourly)} bars for analysis")
         
-        # ===== SIDEBAR DASHBOARD =====
+        # ============================================================
+        # PROCESS SMC ANALYSIS
+        # ============================================================
+        status_container.info("📈 Analyzing daily context...")
+        
+        # Daily context analysis
+        daily_ctx = get_daily_context(df_daily)
+        
+        progress_bar.progress(70)
+        status_container.info("🔍 Processing hourly data with SMC logic...")
+        
+        # Process hourly data with SMC logic
+        inputs = {
+            'swing_l': 6, 'swing_r': 3,
+            'maxAge': 26, 'failWindow': 5,
+            'closeMitigate': True,
+            'bodyThresh': 0.25, 'wickThreshHigh': 0.55, 'wickThreshLow': 0.15,
+            'fvgBull': '#35aa18', 'fvgBear': '#da1313',
+            'obBull': '#008950', 'obBear': '#883f0e',
+            'maxAgeForProximity': 50
+        }
+        
+        state = PineState()
+        last_dashboard = None
+        
+        # Process each bar with progress
+        total_bars = len(df_hourly)
+        for i in range(total_bars):
+            last_dashboard = process_bar(df_hourly, i, state, inputs)
+            # Update progress every 10% of bars
+            if i % max(1, total_bars // 10) == 0:
+                progress = 70 + (i / total_bars) * 20
+                progress_bar.progress(int(progress))
+        
+        progress_bar.progress(90)
+        status_container.info("🎯 Computing entry signals...")
+        
+        # Get hourly signal
+        hourly_signal = get_hourly_signal(df_hourly, daily_ctx)
+        
+        progress_bar.progress(100)
+        status_container.empty()
+        progress_bar.empty()
+        
+        # ============================================================
+        # DISPLAY DASHBOARD
+        # ============================================================
+        # Your existing sidebar dashboard code here...
         st.sidebar.markdown("## 📊 SMC DASHBOARD (Hourly)")
         d = last_dashboard
+        
+        # Dashboard HTML (your existing code)
         html = f"""
         <style>
         .smc-table {{ font-family: monospace; font-size: 14px; border-collapse: collapse; width: 100%; }}
@@ -1035,15 +1090,19 @@ def main():
         
         if hourly_signal['valid']:
             st.sidebar.success("✅ RECOMMENDATION: TAKE TRADE")
-            st.sidebar.info(f"🎯 Entry: {hourly_signal['signal']}\n"
-                          f"🛑 SL: {hourly_signal['sl']:.2f}\n"
-                          f"🎯 TP: {hourly_signal['tp']:.2f}\n"
-                          f"📊 R:R: {hourly_signal['rr']:.2f}")
+            if hourly_signal['signal'] != 'NO TRADE':
+                st.sidebar.info(f"🎯 Entry: {hourly_signal['signal']}\n"
+                              f"🛑 SL: {hourly_signal['sl']:.2f}\n"
+                              f"🎯 TP: {hourly_signal['tp']:.2f}\n"
+                              f"📊 R:R: {hourly_signal['rr']:.2f}")
         else:
             st.sidebar.info("⛔ RECOMMENDATION: AVOID or wait")
         
-        # ===== MAIN CHART =====
-        st.markdown("## 📈 Hourly SMC Chart")
+        # ============================================================
+        # DISPLAY CHART
+        # ============================================================
+        st.markdown("## 📈 SMC Chart")
+        
         with st.expander("Chart Overlays", expanded=True):
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -1055,20 +1114,25 @@ def main():
             with col4:
                 show_tp = st.checkbox("Show Turning Points", value=True)
         
-        # Optimize chart data (use last 200 bars for performance)
+        # Prepare chart data (last 200 bars for performance)
         chart_bars = min(200, len(df_hourly))
         slice_df = df_hourly.tail(chart_bars)
         global_start_idx = len(df_hourly) - len(slice_df)
-        zones_in_slice = [z for z in state.allZones if z.startBar >= global_start_idx]
         
-        # Limit turning points for performance
+        # Filter zones and turning points for chart
+        zones_in_slice = [z for z in state.allZones if z.startBar >= global_start_idx]
         turning_points_in_slice = [tp for tp in state.turning_points if tp[0] >= global_start_idx][-50:]
         
         with st.spinner("📊 Generating chart..."):
-            fig = plot_full_chart(slice_df, zones_in_slice, state.bos_up_list, state.bos_dn_list,
-                                  state.cho_up_list, state.cho_dn_list, turning_points_in_slice,
-                                  global_start_idx, f"{ticker} – SMC Analysis ({chart_bars} bars)",
-                                  show_fvg, show_ob, show_bos, show_tp)
+            fig = plot_full_chart(
+                slice_df, zones_in_slice, 
+                state.bos_up_list, state.bos_dn_list,
+                state.cho_up_list, state.cho_dn_list, 
+                turning_points_in_slice,
+                global_start_idx, 
+                f"{ticker} – SMC Analysis ({chart_bars} bars)",
+                show_fvg, show_ob, show_bos, show_tp
+            )
             st.pyplot(fig)
         
         # Optional daily chart
@@ -1085,22 +1149,29 @@ def main():
                 zones_daily = [z for z in state_d.allZones if z.startBar >= global_start_daily]
                 turning_points_daily = [tp for tp in state_d.turning_points if tp[0] >= global_start_daily][-30:]
                 
-                fig_d = plot_full_chart(slice_daily, zones_daily, state_d.bos_up_list, state_d.bos_dn_list,
-                                        state_d.cho_up_list, state_d.cho_dn_list, turning_points_daily,
-                                        global_start_daily, f"{ticker} – Daily SMC",
-                                        show_fvg, show_ob, show_bos, False)
+                fig_d = plot_full_chart(
+                    slice_daily, zones_daily, 
+                    state_d.bos_up_list, state_d.bos_dn_list,
+                    state_d.cho_up_list, state_d.cho_dn_list, 
+                    turning_points_daily,
+                    global_start_daily, 
+                    f"{ticker} – Daily SMC",
+                    show_fvg, show_ob, show_bos, False
+                )
                 st.pyplot(fig_d)
         
         # Success message
-        st.success("✅ Analysis complete! Dashboard is ready.")
+        st.success("✅ Analysis complete!")
         
     except Exception as e:
         st.error(f"❌ An error occurred: {str(e)}")
         st.info("💡 Try refreshing the page or selecting a different ticker")
+        import traceback
+        st.code(traceback.format_exc())
 
-# =====================================================================
+
+# ============================================================
 # RUN THE APP
-# =====================================================================
-
+# ============================================================
 if __name__ == "__main__":
     main()
