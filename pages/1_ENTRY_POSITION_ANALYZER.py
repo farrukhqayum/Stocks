@@ -5,8 +5,13 @@ import streamlit as st
 st.set_page_config(page_title="📊 Entry Position Analyzer", layout="wide")
 st.caption("Data sourced via Yahoo Finance • Updated dynamically")
 
+st.write("🔑 Available secret keys:", list(st.secrets.keys()))
+
 from imports import *
 import math
+warnings.filterwarnings('ignore')
+API_KEY = st.secrets["ALPHA_VANTAGE_API_KEY"]
+av.configure(API_KEY)
 
 # Global Parameters - Adjusted for different timeframes
 YEARS_OF_DATA = {
@@ -87,70 +92,27 @@ desc = """
     - Risk-reward ratio and confidence scores help assess and validate each trade decision
     """
 
-PROXY_URL = st.secrets["PROXY_URL"]
-
-@st.cache_data(ttl=300, show_spinner=False)
-def get_stock_data(ticker, start_date, end_date, interval='1d'):
-    """Fetch stock data through yfinance proxy"""
-    try:
-        response = requests.get(
-            f"{PROXY_URL}/get_stock",
-            params={
-                'ticker': ticker,
-                'start_date': start_date.strftime('%Y-%m-%d'),
-                'end_date': end_date.strftime('%Y-%m-%d'),
-                'interval': interval
-            },
-            timeout=60  # Longer timeout for cold starts
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            df = pd.DataFrame(data['data'])
-            df['Date'] = pd.to_datetime(df['Date'])
-            df.set_index('Date', inplace=True)
-            
-            # Ensure numeric columns
-            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col])
-            
-            return df
-        else:
-            error_msg = response.json().get('error', 'Unknown error')
-            st.error(f"Proxy error for {ticker}: {error_msg}")
-            return None
-            
-    except requests.exceptions.Timeout:
-        st.warning(f"Proxy timeout for {ticker} (cold start). Retry in a moment.")
-        return None
-    except Exception as e:
-        st.error(f"Failed to fetch {ticker}: {e}")
-        return None
-
-def get_current_price(ticker):
-    """Get current price through proxy"""
-    try:
-        response = requests.get(
-            f"{PROXY_URL}/get_current_price",
-            params={'ticker': ticker},
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            return response.json()['price']
-        return None
-    except Exception as e:
-        st.warning(f"Could not fetch price for {ticker}: {e}")
-        return None
-
 def validate_ticker(ticker: str) -> dict:
-    """Validate ticker through proxy"""
+    """Validate ticker using Alpha Vantage GLOBAL_QUOTE"""
     try:
-        price = get_current_price(ticker)
-        if price and price > 0:
+        ticker = ticker.strip().upper()
+        url = "https://www.alphavantage.co/query"
+        params = {
+            "function": "GLOBAL_QUOTE",
+            "symbol": ticker,
+            "apikey": API_KEY
+        }
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        if "Note" in data:
+            return {"valid": True, "reason": "Rate limit, assume valid"}
+        
+        quote = data.get("Global Quote", {})
+        if quote and "05. price" in quote:
             return {"valid": True, "reason": "Ticker found"}
-        return {"valid": False, "reason": "No data – check symbol"}
+        else:
+            return {"valid": False, "reason": "No data – check symbol"}
     except Exception as e:
         return {"valid": False, "reason": str(e)}
 
@@ -1091,6 +1053,34 @@ def avg_bull_bear_lengths(df):
 def update_entry_price():
     st.session_state.entry_price = st.session_state.entry_price_input
       
+def get_current_price(ticker: str):
+    """Get current price using Alpha Vantage GLOBAL_QUOTE"""
+    try:
+        url = "https://www.alphavantage.co/query"
+        params = {
+            "function": "GLOBAL_QUOTE",
+            "symbol": ticker,
+            "apikey": API_KEY
+        }
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+        
+        # Check for rate limit
+        if "Note" in data:
+            st.warning("Alpha Vantage rate limit hit. Using fallback price.")
+            return None
+            
+        quote = data.get("Global Quote", {})
+        price_str = quote.get("05. price")
+        if price_str:
+            return float(price_str)
+        else:
+            st.warning(f"No quote data for {ticker}")
+            return None
+    except Exception as e:
+        st.error(f"Error fetching price for {ticker}: {e}")
+        return None
+
 def update_price_and_reset_entry():
     ticker = st.session_state.get("ticker", None)
     if not ticker:
@@ -1781,7 +1771,8 @@ def main():
 
                     # Fetch data for timeframe
                     with st.spinner(f"Fetching {timeframe} data..."):
-                        df = get_stock_data(ticker, start_date, end_date, interval)
+                        #df = get_stock_data(ticker, start_date, end_date, interval)
+                        df = av.get_stock_data(ticker, start_date, end_date, interval)
 
                     if df is None:
                         st.warning(f"No data available for {timeframe} timeframe")
