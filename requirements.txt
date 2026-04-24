@@ -1,3 +1,4 @@
+defeatbeta-api
 yfinance==0.2.28
 curl_cffi==0.5.10
 pandas==2.1.4
