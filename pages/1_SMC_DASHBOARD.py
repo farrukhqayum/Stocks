@@ -57,20 +57,62 @@ class OptimizedYFinanceHandler:
             if interval == '1h' and (datetime.now() - start_date).days > 30:
                 start_date = datetime.now() - timedelta(days=30)
             
-            ticker_obj = yf.Ticker(ticker)
-            df = ticker_obj.history(
-                start=start_date,
+            # Download data directly instead of using Ticker object for better reliability
+            df = yf.download(
+                ticker, 
+                start=start_date, 
                 interval=interval,
                 auto_adjust=False,
                 timeout=20,
-                actions=False,
+                progress=False,
                 rounding=True
             )
             
             if df is None or df.empty:
+                # Try with auto_adjust=True as fallback
+                df = yf.download(
+                    ticker, 
+                    start=start_date, 
+                    interval=interval,
+                    auto_adjust=True,
+                    timeout=20,
+                    progress=False,
+                    rounding=True
+                )
+            
+            if df is None or df.empty:
+                st.warning(f"No data returned for {ticker} with interval {interval}")
                 return None
-                
-            df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
+            
+            # Handle MultiIndex columns (when auto_adjust=False)
+            if isinstance(df.columns, pd.MultiIndex):
+                # Flatten the column names
+                df.columns = ['_'.join(col).lower() for col in df.columns.values]
+                # Rename to standard names
+                rename_dict = {}
+                for col in df.columns:
+                    if 'open' in col:
+                        rename_dict[col] = 'open'
+                    elif 'high' in col:
+                        rename_dict[col] = 'high'
+                    elif 'low' in col:
+                        rename_dict[col] = 'low'
+                    elif 'close' in col:
+                        rename_dict[col] = 'close'
+                    elif 'volume' in col:
+                        rename_dict[col] = 'volume'
+                df = df.rename(columns=rename_dict)
+            else:
+                # Single level columns
+                df.columns = [col.lower() for col in df.columns]
+            
+            # Ensure we have the required columns
+            required_cols = ['open', 'high', 'low', 'close']
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            if missing_cols:
+                st.error(f"Missing columns: {missing_cols}. Available: {df.columns.tolist()}")
+                return None
+            
             df.index = pd.to_datetime(df.index)
             
             # Limit data points for performance
@@ -81,24 +123,34 @@ class OptimizedYFinanceHandler:
             # Downcast to float32
             for col in ['open', 'high', 'low', 'close']:
                 if col in df.columns:
-                    df[col] = df[col].astype(np.float32)
+                    df[col] = pd.to_numeric(df[col], errors='coerce').astype(np.float32)
             
-            df = df.dropna(subset=["open","high","low","close"]).astype(float)
+            if 'volume' in df.columns:
+                df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(0).astype(np.float32)
+            
+            # Remove any NaN rows
+            df = df.dropna(subset=["open","high","low","close"])
+            
+            if len(df) < 10:
+                st.warning(f"Insufficient data for {ticker}: only {len(df)} bars")
+                return None
             
             # Calculate indicators with optimized methods
-            df['ema20'] = _self._fast_ema(df.close, 20)
-            df['ema50'] = _self._fast_ema(df.close, 50)
-            df['ema200'] = _self._fast_ema(df.close, 200)
-            df['rsi'] = _self._fast_rsi(df.close, 14)
+            df['ema20'] = _self._fast_ema(df['close'], 20)
+            df['ema50'] = _self._fast_ema(df['close'], 50)
+            df['ema200'] = _self._fast_ema(df['close'], 200)
+            df['rsi'] = _self._fast_rsi(df['close'], 14)
             df['rsi_ema'] = _self._fast_ema(df['rsi'], 14)
             df['atr'] = _self._fast_atr(df, 14)
             df['lb_crv'] = _self._fast_lb_curve(df, 10)
+            
+            # Fill any remaining NaN values
             df = df.bfill().ffill()
             
             return df
             
         except Exception as e:
-            st.warning(f"⚠️ Data fetch issue for {ticker}: {str(e)[:50]}")
+            st.error(f"Error fetching {ticker} {interval}: {str(e)}")
             return None
     
     def _fast_ema(self, series, length):
