@@ -385,36 +385,31 @@ def display_smc_dashboard(d, state, ticker):
     .orange-bg {{ background-color: #ef6c00; color: white; }}
     </style>
     <table class="smc-table">
-    <tr><td style="background-color:#1e3a5f; color:white; text-align:center" colspan="2"><b>📊 {ticker} - SMC</b></td></tr>
-    <tr><td>LIQUIDITY:</td><td class="{'green-bg' if d['liquidity']=='SSL' else 'red-bg' if d['liquidity']=='BSL' else 'gray-bg'}">{d['liquidity']}</td></tr>
-    <tr><td>SWEEP:</td><td class="{'green-bg' if d['sweep_status']=='ACTIVE' else 'gray-bg'}">{d['sweep_status']}</td></tr>
-    <tr><td>PATTERN:</td><td class="{'green-bg' if '↑' in d['pattern_text'] else 'red-bg' if '↓' in d['pattern_text'] else 'gray-bg'}">{d['pattern_text']} ({d['pattern_status']})</td></tr>
-    <tr><td>MOMENTUM:</td><td class="{'green-bg' if d['momentum']=='UP ↑' else 'red-bg' if d['momentum']=='DOWN ↓' else 'gray-bg'}">{d['momentum']}</td></tr>
-    <tr><td>STRUCT:</td><td class="{'green-bg' if d['struct']=='Bullish' else 'red-bg' if d['struct']=='Bearish' else 'gray-bg'}">{d['struct']}</td></tr>
-    <tr><td>SMC:</td><td class="{'green-bg' if d['smc_concept']=='Bullish' else 'red-bg' if d['smc_concept']=='Bearish' else 'gray-bg'}">{d['smc_concept']}</td></tr>
-    <tr><td>ZONE:</td><td class="{'green-bg' if 'Bull' in d['zone_event'] else 'red-bg' if 'Bear' in d['zone_event'] else 'gray-bg'}">{d['zone_event']}</td></tr>
-    <tr><td>ZONE DIST:</td><td class="{'yellow-bg' if d['zone_dist']!='---' else 'gray-bg'}">{d['zone_dist']}</td></tr>
-    <tr><td>BIAS:</td><td class="{'green-bg' if d['bias']=='Bullish' else 'red-bg' if d['bias']=='Bearish' else 'gray-bg'}">{d['bias']}</td></tr>
-    <tr><td>Z-SCORE:</td><td class="{'green-bg' if d['z_score']>0 else 'red-bg' if d['z_score']<0 else 'gray-bg'}">{d['z_score']}% {'Bull' if d['z_score']>0 else 'Bear' if d['z_score']<0 else 'Neut'}</td></tr>
-    <tr><td>SIGNAL:</td><td class="{'green-bg' if 'LONG' in d['signal'] else 'red-bg' if 'SHORT' in d['signal'] else 'gray-bg'}">{d['signal']}</td></tr>
-
+    <tr><td style="background-color:#1e3a5f; color:white; text-align:center" colspan="2"><b>📊 {ticker} - SMC</b><\/td><\/tr>
+    <tr><td>LIQUIDITY:<\/td><td class="{'green-bg' if d['liquidity']=='SSL' else 'red-bg' if d['liquidity']=='BSL' else 'gray-bg'}">{d['liquidity']}<\/td><\/tr>
+    <tr><td>SWEEP:<\/td><td class="{'green-bg' if d['sweep_status']=='ACTIVE' else 'gray-bg'}">{d['sweep_status']}<\/td><\/tr>
+    <tr><td>PATTERN:<\/td><td class="{'green-bg' if '↑' in d['pattern_text'] else 'red-bg' if '↓' in d['pattern_text'] else 'gray-bg'}">{d['pattern_text']} ({d['pattern_status']})<\/td><\/tr>
+    <tr><td>MOMENTUM:<\/td><td class="{'green-bg' if d['momentum']=='UP ↑' else 'red-bg' if d['momentum']=='DOWN ↓' else 'gray-bg'}">{d['momentum']}<\/td><\/tr>
+    <tr><td>STRUCT:<\/td><td class="{'green-bg' if d['struct']=='Bullish' else 'red-bg' if d['struct']=='Bearish' else 'gray-bg'}">{d['struct']}<\/td><\/tr>
+    <tr><td>SMC:<\/td><td class="{'green-bg' if d['smc_concept']=='Bullish' else 'red-bg' if d['smc_concept']=='Bearish' else 'gray-bg'}">{d['smc_concept']}<\/td><\/tr>
+    <tr><td>ZONE:<\/td><td class="{'green-bg' if 'Bull' in d['zone_event'] else 'red-bg' if 'Bear' in d['zone_event'] else 'gray-bg'}">{d['zone_event']}<\/td><\/tr>
+    <tr><td>ZONE DIST:<\/td><td class="{'yellow-bg' if d['zone_dist']!='---' else 'gray-bg'}">{d['zone_dist']}<\/td><\/tr>
+    <tr><td>BIAS:<\/td><td class="{'green-bg' if d['bias']=='Bullish' else 'red-bg' if d['bias']=='Bearish' else 'gray-bg'}">{d['bias']}<\/td><\/tr>
+    <tr><td>Z-SCORE:<\/td><td class="{'green-bg' if d['z_score']>0 else 'red-bg' if d['z_score']<0 else 'gray-bg'}">{d['z_score']}% {'Bull' if d['z_score']>0 else 'Bear' if d['z_score']<0 else 'Neut'}<\/td><\/tr>
+    <tr><td>SIGNAL:<\/td><td class="{'green-bg' if 'LONG' in d['signal'] else 'red-bg' if 'SHORT' in d['signal'] else 'gray-bg'}">{d['signal']}<\/td><\/tr>
+    <\/table>
+    """
+    st.sidebar.markdown(html, unsafe_allow_html=True)
+    
+    # Display active trade info separately
     if state.in_long:
-        html += f"""
-        <tr><td style="background-color:#1e3a5f; color:white; text-align:center" colspan="2"><b>LONG ACTIVE</b></td></tr>
-        <tr><td>ENTRY:</td><td>${state.entry_price_long:.2f}</td></tr>
-        <tr><td>SL:</td><td>${state.active_long_sl:.2f}</td></tr>
-        <tr><td>TP:</td><td>${state.active_long_tp:.2f}</td></tr>
-        """
+        st.sidebar.success("🔴 LONG ACTIVE")
+        st.sidebar.info(f"📈 Entry: ${state.entry_price_long:.2f} | 🛑 SL: ${state.active_long_sl:.2f} | 🎯 TP: ${state.active_long_tp:.2f}")
     elif state.in_short:
-        html += f"""
-        <tr><td style="background-color:#1e3a5f; color:white; text-align:center" colspan="2"><b>SHORT ACTIVE</b></td></tr>
-        <tr><td>ENTRY:</td><td>${state.entry_price_short:.2f}</td></tr>
-        <tr><td>SL:</td><td>${state.active_short_sl:.2f}</td></tr>
-        <tr><td>TP:</td><td>${state.active_short_tp:.2f}</td></tr>
-        """
+        st.sidebar.warning("🔻 SHORT ACTIVE")
+        st.sidebar.info(f"📉 Entry: ${state.entry_price_short:.2f} | 🛑 SL: ${state.active_short_sl:.2f} | 🎯 TP: ${state.active_short_tp:.2f}")
     else:
-        html += '<tr><td colspan="2" style="text-align:center; background-color:#2c3e50; color:white;">No active trade</td></tr>'
-    html += '</tr>'
+        st.sidebar.info("⏳ No active trade")
 
 # -----------------------------------------------------------------------------
 # MAIN APP
