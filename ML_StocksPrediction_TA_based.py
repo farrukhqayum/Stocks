@@ -237,14 +237,13 @@ def strip_ansi_codes(text):
     return ansi_escape.sub('', text)
 
 def add_technical_indicators(df):
-    close = df.Close
-    df['Open']   = df['Open'].squeeze()
-    df['High']   = df['High'].squeeze()
-    df['Low']    = df['Low'].squeeze()
-    df['Volume'] = df['Volume'].squeeze()
-    close = df['Close'].squeeze()
-    
+    for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+        if col in df.columns:
+            df[col] = df[col].squeeze() 
+    close_original = df['Close'].copy()
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
+    df['Close'] = df['Close'].squeeze()
+    
     df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
@@ -361,7 +360,7 @@ def add_technical_indicators(df):
     df['gapStrength'] = ta.compute_gapStrength(df)
     df = ta.add_exhaustion_indicator(df)
     df = df.bfill().ffill()
-    df.Close = close
+    df.Close = close_original
     return df
 
 def add_pivot_levels(df, window=_DAYS):
