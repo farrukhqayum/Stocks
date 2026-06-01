@@ -1,5 +1,5 @@
 from imports import *
-import candlesticks as cs
+import candlesticks_patterns as cs
 from time import sleep
 from sklearn.linear_model import LinearRegression
 
