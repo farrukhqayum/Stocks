@@ -205,8 +205,9 @@ def label(text):
     return f"{EMOJI.get(text, '')} {text}"
     
 @st.cache_data
-def get_stock_data(ticker, start_date, end_date):
-    df  = load_data(tickers, start, end)
+def get_stock_data(ticker_list, start_date, end_date):
+    ticker_dict = {ticker: ticker for ticker in ticker_list}
+    df = load_data(ticker_dict, start_date, end_date)
     return df
 
 def strip_ansi_codes(text):
@@ -1013,32 +1014,29 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
 
                            
 #  🟡 Make Predictions (Gain/Loss/Confidence)
-def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
+def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
+        if isinstance(TICKERS, str):
+            ticker_list = [t.strip().upper() for t in TICKERS.split(',')]
+        else:
+            ticker_list = TICKERS
     
-    n = 1
-    dfs = {}
-    results = []
-    label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
-    expected_classes = [0, 1, 2, 3, 4]
+        # Load ALL tickers at once (cached)
+        df_all = get_stock_data(ticker_list, start_date, end_date)
     
-    if isinstance(TICKERS, str):
-        ticker_list = [t.strip() for t in TICKERS.split(',')]
-    else:
-        ticker_list = TICKERS
-
-    df_all = get_stock_data(ticker_list, start_date, end_date)
+        results = []
+        dfs = {}   # store processed DataFrames per ticker
     
-    for ticker in ticker_list:
-        try:
-            df = df_all[[ticker]].copy()
-            df.rename(columns={ticker: 'Close'}, inplace=True)
-            df_ticker.index = pd.to_datetime(df_ticker.index)
-            
-            if not pd.api.types.is_datetime64_any_dtype(df.index):
-                if "Date" in df.columns:
-                    df = df.set_index("Date")
-                else:
-                    raise ValueError("DataFrame must have Date as index or column for plotting!")
+        for ticker in ticker_list:
+            if ticker not in df_all.columns:
+                st.warning(f"{ticker} not found in downloaded data")
+                continue
+    
+            # Extract this ticker's price series and make a proper DataFrame
+            df = pd.DataFrame(df_all[ticker].copy())   # single column
+            df.columns = ['Close']                     # rename to 'Close' for your indicators
+            df.index = pd.to_datetime(df.index)
+    
+            # Now apply all your technical functions
             df = add_technical_indicators(df)
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
             df['BuyTime'] = (
