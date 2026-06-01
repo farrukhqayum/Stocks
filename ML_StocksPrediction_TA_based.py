@@ -445,15 +445,13 @@ def label_hit_prob_past(
     tp_thresh=0.35,
     sl_thresh=0.4
 ):
-    import numpy as np
     
-    close_prices = df['Close'].values
-    
-    bull = (df['TI'] == 'Bull')
-    bear = (df['TI'] == 'Bear')
-    hold = (df['TI'] == 'Hold')
-    short = (df['TI'] == 'Short')
-    neutral = (df['TI'] == 'Neutral')
+    close_prices = df['Close'].to_numpy()
+    bull = (df['TI'] == 'Bull').to_numpy()
+    bear = (df['TI'] == 'Bear').to_numpy()
+    hold = (df['TI'] == 'Hold').to_numpy()
+    short = (df['TI'] == 'Short').to_numpy()
+    neutral = (df['TI'] == 'Neutral').to_numpy()
 
     EMA1 = df['EMA1'].values
     atr = df['ATR'].values
