@@ -2,6 +2,7 @@ import streamlit as st
 st.set_page_config(layout="wide", page_title="📈 MAIN - Machine Learning of Stocks")
 
 from imports import *
+from get_data import load_data
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import LogLocator, LogFormatterSciNotation
