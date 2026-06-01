@@ -204,46 +204,10 @@ EMOJI = {
 def label(text):
     return f"{EMOJI.get(text, '')} {text}"
     
-def optimize_dataframe(df):
-    for col in df.select_dtypes(include=['float64']).columns:
-        df[col] = df[col].astype('float32')
-    for col in df.select_dtypes(include=['int64']).columns:
-        df[col] = df[col].astype('int32')
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'])
-
-    return df
-    
+@st.cache_data
 def get_stock_data(ticker, start_date, end_date):
-    try:
-        df = yf.download(
-        ticker, 
-        start=start_date, 
-        end=end_date + timedelta(days=1),
-        progress=False,
-        auto_adjust=True, 
-        actions=False,
-        threads=False
-        )
-    
-    except Exception:
-        return None
-
-    if df.empty:
-        return None
-
-    #df = df.reset_index()
-    #df['Date'] = pd.to_datetime(df['Date'])
-    #df.set_index('Date', inplace=True)
-    df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
-    df.index = pd.to_datetime(df.index)
-    df = df.dropna()
-
-    if df.empty:
-        return None
-
-    df_a = optimize_dataframe(df) # 32-bit
-    return df_a
+    df  = load_data(tickers, start, end)
+    return df
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
