@@ -334,8 +334,8 @@ def add_technical_indicators(df):
     
     # Fill missing values
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
-    df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
-    
+    df[cols] = df[cols].ffill().bfill()
+   
     # --- Signal conditions (unchanged) ---
     conditions = [
         # 1️⃣ HOLD FIRST
