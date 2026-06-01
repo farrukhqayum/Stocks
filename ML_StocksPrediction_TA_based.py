@@ -237,69 +237,117 @@ def strip_ansi_codes(text):
     return ansi_escape.sub('', text)
 
 def add_technical_indicators(df):
+    # Step 1: Flatten any MultiIndex columns at the start
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] for col in df.columns]
+
+    # Step 2: Force core columns to Series (already single-level, but safe)
     for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
         if col in df.columns:
-            df[col] = df[col].squeeze() 
+            df[col] = df[col].squeeze()
+    
     close_original = df['Close'].copy()
+    # Smooth close using OHLC average
     df['Close'] = df[['Open', 'High', 'Low', 'Close']].mean(axis=1).rolling(2).mean()
     df['Close'] = df['Close'].squeeze()
     
+    # Basic moving averages
     df['EMA1'] = df['Close'].ewm(span=int(_DAYS * 0.5), adjust=False).mean()
     df['EMA2'] = df['Close'].ewm(span=_DAYS, adjust=False).mean()
     df['EMA3'] = df['Close'].ewm(span=int(_DAYS * 2), adjust=False).mean()
     df['EMA_Ratio'] = df['EMA1'] / df['EMA2']
     df['ATR'] = ta.calculate_atr(high=df.High, low=df.Low, close=df.Close)
+    
+    # ---- Indicator calls that may return MultiIndex ----
     df = ta.scaled_volatility(df)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] for col in df.columns]
+    
     df = ta.add_candlestickpatterns(df)
-    df['RSI']= ta.calculate_rsi(df)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] for col in df.columns]
+    
+    df['RSI'] = ta.calculate_rsi(df)
     df['RSI_SMA'] = df['RSI'].rolling(14).mean()
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=24, adjust=False).mean()
     df['MACD'] = ema12 - ema26
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
     df['SMIIO'], df['SMIIO_Signal'], df['SMIIO_Osc'] = ta.calculate_smiio(df)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] for col in df.columns]
     
-    close_series = df['Close'].squeeze()      # force to Series
-    volume_series = df['Volume'].squeeze()    # force to Series
+    # Bands and volume MA using explicit Series
+    close_series = df['Close'].squeeze()
+    volume_series = df['Volume'].squeeze()
     df['Upper_Band'] = df['EMA1'] + (2 * close_series.rolling(20).std())
     df['Lower_Band'] = df['EMA1'] - (2 * close_series.rolling(20).std())
     df['Volume_MA20'] = volume_series.rolling(20).mean()
     
-    df['buy_volume'] = (df.Close > df.Close.shift(1)) * df['Volume']
-    df['sell_volume'] = (df.Close < df.Close.shift(1)) * df['Volume']
-    df['sumBuyVol'] = df['buy_volume'].rolling(window=9).sum()
-    df['sumSellVol'] = df['sell_volume'].rolling(window=9).sum()
-    df['vSpike'] = np.where(df['Volume'] > 2 * df['Volume_MA20'], np.where(df['Close'] > df['Open'], 1, -1), 0)
-    df['VPT'] = df['Volume'].mul((df['Close'] - df['Close'].shift(1)) / df['Close'].shift(1)).cumsum()
+    # Volume-based columns – use Series to avoid alignment issues
+    close_series = df['Close'].squeeze()
+    open_series = df['Open'].squeeze()
+    vol_series = df['Volume'].squeeze()
+    vol_ma20_series = df['Volume_MA20'].squeeze()
+    
+    df['buy_volume'] = (close_series > close_series.shift(1)) * vol_series
+    df['sell_volume'] = (close_series < close_series.shift(1)) * vol_series
+    df['sumBuyVol'] = df['buy_volume'].rolling(9).sum()
+    df['sumSellVol'] = df['sell_volume'].rolling(9).sum()
+    df['vSpike'] = np.where(vol_series > 2 * vol_ma20_series,
+                            np.where(close_series > open_series, 1, -1), 0)
+    df['VPT'] = vol_series.mul((close_series - close_series.shift(1)) / close_series.shift(1)).cumsum()
+    
+    # More indicators – each may return MultiIndex, so flatten after each
     df['MFI'] = ta.calculate_mfi(df)
     df['CMF'] = ta.chaikin_money_flow(df, window=20)
     df['CCI'] = ta.calculate_cci(df)
     df['OBV'] = ta.calculate_obv(df)
-    df[['+DI', '-DI', 'ADX']] = ta.calculate_dmi(df, n=14).rolling(3).mean()
+    dmi_df = ta.calculate_dmi(df, n=14).rolling(3).mean()
+    if isinstance(dmi_df.columns, pd.MultiIndex):
+        dmi_df.columns = [col[0] for col in dmi_df.columns]
+    df[['+DI', '-DI', 'ADX']] = dmi_df
+    
     df['VWMA'] = ta.calculate_vwma(df)
-    df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = ta.calculate_keltner(df).rolling(3).mean()
-    df[['VI+', 'VI-']] = ta.calculate_vortex(df)
-    df[['STu', 'STl']] = ta.calculate_supertrend(df)
-    df['DD'] = df['Close'].rolling(14).apply(lambda x: x[-1] - x.max())
-    df['return1'] = df['Close'].pct_change(7).rolling(3).mean()
-    df['return2'] = df['Close'].pct_change(14).rolling(3).mean()
-    df['return3'] = df['Close'].pct_change(21).rolling(3).mean()
-    df['Volatility'] = df['Close'].rolling(14).std().rolling(3).mean()
+    
+    keltner_df = ta.calculate_keltner(df).rolling(3).mean()
+    if isinstance(keltner_df.columns, pd.MultiIndex):
+        keltner_df.columns = [col[0] for col in keltner_df.columns]
+    df[['KCm', 'KCu', 'KCl', 'KCu_outer','KCl_outer', 'Kasym', 'Kcount']] = keltner_df
+    
+    vortex_df = ta.calculate_vortex(df)
+    if isinstance(vortex_df.columns, pd.MultiIndex):
+        vortex_df.columns = [col[0] for col in vortex_df.columns]
+    df[['VI+', 'VI-']] = vortex_df
+    
+    supertrend_df = ta.calculate_supertrend(df)
+    if isinstance(supertrend_df.columns, pd.MultiIndex):
+        supertrend_df.columns = [col[0] for col in supertrend_df.columns]
+    df[['STu', 'STl']] = supertrend_df
+    
+    # Returns and volatility
+    df['DD'] = close_series.rolling(14).apply(lambda x: x[-1] - x.max())
+    df['return1'] = close_series.pct_change(7).rolling(3).mean()
+    df['return2'] = close_series.pct_change(14).rolling(3).mean()
+    df['return3'] = close_series.pct_change(21).rolling(3).mean()
+    df['Volatility'] = close_series.rolling(14).std().rolling(3).mean()
+    
+    # Fill missing values
     cols = ['EMA1', 'EMA2', 'RSI', '-DI', 'Close']
     df[cols] = df[cols].fillna(method='ffill').fillna(method='bfill')
-    # FIXED CONDITIONS (syntax + enhanced HOLD)
+    
+    # --- Signal conditions (unchanged) ---
     conditions = [
-        # 1️⃣ HOLD FIRST (Extended Rally - HIGHEST priority)
+        # 1️⃣ HOLD FIRST
         (
             (df['Close'] > df['EMA2']) &
             (df['EMA1'] > df['EMA2']) &
             (df['RSI'].between(50, 90)) &
             (df['ADX'] > 40) &
             (df['+DI'] > df['-DI']) &
-            (df['Close'] > df['Close'].shift(5) * 1.02)  # ✅ Rally proof!
+            (df['Close'] > df['Close'].shift(5) * 1.02)
         ),
-        
-        # 2️⃣ BULL (Entry signals)
+        # 2️⃣ BULL
         (
             (
                 ((df['EMA1'] >= df['EMA2']) &
@@ -313,8 +361,7 @@ def add_technical_indicators(df):
                 )
             )
         ),
-        
-        # 3️⃣ SHORT (Aggressive shorts)
+        # 3️⃣ SHORT
         (
             ((df['Close'] <= df['EMA1']) &
              (df['EMA1'] < df['EMA2']) &
@@ -322,8 +369,7 @@ def add_technical_indicators(df):
              (df['ADX'] > 24) & 
              (df['+DI'] < df['-DI']))
         ),
-        
-        # 4️⃣ BEAR (Bearish entries - LOWEST priority)
+        # 4️⃣ BEAR
         (
             (
                 ((df['EMA1'] < df['EMA2']) &
@@ -345,17 +391,17 @@ def add_technical_indicators(df):
         )
     ]
     
-    choices = ['Hold', 'Bull', 'Short', 'Bear']  # ✅ Priority order!
+    choices = ['Hold', 'Bull', 'Short', 'Bear']
     df['TI'] = np.select(conditions, choices, default='Neutral')
     df['TI'] = df['TI'].astype('category')
- 
+    
     df_encoded = pd.get_dummies(df['TI'], prefix='', prefix_sep='')
     expected_cols = ['Hold', 'Bull', 'Short', 'Bear', 'Neutral']
     for col in expected_cols:
         if col not in df_encoded.columns:
             df_encoded[col] = 0
     df = pd.concat([df, df_encoded], axis=1)
-
+    
     strongbull_condition = ((df['RSI'] > 52) & (df['ADX'] > 22) & (df['+DI'] > df['-DI']) & (df['sumBuyVol'] > df['sumSellVol']))
     strongbear_condition = ((df['RSI'] < 40) & (df['ADX'] > 22) & (df['+DI'] < df['-DI']) & (df['sumBuyVol'] < df['sumSellVol']))
     df['StrongBull'] = strongbull_condition.astype(int)
@@ -363,8 +409,9 @@ def add_technical_indicators(df):
     df['sNeutral'] = ((df['StrongBull'] == 0) & (df['StrongBear'] == 0)).astype(int)
     df['gapStrength'] = ta.compute_gapStrength(df)
     df = ta.add_exhaustion_indicator(df)
+    
     df = df.bfill().ffill()
-    df.Close = close_original
+    df['Close'] = close_original   # restore original close (not smoothed)
     return df
 
 def add_pivot_levels(df, window=_DAYS):
