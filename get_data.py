@@ -6,8 +6,17 @@ import numpy as np
 import time
 
 def load_data(tickers, start, end):
-    """Load data from Yahoo Finance - handles stocks, futures, indices"""
-    data_dict = {}
+    """
+    Loads OHLCV data for multiple tickers.
+    
+    Args:
+        tickers: dict {friendly_name: yahoo_ticker_symbol}
+        start, end: dates
+    
+    Returns:
+        DataFrame with MultiIndex columns (ticker, price_type)
+    """
+    data_dict = {}  # will hold {ticker_name: DataFrame with OHLCV}
     
     for name, ticker in tickers.items():
         try:
@@ -16,35 +25,41 @@ def load_data(tickers, start, end):
                 start=start, 
                 end=end, 
                 progress=False,
-                auto_adjust=False
+                auto_adjust=False,   # keeps Open, High, Low, Close, Adj Close, Volume
+                group_by='column'    # ensures MultiIndex if multiple tickers, but we do one by one
             )
             
             if raw.empty:
                 st.warning(f"⚠️ No data for {ticker}. Creating placeholder.")
+                # Create empty DataFrame with expected columns
                 date_range = pd.date_range(start=start, end=end, freq='B')
-                data_dict[name] = pd.Series(np.nan, index=date_range, name=name)
+                empty_df = pd.DataFrame(index=date_range,
+                                        columns=['Open','High','Low','Close','Adj Close','Volume'])
+                data_dict[name] = empty_df
                 continue
             
-            if 'Adj Close' in raw.columns:
-                price_series = raw['Adj Close']
-            elif 'Close' in raw.columns:
-                price_series = raw['Close']
-            else:
-                price_series = raw.iloc[:, 0] if raw.shape[1] > 0 else pd.Series()
+            # raw has columns: Open, High, Low, Close, Adj Close, Volume
+            # Ensure we have at least Close
+            if 'Close' not in raw.columns:
+                st.warning(f"⚠️ No Close price for {ticker}. Using first column.")
+                raw['Close'] = raw.iloc[:, 0]
             
-            if isinstance(price_series, pd.DataFrame):
-                price_series = price_series.iloc[:, 0]
+            # Keep all relevant columns
+            keep_cols = ['Open','High','Low','Close','Adj Close','Volume']
+            raw = raw[[c for c in keep_cols if c in raw.columns]]
             
-            price_series.name = name
-            data_dict[name] = price_series
-            
+            data_dict[name] = raw
             time.sleep(0.1)
             
         except Exception as e:
             st.warning(f"⚠️ Error loading {ticker}: {str(e)}")
+            # Create empty placeholder
             date_range = pd.date_range(start=start, end=end, freq='B')
-            data_dict[name] = pd.Series(np.nan, index=date_range, name=name)
+            empty_df = pd.DataFrame(index=date_range,
+                                    columns=['Open','High','Low','Close','Adj Close','Volume'])
+            data_dict[name] = empty_df
     
-    df = pd.DataFrame(data_dict)
-    df = df.dropna(axis=1, how='all')
-    return df
+    # Combine all tickers into a MultiIndex DataFrame
+    # Stack along columns: (ticker1, Open), (ticker1, High), ...
+    combined = pd.concat(data_dict, axis=1)   # results in MultiIndex columns
+    return combined
