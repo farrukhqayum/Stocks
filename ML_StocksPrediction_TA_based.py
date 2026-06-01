@@ -1028,7 +1028,7 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
     else:
         ticker_list = TICKERS
 
-    # Load all tickers at once (cached)
+    # Load all tickers at once (cached) - returns MultiIndex columns
     df_all = get_stock_data(ticker_list, start_date, end_date)
 
     dfs = {}          # store processed DataFrames per ticker (for plotting)
@@ -1039,17 +1039,27 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
 
     for ticker in ticker_list:
         try:
-            # --- Extract this ticker's data ---
-            if ticker not in df_all.columns:
+            # --- Extract this ticker's OHLCV data ---
+            if ticker not in df_all.columns.levels[0]:
                 st.warning(f"Ticker {ticker} not found in downloaded data. Skipping.")
                 continue
 
-            df = pd.DataFrame(df_all[ticker].copy())
-            df.columns = ['Close']                # rename to 'Close' for indicators
-            df.index = pd.to_datetime(df.index)
+            # Extract the DataFrame for this ticker
+            ticker_data = df_all[ticker].copy()   # columns: Open, High, Low, Close, Adj Close, Volume
+            ticker_data.index = pd.to_datetime(ticker_data.index)
+
+            # Ensure we have a 'Close' column (use 'Adj Close' if needed)
+            if 'Close' not in ticker_data.columns and 'Adj Close' in ticker_data.columns:
+                ticker_data['Close'] = ticker_data['Adj Close']
+            elif 'Close' not in ticker_data.columns:
+                st.warning(f"No Close price for {ticker}. Skipping.")
+                continue
+
+            # Now ticker_data has all OHLCV columns required by add_technical_indicators
+            df = ticker_data
 
             # --- Add all technical indicators & features ---
-            df = add_technical_indicators(df)
+            df = add_technical_indicators(df)        # expects Open, High, Low, Close, Volume
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
             df['BuyTime'] = (
                 (df['Bull'] == 1) &
@@ -1074,7 +1084,7 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
                 st.text(f"Skipping {ticker} – insufficient data after dropna ({len(df_model)} rows).")
                 continue
 
-            # --- Step 1: Train classifer for Hit_Label (TP/SL/Hold/None/Short) ---
+            # --- Step 1: Train classifier for Hit_Label ---
             X_cls = df_model[FEATURES]
             y_cls = df_model['Hit_Label'].astype(int)
 
@@ -1127,12 +1137,10 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
             # --- Step 5: Live prediction on the latest row ---
             latest = df.iloc[[-1]]
 
-            # Check for NaN in required features
             if latest[FEATURES].isnull().values.any():
                 st.text(f"Skipping {ticker} – NaN features in latest row.")
                 continue
 
-            # Class probabilities for latest row
             latest_scaled_cls = scaler_cls.transform(latest[FEATURES])
             latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
 
@@ -1144,14 +1152,12 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
                 else:
                     latest_prob_features[f"Prob_Class_{c}"] = 0.0
 
-            # Predict class (the one with highest probability among expected classes)
             probs_of_interest = [latest_prob_features[f"Prob_Class_{c}"] for c in expected_classes]
             max_prob_idx = probs_of_interest.index(max(probs_of_interest))
             pred_class = expected_classes[max_prob_idx]
             will_hit = label2str.get(pred_class, "None")
             hit_prob = latest_prob_features[f"Prob_Class_{pred_class}"]
 
-            # Prepare features for regressors (include probability features)
             latest_prob_df = pd.DataFrame([latest_prob_features])
             latest_features_with_probs = pd.concat(
                 [latest[FEATURES].reset_index(drop=True), latest_prob_df], axis=1
@@ -1168,7 +1174,7 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
             entry_price = (current_price + predicted_sl) / 2
             entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
 
-            # --- Compute confidence score ---
+            # --- Confidence score (same as before) ---
             p_none  = latest_prob_features.get('Prob_Class_0', 0)
             p_sl    = latest_prob_features.get('Prob_Class_1', 0)
             p_tp    = latest_prob_features.get('Prob_Class_2', 0)
@@ -1178,7 +1184,6 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
             bullish_prob = p_tp + p_hold
             bearish_prob = p_sl + p_short
 
-            # Risk/Reward ratio
             if predicted_loss != 0:
                 rr_ratio = predicted_return / abs(predicted_loss)
             else:
@@ -1187,14 +1192,14 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
             max_ratio = 10
             log_ratio = np.log1p(rr_ratio)
             max_log_ratio = np.log1p(max_ratio)
-            normalized_rr = log_ratio / max_log_ratio
+            normalized_rr = log_ratio / max_log_ratio if max_log_ratio > 0 else 0
 
             total_prob = bullish_prob + bearish_prob
             prob_confidence = bullish_prob / total_prob if total_prob > 0 else 0.5
 
             confidence_score = (0.5 * prob_confidence + 0.5 * normalized_rr) * 100
 
-            # --- Determine signal text and extremes ---
+            # --- Signal, extremes, action ---
             TI = df['TI'].iloc[-1]
             if TI == 'Bull':
                 signal = "TI: ✅ Bullish"
@@ -1207,7 +1212,6 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
 
             _Extremes = "High" if df['Exhaustion'].iloc[-1] >= 0.9 else ("Low" if df['Exhaustion'].iloc[-1] <= -0.9 else "--")
 
-            # --- Get final action label (uses your get_action_label function) ---
             ema1_val = latest['EMA1'].iloc[0]
             rsi_val = latest['RSI'].iloc[0]
             ti_signal = df['TI'].iloc[-1]
@@ -1218,7 +1222,7 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
                 predicted_return, predicted_loss
             )
 
-            # --- Print compact row (using st.code as in your original) ---
+            # --- Print compact row ---
             tp_str = f"{predicted_tp:.2f}"
             sl_str = f"{predicted_sl:.2f}"
             atr_str = f"{df['ATR'].iloc[-1]:.2f}"
