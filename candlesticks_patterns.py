@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+print(">>> LOADED candlesticks_patterns.py FROM:", __file__, flush=True)
 
 def detect_doji(df, tolerance=0.001):
     pattern = np.zeros(len(df), dtype=int)
