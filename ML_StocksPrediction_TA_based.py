@@ -206,10 +206,7 @@ def label(text):
     
 @st.cache_data
 def get_stock_data(ticker_list, start_date, end_date):
-    """
-    Returns DataFrame with MultiIndex columns: (ticker, attribute)
-    where attribute is one of: Open, High, Low, Close, Adj Close, Volume
-    """
+    """Returns dict {ticker: DataFrame with OHLCV}"""
     ticker_dict = {ticker: ticker for ticker in ticker_list}
     return load_data(ticker_dict, start_date, end_date)
 
@@ -1018,48 +1015,35 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                            
 #  🟡 Make Predictions (Gain/Loss/Confidence)
 def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
-    """
-    Process each ticker: compute indicators, train ML models (classifier + regressors),
-    and return processed DataFrames (dfs) and results table (df_results).
-    """
-    # Parse input: string like "AAPL, GOOGL" -> list
     if isinstance(TICKERS, str):
         ticker_list = [t.strip().upper() for t in TICKERS.split(',')]
     else:
         ticker_list = TICKERS
 
-    # Load all tickers at once (cached) - returns MultiIndex columns
-    df_all = get_stock_data(ticker_list, start_date, end_date)
+    # Returns a dict: {ticker: full OHLCV DataFrame}
+    data_dict = get_stock_data(ticker_list, start_date, end_date)
 
-    dfs = {}          # store processed DataFrames per ticker (for plotting)
-    results = []      # store prediction rows
-
+    dfs = {}
+    results = []
     label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
-    expected_classes = [0, 1, 2, 3, 4]
+    expected_classes = [0,1,2,3,4]
 
     for ticker in ticker_list:
         try:
-            # --- Extract this ticker's OHLCV data ---
-            if ticker not in df_all.columns.levels[0]:
-                st.warning(f"Ticker {ticker} not found in downloaded data. Skipping.")
+            if ticker not in data_dict:
+                st.warning(f"Ticker {ticker} not found. Skipping.")
                 continue
 
-            # Extract the DataFrame for this ticker
-            ticker_data = df_all[ticker].copy()   # columns: Open, High, Low, Close, Adj Close, Volume
-            ticker_data.index = pd.to_datetime(ticker_data.index)
+            # Get the DataFrame for this ticker
+            df = data_dict[ticker].copy()
+            df.index = pd.to_datetime(df.index)
 
-            # Ensure we have a 'Close' column (use 'Adj Close' if needed)
-            if 'Close' not in ticker_data.columns and 'Adj Close' in ticker_data.columns:
-                ticker_data['Close'] = ticker_data['Adj Close']
-            elif 'Close' not in ticker_data.columns:
-                st.warning(f"No Close price for {ticker}. Skipping.")
-                continue
+            # Ensure we have a 'Close' column (use Adj Close if needed)
+            if 'Close' not in df.columns and 'Adj Close' in df.columns:
+                df['Close'] = df['Adj Close']
 
-            # Now ticker_data has all OHLCV columns required by add_technical_indicators
-            df = ticker_data
-
-            # --- Add all technical indicators & features ---
-            df = add_technical_indicators(df)        # expects Open, High, Low, Close, Volume
+            # Now df has all OHLCV columns needed
+            df = add_technical_indicators(df)
             df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
             df['BuyTime'] = (
                 (df['Bull'] == 1) &
@@ -1075,7 +1059,6 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
                                      tp_thresh=0.35, sl_thresh=0.35)
             df['Hit_Label'] = df['Hit_Label'].fillna(0).astype(int)
 
-            # Store processed DataFrame for later plotting
             dfs[ticker] = df
 
             # --- Prepare data for ML (drop rows with missing features) ---
