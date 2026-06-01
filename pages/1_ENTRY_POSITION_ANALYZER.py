@@ -31,6 +31,7 @@ expected_classes = [0, 1, 2, 3, 4]
 desc = """ ... (keep your original long description) ... """
 
 # ---------- DATA FETCHING ----------
+@st.cache_data
 def get_stock_data(ticker, start_date, end_date, interval='1d'):
     try:
         df = yf.download(ticker, start=start_date, end=end_date, interval=interval, progress=False, auto_adjust=False)
@@ -46,7 +47,9 @@ def get_stock_data(ticker, start_date, end_date, interval='1d'):
     except:
         return None
 
+@st.cache_data
 def get_current_price(ticker):
+    """Get current price using yfinance"""
     try:
         ticker_obj = yf.Ticker(ticker)
         data = ticker_obj.history(period="1d")
@@ -57,6 +60,7 @@ def get_current_price(ticker):
     return None
 
 # ---------- TECHNICAL INDICATORS (fully vectorized, no apply) ----------
+@st.cache_data
 def add_technical_indicators(df, timeframe='1D'):
     try:
         if isinstance(df.columns, pd.MultiIndex):
@@ -730,18 +734,19 @@ def increase_patience_15():
     st.session_state.patience_score = min(100, st.session_state.patience_score+15)
 def increase_patience_10():
     st.session_state.patience_score = min(100, st.session_state.patience_score+10)
+def update_price_and_reset_entry():
+    """Callback to update current price and reset entry price when ticker changes"""
+    ticker = st.session_state.get("ticker_input", DEFAULT_TICKER).upper()
+    current_price = get_current_price(ticker)
+    if current_price is not None:
+        st.session_state.current_price = current_price
+        st.session_state.entry_price = current_price
+        st.session_state.entry_price_input = current_price
+        st.session_state.initial_prices_set = True
+        st.session_state.ticker = ticker
 
-# ---------- MAIN APP ----------
-def main():
-    st.title("📊 Entry Position Analyzer")
-    st.write("Analyze entry using ML models trained on 4H, 1D, 1W timeframes.")
-    with st.expander("Disciplined Entry Strategy", expanded=False):
-        st.write(desc)
-    st.markdown("### ⚙️ Automatic Technical Analysis Checklist")
-    with st.expander("Technical conditions will be evaluated after analysis", expanded=False):
-        st.info("System checks: Price vs EMAs, RSI, Volume, ADX, +DI/-DI, Price Action. Score 0-100.")
-
-    # Session state init
+def initialize_session_state():
+    """Initialize session state variables"""
     if "ticker" not in st.session_state:
         st.session_state.ticker = DEFAULT_TICKER
     if "current_price" not in st.session_state:
@@ -757,44 +762,85 @@ def main():
     if "last_analysis_time" not in st.session_state:
         st.session_state.last_analysis_time = None
 
+# ---------- MAIN APP ----------
+def main():
+    st.title("📊 Entry Position Analyzer")
+    st.write("Analyze entry using ML models trained on 4H, 1D, 1W timeframes.")
+    with st.expander("Disciplined Entry Strategy", expanded=False):
+        st.write(desc)
+    st.markdown("### ⚙️ Automatic Technical Analysis Checklist")
+    with st.expander("Technical conditions will be evaluated after analysis", expanded=False):
+        st.info("System checks: Price vs EMAs, RSI, Volume, ADX, +DI/-DI, Price Action. Score 0-100.")
+
+    # Initialize session state ONCE at the beginning
+    initialize_session_state()
+
     col1, col2, col3 = st.columns(3)
+    
     with col1:
-        ticker = st.text_input("Ticker Symbol", value=st.session_state.ticker, key="ticker_input").upper()
+        # Ticker input with callback
+        ticker = st.text_input(
+            "Ticker Symbol", 
+            value=st.session_state.ticker, 
+            key="ticker_input",
+            on_change=update_price_and_reset_entry
+        ).upper()
+        
+        # If ticker changed manually without callback, handle it
         if ticker != st.session_state.ticker:
             st.session_state.ticker = ticker
             st.session_state.initial_prices_set = False
-        current = get_current_price(ticker)
-        if current is None:
-            st.error(f"Cannot fetch price for {ticker}")
-            st.stop()
-        st.session_state.current_price = current
-        st.metric("Current Price", f"${current:.2f}")
+        
+        # Fetch current price if not set
+        if not st.session_state.initial_prices_set or st.session_state.current_price is None:
+            current = get_current_price(ticker)
+            if current is None:
+                st.error(f"Cannot fetch price for {ticker}")
+                st.stop()
+            st.session_state.current_price = current
+            st.session_state.entry_price = current
+            st.session_state.entry_price_input = current
+            st.session_state.initial_prices_set = True
+        
+        st.metric("Current Price", f"${st.session_state.current_price:.2f}")
+    
     with col2:
-        entry_price = st.number_input("Entry Price (auto current)", value=float(current), step=0.1, key="entry_price_input")
+        entry_price = st.number_input(
+            "Entry Price (auto current)", 
+            value=float(st.session_state.entry_price_input if st.session_state.entry_price_input else st.session_state.current_price), 
+            step=0.1, 
+            key="entry_price_input",
+            on_change=lambda: st.session_state.update({"entry_price": st.session_state.entry_price_input})
+        )
         st.session_state.entry_price = entry_price
+    
     with col3:
-        user_gain = st.number_input("Expected Gain (%)", 0.1,15.0,3.75,0.1)
-        user_loss = st.number_input("Expected Loss (%)", 0.1,15.0,3.75,0.1)
+        user_gain = st.number_input("Expected Gain (%)", 0.1, 15.0, 3.75, 0.1)
+        user_loss = st.number_input("Expected Loss (%)", 0.1, 15.0, 3.75, 0.1)
         st.info("Wait for Technical Confirmation score before entry")
 
-    ind = st.selectbox("Choose 3rd indicator", ['OBV','CCI','CMF','MFI','ADX'], index=0)
-    days = st.slider("Forecast Days", 30,365,90)
-    sims = st.slider("Monte Carlo Simulations", 1000,20000,10000)
+    ind = st.selectbox("Choose 3rd indicator", ['OBV', 'CCI', 'CMF', 'MFI', 'ADX'], index=0)
+    days = st.slider("Forecast Days", 30, 365, 90)
+    sims = st.slider("Monte Carlo Simulations", 1000, 20000, 10000)
     mc_method = st.radio("Monte Carlo Method", ["Random Statistical Simulation", "Historical Paths Simulation"], index=0)
 
     st.markdown("---")
     st.markdown("### 🧘 Trading Discipline")
     pat = st.session_state.patience_score
-    if pat<40: st.error(f"**Impulsive** ({pat}/100)")
-    elif pat<70: st.warning(f"**Moderate** ({pat}/100)")
-    else: st.success(f"**Patient Trader** ({pat}/100)")
-    st.progress(pat/100)
+    if pat < 40:
+        st.error(f"**Impulsive** ({pat}/100)")
+    elif pat < 70:
+        st.warning(f"**Moderate** ({pat}/100)")
+    else:
+        st.success(f"**Patient Trader** ({pat}/100)")
+    st.progress(pat / 100)
+    
     colb1, colb2 = st.columns(2)
     with colb1:
         st.button("⏸️ Wait for confirmation", on_click=increase_patience_15, use_container_width=True)
     with colb2:
         st.button("📊 Analyze first", on_click=increase_patience_10, use_container_width=True)
-
+    
     if st.button("📊 Analyze Entry Position", use_container_width=True):
         with st.spinner("Training models and analyzing..."):
             st.session_state.patience_score = min(100, pat+5)
