@@ -218,8 +218,16 @@ def get_stock_data(ticker_list, start_date, end_date):
                 continue
             keep = ['Open', 'High', 'Low', 'Close', 'Volume']
             df = df[[c for c in keep if c in df.columns]]
+            df = df.astype({
+                "Open": float,
+                "High": float,
+                "Low": float,
+                "Close": float,
+                "Volume": float
+            })
             data_dict[ticker] = df
             time.sleep(0.5)
+
         except Exception as e:
             st.warning(f"Error loading {ticker}: {e}")
     return data_dict
