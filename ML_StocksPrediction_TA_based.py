@@ -204,37 +204,26 @@ def label(text):
     return f"{EMOJI.get(text, '')} {text}"
     
 @st.cache_data
-@st.cache_data
 def get_stock_data(ticker_list, start_date, end_date):
-    """
-    Download each ticker individually and return a dict of DataFrames.
-    Each DataFrame has columns: Open, High, Low, Close, Volume (and Adj Close if available).
-    """
+    """Download each ticker individually and return a dict of simple DataFrames"""
     data_dict = {}
     for ticker in ticker_list:
         try:
-            df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=False)
+            df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
             if df.empty:
                 st.warning(f"No data for {ticker}, skipping.")
                 continue
-            # Ensure required columns exist
-            if 'Open' not in df.columns:
-                df['Open'] = df['Close']
-            if 'High' not in df.columns:
-                df['High'] = df['Close']
-            if 'Low' not in df.columns:
-                df['Low'] = df['Close']
-            if 'Volume' not in df.columns:
-                df['Volume'] = 0
-            # Keep only relevant columns
-            keep = ['Open','High','Low','Close','Adj Close','Volume']
+            if 'Close' not in df.columns:
+                st.warning(f"No Close price for {ticker}, skipping.")
+                continue
+            keep = ['Open', 'High', 'Low', 'Close', 'Volume']
             df = df[[c for c in keep if c in df.columns]]
             data_dict[ticker] = df
-            time.sleep(0.1)
+            time.sleep(0.5)
         except Exception as e:
             st.warning(f"Error loading {ticker}: {e}")
     return data_dict
-
+    
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
     return ansi_escape.sub('', text)
