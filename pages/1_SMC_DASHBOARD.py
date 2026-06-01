@@ -211,10 +211,228 @@ def add_zone(zones, top, bottom, start_bar, is_bull, is_ob, condition):
 # Please ensure you have the full process_bar implementation from the working version. I will assume it's present.
 # For the sake of this fix, I'll show a placeholder; you must replace it with the actual full function.
 def process_bar(df, i, state, params):
-    # This function must be exactly the same as the working version you had before.
-    # It returns dashboard and (uptrend, downtrend, strong_ssl, strong_bsl, inside_zone, pattern_bullish, pattern_name, pattern_bar, net_score, turning_point, turning_reason, turning_price, turning_style)
-    pass  # Replace with your full process_bar implementation
+    # Current values
+    o = df['open'].iloc[i]
+    h = df['high'].iloc[i]
+    l = df['low'].iloc[i]
+    c = df['close'].iloc[i]
+    v = df['volume'].iloc[i] if 'volume' in df.columns else 0
+    ema20 = df['ema20'].iloc[i]
+    ema50 = df['ema50'].iloc[i]
+    ema200 = df['ema200'].iloc[i]
+    rsi_val = df['rsi'].iloc[i]
+    rsi_ema = df['rsi_ema'].iloc[i]
+    atr = df['atr'].iloc[i]
+    lb_crv = df['lb_crv'].iloc[i]
 
+    if i > 0:
+        o_prev = df['open'].iloc[i-1]
+        h_prev = df['high'].iloc[i-1]
+        l_prev = df['low'].iloc[i-1]
+        c_prev = df['close'].iloc[i-1]
+        v_prev = df['volume'].iloc[i-1] if 'volume' in df.columns else 0
+    else:
+        o_prev = o
+        h_prev = h
+        l_prev = l
+        c_prev = c
+        v_prev = v
+
+    # Volume SMA
+    vol5 = df['volume'].rolling(5).mean().iloc[i] if i >= 4 else v
+    vol_confirm_bull = v > vol5
+    vol_confirm_bear = v > vol5
+    fvg_vol_ok = v > vol5 * 0.6
+
+    # Initialize return values
+    uptrend = False
+    downtrend = False
+    strong_ssl = False
+    strong_bsl = False
+    inside_zone = False
+    pattern_bullish = False
+    pattern_name = "None"
+    pattern_bar = -1
+    net_score = 0
+    turning_point = False
+    turning_reason = ""
+    turning_price = None
+    turning_style = None
+
+    # Swings (pivots)
+    swing_l = params['swing_l']
+    swing_r = params['swing_r']
+    if i >= swing_l and i < len(df) - swing_r:
+        is_high = all(h > df['high'].iloc[i-k] for k in range(1, swing_l+1)) and all(h > df['high'].iloc[i+k] for k in range(1, swing_r+1))
+        if is_high:
+            state.prev_swing_high = state.last_swing_high
+            state.last_swing_high = h
+            state.last_hi = h
+            state.last_hi_idx = i
+        is_low = all(l < df['low'].iloc[i-k] for k in range(1, swing_l+1)) and all(l < df['low'].iloc[i+k] for k in range(1, swing_r+1))
+        if is_low:
+            state.prev_swing_low = state.last_swing_low
+            state.last_swing_low = l
+            state.last_lo = l
+            state.last_lo_idx = i
+
+    # FVG and OB detection
+    min_gap = atr * 0.1
+    if i >= 2:
+        fvg_up3 = (l > df['high'].iloc[i-2] + min_gap) and fvg_vol_ok
+        fvg_dn3 = (h < df['low'].iloc[i-2] - min_gap) and fvg_vol_ok
+        if fvg_up3:
+            add_zone(state.all_zones, df['high'].iloc[i-2], l, i-2, True, False, True)
+        if fvg_dn3:
+            add_zone(state.all_zones, h, df['low'].iloc[i-2], i-2, False, False, True)
+
+    # Order blocks
+    if i >= 2:
+        displacement_up = (c > h_prev and c > o)
+        displacement_dn = (c < l_prev and c < o)
+        bull_ob3 = displacement_up and (l_prev < df['low'].iloc[i-2]) and vol_confirm_bull
+        bear_ob3 = displacement_dn and (h_prev > df['high'].iloc[i-2]) and vol_confirm_bear
+        if bull_ob3:
+            add_zone(state.all_zones, h_prev, l_prev, i-1, True, True, True)
+        if bear_ob3:
+            add_zone(state.all_zones, h_prev, l_prev, i-1, False, True, True)
+        gap_up_ob = (i > 1 and o > h_prev and c > o)
+        gap_dn_ob = (i > 1 and o < l_prev and c < o)
+        if gap_up_ob:
+            add_zone(state.all_zones, o, l_prev, i-1, True, True, True)
+        if gap_dn_ob:
+            add_zone(state.all_zones, h_prev, o, i-1, False, True, True)
+
+    # Zone aging
+    max_age = params['maxAge']
+    fail_window = params['failWindow']
+    close_mitigate = params['closeMitigate']
+    max_taps = 5
+    to_remove = []
+    for idx, z in enumerate(state.all_zones):
+        age = i - z.start_bar
+        failed = False
+        if age <= fail_window and i >= 1:
+            if z.is_bull:
+                if c < z.bottom and c_prev < z.bottom:
+                    failed = True
+            else:
+                if c > z.top and c_prev > z.top:
+                    failed = True
+        if not z.is_mitigated:
+            if h > z.bottom and l < z.top:
+                z.taps += 1
+            if (z.is_bull and (c < z.bottom if close_mitigate else l < z.bottom)) or (not z.is_bull and (c > z.top if close_mitigate else h > z.top)):
+                z.is_mitigated = True
+            if z.taps > max_taps:
+                z.is_mitigated = True
+        if age > max_age or failed:
+            to_remove.append(idx)
+    for idx in reversed(to_remove):
+        del state.all_zones[idx]
+
+    # Zone awareness
+    for z in state.all_zones:
+        if z.is_mitigated:
+            continue
+        if h >= z.bottom and l <= z.top:
+            inside_zone = True
+            state.last_zone_bullish = z.is_bull
+            state.last_zone_bearish = not z.is_bull
+            break
+    state.inside_zone_prev = inside_zone
+
+    # Structure (BOS/CHoCH)
+    if state.last_swing_high is not None:
+        bos_up_raw = h > state.last_swing_high
+        bos_up_valid = bos_up_raw and c > state.last_swing_high + atr * 0.1
+        bos_up_confirmed = bos_up_valid
+        if bos_up_confirmed and l <= state.last_swing_high:
+            if state.is_uptrend is None or state.is_uptrend:
+                state.bos_up_list.append((state.last_hi_idx, i, state.last_swing_high))
+            state.is_uptrend = True
+            state.smc_bullish = True
+            state.smc_bearish = False
+    if state.last_swing_low is not None:
+        bos_dn_raw = l < state.last_swing_low
+        bos_dn_valid = bos_dn_raw and c < state.last_swing_low - atr * 0.1
+        bos_dn_confirmed = bos_dn_valid
+        if bos_dn_confirmed and h >= state.last_swing_low:
+            if state.is_uptrend is None or not state.is_uptrend:
+                state.bos_dn_list.append((state.last_lo_idx, i, state.last_swing_low))
+            state.is_uptrend = False
+            state.smc_bullish = False
+            state.smc_bearish = True
+
+    # Momentum
+    lb_up = c > lb_crv * 1.02
+    lb_down = c < lb_crv * 0.98
+    mom_bullish = (rsi_val > rsi_ema and c > lb_crv * 0.95)
+    mom_bearish = not mom_bullish and (rsi_val <= rsi_ema and c < lb_crv * 1.05)
+    uptrend = mom_bullish and (rsi_val > rsi_ema or rsi_val >= 47)
+    downtrend = (not uptrend and mom_bearish) and (rsi_val < rsi_ema or rsi_val <= 44)
+
+    # Liquidity sweeps
+    if i >= 3:
+        is_ssl = (df['low'].iloc[i-2] < df['low'].iloc[i-3] and df['low'].iloc[i-2] < df['low'].iloc[i-1])
+        is_bsl = (df['high'].iloc[i-2] > df['high'].iloc[i-3] and df['high'].iloc[i-2] > df['high'].iloc[i-1])
+        swept_ssl_low = l < df['low'].iloc[i-2] if i >= 2 else False
+        swept_bsl_high = h > df['high'].iloc[i-2] if i >= 2 else False
+        confirm_ssl = is_ssl and c > o and swept_ssl_low
+        confirm_bsl = is_bsl and c < o and swept_bsl_high
+        strong_ssl = confirm_ssl
+        strong_bsl = confirm_bsl
+        if strong_ssl and strong_bsl:
+            strong_ssl = c > o
+            strong_bsl = c < o
+
+    # Scoring
+    bull_score = 0
+    bear_score = 0
+    if state.smc_bullish:
+        bull_score += 30
+    if state.smc_bearish:
+        bear_score += 30
+    if strong_ssl:
+        bull_score += 25
+    if strong_bsl:
+        bear_score += 25
+    if inside_zone:
+        if state.smc_early_bull or state.smc_bullish:
+            bull_score += 10
+        if state.smc_early_bear or state.smc_bearish:
+            bear_score += 10
+    if mom_bullish:
+        bull_score += 15
+    if mom_bearish:
+        bear_score += 15
+    net_score = bull_score - bear_score
+
+    # Dashboard
+    if net_score > 20:
+        regime = "Bullish"
+    elif net_score < -20:
+        regime = "Bearish"
+    else:
+        regime = "Neutral"
+
+    dashboard = {
+        'liquidity': 'SSL' if strong_ssl else 'BSL' if strong_bsl else 'None',
+        'sweep_status': 'ACTIVE' if (strong_ssl or strong_bsl) else '---',
+        'pattern_text': 'No pattern',
+        'pattern_status': '---',
+        'momentum': 'UP ↑' if uptrend else 'DOWN ↓' if downtrend else '---',
+        'struct': 'Bullish' if state.smc_bullish else 'Bearish' if state.smc_bearish else 'Neutral',
+        'smc_concept': regime,
+        'zone_event': 'Inside Bull Zone' if inside_zone and state.last_zone_bullish else 'Inside Bear Zone' if inside_zone else '---',
+        'zone_dist': '---',
+        'bias': regime,
+        'z_score': net_score,
+        'signal': 'LONG' if uptrend else 'SHORT' if downtrend else 'NO TRADE'
+    }
+
+    # Return exactly 13 values
+    return dashboard, (uptrend, downtrend, strong_ssl, strong_bsl, inside_zone, pattern_bullish, pattern_name, pattern_bar, net_score, turning_point, turning_reason, turning_price, turning_style)
 # -----------------------------------------------------------------------------
 # RISK MANAGEMENT
 # -----------------------------------------------------------------------------
