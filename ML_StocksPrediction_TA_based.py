@@ -326,7 +326,7 @@ def add_technical_indicators(df):
     df[['STu', 'STl']] = supertrend_df
     
     # Returns and volatility
-    df['DD'] = close_series.rolling(14).apply(lambda x: x[-1] - x.max())
+    df['DD'] = close_series - close_series.rolling(14).max()
     df['return1'] = close_series.pct_change(7).rolling(3).mean()
     df['return2'] = close_series.pct_change(14).rolling(3).mean()
     df['return3'] = close_series.pct_change(21).rolling(3).mean()
