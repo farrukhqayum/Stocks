@@ -107,19 +107,18 @@ def detect_three_black_crows(df):
 def detect_bullish_engulfing(df):
     pattern = np.zeros(len(df), dtype=int)
     for i in range(1, len(df)):
+        prev_open  = df['Open'].iloc[i-1]
         prev_close = df['Close'].iloc[i-1]
-        prev_open = df['Open'].iloc[i-1]
+        curr_open  = df['Open'].iloc[i]
         curr_close = df['Close'].iloc[i]
-        curr_open = df['Open'].iloc[i]
-        if (prev_open > prev_close and 
-            curr_close > curr_open and 
-            curr_close > prev_open and 
+        if (prev_open > prev_close and
+            curr_close > curr_open and
+            curr_close > prev_open and
             curr_open < prev_close):
             pattern[i] = 1
     return pd.Series(pattern, index=df.index)
 
 def detect_bearish_engulfing(df):
-    print("🔥 LOOP VERSION ACTIVE – line 114", flush=True)
     pattern = np.zeros(len(df), dtype=int)
     for i in range(1, len(df)):
         prev_close = df['Close'].iloc[i-1]
