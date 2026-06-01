@@ -205,7 +205,7 @@ def label(text):
     return f"{EMOJI.get(text, '')} {text}"
     
 @st.cache_data
-def get_stock_data(ticker, start_date, end_date):
+def (ticker, start_date, end_date):
     df  = load_data(tickers, start, end)
     return df
 
@@ -1021,9 +1021,19 @@ def MakePredictions(TICKERS = "AAPL, GOOGL, MSFT"):
     label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
     expected_classes = [0, 1, 2, 3, 4]
     
-    for ticker in TICKERS:
+    if isinstance(TICKERS, str):
+        ticker_list = [t.strip() for t in TICKERS.split(',')]
+    else:
+        ticker_list = TICKERS
+
+    df_all = get_stock_data(ticker_list, start_date, end_date)
+    
+    for ticker in ticker_list:
         try:
-            df = get_stock_data(ticker, start_date, end_date)
+            df = df_all[[ticker]].copy()
+            df.rename(columns={ticker: 'Close'}, inplace=True)
+            df_ticker.index = pd.to_datetime(df_ticker.index)
+            
             if not pd.api.types.is_datetime64_any_dtype(df.index):
                 if "Date" in df.columns:
                     df = df.set_index("Date")
