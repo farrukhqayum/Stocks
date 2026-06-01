@@ -205,7 +205,7 @@ def label(text):
     return f"{EMOJI.get(text, '')} {text}"
     
 @st.cache_data
-def (ticker, start_date, end_date):
+def get_stock_data(ticker, start_date, end_date):
     df  = load_data(tickers, start, end)
     return df
 
