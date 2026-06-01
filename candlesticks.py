@@ -12,8 +12,12 @@ def detect_hammer(df):
     pattern = np.zeros(len(df), dtype=int)
     for i in range(len(df)):
         body = abs(df['Close'].iloc[i] - df['Open'].iloc[i])
-        lower_shadow = df['Open'].iloc[i] - df['Low'].iloc[i] if df['Open'].iloc[i] > df['Close'].iloc[i] else df['Close'].iloc[i] - df['Low'].iloc[i]
-        upper_shadow = df['High'].iloc[i] - df['Close'].iloc[i] if df['Close'].iloc[i] > df['Open'].iloc[i] else df['High'].iloc[i] - df['Open'].iloc[i]
+        if df['Open'].iloc[i] > df['Close'].iloc[i]:
+            lower_shadow = df['Open'].iloc[i] - df['Low'].iloc[i]
+            upper_shadow = df['High'].iloc[i] - df['Open'].iloc[i]
+        else:
+            lower_shadow = df['Close'].iloc[i] - df['Low'].iloc[i]
+            upper_shadow = df['High'].iloc[i] - df['Close'].iloc[i]
         if lower_shadow > 2 * body and upper_shadow < body:
             pattern[i] = 1
     return pd.Series(pattern, index=df.index)
@@ -22,8 +26,12 @@ def detect_hanging_man(df):
     pattern = np.zeros(len(df), dtype=int)
     for i in range(len(df)):
         body = abs(df['Close'].iloc[i] - df['Open'].iloc[i])
-        lower_shadow = df['Open'].iloc[i] - df['Low'].iloc[i] if df['Open'].iloc[i] > df['Close'].iloc[i] else df['Close'].iloc[i] - df['Low'].iloc[i]
-        upper_shadow = df['High'].iloc[i] - df['Close'].iloc[i] if df['Close'].iloc[i] > df['Open'].iloc[i] else df['High'].iloc[i] - df['Open'].iloc[i]
+        if df['Open'].iloc[i] > df['Close'].iloc[i]:
+            lower_shadow = df['Open'].iloc[i] - df['Low'].iloc[i]
+            upper_shadow = df['High'].iloc[i] - df['Open'].iloc[i]
+        else:
+            lower_shadow = df['Close'].iloc[i] - df['Low'].iloc[i]
+            upper_shadow = df['High'].iloc[i] - df['Close'].iloc[i]
         if lower_shadow > 2 * body and upper_shadow < body and df['Open'].iloc[i] > df['Close'].iloc[i]:
             pattern[i] = 1
     return pd.Series(pattern, index=df.index)
@@ -58,8 +66,12 @@ def detect_shooting_star(df):
     pattern = np.zeros(len(df), dtype=int)
     for i in range(len(df)):
         body = abs(df['Close'].iloc[i] - df['Open'].iloc[i])
-        upper_shadow = df['High'].iloc[i] - df['Close'].iloc[i] if df['Close'].iloc[i] > df['Open'].iloc[i] else df['High'].iloc[i] - df['Open'].iloc[i]
-        lower_shadow = df['Open'].iloc[i] - df['Low'].iloc[i] if df['Open'].iloc[i] > df['Close'].iloc[i] else df['Close'].iloc[i] - df['Low'].iloc[i]
+        if df['Close'].iloc[i] > df['Open'].iloc[i]:
+            upper_shadow = df['High'].iloc[i] - df['Close'].iloc[i]
+            lower_shadow = df['Close'].iloc[i] - df['Low'].iloc[i]
+        else:
+            upper_shadow = df['High'].iloc[i] - df['Open'].iloc[i]
+            lower_shadow = df['Open'].iloc[i] - df['Low'].iloc[i]
         if upper_shadow > 2 * body and lower_shadow < body:
             pattern[i] = 1
     return pd.Series(pattern, index=df.index)
@@ -107,7 +119,6 @@ def detect_bullish_engulfing(df):
     return pd.Series(pattern, index=df.index)
 
 def detect_bearish_engulfing(df):
-    print("🔥 VECTORIZED VERSION IS RUNNING – FIX ME!", file=sys.stderr)
     pattern = np.zeros(len(df), dtype=int)
     for i in range(1, len(df)):
         prev_close = df['Close'].iloc[i-1]
