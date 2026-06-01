@@ -219,10 +219,15 @@ def add_pivots(df, win=windows):
         df[f'S2_{w}'] = PP - (high_r.max() - low_r.min())
     return df
 
-def average_pivots(df, win=[5,10,14,20]):
-    for level in ['PP','R1','S1','R2','S2']:
-        cols = [f'{level}_{w}' for w in win]
-        df[f'{level}_Avg'] = df[cols].mean(axis=1)
+def average_pivots(df, win=None):
+    if win is None:
+        win = windows
+    for level in ['PP', 'R1', 'S1', 'R2', 'S2']:
+        cols = [f'{level}_{w}' for w in win if f'{level}_{w}' in df.columns]
+        if cols:
+            df[f'{level}_Avg'] = df[cols].mean(axis=1)
+        else:
+            df[f'{level}_Avg'] = np.nan
     return df
 
 # ---------- EXPECTED RETURN/LOSS (unchanged, safe) ----------
