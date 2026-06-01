@@ -742,38 +742,50 @@ def update_trades(state, i, close_price, low, high, atr, uptrend, downtrend, str
 # ============================================================================
 def plot_smc_chart(df, state, ticker, timeframe):
     fig, ax = plt.subplots(figsize=(12, 6))
-    for idx in range(len(df)):
-        o = df['open'].iloc[idx]
-        h = df['high'].iloc[idx]
-        l = df['low'].iloc[idx]
-        c = df['close'].iloc[idx]
+    n = len(df)
+    x = np.arange(n)   # integer positions
+
+    # Candles using integer x positions
+    for i in range(n):
+        o = df['open'].iloc[i]
+        h = df['high'].iloc[i]
+        l = df['low'].iloc[i]
+        c = df['close'].iloc[i]
         color = 'green' if c >= o else 'red'
-        ax.plot([idx, idx], [l, h], color=color, linewidth=1, alpha=0.7)
-        ax.add_patch(Rectangle((idx-0.3, min(o,c)), 0.6, abs(c-o), facecolor=color, edgecolor=color, alpha=0.7))
-    ax.plot(df.index, df['lb_crv'], color='gray', linewidth=1.2, alpha=0.8, label='LB Curve')
+        ax.plot([i, i], [l, h], color=color, linewidth=1, alpha=0.7)
+        ax.add_patch(Rectangle((i-0.3, min(o,c)), 0.6, abs(c-o), facecolor=color, edgecolor=color, alpha=0.7))
+
+    # LB curve – use integer x
+    ax.plot(x, df['lb_crv'], color='gray', linewidth=1.2, alpha=0.8, label='LB Curve')
+
+    # Zones – use integer positions
     for z in state.all_zones:
         if not z.is_mitigated:
             ax.axhspan(z.bottom, z.top, xmin=0, xmax=1, alpha=0.15, color=z.base_col, linewidth=1.5, linestyle='--' if not z.is_ob else '-')
+
+    # BOS/CHoCH lines
     for (swing_idx, break_idx, price) in state.bos_up_list:
-        if swing_idx >= 0 and break_idx < len(df):
+        if swing_idx >= 0 and break_idx < n:
             ax.plot([swing_idx, break_idx], [price, price], color='lime', linestyle='--', linewidth=1.5, alpha=0.7)
             mid = (swing_idx + break_idx)//2
             ax.text(mid, price, ' BOS ↑', fontsize=8, color='lime', va='bottom')
     for (swing_idx, break_idx, price) in state.bos_dn_list:
-        if swing_idx >= 0 and break_idx < len(df):
+        if swing_idx >= 0 and break_idx < n:
             ax.plot([swing_idx, break_idx], [price, price], color='red', linestyle='--', linewidth=1.5, alpha=0.7)
             mid = (swing_idx + break_idx)//2
             ax.text(mid, price, ' BOS ↓', fontsize=8, color='red', va='top')
     for (swing_idx, break_idx, price) in state.cho_up_list:
-        if swing_idx >= 0 and break_idx < len(df):
+        if swing_idx >= 0 and break_idx < n:
             ax.plot([swing_idx, break_idx], [price, price], color='cyan', linestyle='--', linewidth=1.5, alpha=0.7)
             mid = (swing_idx + break_idx)//2
             ax.text(mid, price, ' CHoCH ↑', fontsize=8, color='cyan', va='bottom')
     for (swing_idx, break_idx, price) in state.cho_dn_list:
-        if swing_idx >= 0 and break_idx < len(df):
+        if swing_idx >= 0 and break_idx < n:
             ax.plot([swing_idx, break_idx], [price, price], color='orange', linestyle='--', linewidth=1.5, alpha=0.7)
             mid = (swing_idx + break_idx)//2
             ax.text(mid, price, ' CHoCH ↓', fontsize=8, color='orange', va='top')
+
+    # Turning points – no duplicates
     used_bars = set()
     for (idx, reason, price, style) in state.turning_points[-50:]:
         if idx in used_bars:
@@ -782,11 +794,17 @@ def plot_smc_chart(df, state, ticker, timeframe):
         y_offset = price * 0.99 if style == 'up' else price * 1.01
         ax.text(idx, y_offset, reason, fontsize=7, ha='center', va='center',
                 bbox=dict(facecolor='yellow', alpha=0.7, edgecolor='black', boxstyle='round,pad=0.3'))
+
+    # X‑axis formatting – use integer ticks but show dates
+    step = max(1, n // 10)
+    tick_positions = list(range(0, n, step))
+    tick_labels = [df.index[p].strftime('%Y-%m-%d %H:%M') for p in tick_positions]
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(tick_labels, rotation=45, fontsize=8)
+
     ax.set_title(f"{ticker} - SMC Analysis ({timeframe})", fontsize=14)
     ax.set_ylabel('Price')
     ax.grid(True, alpha=0.2)
-    ax.set_xticks(range(0, len(df), max(1, len(df)//10)))
-    ax.set_xticklabels(df.index.strftime("%Y-%m-%d %H:%M")[::max(1, len(df)//10)], rotation=45, fontsize=8)
     ax.legend(loc='upper left', fontsize='small')
     plt.tight_layout()
     return fig
