@@ -1015,313 +1015,258 @@ def plot_single_ticker(ticker, df, df_results, _window=14):
                            
 #  🟡 Make Predictions (Gain/Loss/Confidence)
 def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
+    """
+    Process each ticker: compute indicators, train ML models (classifier + regressors),
+    and return processed DataFrames (dfs) and results table (df_results).
+    """
+    # Parse input: string like "AAPL, GOOGL" -> list
     if isinstance(TICKERS, str):
         ticker_list = [t.strip().upper() for t in TICKERS.split(',')]
     else:
         ticker_list = TICKERS
 
-    # Load ALL tickers at once (cached)
+    # Load all tickers at once (cached)
     df_all = get_stock_data(ticker_list, start_date, end_date)
 
-    results = []
-    dfs = {}   # store processed DataFrames per ticker
+    dfs = {}          # store processed DataFrames per ticker (for plotting)
+    results = []      # store prediction rows
+
+    label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
+    expected_classes = [0, 1, 2, 3, 4]
 
     for ticker in ticker_list:
-        if ticker not in df_all.columns:
-            st.warning(f"{ticker} not found in downloaded data")
-            continue
+        try:
+            # --- Extract this ticker's data ---
+            if ticker not in df_all.columns:
+                st.warning(f"Ticker {ticker} not found in downloaded data. Skipping.")
+                continue
 
-        # Extract this ticker's price series and make a proper DataFrame
-        df = pd.DataFrame(df_all[ticker].copy())   # single column
-        df.columns = ['Close']                     # rename to 'Close' for your indicators
-        df.index = pd.to_datetime(df.index)
+            df = pd.DataFrame(df_all[ticker].copy())
+            df.columns = ['Close']                # rename to 'Close' for indicators
+            df.index = pd.to_datetime(df.index)
 
-        # Now apply all your technical functions
-        df = add_technical_indicators(df)
-        df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
-        df['BuyTime'] = (
-            (df['Bull'] == 1) &
-            ((df['Close'] - df['EMA1']) / df['EMA1'] <= 0.02)
-        )
-        df = add_pivot_levels(df, window=14)
-        df = add_pivots(df, windows)
-        df = average_pivots(df, windows)
-        df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
-        df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
-        df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS, lookback=120, tp_thresh=0.35, sl_thresh=0.35)
-        df['Hit_Label'] = df['Hit_Label'].fillna(0).astype(int)
-        
-        dfs[ticker] = df
-        
-        df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
-        if len(df_model) < _Nr:
-            st.text(f"Skipping {ticker} due to insufficient data after dropna.")
-            continue
-        
-        # --- Step 1: Train TP Hit Classifier ---
-        X_cls = df_model[FEATURES]
-        y_cls = df_model['Hit_Label'].astype(int)
-        scaler_cls = StandardScaler()
-        X_scaled_cls = scaler_cls.fit_transform(X_cls)
-        X_train_cls, X_val_cls, y_train_cls, y_val_cls = train_test_split(
-            X_scaled_cls, y_cls, test_size=0.2, random_state=42)
-        
-        model_class = RandomForestClassifier(
-            n_estimators=120, 
-            max_depth=12, 
-            min_samples_split=4,
-            min_samples_leaf=3,
-            max_features='sqrt',
-            class_weight='balanced',
-            random_state=42
-        )
+            # --- Add all technical indicators & features ---
+            df = add_technical_indicators(df)
+            df['Volume'] = pd.to_numeric(df['Volume'], errors='coerce')
+            df['BuyTime'] = (
+                (df['Bull'] == 1) &
+                ((df['Close'] - df['EMA1']) / df['EMA1'] <= 0.02)
+            )
+            df = add_pivot_levels(df, window=14)
+            df = add_pivots(df, windows)
+            df = average_pivots(df, windows)
+            df = compute_expected_return(df, forward_window=14, r_cols=['R1_Avg', 'R2_Avg'])
+            df = compute_expected_loss(df, forward_window=14, s_cols=['S1_Avg', 'S2_Avg'])
+            df = label_hit_prob_past(df, window=30, profit_target=PROFIT_TARGET,
+                                     stop_loss=STOP_LOSS, lookback=120,
+                                     tp_thresh=0.35, sl_thresh=0.35)
+            df['Hit_Label'] = df['Hit_Label'].fillna(0).astype(int)
 
-        model_class.fit(X_train_cls, y_train_cls)
-        
-        # --- Step 2: Extract Full Class Probabilities as Features ---
-        cls_probs = model_class.predict_proba(X_scaled_cls)
-        # Extract probability columns for all expected classes safely
-        prob_df = pd.DataFrame(0, index=np.arange(len(cls_probs)), columns=[f"Prob_Class_{c}" for c in expected_classes])
-        for i, c in enumerate(model_class.classes_):
-            if c in expected_classes:
-                prob_df[f"Prob_Class_{c}"] = cls_probs[:, i]
-        
-        df_model = df_model.reset_index(drop=True)
-        df_model = pd.concat([df_model, prob_df], axis=1)
-        FEATURES_with_probs = FEATURES + [f"Prob_Class_{c}" for c in expected_classes]
-        X_reg = df_model[FEATURES_with_probs]
-        
-        # --- Step 3: Train Return Model ---
-        y_return = df_model['Expected_Return']
-        scaler_return = StandardScaler()
-        X_scaled_return = scaler_return.fit_transform(X_reg)
-        X_train_ret, X_val_ret, y_train_ret, y_val_ret = train_test_split(
-            X_scaled_return, y_return, test_size=0.2, random_state=42)
+            # Store processed DataFrame for later plotting
+            dfs[ticker] = df
 
-        model_return = RandomForestRegressor(
-            n_estimators=120,
-            max_depth=14,
-            min_samples_leaf=3,
-            max_features='sqrt',
-            ccp_alpha=0.001,
-            random_state=42,
-            n_jobs=-1
-        )
-        model_return.fit(X_train_ret, y_train_ret)
-        
-        # --- Step 4: Train Loss Model ---
-        y_loss = df_model['Expected_Loss']
-        scaler_loss = StandardScaler()
-        X_scaled_loss = scaler_loss.fit_transform(X_reg)
-        X_train_loss, X_val_loss, y_train_loss, y_val_loss = train_test_split(
-            X_scaled_loss, y_loss, test_size=0.2, random_state=42)
-        model_loss = RandomForestRegressor(
-            n_estimators=120,
-            max_depth=14,
-            min_samples_leaf=3,
-            max_features='sqrt',
-            ccp_alpha=0.001,
-            random_state=42,
-            n_jobs=-1
-        )
-        model_loss.fit(X_train_loss, y_train_loss)
-        
-        # --- Step 5: Live Prediction ---
-        latest = df.iloc[[-1]]
-        if latest[FEATURES].isnull().values.any():
-            st.text(f"Skipping {ticker} for NULL Features")
-            null_features = latest[FEATURES].iloc[0].isnull()
-            st.text(f"NaN features for {ticker}: {list(null_features[null_features].index)}")
-            continue
-        
-        latest_scaled_cls = scaler_cls.transform(latest[FEATURES])
-        latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
+            # --- Prepare data for ML (drop rows with missing features) ---
+            df_model = df.dropna(subset=FEATURES + ['Hit_Label', 'Expected_Return', 'Expected_Loss'])
+            if len(df_model) < _Nr:
+                st.text(f"Skipping {ticker} – insufficient data after dropna ({len(df_model)} rows).")
+                continue
 
-        # Compute probabilities for all expected classes
-        latest_prob_features = {}
-        for c in expected_classes:
-            if c in model_class.classes_:
-                idx = model_class.classes_.tolist().index(c)
-                latest_prob_features[f"Prob_Class_{c}"] = latest_probs_raw[idx]
+            # --- Step 1: Train classifer for Hit_Label (TP/SL/Hold/None/Short) ---
+            X_cls = df_model[FEATURES]
+            y_cls = df_model['Hit_Label'].astype(int)
+
+            scaler_cls = StandardScaler()
+            X_scaled_cls = scaler_cls.fit_transform(X_cls)
+
+            model_class = RandomForestClassifier(
+                n_estimators=120, max_depth=12, min_samples_split=4,
+                min_samples_leaf=3, max_features='sqrt',
+                class_weight='balanced', random_state=42
+            )
+            model_class.fit(X_scaled_cls, y_cls)
+
+            # --- Step 2: Use class probabilities as additional features ---
+            cls_probs = model_class.predict_proba(X_scaled_cls)
+            prob_df = pd.DataFrame(0, index=np.arange(len(cls_probs)),
+                                   columns=[f"Prob_Class_{c}" for c in expected_classes])
+            for i, c in enumerate(model_class.classes_):
+                if c in expected_classes:
+                    prob_df[f"Prob_Class_{c}"] = cls_probs[:, i]
+
+            df_model = df_model.reset_index(drop=True)
+            df_model = pd.concat([df_model, prob_df], axis=1)
+
+            FEATURES_WITH_PROBS = FEATURES + [f"Prob_Class_{c}" for c in expected_classes]
+            X_reg = df_model[FEATURES_WITH_PROBS]
+
+            # --- Step 3: Train regressor for Expected Return ---
+            y_return = df_model['Expected_Return']
+            scaler_return = StandardScaler()
+            X_scaled_return = scaler_return.fit_transform(X_reg)
+
+            model_return = RandomForestRegressor(
+                n_estimators=120, max_depth=14, min_samples_leaf=3,
+                max_features='sqrt', ccp_alpha=0.001, random_state=42, n_jobs=-1
+            )
+            model_return.fit(X_scaled_return, y_return)
+
+            # --- Step 4: Train regressor for Expected Loss ---
+            y_loss = df_model['Expected_Loss']
+            scaler_loss = StandardScaler()
+            X_scaled_loss = scaler_loss.fit_transform(X_reg)
+
+            model_loss = RandomForestRegressor(
+                n_estimators=120, max_depth=14, min_samples_leaf=3,
+                max_features='sqrt', ccp_alpha=0.001, random_state=42, n_jobs=-1
+            )
+            model_loss.fit(X_scaled_loss, y_loss)
+
+            # --- Step 5: Live prediction on the latest row ---
+            latest = df.iloc[[-1]]
+
+            # Check for NaN in required features
+            if latest[FEATURES].isnull().values.any():
+                st.text(f"Skipping {ticker} – NaN features in latest row.")
+                continue
+
+            # Class probabilities for latest row
+            latest_scaled_cls = scaler_cls.transform(latest[FEATURES])
+            latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
+
+            latest_prob_features = {}
+            for c in expected_classes:
+                if c in model_class.classes_:
+                    idx = model_class.classes_.tolist().index(c)
+                    latest_prob_features[f"Prob_Class_{c}"] = latest_probs_raw[idx]
+                else:
+                    latest_prob_features[f"Prob_Class_{c}"] = 0.0
+
+            # Predict class (the one with highest probability among expected classes)
+            probs_of_interest = [latest_prob_features[f"Prob_Class_{c}"] for c in expected_classes]
+            max_prob_idx = probs_of_interest.index(max(probs_of_interest))
+            pred_class = expected_classes[max_prob_idx]
+            will_hit = label2str.get(pred_class, "None")
+            hit_prob = latest_prob_features[f"Prob_Class_{pred_class}"]
+
+            # Prepare features for regressors (include probability features)
+            latest_prob_df = pd.DataFrame([latest_prob_features])
+            latest_features_with_probs = pd.concat(
+                [latest[FEATURES].reset_index(drop=True), latest_prob_df], axis=1
+            )
+
+            latest_scaled_return = scaler_return.transform(latest_features_with_probs)
+            latest_scaled_loss = scaler_loss.transform(latest_features_with_probs)
+
+            current_price = latest['Close'].values[0]
+            predicted_return = model_return.predict(latest_scaled_return)[0]
+            predicted_loss = model_loss.predict(latest_scaled_loss)[0]
+            predicted_tp = current_price * (1 + predicted_return)
+            predicted_sl = current_price * (1 + predicted_loss)
+            entry_price = (current_price + predicted_sl) / 2
+            entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
+
+            # --- Compute confidence score ---
+            p_none  = latest_prob_features.get('Prob_Class_0', 0)
+            p_sl    = latest_prob_features.get('Prob_Class_1', 0)
+            p_tp    = latest_prob_features.get('Prob_Class_2', 0)
+            p_hold  = latest_prob_features.get('Prob_Class_3', 0)
+            p_short = latest_prob_features.get('Prob_Class_4', 0)
+
+            bullish_prob = p_tp + p_hold
+            bearish_prob = p_sl + p_short
+
+            # Risk/Reward ratio
+            if predicted_loss != 0:
+                rr_ratio = predicted_return / abs(predicted_loss)
             else:
-                latest_prob_features[f"Prob_Class_{c}"] = 0.0
-                
-        # Predict class based on max probability among expected classes
-        probs_of_interest = [latest_prob_features[f"Prob_Class_{c}"] for c in expected_classes]
-        max_prob_index = probs_of_interest.index(max(probs_of_interest))
-        pred_class = expected_classes[max_prob_index]
-        
-        will_hit = label2str.get(pred_class, "None")
-        if pd.isna(will_hit):
-            will_hit = "None"
-            
-        hit_prob = latest_prob_features[f"Prob_Class_{pred_class}"]
-        
-        # Prepare latest features including probability features for regressors
-        latest_prob_df = pd.DataFrame([latest_prob_features])
-        latest_features_with_probs = pd.concat([latest[FEATURES].reset_index(drop=True), latest_prob_df], axis=1)
-        latest_scaled_return = scaler_return.transform(latest_features_with_probs)
-        latest_scaled_loss = scaler_loss.transform(latest_features_with_probs)
-        
-        current_price = latest['Close'].values[0]
-        predicted_return = model_return.predict(latest_scaled_return)[0]
-        predicted_loss = model_loss.predict(latest_scaled_loss)[0]
-        predicted_tp = current_price * (1 + predicted_return)
-        predicted_sl = current_price * (1 + predicted_loss)
-        entry_price = (current_price + predicted_sl) / 2
-        entry_discount_pct = ((current_price - entry_price) / entry_price) * 100
+                rr_ratio = 0
 
-        # Confidence calculation
-        p_none  = latest_prob_features.get('Prob_Class_0', 0)
-        p_sl    = latest_prob_features.get('Prob_Class_1', 0)
-        p_tp    = latest_prob_features.get('Prob_Class_2', 0)
-        p_hold  = latest_prob_features.get('Prob_Class_3', 0)
-        p_short = latest_prob_features.get('Prob_Class_4', 0)
+            max_ratio = 10
+            log_ratio = np.log1p(rr_ratio)
+            max_log_ratio = np.log1p(max_ratio)
+            normalized_rr = log_ratio / max_log_ratio
 
-        bullish_prob = p_tp + p_hold
-        bearish_prob = p_sl + p_short
-        
-        if predicted_loss != 0:
-            rr_ratio = predicted_return / abs(predicted_loss)
-        else:
-            rr_ratio = 0
+            total_prob = bullish_prob + bearish_prob
+            prob_confidence = bullish_prob / total_prob if total_prob > 0 else 0.5
 
-        max_ratio = 10  # cap at 10:1
-        log_ratio = np.log1p(rr_ratio)  # log(1+ratio)
-        max_log_ratio = np.log1p(max_ratio)
-        normalized_rr = log_ratio / max_log_ratio
-    
-        total_prob = bullish_prob + bearish_prob
-        if total_prob > 0:
-            prob_confidence = bullish_prob / total_prob 
-        else:
-            prob_confidence = 0.5
-    
-        confidence_score = (0.5 * prob_confidence + 0.5 * normalized_rr) * 100
+            confidence_score = (0.5 * prob_confidence + 0.5 * normalized_rr) * 100
 
-        rsi = latest['RSI'].values[-1]
-        signal = "TI: ⚪ Neut"
-        _Extremes = "High" if df['Exhaustion'].values[-1] >= 0.9 else ("Low" if df['Exhaustion'].values[-1] <= -0.9 else "--")
-            
-        entry_signal = True
-        sc = 'white'
-        lookback_n = 5
-        bull_mode = pd.Series(df.Bull.values[-lookback_n:]).mode().iloc[0]
-        bear_mode = pd.Series(df.Bear.values[-lookback_n:]).mode().iloc[0]
-        neutral_mode = pd.Series(df.Neutral.values[-lookback_n:]).mode().iloc[0]
-        hit_price = None
+            # --- Determine signal text and extremes ---
+            TI = df['TI'].iloc[-1]
+            if TI == 'Bull':
+                signal = "TI: ✅ Bullish"
+            elif TI == 'Bear':
+                signal = "TI: 🔻 Bearish"
+            elif TI == 'Hold':
+                signal = "TI: 🟡 Hold"
+            else:
+                signal = "TI: ⚪ Neutral"
 
-        TI = df.TI.values[-1]
+            _Extremes = "High" if df['Exhaustion'].iloc[-1] >= 0.9 else ("Low" if df['Exhaustion'].iloc[-1] <= -0.9 else "--")
 
-        if TI == 'Bull':
-            signal = "TI: ✅ Bullish"
-        elif TI == 'Bear':
-            signal = "TI: 🔻 Bearish"
-        elif TI == 'Hold':
-            signal = "TI: 🟡 Hold"
-        else: 
-            signal = "TI: ⚪ Neutral"
-        
-        if will_hit == 'TP':
-            hit_price = predicted_tp
-            sc = 'green'
-        elif will_hit == 'Hold':
-            hit_price = predicted_tp
-            sc = 'orange'
-        elif will_hit == 'SL':
-            hit_price = predicted_sl
-            sc = 'red'
-        elif will_hit == 'Short':
-            hit_price = predicted_sl
-            sc = 'darkred'
-        else:
-            hit_price = None
-            sc = 'white'
+            # --- Get final action label (uses your get_action_label function) ---
+            ema1_val = latest['EMA1'].iloc[0]
+            rsi_val = latest['RSI'].iloc[0]
+            ti_signal = df['TI'].iloc[-1]
 
-        def safe_format_float(val, fmt="{:7.2f}", na_str="N/A"):
-            try:
-                return fmt.format(float(val))
-            except (ValueError, TypeError):
-                return na_str
-        
-        tp_str = safe_format_float(predicted_tp)
-        sl_str = safe_format_float(predicted_sl)
-        atr_str = safe_format_float(df['ATR'].iloc[-1], fmt="{:5.1f}")
-        
-        if hit_price is not None and isinstance(hit_price, (int, float, np.floating)):
-            hit_price_str = f"${hit_price:>5.2f}"
-        else:
-            hit_price_str = "None"
-        
-        # Derive cleaned will_hit base for logic
-        will_hit_base = will_hit if will_hit is not None else "None"
-        if isinstance(will_hit_base, str):
-            will_hit_base = will_hit_base.split()[0]
-        
-        # Compute action
-        ema1_val = latest['EMA1'].iloc[0]
-        rsi_val = latest['RSI'].iloc[0]
-        ti_signal = df['TI'].iloc[-1]
-        #rr_ratio = predicted_return / abs(predicted_loss) if predicted_loss != 0 else 0
-        
-        # Enhanced action with backtest-proven filters
-        action = get_action_label(
-            confidence_score, will_hit_base, 
-            current_price, ema1_val, rsi_val, ti_signal,
-            predicted_return, predicted_loss
-        )
-                    
-        row_text = (
-            f"{extract_emojis(signal):<2} "
-            f"{ticker:<7} | "
-            f"${current_price:>7.2f} | "
-            f"${tp_str:>7} | "
-            f"${sl_str:>7} | "
-            f"${atr_str:>10} | "
-            f"{action:<12} | "
-            f"Conf: {confidence_score:>4.0f}% | " 
-            f"{_Extremes}"
-        )
+            action = get_action_label(
+                confidence_score, will_hit.split()[0] if will_hit else "None",
+                current_price, ema1_val, rsi_val, ti_signal,
+                predicted_return, predicted_loss
+            )
 
-        st.code(strip_ansi_codes(row_text))
-        
-        # Append results with formatted Will_Hit string
-        if will_hit is None or str(will_hit).lower() == "nan":
-            will_hit = "None"
-    
-        if will_hit == 'TP':
-            hit_price_rounded = round(predicted_tp, 2)
-        elif will_hit == 'SL':
-            hit_price_rounded = round(predicted_sl, 2)
-        else:
-            hit_price_rounded = None
-        
-        if hit_price_rounded is not None:
-            will_hit_str = f"{will_hit} (${hit_price_rounded})"
-        else:
-            will_hit_str = will_hit
-        
-        results.append({
-            "Index": n >4,
-            "Ticker": ticker,
-            "Date": latest.index[-1].date(),
-            "Price": round(current_price, 1),
-            "Entry": round(entry_price, 1),
-            "Dip%": round(entry_discount_pct * -1, 1),
-            "TP": round(predicted_tp, 1),
-            "Max (%)": round(predicted_return * 100, 1),
-            "SL": round(predicted_sl, 1),
-            "Loss (%)": round(predicted_loss * 100, 1),
-            "Risk": "🔴 High Risk" if (abs(predicted_loss) > STOP_LOSS) else "🟢 Low Risk",
-            "Signal": signal,
-            "Will_Hit": will_hit_str,
-            "Hit_Prob": round(latest_prob_features[f"Prob_Class_{pred_class}"] * 100, 1),
-            "Confidence": round(confidence_score, 1),
-            "_Extremes": _Extremes,
-            "Action" : action
-        })
-    except Exception as e:
-        st.text(f"Error processing {ticker}: {e}")
+            # --- Print compact row (using st.code as in your original) ---
+            tp_str = f"{predicted_tp:.2f}"
+            sl_str = f"{predicted_sl:.2f}"
+            atr_str = f"{df['ATR'].iloc[-1]:.2f}"
+
+            row_text = (
+                f"{extract_emojis(signal):<2} "
+                f"{ticker:<7} | "
+                f"${current_price:>7.2f} | "
+                f"${tp_str:>7} | "
+                f"${sl_str:>7} | "
+                f"${atr_str:>10} | "
+                f"{action:<12} | "
+                f"Conf: {confidence_score:>4.0f}% | "
+                f"{_Extremes}"
+            )
+            st.code(strip_ansi_codes(row_text))
+
+            # --- Build results row ---
+            if will_hit == 'TP':
+                hit_price_rounded = round(predicted_tp, 2)
+                will_hit_str = f"TP (${hit_price_rounded})"
+            elif will_hit == 'SL':
+                hit_price_rounded = round(predicted_sl, 2)
+                will_hit_str = f"SL (${hit_price_rounded})"
+            else:
+                will_hit_str = will_hit
+
+            results.append({
+                "Index": len(results) + 1,
+                "Ticker": ticker,
+                "Date": latest.index[-1].date(),
+                "Price": round(current_price, 1),
+                "Entry": round(entry_price, 1),
+                "Dip%": round(entry_discount_pct * -1, 1),
+                "TP": round(predicted_tp, 1),
+                "Max (%)": round(predicted_return * 100, 1),
+                "SL": round(predicted_sl, 1),
+                "Loss (%)": round(predicted_loss * 100, 1),
+                "Risk": "🔴 High Risk" if (abs(predicted_loss) > STOP_LOSS) else "🟢 Low Risk",
+                "Signal": signal,
+                "Will_Hit": will_hit_str,
+                "Hit_Prob": round(hit_prob * 100, 1),
+                "Confidence": round(confidence_score, 1),
+                "_Extremes": _Extremes,
+                "Action": action
+            })
+
+        except Exception as e:
+            st.error(f"Error processing {ticker}: {e}")
+            continue
+
     df_results = pd.DataFrame(results)
     return dfs, df_results
 
