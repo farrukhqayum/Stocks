@@ -6,12 +6,7 @@
 import streamlit as st
 from imports import *
 import time
-from functools import lru_cache
-import requests
-from requests.adapters import HTTPAdapter
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib3.util.retry import Retry
-from defeatbeta_api.data.ticker import Ticker
+
 
 st.set_page_config(page_title="SMART MONEY CONCEPTS", layout="wide")
 st.title("📈 SMART MONEY CONCEPTS - 1D/1H")
@@ -20,213 +15,124 @@ st.title("📈 SMART MONEY CONCEPTS - 1D/1H")
 # 1. OPTIMIZED YFINANCE HANDLER
 # =====================================================================
 
+# Remove defeatbeta_api and use yfinance directly
+import yfinance as yf
+
 class OptimizedDataHandler:
-    """
-    Handles stock/crypto data operations using defeatbeta-api
-    No rate limits, no blocking, works on any cloud platform
-    """
-    
     def __init__(self):
-        self.last_request_time = 0
-        self.min_request_interval = 0.1  # Minimal delay since no rate limits
-        
-    def _rate_limit(self):
-        """Small delay to be respectful"""
-        elapsed = time.time() - self.last_request_time
-        if elapsed < self.min_request_interval:
-            time.sleep(self.min_request_interval - elapsed)
-        self.last_request_time = time.time()
-    
+        pass
+
     @st.cache_data(ttl=300, show_spinner=False)
     def load_data(_self, ticker, start_date, interval):
-        """
-        Load stock/crypto data using defeatbeta-api
-        No blocking, works on Render, Railway, Heroku, etc.
-        """
-        _self._rate_limit()
-        
         try:
-            # Calculate days of data needed
-            days = (datetime.now() - start_date).days
-            if days < 1:
-                days = 1
-            
-            # Limit data for performance
-            max_days = 180 if interval == '1h' else 730
-            days = min(days, max_days)
-            
-            # Show what we're doing
-            st.info(f"📊 Loading {days} days of {interval} data for {ticker}...")
-            
-            # Create ticker object
-            ticker_obj = Ticker(ticker)
-            
-            # Get price history
-            df = ticker_obj.price()
-            
-            if df is None or df.empty:
-                st.warning(f"No data returned for {ticker}")
-                # Try crypto format if stock failed
-                if not ticker.endswith('-USD'):
-                    ticker_crypto = f"{ticker}-USD"
-                    try:
-                        ticker_obj = Ticker(ticker_crypto)
-                        df = ticker_obj.price()
-                    except:
-                        pass
-            
-            if df is None or df.empty:
-                st.warning(f"No data found for {ticker}")
-                return None
-            
-            # Standardize column names (defeatbeta-api uses different naming)
-            column_map = {
-                'Date': 'date',
-                'Open': 'open',
-                'High': 'high',
-                'Low': 'low', 
-                'Close': 'close',
-                'Volume': 'volume'
+            # Map interval to yfinance string
+            interval_map = {
+                '1d': '1d',
+                '1h': '1h',
+                '4h': '1h',   # we'll resample later
+                '15m': '15m',
+                '5m': '5m'
             }
-            df = df.rename(columns=column_map)
+            yf_interval = interval_map.get(interval, '1d')
             
-            # Ensure datetime index
-            if 'date' in df.columns:
-                df.index = pd.to_datetime(df['date'])
-            else:
-                df.index = pd.to_datetime(df.index)
-            
-            # Filter by date range
-            cutoff_date = datetime.now() - timedelta(days=days)
-            df = df[df.index >= cutoff_date]
-            
-            # Handle interval resampling if needed
-            if interval != '1d' and len(df) > 0:
-                # Resample to requested interval
-                interval_map = {
-                    '1h': '1H',
-                    '4h': '4H',
-                    '15m': '15T',
-                    '5m': '5T',
-                    '1m': '1T'
-                }
-                resample_rule = interval_map.get(interval, '1H')
-                
-                df = df.resample(resample_rule).agg({
-                    'open': 'first',
-                    'high': 'max',
-                    'low': 'min',
-                    'close': 'last',
-                    'volume': 'sum'
+            # For 4h, fetch 1h and resample
+            if interval == '4h':
+                df = yf.download(ticker, start=start_date, interval='1h', progress=False, auto_adjust=False)
+                if df.empty:
+                    return None
+                # Flatten MultiIndex if any
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = [col[0] for col in df.columns]
+                # Resample to 4H
+                df = df.resample('4H').agg({
+                    'Open': 'first',
+                    'High': 'max',
+                    'Low': 'min',
+                    'Close': 'last',
+                    'Volume': 'sum'
                 }).dropna()
+            else:
+                df = yf.download(ticker, start=start_date, interval=yf_interval, progress=False, auto_adjust=False)
+                if df.empty:
+                    return None
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = [col[0] for col in df.columns]
             
-            # Ensure we have required columns
-            required_cols = ['open', 'high', 'low', 'close']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                st.error(f"Missing columns: {missing_cols}. Available: {df.columns.tolist()}")
+            # Standardize column names to lower case
+            df.columns = [col.lower() for col in df.columns]
+            required = ['open', 'high', 'low', 'close']
+            if not all(col in df.columns for col in required):
+                st.error(f"Missing columns: {required}. Found: {df.columns.tolist()}")
                 return None
             
-            # Limit number of bars for performance
+            # Ensure volume column exists
+            if 'volume' not in df.columns:
+                df['volume'] = 0
+            
+            # Convert to numeric
+            for col in required + ['volume']:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # Limit data
             max_bars = 500 if interval != '1d' else 1000
             if len(df) > max_bars:
                 df = df.tail(max_bars)
-                st.info(f"Limited to last {max_bars} bars for performance")
             
-            # Optimize data types
-            for col in ['open', 'high', 'low', 'close']:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce').astype(np.float32)
+            # Calculate indicators (fast versions as in your script)
+            df['ema20'] = df['close'].ewm(span=20, adjust=False).mean()
+            df['ema50'] = df['close'].ewm(span=50, adjust=False).mean()
+            df['ema200'] = df['close'].ewm(span=200, adjust=False).mean()
+            df['rsi'] = _fast_rsi(df['close'], 14)
+            df['rsi_ema'] = df['rsi'].ewm(span=14, adjust=False).mean()
+            df['atr'] = _fast_atr(df, 14)
+            df['lb_crv'] = _fast_lb_curve(df, 10)
             
-            if 'volume' in df.columns:
-                df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(0).astype(np.float32)
-            else:
-                df['volume'] = 0
-            
-            # Remove any NaN rows
-            df = df.dropna(subset=["open", "high", "low", "close"])
-            
-            if len(df) < 10:
-                st.warning(f"Insufficient data for {ticker}: only {len(df)} bars")
-                return None
-            
-            # Calculate indicators with optimized methods
-            df['ema20'] = _self._fast_ema(df['close'], 20)
-            df['ema50'] = _self._fast_ema(df['close'], 50)
-            df['ema200'] = _self._fast_ema(df['close'], 200)
-            df['rsi'] = _self._fast_rsi(df['close'], 14)
-            df['rsi_ema'] = _self._fast_ema(df['rsi'], 14)
-            df['atr'] = _self._fast_atr(df, 14)
-            df['lb_crv'] = _self._fast_lb_curve(df, 10)
-            
-            # Fill any remaining NaN values
+            # Fill NaNs
             df = df.bfill().ffill()
-            
-            st.success(f"✅ Loaded {len(df)} bars for {ticker}")
             return df
-            
         except Exception as e:
-            st.error(f"Error fetching {ticker} {interval}: {str(e)}")
+            st.error(f"Data loading error: {e}")
             return None
-    
-    def _fast_ema(self, series, length):
-        """Faster EMA calculation"""
-        if len(series) < length:
-            return series
-        return series.ewm(span=length, adjust=False, min_periods=length).mean()
-    
-    def _fast_rsi(self, series, length=14):
-        """Optimized RSI"""
-        if len(series) < length + 1:
-            return pd.Series(50, index=series.index)
-        delta = series.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=length).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=length).mean()
-        rs = gain / loss
-        return 100 - (100 / (1 + rs))
-    
-    def _fast_atr(self, df, length=14):
-        """Optimized ATR"""
-        if len(df) < length + 1:
-            return pd.Series(0, index=df.index)
-        high, low, close = df['high'], df['low'], df['close']
-        tr1 = high - low
-        tr2 = abs(high - close.shift())
-        tr3 = abs(low - close.shift())
-        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-        return tr.rolling(window=length).mean()
-    
-    def _fast_lb_curve(self, df, lblen=10):
-        """Optimized LB Curve with vectorization"""
-        if len(df) < 2:
-            return pd.Series(df['close'], index=df.index)
-        
-        close = df['close'].values
-        high = df['high'].values
-        low = df['low'].values
-        lb = np.zeros(len(df))
-        lb[0] = close[0]
-        
-        for i in range(1, len(df)):
-            start = max(0, i - lblen + 1)
-            if start < i:
-                highest_lb_prev = lb[start:i].max()
-                lowest_lb_prev = lb[start:i].min()
-            else:
-                highest_lb_prev = lb[i-1]
-                lowest_lb_prev = lb[i-1]
-            
-            if close[i] > highest_lb_prev:
-                lb[i] = (high[i] + close[i]) / 2
-            elif close[i] < lowest_lb_prev:
-                lb[i] = (low[i] + close[i]) / 2
-            else:
-                lb[i] = lb[i-1]
-        
-        result = pd.Series(lb, index=df.index).ewm(span=lblen, adjust=False).mean()
-        result.iloc[0] = close[0]
-        return result
 
+# Helper functions (copy the _fast_ema, _fast_rsi, _fast_atr, _fast_lb_curve from your original script)
+def _fast_ema(series, length):
+    return series.ewm(span=length, adjust=False, min_periods=length).mean()
+
+def _fast_rsi(series, length=14):
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=length).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=length).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+def _fast_atr(df, length=14):
+    high, low, close = df['high'], df['low'], df['close']
+    tr1 = high - low
+    tr2 = abs(high - close.shift())
+    tr3 = abs(low - close.shift())
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return tr.rolling(window=length).mean()
+
+def _fast_lb_curve(df, lblen=10):
+    close = df['close'].values
+    high = df['high'].values
+    low = df['low'].values
+    lb = np.zeros(len(df))
+    lb[0] = close[0]
+    for i in range(1, len(df)):
+        start = max(0, i - lblen + 1)
+        highest_lb_prev = lb[start:i].max() if start < i else lb[i-1]
+        lowest_lb_prev = lb[start:i].min() if start < i else lb[i-1]
+        if close[i] > highest_lb_prev:
+            lb[i] = (high[i] + close[i]) / 2
+        elif close[i] < lowest_lb_prev:
+            lb[i] = (low[i] + close[i]) / 2
+        else:
+            lb[i] = lb[i-1]
+    result = pd.Series(lb, index=df.index).ewm(span=lblen, adjust=False).mean()
+    result.iloc[0] = close[0]
+    return result
+    
 # =====================================================================
 # 2. ZONE CLASSES (YOUR ORIGINAL CODE)
 # =====================================================================
