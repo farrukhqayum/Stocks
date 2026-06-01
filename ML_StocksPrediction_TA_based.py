@@ -1046,9 +1046,6 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
     # Returns a dict: {ticker: full OHLCV DataFrame}
     data_dict = get_stock_data(ticker_list, start_date, end_date)
 
-    st.write("Data types:", {k: type(v) for k, v in data_dict.items()})
-    st.write("Columns of first ticker:", list(data_dict[ticker_list[0]].columns))
-
     dfs = {}
     results = []
     label2str = {0: 'None', 1: 'SL', 2: 'TP', 3: 'Hold', 4: 'Short'}
