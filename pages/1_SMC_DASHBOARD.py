@@ -404,16 +404,17 @@ def display_smc_dashboard(d, state, ticker):
         <tr><td>ENTRY:</td><td>${state.entry_price_long:.2f}</td></tr>
         <tr><td>SL:</td><td>${state.active_long_sl:.2f}</td></tr>
         <tr><td>TP:</td><td>${state.active_long_tp:.2f}</td></tr>
-
+        """
     elif state.in_short:
         html += f"""
         <tr><td style="background-color:#1e3a5f; color:white; text-align:center" colspan="2"><b>SHORT ACTIVE</b></td></tr>
         <tr><td>ENTRY:</td><td>${state.entry_price_short:.2f}</td></tr>
         <tr><td>SL:</td><td>${state.active_short_sl:.2f}</td></tr>
         <tr><td>TP:</td><td>${state.active_short_tp:.2f}</td></tr>
+        """
     else:
         html += '<tr><td colspan="2" style="text-align:center; background-color:#2c3e50; color:white;">No active trade</td></tr>'
-    html += '</table>'
+    html += '</tr>'
 
 # -----------------------------------------------------------------------------
 # MAIN APP
