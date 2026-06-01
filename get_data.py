@@ -14,9 +14,10 @@ def load_data(tickers, start, end):
         start, end: dates
     
     Returns:
-        DataFrame with MultiIndex columns (ticker, price_type)
+        DataFrame with MultiIndex columns (ticker, attribute)
+        where attribute is one of: Open, High, Low, Close, Adj Close, Volume
     """
-    data_dict = {}  # will hold {ticker_name: DataFrame with OHLCV}
+    data_dict = {}  # {ticker_name: DataFrame with OHLCV}
     
     for name, ticker in tickers.items():
         try:
@@ -26,25 +27,31 @@ def load_data(tickers, start, end):
                 end=end, 
                 progress=False,
                 auto_adjust=False,   # keeps Open, High, Low, Close, Adj Close, Volume
-                group_by='column'    # ensures MultiIndex if multiple tickers, but we do one by one
+                group_by='ticker' if len(tickers) > 1 else None
             )
             
             if raw.empty:
                 st.warning(f"⚠️ No data for {ticker}. Creating placeholder.")
-                # Create empty DataFrame with expected columns
                 date_range = pd.date_range(start=start, end=end, freq='B')
                 empty_df = pd.DataFrame(index=date_range,
                                         columns=['Open','High','Low','Close','Adj Close','Volume'])
                 data_dict[name] = empty_df
                 continue
             
-            # raw has columns: Open, High, Low, Close, Adj Close, Volume
-            # Ensure we have at least Close
+            # Ensure we have the necessary columns
             if 'Close' not in raw.columns:
-                st.warning(f"⚠️ No Close price for {ticker}. Using first column.")
+                # Some futures data may not have Close; take first column as price
                 raw['Close'] = raw.iloc[:, 0]
-            
-            # Keep all relevant columns
+            if 'Open' not in raw.columns:
+                raw['Open'] = raw['Close']
+            if 'High' not in raw.columns:
+                raw['High'] = raw['Close']
+            if 'Low' not in raw.columns:
+                raw['Low'] = raw['Close']
+            if 'Volume' not in raw.columns:
+                raw['Volume'] = 0
+                
+            # Keep only relevant columns
             keep_cols = ['Open','High','Low','Close','Adj Close','Volume']
             raw = raw[[c for c in keep_cols if c in raw.columns]]
             
@@ -53,13 +60,11 @@ def load_data(tickers, start, end):
             
         except Exception as e:
             st.warning(f"⚠️ Error loading {ticker}: {str(e)}")
-            # Create empty placeholder
             date_range = pd.date_range(start=start, end=end, freq='B')
             empty_df = pd.DataFrame(index=date_range,
                                     columns=['Open','High','Low','Close','Adj Close','Volume'])
             data_dict[name] = empty_df
     
-    # Combine all tickers into a MultiIndex DataFrame
-    # Stack along columns: (ticker1, Open), (ticker1, High), ...
-    combined = pd.concat(data_dict, axis=1)   # results in MultiIndex columns
+    # Combine into a single DataFrame with MultiIndex columns
+    combined = pd.concat(data_dict, axis=1)
     return combined
