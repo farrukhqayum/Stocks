@@ -7,64 +7,42 @@ import time
 
 def load_data(tickers, start, end):
     """
-    Loads OHLCV data for multiple tickers.
-    
-    Args:
-        tickers: dict {friendly_name: yahoo_ticker_symbol}
-        start, end: dates
-    
-    Returns:
-        DataFrame with MultiIndex columns (ticker, attribute)
-        where attribute is one of: Open, High, Low, Close, Adj Close, Volume
+    tickers: dict {friendly_name: yahoo_symbol}
+    returns: dict {friendly_name: DataFrame with OHLCV columns}
     """
-    data_dict = {}  # {ticker_name: DataFrame with OHLCV}
-    
-    for name, ticker in tickers.items():
+    data_dict = {}
+    for name, symbol in tickers.items():
         try:
-            raw = yf.download(
-                ticker, 
-                start=start, 
-                end=end, 
+            df = yf.download(
+                symbol,
+                start=start,
+                end=end,
                 progress=False,
-                auto_adjust=False,   # keeps Open, High, Low, Close, Adj Close, Volume
-                group_by='ticker' if len(tickers) > 1 else None
+                auto_adjust=False
             )
-            
-            if raw.empty:
-                st.warning(f"⚠️ No data for {ticker}. Creating placeholder.")
+            if df.empty:
+                st.warning(f"No data for {symbol}. Creating placeholder.")
                 date_range = pd.date_range(start=start, end=end, freq='B')
-                empty_df = pd.DataFrame(index=date_range,
-                                        columns=['Open','High','Low','Close','Adj Close','Volume'])
-                data_dict[name] = empty_df
-                continue
-            
-            # Ensure we have the necessary columns
-            if 'Close' not in raw.columns:
-                # Some futures data may not have Close; take first column as price
-                raw['Close'] = raw.iloc[:, 0]
-            if 'Open' not in raw.columns:
-                raw['Open'] = raw['Close']
-            if 'High' not in raw.columns:
-                raw['High'] = raw['Close']
-            if 'Low' not in raw.columns:
-                raw['Low'] = raw['Close']
-            if 'Volume' not in raw.columns:
-                raw['Volume'] = 0
-                
-            # Keep only relevant columns
-            keep_cols = ['Open','High','Low','Close','Adj Close','Volume']
-            raw = raw[[c for c in keep_cols if c in raw.columns]]
-            
-            data_dict[name] = raw
+                df = pd.DataFrame(index=date_range,
+                                  columns=['Open','High','Low','Close','Adj Close','Volume'])
+            # Ensure required columns exist
+            if 'Open' not in df:
+                df['Open'] = df['Close']
+            if 'High' not in df:
+                df['High'] = df['Close']
+            if 'Low' not in df:
+                df['Low'] = df['Close']
+            if 'Volume' not in df:
+                df['Volume'] = 0
+            # Keep only needed columns
+            keep = ['Open','High','Low','Close','Adj Close','Volume']
+            df = df[[c for c in keep if c in df.columns]]
+            data_dict[name] = df
             time.sleep(0.1)
-            
         except Exception as e:
-            st.warning(f"⚠️ Error loading {ticker}: {str(e)}")
+            st.warning(f"Error loading {symbol}: {e}")
             date_range = pd.date_range(start=start, end=end, freq='B')
-            empty_df = pd.DataFrame(index=date_range,
-                                    columns=['Open','High','Low','Close','Adj Close','Volume'])
-            data_dict[name] = empty_df
-    
-    # Combine into a single DataFrame with MultiIndex columns
-    combined = pd.concat(data_dict, axis=1)
-    return combined
+            df = pd.DataFrame(index=date_range,
+                              columns=['Open','High','Low','Close','Adj Close','Volume'])
+            data_dict[name] = df
+    return data_dict   # returns dict, not DataFrame
