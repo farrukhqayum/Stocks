@@ -107,6 +107,7 @@ def detect_bullish_engulfing(df):
     return pd.Series(pattern, index=df.index)
 
 def detect_bearish_engulfing(df):
+    st.write("🔥 VECTORIZED VERSION IS RUNNING – FIX ME!", file=sys.stderr)
     pattern = np.zeros(len(df), dtype=int)
     for i in range(1, len(df)):
         prev_close = df['Close'].iloc[i-1]
