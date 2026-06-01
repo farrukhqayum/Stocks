@@ -206,9 +206,12 @@ def label(text):
     
 @st.cache_data
 def get_stock_data(ticker_list, start_date, end_date):
+    """
+    Returns DataFrame with MultiIndex columns: (ticker, attribute)
+    where attribute is one of: Open, High, Low, Close, Adj Close, Volume
+    """
     ticker_dict = {ticker: ticker for ticker in ticker_list}
-    df = load_data(ticker_dict, start_date, end_date)
-    return df
+    return load_data(ticker_dict, start_date, end_date)
 
 def strip_ansi_codes(text):
     ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
