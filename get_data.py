@@ -13,28 +13,18 @@ def load_data(tickers, start, end):
     data_dict = {}
     for name, symbol in tickers.items():
         try:
-            df = yf.download(
-                symbol,
-                start=start,
-                end=end,
-                progress=False,
-                auto_adjust=False
-            )
+            df = yf.download(symbol, start=start, end=end, progress=False, auto_adjust=False)
             if df.empty:
                 st.warning(f"No data for {symbol}. Creating placeholder.")
                 date_range = pd.date_range(start=start, end=end, freq='B')
-                df = pd.DataFrame(index=date_range,
-                                  columns=['Open','High','Low','Close','Adj Close','Volume'])
-            # Ensure required columns exist
-            if 'Open' not in df:
-                df['Open'] = df['Close']
-            if 'High' not in df:
-                df['High'] = df['Close']
-            if 'Low' not in df:
-                df['Low'] = df['Close']
-            if 'Volume' not in df:
-                df['Volume'] = 0
-            # Keep only needed columns
+                df = pd.DataFrame(index=date_range, columns=['Open','High','Low','Close','Adj Close','Volume'])
+                df[:] = np.nan
+            # Ensure all expected columns exist
+            required = ['Open', 'High', 'Low', 'Close', 'Volume']
+            for col in required:
+                if col not in df.columns:
+                    df[col] = np.nan
+            # Keep only relevant columns
             keep = ['Open','High','Low','Close','Adj Close','Volume']
             df = df[[c for c in keep if c in df.columns]]
             data_dict[name] = df
@@ -42,7 +32,6 @@ def load_data(tickers, start, end):
         except Exception as e:
             st.warning(f"Error loading {symbol}: {e}")
             date_range = pd.date_range(start=start, end=end, freq='B')
-            df = pd.DataFrame(index=date_range,
-                              columns=['Open','High','Low','Close','Adj Close','Volume'])
+            df = pd.DataFrame(index=date_range, columns=['Open','High','Low','Close','Adj Close','Volume'])
             data_dict[name] = df
-    return data_dict   # returns dict, not DataFrame
+    return data_dict
