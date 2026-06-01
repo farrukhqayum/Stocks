@@ -209,7 +209,7 @@ def get_stock_data(ticker_list, start_date, end_date):
     data_dict = {}
     for ticker in ticker_list:
         try:
-            df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=True)
+            df = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=False)
             if df.empty:
                 st.warning(f"No data for {ticker}, skipping.")
                 continue
