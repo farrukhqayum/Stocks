@@ -802,7 +802,7 @@ def main():
             st.session_state.entry_price_input = current
             st.session_state.initial_prices_set = True
         
-        st.metric("Current Price", f"${st.session_state.current_price:.2f}")
+        st.metric("Entry Price", f"${st.session_state.current_price:.2f}")
     
     with col2:
         entry_price = st.number_input(
