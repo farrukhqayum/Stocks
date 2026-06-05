@@ -1200,12 +1200,13 @@ def MakePredictions(TICKERS="AAPL, GOOGL, MSFT"):
             model_loss.fit(X_scaled_loss, y_loss)
 
             # --- Step 5: Live prediction on the latest row ---
-            complete_rows = df[FEATURES].dropna()
-            if len(complete_rows) == 0:
+            complete_mask = df[FEATURES].notna().all(axis=1)
+            if not complete_mask.any():
                 st.text(f"Skipping {ticker} – no complete rows for prediction.")
                 continue
-            latest = complete_rows.iloc[[-1]]
-
+            latest_idx = df.index[complete_mask][-1] 
+            latest = df.loc[[latest_idx]]     
+            
             latest_scaled_cls = scaler_cls.transform(latest[FEATURES])
             latest_probs_raw = model_class.predict_proba(latest_scaled_cls)[0]
 
