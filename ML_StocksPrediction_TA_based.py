@@ -183,7 +183,7 @@ FEATURES = [
     'Candlesticks', 'gapStrength',
 
     # Market Sentiment & Signals
-    'Bear', 'Bull', 'Short', 'Hold', 'Neutral', 'StrongBull', 'StrongBear', 'Exhaustion',
+    'Bear', 'Bull', 'Short', 'Hold', 'Neutral', 'StrongBull', 'StrongBear', 'sNeutral', 'Exhaustion',
 
     # PIVOTS
     'PP_Avg', 'R1_Avg', 'R2_Avg', 'S1_Avg', 'S2_Avg'
