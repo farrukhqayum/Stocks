@@ -213,6 +213,10 @@ def get_stock_data(ticker_list, start_date, end_date):
             if df.empty:
                 st.warning(f"No data for {ticker}, skipping.")
                 continue
+
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.droplevel(1)
+                
             if 'Close' not in df.columns:
                 st.warning(f"No Close price for {ticker}, skipping.")
                 continue
