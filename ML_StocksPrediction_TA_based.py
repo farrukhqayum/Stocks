@@ -230,7 +230,7 @@ def get_stock_data(ticker_list, start_date, end_date):
                 "Volume": float
             })
             data_dict[ticker] = df
-            time.sleep(0.5)
+            time.sleep(1)
 
         except Exception as e:
             st.warning(f"Error loading {ticker}: {e}")
