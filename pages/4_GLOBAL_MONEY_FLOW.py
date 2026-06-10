@@ -81,7 +81,7 @@ st.sidebar.markdown("---")
 st.sidebar.header("💹 Stock Analysis")
 user_ticker = st.sidebar.text_input("Enter Stock Ticker", value="TSLA")
 
-# REPLACE the load_data function with this:
+@st.cache_data(ttl=600)
 def load_data(tickers, start, end):
     """Load data from Yahoo Finance - handles stocks, futures, indices"""
     
@@ -123,7 +123,7 @@ def load_data(tickers, start, end):
             data_dict[name] = price_series
             
             # Small delay to avoid rate limiting
-            time.sleep(0.1)
+            time.sleep(0.7)
             
         except Exception as e:
             st.warning(f"⚠️ Error loading {ticker}: {str(e)}")
